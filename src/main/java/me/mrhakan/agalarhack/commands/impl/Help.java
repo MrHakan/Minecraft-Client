@@ -1,10 +1,10 @@
 package me.mrhakan.agalarhack.commands.impl;
 
-import me.mrhakan.agalarhack.Main;
+import me.mrhakan.agalarhack.AgalarHackClient;
 import me.mrhakan.agalarhack.commands.Command;
 import me.mrhakan.agalarhack.managers.CommandManager;
 import me.mrhakan.agalarhack.managers.MessageManager;
-import net.minecraft.util.text.TextFormatting;
+import net.minecraft.util.Formatting;
 
 public class Help extends Command {
     public Help() {
@@ -13,9 +13,9 @@ public class Help extends Command {
 
     @Override
     public void onCommand(String[] args) {
-        MessageManager.sendMessagePrefix(TextFormatting.WHITE + "" + TextFormatting.BOLD + Main.name + " " + Main.currentvers + TextFormatting.RESET + TextFormatting.GRAY + " - commands:");
+        MessageManager.sendMessagePrefix(Formatting.WHITE + "" + Formatting.BOLD + AgalarHackClient.NAME + " " + AgalarHackClient.VERSION + Formatting.RESET + Formatting.GRAY + " - commands:");
         for (Command command : CommandManager.commands) {
-            MessageManager.sendRawMessage(TextFormatting.GRAY + " > " + TextFormatting.AQUA + Main.prefix + command.getUsage() + TextFormatting.GRAY + " - " + TextFormatting.WHITE + command.getDescription());
+            MessageManager.sendRawMessage(Formatting.GRAY + " > " + Formatting.AQUA + AgalarHackClient.prefix + command.getUsage() + Formatting.GRAY + " - " + Formatting.WHITE + command.getDescription());
         }
     }
 }

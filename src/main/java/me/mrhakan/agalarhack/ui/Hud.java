@@ -5,54 +5,50 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
-import me.mrhakan.agalarhack.Main;
+import me.mrhakan.agalarhack.AgalarHackClient;
 import me.mrhakan.agalarhack.module.Module;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.FontRenderer;
-import net.minecraft.client.gui.Gui;
-import net.minecraft.client.gui.ScaledResolution;
-import net.minecraftforge.client.event.RenderGameOverlayEvent;
-import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.font.TextRenderer;
+import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.render.RenderTickCounter;
 
-public class Hud extends Gui {
-
-	private Minecraft mc = Minecraft.getMinecraft();
+public class Hud {
 
 	public static class ModuleComparator implements Comparator<Module> {
 
 		@Override
 		public int compare(Module arg0, Module arg1) {
-			FontRenderer fr = Minecraft.getMinecraft().fontRenderer;
-			return Integer.compare(fr.getStringWidth(arg1.getName()), fr.getStringWidth(arg0.getName()));
+			TextRenderer tr = MinecraftClient.getInstance().textRenderer;
+			return Integer.compare(tr.getWidth(arg1.getName()), tr.getWidth(arg0.getName()));
 		}
 	}
 
-	@SubscribeEvent
-	public void renderOverlay(RenderGameOverlayEvent.Text event) {
-		if (Main.moduleManager == null) {
+	public static void render(DrawContext context, RenderTickCounter tickCounter) {
+		MinecraftClient mc = MinecraftClient.getInstance();
+		if (mc.player == null || AgalarHackClient.moduleManager == null) {
 			return;
 		}
-		ScaledResolution sr = new ScaledResolution(mc);
-		FontRenderer fr = mc.fontRenderer;
+		TextRenderer tr = mc.textRenderer;
 
 		//client name + version
-		fr.drawStringWithShadow(Main.name, 2, 2, rainbow(0));
-		fr.drawStringWithShadow(Main.currentvers, fr.getStringWidth(Main.name) + 6, 2, 0xfffffacd);
+		context.drawTextWithShadow(tr, AgalarHackClient.NAME, 2, 2, rainbow(0));
+		context.drawTextWithShadow(tr, AgalarHackClient.VERSION, tr.getWidth(AgalarHackClient.NAME) + 6, 2, 0xFFFFFACD);
 
 		//arraylist of enabled modules, widest first
 		List<Module> enabled = new ArrayList<>();
-		for (Module mod : Main.moduleManager.getModuleList()) {
+		for (Module mod : AgalarHackClient.moduleManager.getModuleList()) {
 			if (mod.isToggled()) {
 				enabled.add(mod);
 			}
 		}
 		enabled.sort(new ModuleComparator());
 
+		int screenWidth = context.getScaledWindowWidth();
 		int y = 2;
 		int counter = 1;
 		for (Module mod : enabled) {
-			fr.drawStringWithShadow(mod.getName(), sr.getScaledWidth() - fr.getStringWidth(mod.getName()) - 2, y, rainbow(counter * 300));
-			y += fr.FONT_HEIGHT;
+			context.drawTextWithShadow(tr, mod.getName(), screenWidth - tr.getWidth(mod.getName()) - 2, y, rainbow(counter * 300));
+			y += tr.fontHeight;
 			counter++;
 		}
 	}

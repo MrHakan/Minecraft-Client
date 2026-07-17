@@ -7,17 +7,18 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
-import com.google.common.reflect.TypeToken;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonSyntaxException;
+import com.google.gson.reflect.TypeToken;
 
-import me.mrhakan.agalarhack.Main;
+import me.mrhakan.agalarhack.AgalarHackClient;
 import me.mrhakan.agalarhack.module.Module;
+import net.fabricmc.loader.api.FabricLoader;
 
 public class SettingsManager {
     private final Gson gson = new GsonBuilder().setPrettyPrinting().create();
-    private final File configFile = new File("AgalarHack", "agalarhack-config.json");
+    private final File configFile = FabricLoader.getInstance().getConfigDir().resolve("agalarhack.json").toFile();
 
     public Map<String, Settings> readSettings() {
         Map<String, Settings> settingsArray = new HashMap<>();
@@ -49,7 +50,7 @@ public class SettingsManager {
 
     public void updateSettings() {
         Map<String, Settings> settingsArray = new HashMap<>();
-        for (Module module : Main.moduleManager.getModuleList()) {
+        for (Module module : AgalarHackClient.moduleManager.getModuleList()) {
             settingsArray.put(module.getName(), module.settings);
         }
         writeSettings(settingsArray);
@@ -57,7 +58,7 @@ public class SettingsManager {
 
     public void loadSettings() {
         Map<String, Settings> settingsArray = readSettings();
-        for (Module module : Main.moduleManager.getModuleList()) {
+        for (Module module : AgalarHackClient.moduleManager.getModuleList()) {
             // Register defaults first so new settings always exist, then
             // overlay whatever was saved so old configs keep their values.
             module.registerSettings();

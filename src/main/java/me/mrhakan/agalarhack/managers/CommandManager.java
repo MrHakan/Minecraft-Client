@@ -3,18 +3,14 @@ package me.mrhakan.agalarhack.managers;
 import java.util.ArrayList;
 import java.util.List;
 
-import me.mrhakan.agalarhack.Main;
+import me.mrhakan.agalarhack.AgalarHackClient;
 import me.mrhakan.agalarhack.commands.Command;
 import me.mrhakan.agalarhack.commands.impl.Bind;
 import me.mrhakan.agalarhack.commands.impl.Help;
 import me.mrhakan.agalarhack.commands.impl.Modules;
 import me.mrhakan.agalarhack.commands.impl.Set;
 import me.mrhakan.agalarhack.commands.impl.Toggle;
-import net.minecraft.client.Minecraft;
-import net.minecraft.util.text.TextFormatting;
-import net.minecraftforge.client.event.ClientChatEvent;
-import net.minecraftforge.fml.common.eventhandler.EventPriority;
-import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
+import net.minecraft.util.Formatting;
 
 public class CommandManager {
     public static final List<Command> commands = new ArrayList<>();
@@ -37,30 +33,32 @@ public class CommandManager {
         return null;
     }
 
-    @SubscribeEvent(priority = EventPriority.HIGHEST)
-    public void chatEvent(ClientChatEvent event) {
-        String message = event.getMessage();
-        if (!message.startsWith(Main.prefix)) {
-            return;
+    /**
+     * Handles a chat message typed by the player.
+     *
+     * @return true if the message was a client command and should not be sent to the server
+     */
+    public static boolean handleChat(String message) {
+        if (!message.startsWith(AgalarHackClient.prefix)) {
+            return false;
         }
-        event.setCanceled(true);
-        Minecraft.getMinecraft().ingameGUI.getChatGUI().addToSentHistory(message);
 
-        String[] args = message.substring(Main.prefix.length()).trim().split("\\s+");
+        String[] args = message.substring(AgalarHackClient.prefix.length()).trim().split("\\s+");
         if (args.length == 0 || args[0].isEmpty()) {
-            return;
+            return true;
         }
 
         Command command = getCommand(args[0]);
         if (command == null) {
-            MessageManager.sendMessagePrefix(TextFormatting.RED + "Unknown command. Use " + TextFormatting.WHITE + Main.prefix + "help" + TextFormatting.RED + " for a list of commands.");
-            return;
+            MessageManager.sendMessagePrefix(Formatting.RED + "Unknown command. Use " + Formatting.WHITE + AgalarHackClient.prefix + "help" + Formatting.RED + " for a list of commands.");
+            return true;
         }
         try {
             command.onCommand(args);
         } catch (Exception e) {
-            MessageManager.sendMessagePrefix(TextFormatting.RED + "An error occurred while running that command.");
+            MessageManager.sendMessagePrefix(Formatting.RED + "An error occurred while running that command.");
             e.printStackTrace();
         }
+        return true;
     }
 }

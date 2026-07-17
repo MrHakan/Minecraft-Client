@@ -2,7 +2,7 @@ package me.mrhakan.agalarhack.module.movement;
 
 import me.mrhakan.agalarhack.module.Category;
 import me.mrhakan.agalarhack.module.Module;
-import net.minecraft.network.play.client.CPacketPlayer;
+import net.minecraft.network.packet.c2s.play.PlayerMoveC2SPacket;
 
 public class NoFall extends Module {
 
@@ -13,7 +13,7 @@ public class NoFall extends Module {
 	@Override
 	public void onUpdate() {
 		if (mc.player.fallDistance > 2.0f) {
-			mc.player.connection.sendPacket(new CPacketPlayer(true));
+			mc.player.networkHandler.sendPacket(new PlayerMoveC2SPacket.OnGroundOnly(true));
 		}
 	}
 }

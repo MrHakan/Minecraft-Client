@@ -3,9 +3,9 @@ package me.mrhakan.agalarhack.module.combat;
 import me.mrhakan.agalarhack.module.Category;
 import me.mrhakan.agalarhack.module.Module;
 import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityLivingBase;
-import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.util.EnumHand;
+import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.util.Hand;
 
 public class Aura extends Module {
 
@@ -34,28 +34,24 @@ public class Aura extends Module {
 		boolean targetPlayers = getBooleanSetting("players", true);
 		boolean targetMobs = getBooleanSetting("mobs", true);
 
-		EntityLivingBase target = null;
+		LivingEntity target = null;
 		double closestSq = range * range;
 
-		for (Entity entity : mc.world.loadedEntityList) {
-			if (!(entity instanceof EntityLivingBase) || entity == mc.player) {
+		for (Entity entity : mc.world.getEntities()) {
+			if (!(entity instanceof LivingEntity living) || entity == mc.player) {
 				continue;
 			}
-			EntityLivingBase living = (EntityLivingBase) entity;
-			if (living.isDead || living.getHealth() <= 0) {
+			if (!living.isAlive() || living.getHealth() <= 0 || living.isSpectator()) {
 				continue;
 			}
-			boolean isPlayer = living instanceof EntityPlayer;
+			boolean isPlayer = living instanceof PlayerEntity;
 			if (isPlayer && !targetPlayers) {
 				continue;
 			}
 			if (!isPlayer && !targetMobs) {
 				continue;
 			}
-			double dx = living.posX - mc.player.posX;
-			double dy = living.posY - mc.player.posY;
-			double dz = living.posZ - mc.player.posZ;
-			double distanceSq = dx * dx + dy * dy + dz * dz;
+			double distanceSq = mc.player.squaredDistanceTo(living);
 			if (distanceSq <= closestSq) {
 				closestSq = distanceSq;
 				target = living;
@@ -63,8 +59,8 @@ public class Aura extends Module {
 		}
 
 		if (target != null) {
-			mc.playerController.attackEntity(mc.player, target);
-			mc.player.swingArm(EnumHand.MAIN_HAND);
+			mc.interactionManager.attackEntity(mc.player, target);
+			mc.player.swingHand(Hand.MAIN_HAND);
 			cooldown = (int) getNumberSetting("delay", 10.0);
 		}
 	}
