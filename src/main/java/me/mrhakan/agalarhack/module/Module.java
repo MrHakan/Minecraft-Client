@@ -1,16 +1,13 @@
 package me.mrhakan.agalarhack.module;
 
-import org.lwjgl.input.Keyboard;
+import org.lwjgl.glfw.GLFW;
 
-import me.mrhakan.agalarhack.Main;
+import me.mrhakan.agalarhack.AgalarHackClient;
 import me.mrhakan.agalarhack.managers.Settings;
-import net.minecraft.client.Minecraft;
-import net.minecraftforge.common.MinecraftForge;
-import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
-import net.minecraftforge.fml.common.gameevent.TickEvent;
+import net.minecraft.client.MinecraftClient;
 
 public class Module {
-	protected Minecraft mc = Minecraft.getMinecraft();
+	protected final MinecraftClient mc = MinecraftClient.getInstance();
 
 	private String name, displayName;
 	private String description;
@@ -31,31 +28,14 @@ public class Module {
 
 	public void registerSettings() {
 		settings.addSetting("enabled", false);
-		settings.addSetting("keybind", String.valueOf(Keyboard.KEY_NONE));
+		settings.addSetting("keybind", String.valueOf(GLFW.GLFW_KEY_UNKNOWN));
 		selfSettings();
 	}
 
 	public void onEnable() {
-		MinecraftForge.EVENT_BUS.register(this);
 	}
 
 	public void onDisable() {
-		MinecraftForge.EVENT_BUS.unregister(this);
-	}
-
-	@SubscribeEvent
-	public void gameTickEvent(TickEvent.ClientTickEvent event) {
-		if (event.phase != TickEvent.Phase.START) {
-			return;
-		}
-		if (!toggled || mc.player == null || mc.world == null) {
-			return;
-		}
-		onUpdate();
-	}
-
-	public void setSettings(Settings newSettings) {
-		settings = newSettings;
 	}
 
 	public void onUpdate() {
@@ -76,18 +56,22 @@ public class Module {
 			onDisable();
 		}
 		settings.setSetting("enabled", toggled);
-		Main.SETTINGS_MANAGER.updateSettings();
+		AgalarHackClient.SETTINGS_MANAGER.updateSettings();
+	}
+
+	public void setSettings(Settings newSettings) {
+		settings = newSettings;
 	}
 
 	public int getKey() {
 		Object key = settings.getSetting("keybind");
 		if (key == null) {
-			return Keyboard.KEY_NONE;
+			return GLFW.GLFW_KEY_UNKNOWN;
 		}
 		try {
 			return (int) Double.parseDouble(key.toString());
 		} catch (NumberFormatException e) {
-			return Keyboard.KEY_NONE;
+			return GLFW.GLFW_KEY_UNKNOWN;
 		}
 	}
 
@@ -146,8 +130,5 @@ public class Module {
 
 	public void setDisplayName(String displayName) {
 		this.displayName = displayName;
-	}
-
-	public void setup() {
 	}
 }

@@ -2,30 +2,31 @@ package me.mrhakan.agalarhack.module.movement;
 
 import me.mrhakan.agalarhack.module.Category;
 import me.mrhakan.agalarhack.module.Module;
+import net.minecraft.util.math.Vec3d;
 
 public class Speed extends Module {
 
-	private static final float DEFAULT_WALK_SPEED = 0.1f;
-
 	public Speed() {
-		super("Speed", Category.MOVEMENT, "Makes you walk faster");
+		super("Speed", Category.MOVEMENT, "Makes you move faster on the ground");
 	}
 
 	@Override
 	public void selfSettings() {
-		settings.addSetting("speed", 0.2);
+		settings.addSetting("multiplier", 1.2);
 	}
 
 	@Override
 	public void onUpdate() {
-		mc.player.capabilities.setPlayerWalkSpeed((float) getNumberSetting("speed", 0.2));
-	}
-
-	@Override
-	public void onDisable() {
-		super.onDisable();
-		if (mc.player != null) {
-			mc.player.capabilities.setPlayerWalkSpeed(DEFAULT_WALK_SPEED);
+		if (!mc.player.isOnGround()) {
+			return;
 		}
+		if (mc.player.input.movementForward == 0 && mc.player.input.movementSideways == 0) {
+			return;
+		}
+		// Ground friction counteracts the per-tick multiplier, so the speed
+		// settles at an equilibrium instead of growing forever.
+		double multiplier = getNumberSetting("multiplier", 1.2);
+		Vec3d velocity = mc.player.getVelocity();
+		mc.player.setVelocity(velocity.x * multiplier, velocity.y, velocity.z * multiplier);
 	}
 }

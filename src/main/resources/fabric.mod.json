@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "id": "agalarhack",
+  "version": "${version}",
+  "name": "Agalar Hack",
+  "description": "An anarchy utility mod for agalar.",
+  "authors": [
+    "MrHakan"
+  ],
+  "contact": {
+    "sources": "https://github.com/MrHakan/Minecraft-Client"
+  },
+  "license": "All-Rights-Reserved",
+  "icon": "assets/agalarhack/icon.png",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "me.mrhakan.agalarhack.AgalarHackClient"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.16.0",
+    "fabric-api": "*",
+    "minecraft": "~1.21.1",
+    "java": ">=21"
+  }
+}

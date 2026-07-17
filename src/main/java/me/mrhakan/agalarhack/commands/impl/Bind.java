@@ -1,12 +1,13 @@
 package me.mrhakan.agalarhack.commands.impl;
 
-import org.lwjgl.input.Keyboard;
+import org.lwjgl.glfw.GLFW;
 
-import me.mrhakan.agalarhack.Main;
+import me.mrhakan.agalarhack.AgalarHackClient;
 import me.mrhakan.agalarhack.commands.Command;
 import me.mrhakan.agalarhack.managers.MessageManager;
 import me.mrhakan.agalarhack.module.Module;
-import net.minecraft.util.text.TextFormatting;
+import net.minecraft.client.util.InputUtil;
+import net.minecraft.util.Formatting;
 
 public class Bind extends Command {
     public Bind() {
@@ -19,28 +20,30 @@ public class Bind extends Command {
             sendUsage();
             return;
         }
-        Module module = Main.moduleManager.getModule(args[1]);
+        Module module = AgalarHackClient.moduleManager.getModule(args[1]);
         if (module == null) {
-            MessageManager.sendMessagePrefix(TextFormatting.RED + "No module named " + TextFormatting.WHITE + args[1] + TextFormatting.RED + ". Use " + TextFormatting.WHITE + Main.prefix + "modules" + TextFormatting.RED + " to list them.");
+            MessageManager.sendMessagePrefix(Formatting.RED + "No module named " + Formatting.WHITE + args[1] + Formatting.RED + ". Use " + Formatting.WHITE + AgalarHackClient.prefix + "modules" + Formatting.RED + " to list them.");
             return;
         }
 
-        String keyName = args[2].toUpperCase();
-        if (keyName.equals("NONE")) {
-            module.settings.setSetting("keybind", String.valueOf(Keyboard.KEY_NONE));
-            Main.SETTINGS_MANAGER.updateSettings();
-            MessageManager.sendMessagePrefix(TextFormatting.AQUA + module.getName() + TextFormatting.WHITE + " is now unbound.");
+        String keyName = args[2].toLowerCase();
+        if (keyName.equals("none")) {
+            module.settings.setSetting("keybind", String.valueOf(GLFW.GLFW_KEY_UNKNOWN));
+            AgalarHackClient.SETTINGS_MANAGER.updateSettings();
+            MessageManager.sendMessagePrefix(Formatting.AQUA + module.getName() + Formatting.WHITE + " is now unbound.");
             return;
         }
 
-        int key = Keyboard.getKeyIndex(keyName);
-        if (key == Keyboard.KEY_NONE) {
-            MessageManager.sendMessagePrefix(TextFormatting.RED + "Unknown key: " + TextFormatting.WHITE + keyName);
+        InputUtil.Key key;
+        try {
+            key = InputUtil.fromTranslationKey("key.keyboard." + keyName);
+        } catch (IllegalArgumentException e) {
+            MessageManager.sendMessagePrefix(Formatting.RED + "Unknown key: " + Formatting.WHITE + args[2] + Formatting.RED + " (examples: r, g, left.shift, f4)");
             return;
         }
 
-        module.settings.setSetting("keybind", String.valueOf(key));
-        Main.SETTINGS_MANAGER.updateSettings();
-        MessageManager.sendMessagePrefix(TextFormatting.AQUA + module.getName() + TextFormatting.WHITE + " is now bound to " + TextFormatting.GREEN + keyName);
+        module.settings.setSetting("keybind", String.valueOf(key.getCode()));
+        AgalarHackClient.SETTINGS_MANAGER.updateSettings();
+        MessageManager.sendMessagePrefix(Formatting.AQUA + module.getName() + Formatting.WHITE + " is now bound to " + Formatting.GREEN + key.getLocalizedText().getString());
     }
 }

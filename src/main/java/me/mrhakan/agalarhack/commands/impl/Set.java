@@ -1,10 +1,10 @@
 package me.mrhakan.agalarhack.commands.impl;
 
-import me.mrhakan.agalarhack.Main;
+import me.mrhakan.agalarhack.AgalarHackClient;
 import me.mrhakan.agalarhack.commands.Command;
 import me.mrhakan.agalarhack.managers.MessageManager;
 import me.mrhakan.agalarhack.module.Module;
-import net.minecraft.util.text.TextFormatting;
+import net.minecraft.util.Formatting;
 
 public class Set extends Command {
     public Set() {
@@ -17,9 +17,9 @@ public class Set extends Command {
             sendUsage();
             return;
         }
-        Module module = Main.moduleManager.getModule(args[1]);
+        Module module = AgalarHackClient.moduleManager.getModule(args[1]);
         if (module == null) {
-            MessageManager.sendMessagePrefix(TextFormatting.RED + "No module named " + TextFormatting.WHITE + args[1] + TextFormatting.RED + ". Use " + TextFormatting.WHITE + Main.prefix + "modules" + TextFormatting.RED + " to list them.");
+            MessageManager.sendMessagePrefix(Formatting.RED + "No module named " + Formatting.WHITE + args[1] + Formatting.RED + ". Use " + Formatting.WHITE + AgalarHackClient.prefix + "modules" + Formatting.RED + " to list them.");
             return;
         }
 
@@ -31,14 +31,14 @@ public class Set extends Command {
                     continue;
                 }
                 if (available.length() > 0) {
-                    available.append(TextFormatting.GRAY).append(", ");
+                    available.append(Formatting.GRAY).append(", ");
                 }
-                available.append(TextFormatting.WHITE).append(settingKey);
+                available.append(Formatting.WHITE).append(settingKey);
             }
             if (available.length() == 0) {
-                MessageManager.sendMessagePrefix(TextFormatting.AQUA + module.getName() + TextFormatting.RED + " has no settings.");
+                MessageManager.sendMessagePrefix(Formatting.AQUA + module.getName() + Formatting.RED + " has no settings.");
             } else {
-                MessageManager.sendMessagePrefix(TextFormatting.RED + "Unknown setting. " + TextFormatting.AQUA + module.getName() + TextFormatting.RED + " settings: " + available);
+                MessageManager.sendMessagePrefix(Formatting.RED + "Unknown setting. " + Formatting.AQUA + module.getName() + Formatting.RED + " settings: " + available);
             }
             return;
         }
@@ -51,7 +51,7 @@ public class Set extends Command {
             try {
                 newValue = Double.parseDouble(args[3]);
             } catch (NumberFormatException e) {
-                MessageManager.sendMessagePrefix(TextFormatting.RED + "Expected a number for " + TextFormatting.WHITE + key);
+                MessageManager.sendMessagePrefix(Formatting.RED + "Expected a number for " + Formatting.WHITE + key);
                 return;
             }
         } else {
@@ -59,7 +59,7 @@ public class Set extends Command {
         }
 
         module.settings.setSetting(key, newValue);
-        Main.SETTINGS_MANAGER.updateSettings();
-        MessageManager.sendMessagePrefix(TextFormatting.AQUA + module.getName() + " " + key + TextFormatting.WHITE + " is now " + TextFormatting.GREEN + newValue);
+        AgalarHackClient.SETTINGS_MANAGER.updateSettings();
+        MessageManager.sendMessagePrefix(Formatting.AQUA + module.getName() + " " + key + Formatting.WHITE + " is now " + Formatting.GREEN + newValue);
     }
 }

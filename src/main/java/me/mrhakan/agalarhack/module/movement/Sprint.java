@@ -11,17 +11,16 @@ public class Sprint extends Module {
 
 	@Override
 	public void onUpdate() {
-		if (mc.player.movementInput.moveForward > 0
-				&& !mc.player.collidedHorizontally
+		if (mc.player.input.movementForward > 0
+				&& !mc.player.horizontalCollision
 				&& !mc.player.isSneaking()
-				&& !mc.player.isHandActive()) {
+				&& !mc.player.isUsingItem()) {
 			mc.player.setSprinting(true);
 		}
 	}
 
 	@Override
 	public void onDisable() {
-		super.onDisable();
 		if (mc.player != null) {
 			mc.player.setSprinting(false);
 		}

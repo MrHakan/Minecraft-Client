@@ -1,17 +1,17 @@
 package me.mrhakan.agalarhack.managers;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.entity.EntityPlayerSP;
-import net.minecraft.util.text.TextComponentString;
-import net.minecraft.util.text.TextFormatting;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.network.ClientPlayerEntity;
+import net.minecraft.text.Text;
+import net.minecraft.util.Formatting;
 
 public class MessageManager {
-    public static String prefix = TextFormatting.GRAY + "[" + TextFormatting.RED + "AGALAR HACK" + TextFormatting.GRAY + "]" + TextFormatting.RESET;
+    public static String prefix = Formatting.GRAY + "[" + Formatting.RED + "AGALAR HACK" + Formatting.GRAY + "]" + Formatting.RESET;
 
     public static void sendRawMessage(String message) {
-        EntityPlayerSP player = Minecraft.getMinecraft().player;
+        ClientPlayerEntity player = MinecraftClient.getInstance().player;
         if (player != null) {
-            player.sendMessage(new TextComponentString(message));
+            player.sendMessage(Text.literal(message), false);
         }
     }
 

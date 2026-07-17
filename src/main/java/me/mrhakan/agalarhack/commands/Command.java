@@ -1,8 +1,8 @@
 package me.mrhakan.agalarhack.commands;
 
-import me.mrhakan.agalarhack.Main;
+import me.mrhakan.agalarhack.AgalarHackClient;
 import me.mrhakan.agalarhack.managers.MessageManager;
-import net.minecraft.util.text.TextFormatting;
+import net.minecraft.util.Formatting;
 
 public abstract class Command {
     private final String name;
@@ -32,7 +32,7 @@ public abstract class Command {
     }
 
     protected void sendUsage() {
-        MessageManager.sendMessagePrefix(TextFormatting.RED + "Usage: " + TextFormatting.WHITE + Main.prefix + usage);
+        MessageManager.sendMessagePrefix(Formatting.RED + "Usage: " + Formatting.WHITE + AgalarHackClient.prefix + usage);
     }
 
     public String getCommand() {

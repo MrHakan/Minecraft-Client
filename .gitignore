@@ -1,25 +1,24 @@
+# gradle
+.gradle/
+build/
+out/
+
+# Minecraft run directory
+run/
+
 # eclipse
-bin
+bin/
 *.launch
-.settings
-.metadata
+.settings/
+.metadata/
 .classpath
 .project
 
 # idea
-out
+.idea/
 *.ipr
 *.iws
 *.iml
-.idea
 
-# gradle
-build
-.gradle
-
-# other
-eclipse
-run
-
-# Files from Forge MDK
-forge*changelog.txt
+# vscode
+.vscode/

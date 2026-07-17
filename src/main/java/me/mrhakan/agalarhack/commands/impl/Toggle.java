@@ -1,10 +1,10 @@
 package me.mrhakan.agalarhack.commands.impl;
 
-import me.mrhakan.agalarhack.Main;
+import me.mrhakan.agalarhack.AgalarHackClient;
 import me.mrhakan.agalarhack.commands.Command;
 import me.mrhakan.agalarhack.managers.MessageManager;
 import me.mrhakan.agalarhack.module.Module;
-import net.minecraft.util.text.TextFormatting;
+import net.minecraft.util.Formatting;
 
 public class Toggle extends Command {
     public Toggle() {
@@ -17,16 +17,16 @@ public class Toggle extends Command {
             sendUsage();
             return;
         }
-        Module module = Main.moduleManager.getModule(args[1]);
+        Module module = AgalarHackClient.moduleManager.getModule(args[1]);
         if (module == null) {
-            MessageManager.sendMessagePrefix(TextFormatting.RED + "No module named " + TextFormatting.WHITE + args[1] + TextFormatting.RED + ". Use " + TextFormatting.WHITE + Main.prefix + "modules" + TextFormatting.RED + " to list them.");
+            MessageManager.sendMessagePrefix(Formatting.RED + "No module named " + Formatting.WHITE + args[1] + Formatting.RED + ". Use " + Formatting.WHITE + AgalarHackClient.prefix + "modules" + Formatting.RED + " to list them.");
             return;
         }
         module.toggle();
         if (module.isToggled()) {
-            MessageManager.sendMessagePrefix(TextFormatting.AQUA + module.getName() + TextFormatting.WHITE + " is now " + TextFormatting.GREEN + "ON");
+            MessageManager.sendMessagePrefix(Formatting.AQUA + module.getName() + Formatting.WHITE + " is now " + Formatting.GREEN + "ON");
         } else {
-            MessageManager.sendMessagePrefix(TextFormatting.AQUA + module.getName() + TextFormatting.WHITE + " is now " + TextFormatting.RED + "OFF");
+            MessageManager.sendMessagePrefix(Formatting.AQUA + module.getName() + Formatting.WHITE + " is now " + Formatting.RED + "OFF");
         }
     }
 }
