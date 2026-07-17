@@ -79,20 +79,30 @@ To run a dev client:
 
 ## Releases
 
-Every push to `main` builds the mod on GitHub Actions and uploads the jar as a
-build artifact. To cut an official release:
+Two GitHub Actions workflows handle builds and releases:
+
+- **[`CI`](.github/workflows/build.yml)** runs on every push to `main` and every
+  pull request. It builds the mod, uploads the jar as an artifact, and — for
+  `main` pushes — publishes a **rolling prerelease** tagged with the workflow
+  run ID so the latest development build is always downloadable.
+- **[`Release`](.github/workflows/release.yml)** runs when you push a `v*` tag.
+  It builds the mod and publishes a clean GitHub Release with auto-generated
+  changelog notes and the jar attached.
+
+To cut an official release:
 
 1. Bump `mod_version` in `gradle.properties` and `AgalarHackClient.VERSION`.
 2. Commit and push.
-3. Tag the commit with a `v`-prefixed version and push the tag:
+3. Tag the commit and push the tag:
 
    ```sh
    git tag v26.2
    git push origin v26.2
    ```
 
-The [`release.yml`](.github/workflows/release.yml) workflow will build the mod
-and publish a GitHub Release with the jar attached automatically.
+> Both workflows need repo → **Settings → Actions → Workflow permissions** set to
+> **Read and write**. `permissions: contents: write` is already declared in the
+> workflow YAML, but the repo-level setting also needs to allow it.
 
 ## Branches
 

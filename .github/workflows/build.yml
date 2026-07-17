@@ -1,14 +1,14 @@
-name: build
+name: CI
 
 on:
   push:
-    branches:
-      - main
-      - "claude/**"
+    branches: [main]
   pull_request:
-    branches:
-      - main
+    branches: [main]
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -32,8 +32,13 @@ jobs:
       - name: Build
         run: ./gradlew build --stacktrace
 
+      - name: Read mod version
+        id: getModVersion
+        run: |
+          MOD_VERSION=$(grep "^mod_version=" gradle.properties | cut -d'=' -f2 | tr -d '[:space:]')
+          echo "mod_version=$MOD_VERSION" >> "$GITHUB_OUTPUT"
+
       - name: Upload build artifacts
-        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: agalarhack-jars
@@ -41,3 +46,13 @@ jobs:
             build/libs/*.jar
             !build/libs/*-sources.jar
           if-no-files-found: error
+
+      - name: Rolling release (main only)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.run_id }}
+          name: Rolling build v${{ steps.getModVersion.outputs.mod_version }}+${{ github.sha }}
+          draft: false
+          prerelease: true
+          files: build/libs/!(*-sources|*-dev).jar
