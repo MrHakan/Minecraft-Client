@@ -1,7 +1,6 @@
 package me.mrhakan.agalarhack.managers;
 
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -11,30 +10,24 @@ import java.util.Map;
 import com.google.common.reflect.TypeToken;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonSyntaxException;
 
 import me.mrhakan.agalarhack.Main;
 import me.mrhakan.agalarhack.module.Module;
-import me.mrhakan.agalarhack.managers.Settings;
 
 public class SettingsManager {
-    Gson gson = new GsonBuilder().setPrettyPrinting().create();
-    File configFile = new File("AgalarHack/agalarhack-config.json");
+    private final Gson gson = new GsonBuilder().setPrettyPrinting().create();
+    private final File configFile = new File("AgalarHack", "agalarhack-config.json");
 
     public Map<String, Settings> readSettings() {
         Map<String, Settings> settingsArray = new HashMap<>();
         if (configFile.exists() && configFile.isFile()) {
-            try {
-                settingsArray = gson.fromJson(new FileReader(configFile), new TypeToken<Map<String, Settings>>(){}.getType());
-            } catch (FileNotFoundException e) {
-                e.printStackTrace();
-            }
-        } else {
-            try {
-                FileWriter fw = new FileWriter(configFile);
-                gson.toJson(settingsArray, fw);
-                fw.flush();
-                fw.close();
-            } catch (IOException e) {
+            try (FileReader reader = new FileReader(configFile)) {
+                Map<String, Settings> loaded = gson.fromJson(reader, new TypeToken<Map<String, Settings>>(){}.getType());
+                if (loaded != null) {
+                    settingsArray = loaded;
+                }
+            } catch (IOException | JsonSyntaxException e) {
                 e.printStackTrace();
             }
         }
@@ -42,11 +35,13 @@ public class SettingsManager {
     }
 
     public void writeSettings(Map<String, Settings> settingsArray) {
-        try {
-            FileWriter fw = new FileWriter(configFile);
+        File parent = configFile.getParentFile();
+        if (parent != null && !parent.exists()) {
+            parent.mkdirs();
+        }
+        try (FileWriter fw = new FileWriter(configFile)) {
             gson.toJson(settingsArray, fw);
             fw.flush();
-            fw.close();
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -63,15 +58,12 @@ public class SettingsManager {
     public void loadSettings() {
         Map<String, Settings> settingsArray = readSettings();
         for (Module module : Main.moduleManager.getModuleList()) {
-            String moduleName = module.getName();
-            try {
-                if (settingsArray.containsKey(moduleName)) {
-                    module.setSettings(settingsArray.get(moduleName));
-                } else {
-                    module.registerSettings();
-                }
-            } catch (NullPointerException npe) {
-                module.registerSettings();
+            // Register defaults first so new settings always exist, then
+            // overlay whatever was saved so old configs keep their values.
+            module.registerSettings();
+            Settings saved = settingsArray.get(module.getName());
+            if (saved != null && saved.settings != null) {
+                module.settings.settings.putAll(saved.settings);
             }
         }
         updateSettings();

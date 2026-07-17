@@ -6,13 +6,16 @@ import net.minecraft.util.text.TextComponentString;
 import net.minecraft.util.text.TextFormatting;
 
 public class MessageManager {
-    public static String prefix = TextFormatting.GRAY + "[" + TextFormatting.RED + "AGALAR HACK"  + TextFormatting.GRAY + "]";
-    private static final EntityPlayerSP player = Minecraft.getMinecraft().player;
+    public static String prefix = TextFormatting.GRAY + "[" + TextFormatting.RED + "AGALAR HACK" + TextFormatting.GRAY + "]" + TextFormatting.RESET;
 
     public static void sendRawMessage(String message) {
-        player.sendMessage(new TextComponentString(message));
+        EntityPlayerSP player = Minecraft.getMinecraft().player;
+        if (player != null) {
+            player.sendMessage(new TextComponentString(message));
+        }
     }
-    public static void sendMessagePrefix(String message){
+
+    public static void sendMessagePrefix(String message) {
         sendRawMessage(prefix + " " + message);
     }
 }
