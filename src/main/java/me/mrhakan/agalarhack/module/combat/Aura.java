@@ -2,10 +2,10 @@ package me.mrhakan.agalarhack.module.combat;
 
 import me.mrhakan.agalarhack.module.Category;
 import me.mrhakan.agalarhack.module.Module;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.util.Hand;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
 
 public class Aura extends Module {
 
@@ -37,21 +37,21 @@ public class Aura extends Module {
 		LivingEntity target = null;
 		double closestSq = range * range;
 
-		for (Entity entity : mc.world.getEntities()) {
+		for (Entity entity : mc.level.entitiesForRendering()) {
 			if (!(entity instanceof LivingEntity living) || entity == mc.player) {
 				continue;
 			}
 			if (!living.isAlive() || living.getHealth() <= 0 || living.isSpectator()) {
 				continue;
 			}
-			boolean isPlayer = living instanceof PlayerEntity;
+			boolean isPlayer = living instanceof Player;
 			if (isPlayer && !targetPlayers) {
 				continue;
 			}
 			if (!isPlayer && !targetMobs) {
 				continue;
 			}
-			double distanceSq = mc.player.squaredDistanceTo(living);
+			double distanceSq = mc.player.distanceToSqr(living);
 			if (distanceSq <= closestSq) {
 				closestSq = distanceSq;
 				target = living;
@@ -59,8 +59,8 @@ public class Aura extends Module {
 		}
 
 		if (target != null) {
-			mc.interactionManager.attackEntity(mc.player, target);
-			mc.player.swingHand(Hand.MAIN_HAND);
+			mc.gameMode.attack(mc.player, target);
+			mc.player.swing(InteractionHand.MAIN_HAND);
 			cooldown = (int) getNumberSetting("delay", 10.0);
 		}
 	}

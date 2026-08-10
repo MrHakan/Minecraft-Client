@@ -2,7 +2,8 @@ package me.mrhakan.agalarhack.module.movement;
 
 import me.mrhakan.agalarhack.module.Category;
 import me.mrhakan.agalarhack.module.Module;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.phys.Vec2;
+import net.minecraft.world.phys.Vec3;
 
 public class Speed extends Module {
 
@@ -17,16 +18,17 @@ public class Speed extends Module {
 
 	@Override
 	public void onUpdate() {
-		if (!mc.player.isOnGround()) {
+		if (!mc.player.onGround()) {
 			return;
 		}
-		if (mc.player.input.movementForward == 0 && mc.player.input.movementSideways == 0) {
+		Vec2 move = mc.player.input.getMoveVector();
+		if (move.x == 0.0F && move.y == 0.0F) {
 			return;
 		}
 		// Ground friction counteracts the per-tick multiplier, so the speed
 		// settles at an equilibrium instead of growing forever.
 		double multiplier = getNumberSetting("multiplier", 1.2);
-		Vec3d velocity = mc.player.getVelocity();
-		mc.player.setVelocity(velocity.x * multiplier, velocity.y, velocity.z * multiplier);
+		Vec3 velocity = mc.player.getDeltaMovement();
+		mc.player.setDeltaMovement(velocity.x * multiplier, velocity.y, velocity.z * multiplier);
 	}
 }

@@ -2,7 +2,7 @@ package me.mrhakan.agalarhack.commands;
 
 import me.mrhakan.agalarhack.AgalarHackClient;
 import me.mrhakan.agalarhack.managers.MessageManager;
-import net.minecraft.util.Formatting;
+import net.minecraft.ChatFormatting;
 
 public abstract class Command {
     private final String name;
@@ -32,7 +32,7 @@ public abstract class Command {
     }
 
     protected void sendUsage() {
-        MessageManager.sendMessagePrefix(Formatting.RED + "Usage: " + Formatting.WHITE + AgalarHackClient.prefix + usage);
+        MessageManager.sendMessagePrefix(ChatFormatting.RED + "Usage: " + ChatFormatting.WHITE + AgalarHackClient.prefix + usage);
     }
 
     public String getCommand() {

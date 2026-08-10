@@ -14,7 +14,7 @@ import me.mrhakan.agalarhack.module.movement.Speed;
 import me.mrhakan.agalarhack.module.movement.Sprint;
 import me.mrhakan.agalarhack.module.movement.Step;
 import me.mrhakan.agalarhack.module.render.Fullbright;
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 
 public class ModuleManager {
 
@@ -39,8 +39,8 @@ public class ModuleManager {
 		//WORLD
 	}
 
-	public void tick(MinecraftClient client) {
-		if (client.player == null || client.world == null) {
+	public void tick(Minecraft client) {
+		if (client.player == null || client.level == null) {
 			return;
 		}
 		for (Module m : modules) {

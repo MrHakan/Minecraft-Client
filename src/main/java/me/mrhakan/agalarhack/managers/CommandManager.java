@@ -10,7 +10,7 @@ import me.mrhakan.agalarhack.commands.impl.Help;
 import me.mrhakan.agalarhack.commands.impl.Modules;
 import me.mrhakan.agalarhack.commands.impl.Set;
 import me.mrhakan.agalarhack.commands.impl.Toggle;
-import net.minecraft.util.Formatting;
+import net.minecraft.ChatFormatting;
 
 public class CommandManager {
     public static final List<Command> commands = new ArrayList<>();
@@ -50,13 +50,13 @@ public class CommandManager {
 
         Command command = getCommand(args[0]);
         if (command == null) {
-            MessageManager.sendMessagePrefix(Formatting.RED + "Unknown command. Use " + Formatting.WHITE + AgalarHackClient.prefix + "help" + Formatting.RED + " for a list of commands.");
+            MessageManager.sendMessagePrefix(ChatFormatting.RED + "Unknown command. Use " + ChatFormatting.WHITE + AgalarHackClient.prefix + "help" + ChatFormatting.RED + " for a list of commands.");
             return true;
         }
         try {
             command.onCommand(args);
         } catch (Exception e) {
-            MessageManager.sendMessagePrefix(Formatting.RED + "An error occurred while running that command.");
+            MessageManager.sendMessagePrefix(ChatFormatting.RED + "An error occurred while running that command.");
             e.printStackTrace();
         }
         return true;

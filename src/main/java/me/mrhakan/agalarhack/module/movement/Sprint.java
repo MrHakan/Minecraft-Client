@@ -11,9 +11,9 @@ public class Sprint extends Module {
 
 	@Override
 	public void onUpdate() {
-		if (mc.player.input.movementForward > 0
+		if (mc.player.input.hasForwardImpulse()
 				&& !mc.player.horizontalCollision
-				&& !mc.player.isSneaking()
+				&& !mc.player.isShiftKeyDown()
 				&& !mc.player.isUsingItem()) {
 			mc.player.setSprinting(true);
 		}

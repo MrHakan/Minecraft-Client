@@ -5,7 +5,7 @@ import me.mrhakan.agalarhack.managers.MessageManager;
 import me.mrhakan.agalarhack.managers.ModuleManager;
 import me.mrhakan.agalarhack.module.Category;
 import me.mrhakan.agalarhack.module.Module;
-import net.minecraft.util.Formatting;
+import net.minecraft.ChatFormatting;
 
 public class Modules extends Command {
     public Modules() {
@@ -14,17 +14,17 @@ public class Modules extends Command {
 
     @Override
     public void onCommand(String[] args) {
-        MessageManager.sendMessagePrefix(Formatting.GRAY + "Modules:");
+        MessageManager.sendMessagePrefix(ChatFormatting.GRAY + "Modules:");
         for (Category category : Category.values()) {
             StringBuilder line = new StringBuilder();
             for (Module module : ModuleManager.getModulesByCategory(category)) {
                 if (line.length() > 0) {
-                    line.append(Formatting.GRAY).append(", ");
+                    line.append(ChatFormatting.GRAY).append(", ");
                 }
-                line.append(module.isToggled() ? Formatting.GREEN : Formatting.RED).append(module.getName());
+                line.append(module.isToggled() ? ChatFormatting.GREEN : ChatFormatting.RED).append(module.getName());
             }
             if (line.length() > 0) {
-                MessageManager.sendRawMessage(Formatting.AQUA + " " + category.name + Formatting.GRAY + ": " + line);
+                MessageManager.sendRawMessage(ChatFormatting.AQUA + " " + category.name + ChatFormatting.GRAY + ": " + line);
             }
         }
     }

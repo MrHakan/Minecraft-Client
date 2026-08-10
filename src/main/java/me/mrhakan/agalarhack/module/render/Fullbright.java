@@ -2,8 +2,8 @@ package me.mrhakan.agalarhack.module.render;
 
 import me.mrhakan.agalarhack.module.Category;
 import me.mrhakan.agalarhack.module.Module;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.entity.effect.StatusEffects;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
 
 public class Fullbright extends Module {
 
@@ -13,15 +13,15 @@ public class Fullbright extends Module {
 
 	@Override
 	public void onUpdate() {
-		if (!mc.player.hasStatusEffect(StatusEffects.NIGHT_VISION)) {
-			mc.player.addStatusEffect(new StatusEffectInstance(StatusEffects.NIGHT_VISION, StatusEffectInstance.INFINITE, 0, false, false, false));
+		if (!mc.player.hasEffect(MobEffects.NIGHT_VISION)) {
+			mc.player.addEffect(new MobEffectInstance(MobEffects.NIGHT_VISION, MobEffectInstance.INFINITE_DURATION, 0, false, false, false));
 		}
 	}
 
 	@Override
 	public void onDisable() {
 		if (mc.player != null) {
-			mc.player.removeStatusEffect(StatusEffects.NIGHT_VISION);
+			mc.player.removeEffect(MobEffects.NIGHT_VISION);
 		}
 	}
 }

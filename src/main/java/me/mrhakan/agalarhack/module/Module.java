@@ -1,13 +1,13 @@
 package me.mrhakan.agalarhack.module;
 
-import org.lwjgl.glfw.GLFW;
+import com.mojang.blaze3d.platform.InputConstants;
 
 import me.mrhakan.agalarhack.AgalarHackClient;
 import me.mrhakan.agalarhack.managers.Settings;
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 
 public class Module {
-	protected final MinecraftClient mc = MinecraftClient.getInstance();
+	protected final Minecraft mc = Minecraft.getInstance();
 
 	private String name, displayName;
 	private String description;
@@ -28,7 +28,7 @@ public class Module {
 
 	public void registerSettings() {
 		settings.addSetting("enabled", false);
-		settings.addSetting("keybind", String.valueOf(GLFW.GLFW_KEY_UNKNOWN));
+		settings.addSetting("keybind", String.valueOf(InputConstants.UNKNOWN.getValue()));
 		selfSettings();
 	}
 
@@ -66,12 +66,12 @@ public class Module {
 	public int getKey() {
 		Object key = settings.getSetting("keybind");
 		if (key == null) {
-			return GLFW.GLFW_KEY_UNKNOWN;
+			return InputConstants.UNKNOWN.getValue();
 		}
 		try {
 			return (int) Double.parseDouble(key.toString());
 		} catch (NumberFormatException e) {
-			return GLFW.GLFW_KEY_UNKNOWN;
+			return InputConstants.UNKNOWN.getValue();
 		}
 	}
 

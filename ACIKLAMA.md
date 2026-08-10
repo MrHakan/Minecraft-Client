@@ -6,13 +6,13 @@ bakmadan projenin ne yaptığını, nasıl çalıştığını ve neyin eksik/kı
 olduğunu anlayabilmek.
 
 > Eski (1.12.2 / Forge) sürüm hâlâ `og` branch'inde duruyor ve ayrı bir
-> projedir; bu doküman sadece güncel Fabric/1.21.1 sürümünü kapsar.
+> projedir; bu doküman sadece güncel Fabric/26.2 sürümünü kapsar.
 
 ---
 
 ## 1. Proje ne yapıyor?
 
-**Agalar Hack**, Minecraft 1.21.1 için yazılmış, **Fabric** üzerinde çalışan,
+**Agalar Hack**, Minecraft 26.2 için yazılmış, **Fabric** üzerinde çalışan,
 client-side bir "utility mod" (anarşi sunucularında kullanılan, açılıp
 kapatılabilen hile/yardımcı özellik koleksiyonu — "hack client"). Kullanıcı
 oyun içinde sohbet kutusuna `.` ile başlayan komutlar yazarak modülleri
@@ -28,25 +28,51 @@ kendi istemcinizde çalışır. Bu yüzden `fabric.mod.json` içinde
 
 | Katman | Seçim |
 | --- | --- |
-| Oyun sürümü | Minecraft **1.21.1** |
-| Mod loader | **Fabric** (Fabric Loader 0.16.5) |
-| Build sistemi | **Fabric Loom** 1.7.4 (Gradle plugin'i) |
-| Mapping | **Yarn** 1.21.1+build.3 |
-| API | **Fabric API** 0.102.1+1.21.1 |
-| Dil / JDK | **Java 21** |
-| Build aracı | **Gradle 8.10** (wrapper ile) |
+| Oyun sürümü | Minecraft **26.2** |
+| Mod loader | **Fabric** (Fabric Loader 0.19.3) |
+| Build sistemi | **Fabric Loom** 1.17.19 (Gradle plugin'i) |
+| Mapping | **Mojang resmi mapping'leri** (Yarn değil — bkz. §2.1) |
+| API | **Fabric API** 0.157.0+26.2 |
+| Dil / JDK | **Java 25** |
+| Build aracı | **Gradle 9.5.1** (wrapper ile) |
 | Config formatı | JSON (Gson ile, Fabric'in kendi config dizininde) |
 
 Bu bilgiler `gradle.properties` dosyasında tutuluyor, yani sürüm
 güncellemesi gerektiğinde tek dosyayı değiştirmek yeterli:
 
 ```properties
-minecraft_version=1.21.1
-yarn_mappings=1.21.1+build.3
-loader_version=0.16.5
-fabric_version=0.102.1+1.21.1
+minecraft_version=26.2
+loader_version=0.19.3
+loom_version=1.17.19
+fabric_api_version=0.157.0+26.2
 mod_version=26.2
 ```
+
+### 2.1. Önemli: Yarn artık kullanılmıyor
+
+Minecraft 26.x ile birlikte Fabric, **Yarn mapping'lerini bıraktı** ve Mojang'ın
+kendi resmi mapping'leri üzerine geçti. Yarn'ın en son yayınlandığı sürüm
+1.21.11; 26.x için hiç Yarn build'i yok. Bunun pratik sonuçları:
+
+- `build.gradle` içinde artık **`mappings` bağımlılığı yok**.
+- Tüm Minecraft sınıf/metot isimleri değişti. Örnekler:
+
+| Eski (Yarn) | Yeni (Mojang) |
+| --- | --- |
+| `MinecraftClient` | `Minecraft` |
+| `ClientPlayerEntity` | `LocalPlayer` |
+| `Text` | `Component` |
+| `Formatting` | `ChatFormatting` |
+| `TextRenderer` | `Font` |
+| `Vec3d` | `Vec3` |
+| `Hand` | `InteractionHand` |
+| `InputUtil` | `InputConstants` |
+| `StatusEffects` / `StatusEffectInstance` | `MobEffects` / `MobEffectInstance` |
+| `mc.world` | `mc.level` |
+| `mc.interactionManager` | `mc.gameMode` |
+| `getVelocity()` / `setVelocity()` | `getDeltaMovement()` / `setDeltaMovement()` |
+| `isSneaking()` | `isShiftKeyDown()` |
+| `isTouchingWater()` | `isInWater()` |
 
 `build.gradle`, bu değişkenleri okuyup Loom'a bağımlılık olarak veriyor;
 ayrıca `processResources` adımı `fabric.mod.json` içindeki `${version}`
@@ -77,8 +103,9 @@ Bu metod başlangıçta dört şey yapıyor:
 4. **`ClientTickEvents.END_CLIENT_TICK`** olayına kayıt olur — her oyun
    tick'inin (saniyede 20 kez) sonunda `KeybindManager.tick()` ve
    `moduleManager.tick()` çalışır.
-5. **`HudRenderCallback.EVENT`** olayına kayıt olur — her karede
-   `Hud.render()` çağrılarak ekran üstü yazılar çizilir.
+5. **`HudElementRegistry.addLast(...)`** ile HUD'a bir `HudElement`
+   eklenir — 26.x'te `HudRenderCallback` kaldırıldı, yerine kayıtlı HUD
+   elemanları geldi (bkz. §7).
 
 Ayrıca burada modun sabitleri tanımlı:
 
@@ -122,8 +149,8 @@ Her özellik (Aura, Speed, Flight...) bu sınıftan türüyor. Sağladığı şe
 - **Yardımcı okuyucular**: `getNumberSetting(name, default)` ve
   `getBooleanSetting(name, default)` — ayar değerini tip güvenli şekilde
   okur, string olarak kaydedilmiş sayıları da tolere eder.
-- **`getKey()`**: kayıtlı `keybind` ayarını GLFW tuş koduna çevirir; ayar
-  yoksa veya bozuksa `GLFW_KEY_UNKNOWN` döner.
+- **`getKey()`**: kayıtlı `keybind` ayarını tuş koduna çevirir; ayar
+  yoksa veya bozuksa `InputConstants.UNKNOWN.getValue()` döner.
 
 `Module` **kendi başına hiçbir olaya kayıt olmuyor** — modüllerin
 tick'lenmesini `ModuleManager.tick()` yönetiyor (bkz. §4.3). Bu, eski
@@ -202,10 +229,11 @@ Aşağıdaki tablo her modülün davranışını **kod seviyesinde** özetliyor.
 
 - **Ne yapar**: Creative moddaki gibi uçma yeteneği verir.
 - **Ayar**: `speed` (varsayılan 0.1).
-- **Mantık**: her tick `abilities.allowFlying` ve `abilities.flying`'i
+- **Mantık**: her tick `abilities.mayfly` ve `abilities.flying`'i
   `true` yapar, uçuş hızını ayar değerine set eder. Kapatıldığında,
-  oyuncu **gerçekten creative modda değilse** uçuşu kapatır ve hızı
-  varsayılan `0.05f`'e döndürür (creative modda kapatırsa oyuncunun
+  oyuncu **gerçekten creative modda değilse** (`abilities.instabuild`)
+  uçuşu kapatır ve hızı varsayılan `0.05f`'e döndürür (creative modda
+  kapatırsa oyuncunun
   normal creative uçuşunu bozmamak için özel olarak korunuyor).
 
 #### Movement / Jesus
@@ -222,7 +250,7 @@ Aşağıdaki tablo her modülün davranışını **kod seviyesinde** özetliyor.
 
 - **Ne yapar**: İleri hareket ederken otomatik sprint (koşu) yapar.
 - **Ayar yok.**
-- **Mantık**: ileri hareket girdisi > 0, yatay çarpışma yok, sneak
+- **Mantık**: `input.hasForwardImpulse()` doğru, yatay çarpışma yok, sneak
   yapmıyor ve elinde aktif bir item kullanmıyorsa `setSprinting(true)`
   çağırır. Kapatılınca sprint'i kapatır.
 
@@ -232,7 +260,7 @@ Aşağıdaki tablo her modülün davranışını **kod seviyesinde** özetliyor.
 - **Ne yapar**: Zıplamadan tam blok yüksekliğinde engellerin üzerine
   çıkmayı sağlar ("step assist").
 - **Ayar**: `height` (varsayılan 1.0).
-- **Mantık**: 1.20.5+ ile gelen `GENERIC_STEP_HEIGHT` entity attribute'unu
+- **Mantık**: `Attributes.STEP_HEIGHT` entity attribute'unu
   kullanıyor — her tick bu attribute'un base değerini ayar değerine set
   ediyor. Kapatıldığında oyunun varsayılanı olan `0.6`'ya geri
   döndürüyor.
@@ -243,7 +271,8 @@ Aşağıdaki tablo her modülün davranışını **kod seviyesinde** özetliyor.
 - **Ne yapar**: Düşme hasarını engeller.
 - **Ayar yok.**
 - **Mantık**: `fallDistance > 2.0f` olduğunda sunucuya
-  `PlayerMoveC2SPacket.OnGroundOnly(true)` paketi gönderir — yani
+  `ServerboundMovePlayerPacket.StatusOnly(true, horizontalCollision)`
+  paketi gönderir — yani
   istemci sunucuya "ben zaten yerdeyim" diyerek düşme hasarı
   hesaplamasını (sunucu tarafında) atlatmaya çalışır. Bu **sunucuya
   bağımlı bir teknik**: anti-cheat'i olan sunucularda paket incelemesiyle
@@ -372,7 +401,7 @@ alt sınıfların "yanlış kullanım" durumunda çağırdığı ortak bir yard�
 | `Help` | `h`, `?` | `.help` | Mod adı+sürümünü ve kayıtlı tüm komutların kullanım/açıklamasını sohbete yazar. |
 | `Modules` | `list`, `mods` | `.modules` | Her kategori için, o kategorideki modülleri açık (yeşil) / kapalı (kırmızı) renkte listeler. Boş kategoriler atlanır. |
 | `Toggle` | `t` | `.toggle <modül>` | İsimle modül bulur, `toggle()` çağırır, yeni durumu (ON/OFF) bildirir. Modül bulunamazsa hata mesajı. |
-| `Bind` | `b` | `.bind <modül> <tuş\|none>` | Modülü bir GLFW tuşuna bağlar. `none` yazılırsa bağı kaldırır. Tuş adı `InputUtil.fromTranslationKey("key.keyboard." + ad)` ile çözülür — yani vanilla'nın tuş isimlerini kullanır (`r`, `g`, `f4`, `left.shift` gibi). Geçersiz tuş adı girilirse örnekli bir hata mesajı gösterilir. |
+| `Bind` | `b` | `.bind <modül> <tuş\|none>` | Modülü bir tuşa bağlar. `none` yazılırsa bağı kaldırır. Tuş adı `InputConstants.getKey("key.keyboard." + ad)` ile çözülür — yani vanilla'nın tuş isimlerini kullanır (`r`, `g`, `f4`, `left.shift` gibi). Geçersiz tuş adı girilirse örnekli bir hata mesajı gösterilir. |
 | `Set` | `setting` | `.set <modül> <ayar> <değer>` | Modülün bir ayarını değiştirir. `enabled` ve `keybind` bu komuttan **hariç tutulmuş** (onlar `.toggle`/`.bind` ile yönetiliyor). Ayar bulunamazsa modülün mevcut ayarlarını listeler. Değer tipi mevcut değerin tipine göre otomatik dönüştürülür (Boolean → `parseBoolean`, Number → `parseDouble`, aksi halde ham string). |
 
 ### 6.4. `KeybindManager` — tuş algılama
@@ -381,8 +410,9 @@ alt sınıfların "yanlış kullanım" durumunda çağırdığı ortak bir yard�
 
 - Her tick çalışır (bkz. `AgalarHackClient.onInitializeClient`), fakat
   bir **GUI ekranı açıksa** (envanter, chat kutusu, menü vs.) hiçbir şey
-  yapmaz — `client.currentScreen != null` kontrolü.
-- Her modül için `getKey()` ile atanmış tuşu okur; `GLFW_KEY_UNKNOWN` ise
+  yapmaz — `client.gui.screen() != null` kontrolü (26.x'te `screen`
+  alanı `Minecraft`'tan `Gui`'ye taşındı).
+- Her modül için `getKey()` ile atanmış tuşu okur; tuş atanmamışsa
   atlar.
 - **Basma kenarı (press-edge) algılama**: `lastPressed` map'i ile bir
   önceki tick'te tuşun basılı olup olmadığını hatırlar. Tuş şu an basılı
@@ -397,7 +427,7 @@ alt sınıfların "yanlış kullanım" durumunda çağırdığı ortak bir yard�
 
 `src/main/java/me/mrhakan/agalarhack/ui/Hud.java`
 
-`HudRenderCallback.EVENT`'e kayıtlı `render(DrawContext, RenderTickCounter)`
+`HudElementRegistry`'ye kayıtlı `extractRenderState(GuiGraphicsExtractor, DeltaTracker)`
 statik metodu her karede çalışır:
 
 1. Oyuncu yoksa (menüdeyken, dünya yüklenmemişken) hiçbir şey çizmez.
@@ -422,8 +452,8 @@ statik metodu her karede çalışır:
 - **`src/main/resources/fabric.mod.json`**: Fabric'in mod tanım dosyası.
   `id`, `name`, `description`, `authors`, `license` (`All-Rights-Reserved`),
   `icon`, `environment: client`, entrypoint ve bağımlılık kısıtları
-  (`fabricloader >=0.16.0`, `fabric-api`, `minecraft ~1.21.1`,
-  `java >=21`) burada.
+  (`fabricloader >=0.19.3`, `fabric-api`, `minecraft ~26.2`,
+  `java >=25`) burada.
 - **`src/main/resources/assets/agalarhack/icon.png`**: mod ikonu (Fabric
   mod listesinde görünen resim).
 
@@ -440,13 +470,13 @@ statik metodu her karede çalışır:
   Fabric API — hepsi `gradle.properties`'teki sürüm değişkenlerinden.
 - `processResources`: `fabric.mod.json` içindeki `${version}` yer
   tutucusunu gerçek sürümle değiştirir.
-- Java 21 hedefleniyor (`sourceCompatibility`/`targetCompatibility`/
+- Java 25 hedefleniyor (`sourceCompatibility`/`targetCompatibility`/
   `options.release`), ayrıca `withSourcesJar()` ile kaynak jar'ı da
   otomatik üretiliyor (`-sources.jar`).
 
 ### 9.2. Gradle wrapper
 
-`gradle/wrapper/gradle-wrapper.properties` → Gradle **8.10**. `gradlew`
+`gradle/wrapper/gradle-wrapper.properties` → Gradle **9.5.1**. `gradlew`
 dosyası executable bit'e sahip (bir önceki değişiklikte düzeltildi).
 
 ### 9.3. Build/çalıştırma komutları
@@ -466,7 +496,7 @@ dosyası executable bit'e sahip (bir önceki değişiklikte düzeltildi).
 
 - **Tetikleyici**: `main`'e push, `main`'e açılan PR, manuel
   (`workflow_dispatch`).
-- **Adımlar**: checkout → JDK 21 kurulumu → Gradle setup → `gradlew`'i
+- **Adımlar**: checkout → JDK 25 kurulumu → Gradle setup → `gradlew`'i
   executable yap → `./gradlew build --stacktrace` → `gradle.properties`
   içinden `mod_version`'ı oku → jar'ları (`*.jar`, sources hariç) artifact
   olarak yükle.
@@ -488,7 +518,7 @@ dosyası executable bit'e sahip (bir önceki değişiklikte düzeltildi).
 
 - **Tetikleyici**: sadece **`v*` deseniyle eşleşen bir tag push
   edildiğinde** (`git tag v26.2 && git push origin v26.2`).
-- **Adımlar**: checkout (tam geçmişle, `fetch-depth: 0`) → JDK 21 →
+- **Adımlar**: checkout (tam geçmişle, `fetch-depth: 0`) → JDK 25 →
   Gradle setup → build → `softprops/action-gh-release@v2` ile **resmi,
   temiz bir release** yayınlar:
   - `generate_release_notes: true` — GitHub otomatik changelog üretir
@@ -584,7 +614,7 @@ sonuçları — ileride genişletilebilecek noktalar:
 ## 13. Branch durumu
 
 - **`claude/modules-commands-v26.2-usu5v6`** (bu dosyanın ait olduğu
-  branch): güncel Fabric/1.21.1 client. Aktif geliştirme burada.
+  branch): güncel Fabric/26.2 client. Aktif geliştirme burada.
 - **`og`**: orijinal 1.12.2/Forge client, olduğu gibi korunuyor,
   geliştirilmiyor — sadece referans/nostalji amaçlı.
 - **`main`**: repo'nun varsayılan branch'i; CI/Release workflow'ları
