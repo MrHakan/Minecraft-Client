@@ -7,32 +7,34 @@ import java.util.List;
 
 import me.mrhakan.agalarhack.AgalarHackClient;
 import me.mrhakan.agalarhack.module.Module;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.render.RenderTickCounter;
+import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElement;
+import net.minecraft.client.DeltaTracker;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 
-public class Hud {
+public class Hud implements HudElement {
 
 	public static class ModuleComparator implements Comparator<Module> {
 
 		@Override
 		public int compare(Module arg0, Module arg1) {
-			TextRenderer tr = MinecraftClient.getInstance().textRenderer;
-			return Integer.compare(tr.getWidth(arg1.getName()), tr.getWidth(arg0.getName()));
+			Font font = Minecraft.getInstance().font;
+			return Integer.compare(font.width(arg1.getName()), font.width(arg0.getName()));
 		}
 	}
 
-	public static void render(DrawContext context, RenderTickCounter tickCounter) {
-		MinecraftClient mc = MinecraftClient.getInstance();
+	@Override
+	public void extractRenderState(GuiGraphicsExtractor extractor, DeltaTracker deltaTracker) {
+		Minecraft mc = Minecraft.getInstance();
 		if (mc.player == null || AgalarHackClient.moduleManager == null) {
 			return;
 		}
-		TextRenderer tr = mc.textRenderer;
+		Font font = mc.font;
 
 		//client name + version
-		context.drawTextWithShadow(tr, AgalarHackClient.NAME, 2, 2, rainbow(0));
-		context.drawTextWithShadow(tr, AgalarHackClient.VERSION, tr.getWidth(AgalarHackClient.NAME) + 6, 2, 0xFFFFFACD);
+		extractor.text(font, AgalarHackClient.NAME, 2, 2, rainbow(0), true);
+		extractor.text(font, AgalarHackClient.VERSION, font.width(AgalarHackClient.NAME) + 6, 2, 0xFFFFFACD, true);
 
 		//arraylist of enabled modules, widest first
 		List<Module> enabled = new ArrayList<>();
@@ -43,12 +45,12 @@ public class Hud {
 		}
 		enabled.sort(new ModuleComparator());
 
-		int screenWidth = context.getScaledWindowWidth();
+		int screenWidth = extractor.guiWidth();
 		int y = 2;
 		int counter = 1;
 		for (Module mod : enabled) {
-			context.drawTextWithShadow(tr, mod.getName(), screenWidth - tr.getWidth(mod.getName()) - 2, y, rainbow(counter * 300));
-			y += tr.fontHeight;
+			extractor.text(font, mod.getName(), screenWidth - font.width(mod.getName()) - 2, y, rainbow(counter * 300), true);
+			y += font.lineHeight;
 			counter++;
 		}
 	}

@@ -8,7 +8,8 @@ import me.mrhakan.agalarhack.ui.Hud;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.message.v1.ClientSendMessageEvents;
-import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
+import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
+import net.minecraft.resources.Identifier;
 
 public class AgalarHackClient implements ClientModInitializer {
 
@@ -32,6 +33,6 @@ public class AgalarHackClient implements ClientModInitializer {
 			moduleManager.tick(client);
 		});
 
-		HudRenderCallback.EVENT.register(Hud::render);
+		HudElementRegistry.addLast(Identifier.fromNamespaceAndPath(MOD_ID, "hud"), new Hud());
 	}
 }

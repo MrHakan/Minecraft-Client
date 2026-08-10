@@ -18,19 +18,19 @@ public class Flight extends Module {
 
 	@Override
 	public void onUpdate() {
-		mc.player.getAbilities().allowFlying = true;
+		mc.player.getAbilities().mayfly = true;
 		mc.player.getAbilities().flying = true;
-		mc.player.getAbilities().setFlySpeed((float) getNumberSetting("speed", 0.1));
+		mc.player.getAbilities().setFlyingSpeed((float) getNumberSetting("speed", 0.1));
 	}
 
 	@Override
 	public void onDisable() {
 		if (mc.player != null) {
-			if (!mc.player.getAbilities().creativeMode) {
-				mc.player.getAbilities().allowFlying = false;
+			if (!mc.player.getAbilities().instabuild) {
+				mc.player.getAbilities().mayfly = false;
 				mc.player.getAbilities().flying = false;
 			}
-			mc.player.getAbilities().setFlySpeed(DEFAULT_FLY_SPEED);
+			mc.player.getAbilities().setFlyingSpeed(DEFAULT_FLY_SPEED);
 		}
 	}
 }

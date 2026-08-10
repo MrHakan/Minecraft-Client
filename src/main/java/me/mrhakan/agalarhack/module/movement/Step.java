@@ -2,8 +2,8 @@ package me.mrhakan.agalarhack.module.movement;
 
 import me.mrhakan.agalarhack.module.Category;
 import me.mrhakan.agalarhack.module.Module;
-import net.minecraft.entity.attribute.EntityAttributeInstance;
-import net.minecraft.entity.attribute.EntityAttributes;
+import net.minecraft.world.entity.ai.attributes.AttributeInstance;
+import net.minecraft.world.entity.ai.attributes.Attributes;
 
 public class Step extends Module {
 
@@ -20,7 +20,7 @@ public class Step extends Module {
 
 	@Override
 	public void onUpdate() {
-		EntityAttributeInstance stepHeight = mc.player.getAttributeInstance(EntityAttributes.GENERIC_STEP_HEIGHT);
+		AttributeInstance stepHeight = mc.player.getAttribute(Attributes.STEP_HEIGHT);
 		if (stepHeight != null) {
 			stepHeight.setBaseValue(getNumberSetting("height", 1.0));
 		}
@@ -29,7 +29,7 @@ public class Step extends Module {
 	@Override
 	public void onDisable() {
 		if (mc.player != null) {
-			EntityAttributeInstance stepHeight = mc.player.getAttributeInstance(EntityAttributes.GENERIC_STEP_HEIGHT);
+			AttributeInstance stepHeight = mc.player.getAttribute(Attributes.STEP_HEIGHT);
 			if (stepHeight != null) {
 				stepHeight.setBaseValue(DEFAULT_STEP_HEIGHT);
 			}

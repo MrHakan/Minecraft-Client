@@ -2,12 +2,12 @@
 
 # Agalar Hack
 
-**An anarchy utility mod for Minecraft 1.21.1 (Fabric).**
+**An anarchy utility mod for Minecraft 26.2 (Fabric).**
 
 [![Downloads](https://img.shields.io/github/downloads/MrHakan/Agalar-Hack/total?style=for-the-badge&logo=github&color=e94b4b)](https://github.com/MrHakan/Minecraft-Client/releases)
 [![Latest release](https://img.shields.io/github/v/release/MrHakan/Minecraft-Client?style=for-the-badge&color=4bb1e9)](https://github.com/MrHakan/Minecraft-Client/releases/latest)
 [![Build](https://img.shields.io/github/actions/workflow/status/MrHakan/Minecraft-Client/build.yml?style=for-the-badge&logo=gradle&label=build)](https://github.com/MrHakan/Minecraft-Client/actions/workflows/build.yml)
-[![Minecraft](https://img.shields.io/badge/Minecraft-1.21.1-62b132?style=for-the-badge&logo=minecraft&logoColor=white)](https://fabricmc.net/use/)
+[![Minecraft](https://img.shields.io/badge/Minecraft-26.2-62b132?style=for-the-badge&logo=minecraft&logoColor=white)](https://fabricmc.net/use/)
 
 </div>
 
@@ -20,16 +20,16 @@
 
 | Dependency | Version |
 | --- | --- |
-| Minecraft | **1.21.1** |
-| [Fabric Loader](https://fabricmc.net/use/) | 0.16 or newer |
-| [Fabric API](https://modrinth.com/mod/fabric-api) | latest for 1.21.1 |
-| Java | 21 |
+| Minecraft | **26.2** |
+| [Fabric Loader](https://fabricmc.net/use/) | 0.19.3 or newer |
+| [Fabric API](https://modrinth.com/mod/fabric-api) | 0.157.0+26.2 or newer |
+| Java | 25 |
 
 ## Installation
 
-1. Install [Fabric Loader](https://fabricmc.net/use/) for **Minecraft 1.21.1**.
+1. Install [Fabric Loader](https://fabricmc.net/use/) for **Minecraft 26.2**.
 2. Download the latest `agalarhack-*.jar` from the [Releases page](https://github.com/MrHakan/Minecraft-Client/releases).
-3. Also download [Fabric API](https://modrinth.com/mod/fabric-api) for 1.21.1.
+3. Also download [Fabric API](https://modrinth.com/mod/fabric-api) for 26.2.
 4. Drop both jars into your `.minecraft/mods/` folder.
 5. Launch the Fabric profile — you should see **Agalar Hack 26.2** in the top-left of the HUD.
 
@@ -63,7 +63,7 @@ Enabled modules, keybinds, and per-module settings are saved to
 
 ## Building from source
 
-Requires Java 21.
+Requires Java 25.
 
 ```sh
 ./gradlew build

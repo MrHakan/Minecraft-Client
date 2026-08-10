@@ -4,7 +4,7 @@ import me.mrhakan.agalarhack.AgalarHackClient;
 import me.mrhakan.agalarhack.commands.Command;
 import me.mrhakan.agalarhack.managers.CommandManager;
 import me.mrhakan.agalarhack.managers.MessageManager;
-import net.minecraft.util.Formatting;
+import net.minecraft.ChatFormatting;
 
 public class Help extends Command {
     public Help() {
@@ -13,9 +13,9 @@ public class Help extends Command {
 
     @Override
     public void onCommand(String[] args) {
-        MessageManager.sendMessagePrefix(Formatting.WHITE + "" + Formatting.BOLD + AgalarHackClient.NAME + " " + AgalarHackClient.VERSION + Formatting.RESET + Formatting.GRAY + " - commands:");
+        MessageManager.sendMessagePrefix(ChatFormatting.WHITE + "" + ChatFormatting.BOLD + AgalarHackClient.NAME + " " + AgalarHackClient.VERSION + ChatFormatting.RESET + ChatFormatting.GRAY + " - commands:");
         for (Command command : CommandManager.commands) {
-            MessageManager.sendRawMessage(Formatting.GRAY + " > " + Formatting.AQUA + AgalarHackClient.prefix + command.getUsage() + Formatting.GRAY + " - " + Formatting.WHITE + command.getDescription());
+            MessageManager.sendRawMessage(ChatFormatting.GRAY + " > " + ChatFormatting.AQUA + AgalarHackClient.prefix + command.getUsage() + ChatFormatting.GRAY + " - " + ChatFormatting.WHITE + command.getDescription());
         }
     }
 }
