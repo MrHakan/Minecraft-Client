@@ -74,12 +74,7 @@ public class ModuleManager {
 			} catch (RuntimeException e) {
 				System.err.println("[Agalar Hack] Disabling module after tick failure: " + module.getName());
 				e.printStackTrace();
-				try {
-					module.setToggled(false, false);
-				} catch (RuntimeException disableError) {
-					System.err.println("[Agalar Hack] Module cleanup also failed: " + module.getName());
-					disableError.printStackTrace();
-				}
+				forceDisable(module);
 				stateChanged = true;
 			}
 		}
@@ -133,17 +128,20 @@ public class ModuleManager {
 	}
 
 	/**
-	 * Disables all active modules and persists the resulting state once.
+	 * Disables all active modules and persists the resulting state once. Cleanup
+	 * errors are isolated per module so one broken module cannot prevent the rest
+	 * of the panic shutdown from completing.
 	 *
-	 * @return number of modules that were disabled
+	 * @return number of modules that were active
 	 */
 	public int disableAll() {
 		int disabled = 0;
 		for (Module module : modules) {
-			if (module.isToggled()) {
-				module.setToggled(false, false);
-				disabled++;
+			if (!module.isToggled()) {
+				continue;
 			}
+			disabled++;
+			forceDisable(module);
 		}
 		if (disabled > 0) {
 			AgalarHackClient.SETTINGS_MANAGER.updateSettings();
@@ -155,23 +153,40 @@ public class ModuleManager {
 		AgalarHackClient.SETTINGS_MANAGER.loadSettings();
 
 		// Restore enabled states without rewriting the complete config after
-		// every individual module. SettingsManager already persisted the merged
-		// defaults once during loadSettings().
+		// every individual module. A module that cannot initialize is forced back
+		// to disabled state so it cannot remain half-enabled for the session.
 		boolean changed = false;
 		for (Module module : modules) {
-			if (Boolean.TRUE.equals(module.settings.getSetting("enabled")) && !module.isToggled()) {
-				try {
-					module.setToggled(true, false);
-				} catch (RuntimeException e) {
-					System.err.println("[Agalar Hack] Could not restore enabled module: " + module.getName());
-					e.printStackTrace();
-					module.settings.setSetting("enabled", false);
-					changed = true;
-				}
+			if (!Boolean.TRUE.equals(module.settings.getSetting("enabled")) || module.isToggled()) {
+				continue;
+			}
+			try {
+				module.setToggled(true, false);
+			} catch (RuntimeException e) {
+				System.err.println("[Agalar Hack] Could not restore enabled module: " + module.getName());
+				e.printStackTrace();
+				forceDisable(module);
+				changed = true;
 			}
 		}
 		if (changed) {
 			AgalarHackClient.SETTINGS_MANAGER.updateSettings();
+		}
+	}
+
+	private void forceDisable(Module module) {
+		try {
+			if (module.isToggled()) {
+				module.setToggled(false, false);
+			} else {
+				module.settings.setSetting("enabled", false);
+			}
+		} catch (RuntimeException disableError) {
+			// setToggled changes the boolean before invoking onDisable(), so even
+			// when cleanup throws the module is already inactive. Persist that fact.
+			module.settings.setSetting("enabled", false);
+			System.err.println("[Agalar Hack] Module cleanup failed: " + module.getName());
+			disableError.printStackTrace();
 		}
 	}
 
