@@ -14,16 +14,19 @@ public class Freecam extends Module {
     private ArmorStand camera;
     private Entity previousCamera;
     private Vec3 playerAnchor;
+    private Vec3 cameraTarget;
 
     public Freecam() {
-        super("Freecam", Category.RENDER, "Detaches the camera so you can look around without moving the real player");
+        super("Freecam", Category.RENDER, "Detaches and smoothly moves the camera without moving the real player");
     }
 
     @Override
     public void selfSettings() {
         addNumberSetting("speed", 0.65, 0.05, 3.0, "Camera movement speed per tick");
         addNumberSetting("sprintMultiplier", 2.5, 1.0, 8.0, "Speed multiplier while the sprint key is held");
+        addNumberSetting("smoothing", 0.45, 0.05, 1.0, "Position interpolation; 1 is immediate and lower values are smoother");
         addBooleanSetting("freezePlayer", true, "Keep the real player's position anchored while freecam is active");
+        addBooleanSetting("bodyMarker", true, "Draw a marker around the real player body while the camera is detached");
     }
 
     @Override
@@ -33,6 +36,7 @@ public class Freecam extends Module {
         }
         previousCamera = mc.getCameraEntity();
         playerAnchor = new Vec3(mc.player.getX(), mc.player.getY(), mc.player.getZ());
+        cameraTarget = playerAnchor;
         camera = new ArmorStand(mc.level, mc.player.getX(), mc.player.getY(), mc.player.getZ());
         camera.setInvisible(true);
         camera.setNoGravity(true);
@@ -72,10 +76,26 @@ public class Freecam extends Module {
             speed *= getNumberSetting("sprintMultiplier", 2.5);
         }
 
+        if (cameraTarget == null) {
+            cameraTarget = new Vec3(camera.getX(), camera.getY(), camera.getZ());
+        }
         double yaw = Math.toRadians(camera.getYRot());
         double dx = (-Math.sin(yaw) * forward + Math.cos(yaw) * strafe) * speed;
         double dz = (Math.cos(yaw) * forward + Math.sin(yaw) * strafe) * speed;
-        camera.setPos(camera.getX() + dx, camera.getY() + vertical * speed, camera.getZ() + dz);
+        cameraTarget = cameraTarget.add(dx, vertical * speed, dz);
+
+        double smoothing = getNumberSetting("smoothing", 0.45);
+        Vec3 current = new Vec3(camera.getX(), camera.getY(), camera.getZ());
+        Vec3 next = current.lerp(cameraTarget, smoothing);
+        camera.setPos(next.x, next.y, next.z);
+    }
+
+    public Vec3 getBodyAnchor() {
+        return playerAnchor;
+    }
+
+    public boolean shouldRenderBodyMarker() {
+        return isToggled() && getBooleanSetting("bodyMarker", true) && playerAnchor != null;
     }
 
     @Override
@@ -86,6 +106,7 @@ public class Freecam extends Module {
         camera = null;
         previousCamera = null;
         playerAnchor = null;
+        cameraTarget = null;
     }
 
     @Override
