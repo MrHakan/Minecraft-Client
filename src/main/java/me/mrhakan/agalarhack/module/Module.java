@@ -85,6 +85,18 @@ public class Module {
 		settings = newSettings;
 	}
 
+	protected void addBooleanSetting(String name, boolean defaultValue, String description) {
+		settings.addBooleanSetting(name, defaultValue, description);
+	}
+
+	protected void addNumberSetting(String name, double defaultValue, double min, double max, String description) {
+		settings.addNumberSetting(name, defaultValue, min, max, description);
+	}
+
+	protected void addChoiceSetting(String name, String defaultValue, String description, String... choices) {
+		settings.addChoiceSetting(name, defaultValue, description, choices);
+	}
+
 	public int getKey() {
 		Object key = settings.getSetting("keybind");
 		if (key == null) {
@@ -100,11 +112,13 @@ public class Module {
 	public double getNumberSetting(String settingName, double defaultValue) {
 		Object value = settings.getSetting(settingName);
 		if (value instanceof Number) {
-			return ((Number) value).doubleValue();
+			double parsed = ((Number) value).doubleValue();
+			return Double.isFinite(parsed) ? parsed : defaultValue;
 		}
 		if (value != null) {
 			try {
-				return Double.parseDouble(value.toString());
+				double parsed = Double.parseDouble(value.toString());
+				return Double.isFinite(parsed) ? parsed : defaultValue;
 			} catch (NumberFormatException ignored) {
 			}
 		}
@@ -117,9 +131,20 @@ public class Module {
 			return (Boolean) value;
 		}
 		if (value != null) {
-			return Boolean.parseBoolean(value.toString());
+			String raw = value.toString();
+			if (raw.equalsIgnoreCase("true") || raw.equalsIgnoreCase("on")) {
+				return true;
+			}
+			if (raw.equalsIgnoreCase("false") || raw.equalsIgnoreCase("off")) {
+				return false;
+			}
 		}
 		return defaultValue;
+	}
+
+	public String getStringSetting(String settingName, String defaultValue) {
+		Object value = settings.getSetting(settingName);
+		return value == null ? defaultValue : value.toString();
 	}
 
 	public String getName() {
