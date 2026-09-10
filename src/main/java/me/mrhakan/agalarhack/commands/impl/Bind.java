@@ -1,5 +1,7 @@
 package me.mrhakan.agalarhack.commands.impl;
 
+import java.util.Locale;
+
 import com.mojang.blaze3d.platform.InputConstants;
 
 import me.mrhakan.agalarhack.AgalarHackClient;
@@ -25,7 +27,7 @@ public class Bind extends Command {
             return;
         }
 
-        String keyName = args[2].toLowerCase();
+        String keyName = args[2].toLowerCase(Locale.ROOT);
         if (keyName.equals("none")) {
             module.settings.setSetting("keybind", String.valueOf(InputConstants.UNKNOWN.getValue()));
             AgalarHackClient.SETTINGS_MANAGER.updateSettings();
