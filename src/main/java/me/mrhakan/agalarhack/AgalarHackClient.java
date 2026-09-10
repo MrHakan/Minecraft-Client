@@ -10,6 +10,7 @@ import me.mrhakan.agalarhack.managers.ProfileManager;
 import me.mrhakan.agalarhack.managers.SettingsManager;
 import me.mrhakan.agalarhack.managers.TargetPolicyManager;
 import me.mrhakan.agalarhack.managers.TargetTracker;
+import me.mrhakan.agalarhack.managers.UtilityActionManager;
 import me.mrhakan.agalarhack.ui.ClickGuiScreen;
 import me.mrhakan.agalarhack.ui.Hud;
 import me.mrhakan.agalarhack.ui.HudEditorScreen;
@@ -43,6 +44,7 @@ public class AgalarHackClient implements ClientModInitializer {
     public static final TargetPolicyManager TARGET_POLICY = new TargetPolicyManager();
     public static final TargetTracker TARGET_TRACKER = new TargetTracker();
     public static final ProfileManager PROFILES = new ProfileManager();
+    public static final UtilityActionManager UTILITY_ACTIONS = new UtilityActionManager();
 
     private static final KeyMapping.Category KEY_CATEGORY = KeyMapping.Category.register(
             Identifier.fromNamespaceAndPath(MOD_ID, "client"));
@@ -72,6 +74,7 @@ public class AgalarHackClient implements ClientModInitializer {
         });
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            UTILITY_ACTIONS.beginTick();
             PROFILES.tick(client);
             KeybindManager.tick(client);
             moduleManager.tick(client);
