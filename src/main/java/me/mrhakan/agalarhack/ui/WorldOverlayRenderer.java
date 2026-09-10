@@ -8,10 +8,14 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import me.mrhakan.agalarhack.AgalarHackClient;
 import me.mrhakan.agalarhack.module.Module;
+import me.mrhakan.agalarhack.module.render.BlockESP;
 import me.mrhakan.agalarhack.module.render.Freecam;
+import me.mrhakan.agalarhack.module.render.StorageESP;
 import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.rendertype.RenderTypes;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.Style;
 import net.minecraft.network.chat.TextColor;
@@ -43,11 +47,17 @@ public final class WorldOverlayRenderer {
         Module esp = AgalarHackClient.moduleManager.getModule("ESP");
         Module trajectories = AgalarHackClient.moduleManager.getModule("Trajectories");
         Module freecamModule = AgalarHackClient.moduleManager.getModule("Freecam");
+        Module storageModule = AgalarHackClient.moduleManager.getModule("StorageESP");
+        Module blockModule = AgalarHackClient.moduleManager.getModule("BlockESP");
         Freecam freecam = freecamModule instanceof Freecam f ? f : null;
+        StorageESP storage = storageModule instanceof StorageESP s ? s : null;
+        BlockESP blockEsp = blockModule instanceof BlockESP b ? b : null;
         boolean espEnabled = esp != null && esp.isToggled();
         boolean trajectoriesEnabled = trajectories != null && trajectories.isToggled();
+        boolean storageEnabled = storage != null && storage.isToggled();
+        boolean blockEnabled = blockEsp != null && blockEsp.isToggled();
         boolean bodyMarker = freecam != null && freecam.shouldRenderBodyMarker();
-        if (!espEnabled && !trajectoriesEnabled && !bodyMarker) {
+        if (!espEnabled && !trajectoriesEnabled && !storageEnabled && !blockEnabled && !bodyMarker) {
             return;
         }
 
@@ -57,10 +67,19 @@ public final class WorldOverlayRenderer {
         if (espEnabled && esp.getBooleanSetting("labels", true)) {
             renderEspLabels(ctx, mc, esp, espTargets, camera);
         }
+        if (storageEnabled && storage.getBooleanSetting("labels", false)) {
+            renderStorageLabels(ctx, mc, storage, camera);
+        }
 
         ctx.submitNodeCollector().submitCustomGeometry(ctx.poseStack(), RenderTypes.lines(), (pose, buffer) -> {
             if (espEnabled) {
                 renderEspGeometry(mc, esp, espTargets, camera, pose, buffer);
+            }
+            if (storageEnabled) {
+                renderStorageEsp(mc, storage, camera, pose, buffer);
+            }
+            if (blockEnabled) {
+                renderBlockEsp(mc, blockEsp, camera, pose, buffer);
             }
             if (trajectoriesEnabled) {
                 renderTrajectory(mc, trajectories, camera, pose, buffer);
@@ -195,12 +214,116 @@ public final class WorldOverlayRenderer {
         return Math.max(0.0, Math.min(1.0, 1.0 - (distance - fadeStart) / (range - fadeStart)));
     }
 
-    private static int dimRgb(int rgb, double factor) {
-        factor = Math.max(0.0, Math.min(1.0, factor));
-        int r = (int) Math.round(((rgb >> 16) & 0xFF) * factor);
-        int g = (int) Math.round(((rgb >> 8) & 0xFF) * factor);
-        int b = (int) Math.round((rgb & 0xFF) * factor);
-        return (r << 16) | (g << 8) | b;
+    private static void renderStorageEsp(Minecraft mc, StorageESP module, Vec3 camera,
+            PoseStack.Pose pose, VertexConsumer buffer) {
+        double range = module.getNumberSetting("range", 64.0);
+        for (BlockPos pos : module.getCachedPositions()) {
+            String id = blockId(mc, pos);
+            if (!module.matches(id)) {
+                continue;
+            }
+            double distance = blockDistance(mc, pos);
+            int alpha = fadedAlpha(module.getNumberSetting("alpha", 220.0), distance, range,
+                    module.getBooleanSetting("distanceFade", true));
+            int rgb = storageRgb(id);
+            AABB block = new AABB(pos.getX(), pos.getY(), pos.getZ(), pos.getX() + 1.0, pos.getY() + 1.0, pos.getZ() + 1.0)
+                    .inflate(0.02).move(-camera.x, -camera.y, -camera.z);
+            box(buffer, pose, block, (alpha << 24) | rgb);
+        }
+    }
+
+    private static void renderStorageLabels(LevelRenderContext ctx, Minecraft mc, StorageESP module, Vec3 camera) {
+        PoseStack stack = ctx.poseStack();
+        for (BlockPos pos : module.getCachedPositions()) {
+            String id = blockId(mc, pos);
+            if (!module.matches(id)) {
+                continue;
+            }
+            int rgb = storageRgb(id);
+            stack.pushPose();
+            stack.translate(pos.getX() + 0.5 - camera.x, pos.getY() + 0.5 - camera.y, pos.getZ() + 0.5 - camera.z);
+            ctx.submitNodeCollector().submitNameTag(
+                    stack,
+                    new Vec3(0.0, 0.8, 0.0),
+                    0,
+                    Component.literal(prettyBlockName(id)).withStyle(Style.EMPTY.withColor(TextColor.fromRgb(rgb))),
+                    true,
+                    LightCoordsUtil.FULL_BRIGHT,
+                    ctx.levelState().cameraRenderState);
+            stack.popPose();
+        }
+    }
+
+    private static void renderBlockEsp(Minecraft mc, BlockESP module, Vec3 camera,
+            PoseStack.Pose pose, VertexConsumer buffer) {
+        double range = module.getNumberSetting("horizontalRange", 24.0);
+        int rgb = rgb(module.getNumberSetting("red", 255.0), module.getNumberSetting("green", 100.0),
+                module.getNumberSetting("blue", 220.0));
+        for (BlockPos pos : module.getMatches()) {
+            String id = blockId(mc, pos);
+            if (!module.matches(id)) {
+                continue;
+            }
+            double distance = blockDistance(mc, pos);
+            int alpha = fadedAlpha(module.getNumberSetting("alpha", 220.0), distance, range,
+                    module.getBooleanSetting("distanceFade", true));
+            AABB block = new AABB(pos.getX(), pos.getY(), pos.getZ(), pos.getX() + 1.0, pos.getY() + 1.0, pos.getZ() + 1.0)
+                    .inflate(0.015).move(-camera.x, -camera.y, -camera.z);
+            box(buffer, pose, block, (alpha << 24) | rgb);
+        }
+    }
+
+    private static String blockId(Minecraft mc, BlockPos pos) {
+        return BuiltInRegistries.BLOCK.getKey(mc.level.getBlockState(pos).getBlock()).toString();
+    }
+
+    private static double blockDistance(Minecraft mc, BlockPos pos) {
+        double dx = pos.getX() + 0.5 - mc.player.getX();
+        double dy = pos.getY() + 0.5 - mc.player.getY();
+        double dz = pos.getZ() + 0.5 - mc.player.getZ();
+        return Math.sqrt(dx * dx + dy * dy + dz * dz);
+    }
+
+    private static int fadedAlpha(double alphaSetting, double distance, double range, boolean enabled) {
+        int alpha = clampChannel(alphaSetting);
+        if (!enabled || range <= 0.0) {
+            return alpha;
+        }
+        double factor = Math.max(0.18, Math.min(1.0, 1.0 - distance / range));
+        return Math.max(24, Math.min(255, (int) Math.round(alpha * factor)));
+    }
+
+    private static int storageRgb(String id) {
+        if (id.endsWith(":ender_chest")) {
+            return 0xAA55FF;
+        }
+        if (id.endsWith("_shulker_box")) {
+            return 0xFF55FF;
+        }
+        if (id.endsWith(":barrel")) {
+            return 0xD89A55;
+        }
+        if (StorageESP.isUtilityStorage(id)) {
+            return 0x55CCFF;
+        }
+        return 0xFFAA33;
+    }
+
+    private static String prettyBlockName(String id) {
+        int separator = id.indexOf(':');
+        String path = separator >= 0 ? id.substring(separator + 1) : id;
+        String[] words = path.split("_");
+        StringBuilder out = new StringBuilder();
+        for (String word : words) {
+            if (word.isEmpty()) {
+                continue;
+            }
+            if (!out.isEmpty()) {
+                out.append(' ');
+            }
+            out.append(Character.toUpperCase(word.charAt(0))).append(word.substring(1));
+        }
+        return out.toString();
     }
 
     private static void renderTrajectory(Minecraft mc, Module module, Vec3 camera, PoseStack.Pose pose, VertexConsumer buffer) {
