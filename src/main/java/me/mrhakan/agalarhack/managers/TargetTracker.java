@@ -20,16 +20,21 @@ public class TargetTracker {
         lastSeenMs = 0L;
     }
 
-    public LivingEntity get() {
+    public LivingEntity get(double timeoutSeconds) {
         Minecraft mc = Minecraft.getInstance();
         if (target == null || mc.level == null || target.isRemoved() || !target.isAlive()) {
             clear();
             return null;
         }
-        if (System.currentTimeMillis() - lastSeenMs > 3000L) {
+        long timeoutMs = Math.max(100L, (long) (timeoutSeconds * 1000.0));
+        if (System.currentTimeMillis() - lastSeenMs > timeoutMs) {
             clear();
             return null;
         }
         return target;
+    }
+
+    public LivingEntity get() {
+        return get(3.0);
     }
 }
