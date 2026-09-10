@@ -9,11 +9,7 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.EntityHitResult;
 
-/**
- * Attacks only the entity under the vanilla crosshair. Unlike Aura this does not
- * search nearby entities or rotate the player, making it a small predictable
- * alternative for users who want manual aim with automatic timing.
- */
+/** Manual-aim automatic attack helper that shares the global target policy. */
 public class TriggerBot extends Module {
     private int cooldown;
 
@@ -23,8 +19,8 @@ public class TriggerBot extends Module {
 
     @Override
     public void selfSettings() {
-        addBooleanSetting("players", true, "Allow player targets");
-        addBooleanSetting("mobs", true, "Allow non-player living targets");
+        addBooleanSetting("players", true, "Allow player targets after the global target policy");
+        addBooleanSetting("mobs", true, "Allow non-player living targets after the global target policy");
         addBooleanSetting("ignoreFriends", true, "Never attack players in the local friend list");
         addBooleanSetting("ignoreInvisible", true, "Skip invisible targets");
         addBooleanSetting("pauseOnUse", true, "Pause while using an item");
@@ -75,6 +71,7 @@ public class TriggerBot extends Module {
             return;
         }
 
+        AgalarHackClient.TARGET_TRACKER.set(target);
         setDisplayName("TriggerBot [" + target.getName().getString() + "]");
         if (vanillaCooldown) {
             if (mc.player.getAttackStrengthScale(0.5f) < 1.0f) {
@@ -92,7 +89,7 @@ public class TriggerBot extends Module {
     }
 
     private boolean isValidTarget(LivingEntity target) {
-        if (target == mc.player || !target.isAlive() || target.getHealth() <= 0 || target.isSpectator()) {
+        if (!AgalarHackClient.TARGET_POLICY.allows(target)) {
             return false;
         }
         if (getBooleanSetting("ignoreInvisible", true) && target.isInvisible()) {
