@@ -13,6 +13,7 @@ import me.mrhakan.agalarhack.module.movement.NoFall;
 import me.mrhakan.agalarhack.module.movement.Speed;
 import me.mrhakan.agalarhack.module.movement.Sprint;
 import me.mrhakan.agalarhack.module.movement.Step;
+import me.mrhakan.agalarhack.module.render.Coordinates;
 import me.mrhakan.agalarhack.module.render.Fullbright;
 import net.minecraft.client.Minecraft;
 
@@ -21,22 +22,23 @@ public class ModuleManager {
 	public final ArrayList<Module> modules = new ArrayList<>();
 
 	public ModuleManager() {
-		//COMBAT
+		// COMBAT
 		modules.add(new Aura());
-		//EXPLOIT
+		// EXPLOIT
 
-		//MISC
+		// MISC
 
-		//MOVEMENT
+		// MOVEMENT
 		modules.add(new Speed());
 		modules.add(new Flight());
 		modules.add(new Jesus());
 		modules.add(new Sprint());
 		modules.add(new Step());
 		modules.add(new NoFall());
-		//RENDER
+		// RENDER
 		modules.add(new Fullbright());
-		//WORLD
+		modules.add(new Coordinates());
+		// WORLD
 	}
 
 	public void tick(Minecraft client) {
@@ -73,12 +75,34 @@ public class ModuleManager {
 		return result;
 	}
 
+	/**
+	 * Disables all active modules and persists the resulting state once.
+	 *
+	 * @return number of modules that were disabled
+	 */
+	public int disableAll() {
+		int disabled = 0;
+		for (Module module : modules) {
+			if (module.isToggled()) {
+				module.setToggled(false, false);
+				disabled++;
+			}
+		}
+		if (disabled > 0) {
+			AgalarHackClient.SETTINGS_MANAGER.updateSettings();
+		}
+		return disabled;
+	}
+
 	public void loadModules() {
 		AgalarHackClient.SETTINGS_MANAGER.loadSettings();
 
+		// Restore enabled states without rewriting the complete config after
+		// every individual module. SettingsManager already persisted the merged
+		// defaults once during loadSettings().
 		for (Module m : modules) {
 			if (Boolean.TRUE.equals(m.settings.getSetting("enabled")) && !m.isToggled()) {
-				m.toggle();
+				m.setToggled(true, false);
 			}
 		}
 	}
