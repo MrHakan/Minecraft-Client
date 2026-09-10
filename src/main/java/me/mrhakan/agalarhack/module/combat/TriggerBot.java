@@ -1,6 +1,7 @@
 package me.mrhakan.agalarhack.module.combat;
 
 import me.mrhakan.agalarhack.AgalarHackClient;
+import me.mrhakan.agalarhack.services.TargetService;
 import me.mrhakan.agalarhack.module.Category;
 import me.mrhakan.agalarhack.module.Module;
 import net.minecraft.world.InteractionHand;
@@ -19,6 +20,7 @@ public class TriggerBot extends Module {
 
     @Override
     public void selfSettings() {
+        TargetService.registerFilters(this);
         addBooleanSetting("players", true, "Allow player targets after the global target policy");
         addBooleanSetting("mobs", true, "Allow non-player living targets after the global target policy");
         addBooleanSetting("ignoreFriends", true, "Never attack players in the local friend list");
@@ -89,20 +91,7 @@ public class TriggerBot extends Module {
     }
 
     private boolean isValidTarget(LivingEntity target) {
-        if (!AgalarHackClient.TARGET_POLICY.allows(target)) {
-            return false;
-        }
-        if (getBooleanSetting("ignoreInvisible", true) && target.isInvisible()) {
-            return false;
-        }
-
-        if (target instanceof Player player) {
-            if (!getBooleanSetting("players", true)) {
-                return false;
-            }
-            return !getBooleanSetting("ignoreFriends", true)
-                    || !AgalarHackClient.FRIEND_MANAGER.isFriend(player.getName().getString());
-        }
-        return getBooleanSetting("mobs", true);
+        // Vanilla crosshair picking already constrains reach; shared selector adds safety filters.
+        return service(TargetService.class).allows(target, this, 6, 0, 360);
     }
 }

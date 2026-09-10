@@ -3,6 +3,7 @@ package me.mrhakan.agalarhack.module.combat;
 import java.util.Locale;
 
 import me.mrhakan.agalarhack.AgalarHackClient;
+import me.mrhakan.agalarhack.services.TargetService;
 import me.mrhakan.agalarhack.module.Category;
 import me.mrhakan.agalarhack.module.Module;
 import net.minecraft.world.InteractionHand;
@@ -20,6 +21,7 @@ public class Aura extends Module {
 
 	@Override
 	public void selfSettings() {
+        TargetService.registerFilters(this);
 		addNumberSetting("range", 4.2, 1.0, 6.0, "Maximum attack range when the target is visible");
 		addNumberSetting("wallsRange", 3.0, 0.0, 6.0, "Maximum range for targets without line of sight; 0 disables wall hits");
 		addNumberSetting("fov", 360.0, 1.0, 360.0, "Horizontal target field of view in degrees");
@@ -32,7 +34,7 @@ public class Aura extends Module {
 		addBooleanSetting("vanillaCooldown", true, "Use Minecraft's normal fully-charged attack timing");
 		addNumberSetting("delay", 10.0, 0.0, 40.0, "Custom delay in ticks when vanillaCooldown is off");
 		addChoiceSetting("priority", "closest", "How valid targets are prioritized",
-				"closest", "lowest_health", "highest_health");
+				"closest", "lowest_health", "highest_health", "lowest_armor", "angle", "crosshair", "hurt_time", "recent_attacker");
 	}
 
 	@Override
@@ -93,82 +95,8 @@ public class Aura extends Module {
 	}
 
 	private LivingEntity findTarget() {
-		LivingEntity best = null;
-		String priority = getStringSetting("priority", "closest").toLowerCase(Locale.ROOT);
-
-		for (Entity entity : mc.level.entitiesForRendering()) {
-			if (!(entity instanceof LivingEntity living) || !isValidTarget(living)) {
-				continue;
-			}
-			if (best == null || isBetterTarget(living, best, priority)) {
-				best = living;
-			}
-		}
-		return best;
-	}
-
-	private boolean isValidTarget(LivingEntity living) {
-		if (!AgalarHackClient.TARGET_POLICY.allows(living)) {
-			return false;
-		}
-
-		boolean playerTarget = living instanceof Player;
-		if (playerTarget && !getBooleanSetting("players", true)) {
-			return false;
-		}
-		if (!playerTarget && !getBooleanSetting("mobs", true)) {
-			return false;
-		}
-		if (getBooleanSetting("ignoreInvisible", true) && living.isInvisible()) {
-			return false;
-		}
-		if (playerTarget && getBooleanSetting("ignoreFriends", true)
-				&& AgalarHackClient.FRIEND_MANAGER.isFriend(living.getName().getString())) {
-			return false;
-		}
-
-		if (!isInsideFov(living, getNumberSetting("fov", 360.0))) {
-			return false;
-		}
-
-		double distanceSq = mc.player.distanceToSqr(living);
-		double allowedRange = mc.player.hasLineOfSight(living)
-				? getNumberSetting("range", 4.2)
-				: getNumberSetting("wallsRange", 3.0);
-		return allowedRange > 0 && distanceSq <= allowedRange * allowedRange;
-	}
-
-	private boolean isBetterTarget(LivingEntity candidate, LivingEntity current, String priority) {
-		return switch (priority) {
-			case "lowest_health" -> candidate.getHealth() < current.getHealth()
-					|| (candidate.getHealth() == current.getHealth()
-						&& mc.player.distanceToSqr(candidate) < mc.player.distanceToSqr(current));
-			case "highest_health" -> candidate.getHealth() > current.getHealth()
-					|| (candidate.getHealth() == current.getHealth()
-						&& mc.player.distanceToSqr(candidate) < mc.player.distanceToSqr(current));
-			default -> mc.player.distanceToSqr(candidate) < mc.player.distanceToSqr(current);
-		};
-	}
-
-	private boolean isInsideFov(LivingEntity target, double fov) {
-		if (fov >= 360.0) {
-			return true;
-		}
-		double dx = target.getX() - mc.player.getX();
-		double dz = target.getZ() - mc.player.getZ();
-		double targetYaw = Math.toDegrees(Math.atan2(dz, dx)) - 90.0;
-		double delta = wrapDegrees(targetYaw - mc.player.getYRot());
-		return Math.abs(delta) <= fov / 2.0;
-	}
-
-	private static double wrapDegrees(double degrees) {
-		double wrapped = degrees % 360.0;
-		if (wrapped >= 180.0) {
-			wrapped -= 360.0;
-		}
-		if (wrapped < -180.0) {
-			wrapped += 360.0;
-		}
-		return wrapped;
-	}
+        var targets = service(TargetService.class).select(this, getNumberSetting("range", 4.2),
+                getNumberSetting("wallsRange", 3), getNumberSetting("fov", 360), getStringSetting("priority", "closest"), 1);
+        return targets.isEmpty() ? null : targets.get(0);
+    }
 }

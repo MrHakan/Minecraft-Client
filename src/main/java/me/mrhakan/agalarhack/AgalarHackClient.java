@@ -73,6 +73,7 @@ public class AgalarHackClient implements ClientModInitializer {
         InventoryService inventory = services.register(InventoryService.class, new InventoryService(Minecraft.getInstance(), UTILITY_ACTIONS));
         EVENTS.subscribe(ClientEvents.ClientTick.class, "inventory", 90, event -> inventory.tick());
         EVENTS.subscribe(ClientEvents.Disconnected.class, "inventory", 100, event -> inventory.reset());
+        services.register(me.mrhakan.agalarhack.services.TargetService.class, new me.mrhakan.agalarhack.services.TargetService(Minecraft.getInstance(), FRIEND_MANAGER, TARGET_POLICY));
         FRIEND_MANAGER.load();
         HUD_LAYOUT.load();
         TARGET_POLICY.load();
