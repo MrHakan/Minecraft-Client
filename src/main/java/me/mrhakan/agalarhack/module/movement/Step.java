@@ -7,32 +7,61 @@ import net.minecraft.world.entity.ai.attributes.Attributes;
 
 public class Step extends Module {
 
-	private static final double DEFAULT_STEP_HEIGHT = 0.6;
+	private AttributeInstance capturedAttribute;
+	private double previousStepHeight;
 
 	public Step() {
-		super("Step", Category.MOVEMENT, "Lets you walk up full blocks without jumping");
+		super("Step", Category.MOVEMENT, "Lets you walk up taller blocks while restoring the original step height when disabled");
 	}
 
 	@Override
 	public void selfSettings() {
-		settings.addSetting("height", 1.0);
+		addNumberSetting("height", 1.0, 0.6, 4.0, "Maximum automatic step height in blocks");
+	}
+
+	@Override
+	public void onEnable() {
+		captureCurrentAttribute();
 	}
 
 	@Override
 	public void onUpdate() {
-		AttributeInstance stepHeight = mc.player.getAttribute(Attributes.STEP_HEIGHT);
-		if (stepHeight != null) {
-			stepHeight.setBaseValue(getNumberSetting("height", 1.0));
+		if (mc.player == null) {
+			return;
 		}
+		AttributeInstance stepHeight = mc.player.getAttribute(Attributes.STEP_HEIGHT);
+		if (stepHeight == null) {
+			return;
+		}
+
+		if (capturedAttribute != stepHeight) {
+			restoreCapturedAttribute();
+			capturedAttribute = stepHeight;
+			previousStepHeight = stepHeight.getBaseValue();
+		}
+		stepHeight.setBaseValue(getNumberSetting("height", 1.0));
 	}
 
 	@Override
 	public void onDisable() {
-		if (mc.player != null) {
-			AttributeInstance stepHeight = mc.player.getAttribute(Attributes.STEP_HEIGHT);
-			if (stepHeight != null) {
-				stepHeight.setBaseValue(DEFAULT_STEP_HEIGHT);
-			}
+		restoreCapturedAttribute();
+	}
+
+	private void captureCurrentAttribute() {
+		if (mc.player == null) {
+			return;
+		}
+		AttributeInstance stepHeight = mc.player.getAttribute(Attributes.STEP_HEIGHT);
+		if (stepHeight != null) {
+			capturedAttribute = stepHeight;
+			previousStepHeight = stepHeight.getBaseValue();
+		}
+	}
+
+	private void restoreCapturedAttribute() {
+		if (capturedAttribute != null) {
+			capturedAttribute.setBaseValue(previousStepHeight);
+			capturedAttribute = null;
 		}
 	}
 }

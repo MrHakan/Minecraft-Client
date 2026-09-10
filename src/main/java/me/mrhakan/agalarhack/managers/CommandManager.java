@@ -6,8 +6,13 @@ import java.util.List;
 import me.mrhakan.agalarhack.AgalarHackClient;
 import me.mrhakan.agalarhack.commands.Command;
 import me.mrhakan.agalarhack.commands.impl.Bind;
+import me.mrhakan.agalarhack.commands.impl.Friend;
+import me.mrhakan.agalarhack.commands.impl.Gui;
 import me.mrhakan.agalarhack.commands.impl.Help;
+import me.mrhakan.agalarhack.commands.impl.ModuleSettings;
 import me.mrhakan.agalarhack.commands.impl.Modules;
+import me.mrhakan.agalarhack.commands.impl.Panic;
+import me.mrhakan.agalarhack.commands.impl.Profile;
 import me.mrhakan.agalarhack.commands.impl.Set;
 import me.mrhakan.agalarhack.commands.impl.Toggle;
 import net.minecraft.ChatFormatting;
@@ -22,6 +27,11 @@ public class CommandManager {
         commands.add(new Toggle());
         commands.add(new Bind());
         commands.add(new Set());
+        commands.add(new ModuleSettings());
+        commands.add(new Friend());
+        commands.add(new Profile());
+        commands.add(new Gui());
+        commands.add(new Panic());
     }
 
     public static Command getCommand(String label) {
@@ -33,11 +43,6 @@ public class CommandManager {
         return null;
     }
 
-    /**
-     * Handles a chat message typed by the player.
-     *
-     * @return true if the message was a client command and should not be sent to the server
-     */
     public static boolean handleChat(String message) {
         if (!message.startsWith(AgalarHackClient.prefix)) {
             return false;

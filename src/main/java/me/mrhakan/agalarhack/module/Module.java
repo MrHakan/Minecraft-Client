@@ -41,6 +41,15 @@ public class Module {
 	public void onUpdate() {
 	}
 
+	/** Called after the play connection closes, including before menu-only ticks. */
+	public void onDisconnect() {
+	}
+
+	/** Override for modules such as AutoReconnect that must tick without a loaded world. */
+	public boolean runsWithoutWorld() {
+		return false;
+	}
+
 	public void selfSettings() {
 	}
 
@@ -48,19 +57,46 @@ public class Module {
 	}
 
 	public void toggle() {
-		toggled = !toggled;
+		setToggled(!toggled, true);
+	}
+
+	public void setToggled(boolean enabled) {
+		setToggled(enabled, true);
+	}
+
+	public void setToggled(boolean enabled, boolean persist) {
+		if (toggled == enabled) {
+			return;
+		}
+
+		toggled = enabled;
+		settings.setSetting("enabled", toggled);
 		onToggle();
 		if (toggled) {
 			onEnable();
 		} else {
 			onDisable();
 		}
-		settings.setSetting("enabled", toggled);
-		AgalarHackClient.SETTINGS_MANAGER.updateSettings();
+
+		if (persist) {
+			AgalarHackClient.SETTINGS_MANAGER.updateSettings();
+		}
 	}
 
 	public void setSettings(Settings newSettings) {
 		settings = newSettings;
+	}
+
+	protected void addBooleanSetting(String name, boolean defaultValue, String description) {
+		settings.addBooleanSetting(name, defaultValue, description);
+	}
+
+	protected void addNumberSetting(String name, double defaultValue, double min, double max, String description) {
+		settings.addNumberSetting(name, defaultValue, min, max, description);
+	}
+
+	protected void addChoiceSetting(String name, String defaultValue, String description, String... choices) {
+		settings.addChoiceSetting(name, defaultValue, description, choices);
 	}
 
 	public int getKey() {
@@ -78,11 +114,13 @@ public class Module {
 	public double getNumberSetting(String settingName, double defaultValue) {
 		Object value = settings.getSetting(settingName);
 		if (value instanceof Number) {
-			return ((Number) value).doubleValue();
+			double parsed = ((Number) value).doubleValue();
+			return Double.isFinite(parsed) ? parsed : defaultValue;
 		}
 		if (value != null) {
 			try {
-				return Double.parseDouble(value.toString());
+				double parsed = Double.parseDouble(value.toString());
+				return Double.isFinite(parsed) ? parsed : defaultValue;
 			} catch (NumberFormatException ignored) {
 			}
 		}
@@ -95,9 +133,20 @@ public class Module {
 			return (Boolean) value;
 		}
 		if (value != null) {
-			return Boolean.parseBoolean(value.toString());
+			String raw = value.toString();
+			if (raw.equalsIgnoreCase("true") || raw.equalsIgnoreCase("on")) {
+				return true;
+			}
+			if (raw.equalsIgnoreCase("false") || raw.equalsIgnoreCase("off")) {
+				return false;
+			}
 		}
 		return defaultValue;
+	}
+
+	public String getStringSetting(String settingName, String defaultValue) {
+		Object value = settings.getSetting(settingName);
+		return value == null ? defaultValue : value.toString();
 	}
 
 	public String getName() {
