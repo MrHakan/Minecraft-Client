@@ -1,6 +1,7 @@
 package me.mrhakan.agalarhack;
 
 import me.mrhakan.agalarhack.managers.CommandManager;
+import me.mrhakan.agalarhack.managers.FriendManager;
 import me.mrhakan.agalarhack.managers.KeybindManager;
 import me.mrhakan.agalarhack.managers.ModuleManager;
 import me.mrhakan.agalarhack.managers.SettingsManager;
@@ -20,9 +21,11 @@ public class AgalarHackClient implements ClientModInitializer {
 
 	public static ModuleManager moduleManager = new ModuleManager();
 	public static final SettingsManager SETTINGS_MANAGER = new SettingsManager();
+	public static final FriendManager FRIEND_MANAGER = new FriendManager();
 
 	@Override
 	public void onInitializeClient() {
+		FRIEND_MANAGER.load();
 		moduleManager.loadModules();
 		CommandManager.init();
 
