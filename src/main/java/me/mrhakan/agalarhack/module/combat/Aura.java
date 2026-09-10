@@ -124,7 +124,7 @@ public class Aura extends Module {
 
 		if (playerTarget && getBooleanSetting("ignoreFriends", true)) {
 			Player player = (Player) living;
-			if (AgalarHackClient.FRIEND_MANAGER.isFriend(player.getGameProfile().getName())) {
+			if (AgalarHackClient.FRIEND_MANAGER.isFriend(player.getName().getString())) {
 				return false;
 			}
 		}
