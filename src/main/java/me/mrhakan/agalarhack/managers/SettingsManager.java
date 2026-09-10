@@ -39,8 +39,6 @@ public class SettingsManager {
             System.err.println("[Agalar Hack] Config JSON is malformed: " + e.getMessage());
             backupBrokenConfig();
         } catch (IOException e) {
-            // An I/O failure does not necessarily mean the file is corrupt, so
-            // keep the original in place and avoid moving it out of the way.
             System.err.println("[Agalar Hack] Failed to read config: " + e.getMessage());
         }
         return settingsArray;
@@ -94,27 +92,56 @@ public class SettingsManager {
         }
     }
 
-    public void updateSettings() {
+    public Map<String, Settings> captureSettings() {
         Map<String, Settings> settingsArray = new LinkedHashMap<>();
         for (Module module : AgalarHackClient.moduleManager.getModuleList()) {
-            settingsArray.put(module.getName(), module.settings);
+            Settings copy = gson.fromJson(gson.toJson(module.settings), Settings.class);
+            settingsArray.put(module.getName(), copy);
         }
-        writeSettings(settingsArray);
+        return settingsArray;
+    }
+
+    public void updateSettings() {
+        writeSettings(captureSettings());
     }
 
     public void loadSettings() {
-        Map<String, Settings> settingsArray = readSettings();
+        applyValues(readSettings(), false);
+        updateSettings();
+    }
+
+    /** Applies a profile snapshot and synchronizes live module enabled states in one batch. */
+    public void applySettings(Map<String, Settings> snapshot) {
+        applyValues(snapshot == null ? Map.of() : snapshot, true);
+        updateSettings();
+    }
+
+    private void applyValues(Map<String, Settings> values, boolean syncEnabledState) {
         for (Module module : AgalarHackClient.moduleManager.getModuleList()) {
-            // Register defaults and metadata first, then overlay saved values.
-            // The sanitize pass keeps older/manual configs compatible while
-            // enforcing the bounds declared by the current module version.
             module.registerSettings();
-            Settings saved = settingsArray.get(module.getName());
+            Settings saved = values.get(module.getName());
             if (saved != null && saved.settings != null) {
                 module.settings.settings.putAll(saved.settings);
             }
             module.settings.sanitizeLoadedValues();
         }
-        updateSettings();
+
+        if (!syncEnabledState) {
+            return;
+        }
+
+        for (Module module : AgalarHackClient.moduleManager.getModuleList()) {
+            boolean desired = Boolean.TRUE.equals(module.settings.getSetting("enabled"));
+            if (module.isToggled() == desired) {
+                continue;
+            }
+            try {
+                module.setToggled(desired, false);
+            } catch (RuntimeException e) {
+                System.err.println("[Agalar Hack] Failed to apply profile state for " + module.getName());
+                e.printStackTrace();
+                module.settings.setSetting("enabled", false);
+            }
+        }
     }
 }
