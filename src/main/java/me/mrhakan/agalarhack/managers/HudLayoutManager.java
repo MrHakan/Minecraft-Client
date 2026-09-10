@@ -120,6 +120,39 @@ public class HudLayoutManager {
         save();
     }
 
+    /**
+     * Moves a widget by absolute screen coordinates. During a drag callers can
+     * keep {@code persist=false}; the final mouse release re-anchors to the nearest
+     * corner and persists once.
+     */
+    public void moveTo(String id, int x, int y, int screenWidth, int screenHeight,
+            int contentWidth, int contentHeight, boolean autoAnchor, boolean persist) {
+        WidgetState state = get(id);
+        int clampedX = Math.max(0, Math.min(Math.max(0, screenWidth - contentWidth), x));
+        int clampedY = Math.max(0, Math.min(Math.max(0, screenHeight - contentHeight), y));
+
+        if (autoAnchor) {
+            boolean right = clampedX + contentWidth / 2 >= screenWidth / 2;
+            boolean bottom = clampedY + contentHeight / 2 >= screenHeight / 2;
+            state.anchor = bottom
+                    ? (right ? Anchor.BOTTOM_RIGHT : Anchor.BOTTOM_LEFT)
+                    : (right ? Anchor.TOP_RIGHT : Anchor.TOP_LEFT);
+        }
+
+        state.offsetX = switch (state.anchor) {
+            case TOP_RIGHT, BOTTOM_RIGHT -> Math.max(0, screenWidth - contentWidth - clampedX);
+            default -> clampedX;
+        };
+        state.offsetY = switch (state.anchor) {
+            case BOTTOM_LEFT, BOTTOM_RIGHT -> Math.max(0, screenHeight - contentHeight - clampedY);
+            default -> clampedY;
+        };
+
+        if (persist) {
+            save();
+        }
+    }
+
     public void cycleAnchor(String id) {
         WidgetState state = get(id);
         state.anchor = state.anchor.next();
