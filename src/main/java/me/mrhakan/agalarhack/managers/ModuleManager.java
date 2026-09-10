@@ -1,12 +1,17 @@
 package me.mrhakan.agalarhack.managers;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 
 import me.mrhakan.agalarhack.AgalarHackClient;
 import me.mrhakan.agalarhack.module.Category;
 import me.mrhakan.agalarhack.module.Module;
 import me.mrhakan.agalarhack.module.combat.Aura;
+import me.mrhakan.agalarhack.module.combat.TriggerBot;
 import me.mrhakan.agalarhack.module.movement.Flight;
 import me.mrhakan.agalarhack.module.movement.Jesus;
 import me.mrhakan.agalarhack.module.movement.NoFall;
@@ -14,62 +19,114 @@ import me.mrhakan.agalarhack.module.movement.Speed;
 import me.mrhakan.agalarhack.module.movement.Sprint;
 import me.mrhakan.agalarhack.module.movement.Step;
 import me.mrhakan.agalarhack.module.render.Coordinates;
+import me.mrhakan.agalarhack.module.render.Durability;
 import me.mrhakan.agalarhack.module.render.Fullbright;
 import net.minecraft.client.Minecraft;
 
 public class ModuleManager {
 
-	public final ArrayList<Module> modules = new ArrayList<>();
+	private final List<Module> modules = new ArrayList<>();
+	private final Map<String, Module> modulesByName = new LinkedHashMap<>();
 
 	public ModuleManager() {
 		// COMBAT
-		modules.add(new Aura());
+		register(new Aura());
+		register(new TriggerBot());
 		// EXPLOIT
 
 		// MISC
 
 		// MOVEMENT
-		modules.add(new Speed());
-		modules.add(new Flight());
-		modules.add(new Jesus());
-		modules.add(new Sprint());
-		modules.add(new Step());
-		modules.add(new NoFall());
+		register(new Speed());
+		register(new Flight());
+		register(new Jesus());
+		register(new Sprint());
+		register(new Step());
+		register(new NoFall());
 		// RENDER
-		modules.add(new Fullbright());
-		modules.add(new Coordinates());
+		register(new Fullbright());
+		register(new Coordinates());
+		register(new Durability());
 		// WORLD
+	}
+
+	private void register(Module module) {
+		String key = normalize(module.getName());
+		if (modulesByName.containsKey(key)) {
+			throw new IllegalStateException("Duplicate module name: " + module.getName());
+		}
+		modules.add(module);
+		modulesByName.put(key, module);
 	}
 
 	public void tick(Minecraft client) {
 		if (client.player == null || client.level == null) {
 			return;
 		}
-		for (Module m : modules) {
-			if (m.isToggled()) {
-				m.onUpdate();
+
+		boolean stateChanged = false;
+		for (Module module : modules) {
+			if (!module.isToggled()) {
+				continue;
 			}
+			try {
+				module.onUpdate();
+			} catch (RuntimeException e) {
+				System.err.println("[Agalar Hack] Disabling module after tick failure: " + module.getName());
+				e.printStackTrace();
+				try {
+					module.setToggled(false, false);
+				} catch (RuntimeException disableError) {
+					System.err.println("[Agalar Hack] Module cleanup also failed: " + module.getName());
+					disableError.printStackTrace();
+				}
+				stateChanged = true;
+			}
+		}
+		if (stateChanged) {
+			AgalarHackClient.SETTINGS_MANAGER.updateSettings();
 		}
 	}
 
 	public Module getModule(String name) {
-		for (Module m : modules) {
-			if (m.getName().equalsIgnoreCase(name)) {
-				return m;
+		return name == null ? null : modulesByName.get(normalize(name));
+	}
+
+	public List<Module> getModuleList() {
+		return Collections.unmodifiableList(modules);
+	}
+
+	public List<Module> getModulesByCategory(Category category) {
+		List<Module> result = new ArrayList<>();
+		for (Module module : modules) {
+			if (module.getCategory() == category) {
+				result.add(module);
 			}
 		}
-		return null;
+		return result;
 	}
 
-	public ArrayList<Module> getModuleList() {
-		return modules;
-	}
-
-	public static List<Module> getModulesByCategory(Category c) {
+	/**
+	 * Finds modules by name, description, category or setting name. This powers
+	 * command-side discovery today and can be reused by a future ClickGUI search box.
+	 */
+	public List<Module> searchModules(String query) {
+		if (query == null || query.isBlank()) {
+			return getModuleList();
+		}
+		String normalized = normalize(query);
 		List<Module> result = new ArrayList<>();
-		for (Module m : AgalarHackClient.moduleManager.modules) {
-			if (m.getCategory() == c) {
-				result.add(m);
+		for (Module module : modules) {
+			boolean matches = normalize(module.getName()).contains(normalized)
+					|| normalize(module.getDescription()).contains(normalized)
+					|| normalize(module.getCategory().name).contains(normalized);
+			if (!matches) {
+				matches = module.settings.getSpecs().stream()
+						.anyMatch(spec -> normalize(spec.getName()).contains(normalized)
+								|| normalize(spec.getDescription()).contains(normalized));
+			}
+			if (matches) {
+				result.add(module);
 			}
 		}
 		return result;
@@ -100,10 +157,25 @@ public class ModuleManager {
 		// Restore enabled states without rewriting the complete config after
 		// every individual module. SettingsManager already persisted the merged
 		// defaults once during loadSettings().
-		for (Module m : modules) {
-			if (Boolean.TRUE.equals(m.settings.getSetting("enabled")) && !m.isToggled()) {
-				m.setToggled(true, false);
+		boolean changed = false;
+		for (Module module : modules) {
+			if (Boolean.TRUE.equals(module.settings.getSetting("enabled")) && !module.isToggled()) {
+				try {
+					module.setToggled(true, false);
+				} catch (RuntimeException e) {
+					System.err.println("[Agalar Hack] Could not restore enabled module: " + module.getName());
+					e.printStackTrace();
+					module.settings.setSetting("enabled", false);
+					changed = true;
+				}
 			}
 		}
+		if (changed) {
+			AgalarHackClient.SETTINGS_MANAGER.updateSettings();
+		}
+	}
+
+	private static String normalize(String value) {
+		return value == null ? "" : value.toLowerCase(Locale.ROOT);
 	}
 }
