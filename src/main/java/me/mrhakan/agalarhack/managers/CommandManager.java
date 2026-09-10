@@ -8,6 +8,7 @@ import me.mrhakan.agalarhack.commands.Command;
 import me.mrhakan.agalarhack.commands.impl.Bind;
 import me.mrhakan.agalarhack.commands.impl.Help;
 import me.mrhakan.agalarhack.commands.impl.Modules;
+import me.mrhakan.agalarhack.commands.impl.Panic;
 import me.mrhakan.agalarhack.commands.impl.Set;
 import me.mrhakan.agalarhack.commands.impl.Toggle;
 import net.minecraft.ChatFormatting;
@@ -22,6 +23,7 @@ public class CommandManager {
         commands.add(new Toggle());
         commands.add(new Bind());
         commands.add(new Set());
+        commands.add(new Panic());
     }
 
     public static Command getCommand(String label) {
