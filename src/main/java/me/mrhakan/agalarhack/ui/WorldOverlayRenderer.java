@@ -60,17 +60,18 @@ public final class WorldOverlayRenderer {
         boolean bodyMarker = freecam != null && freecam.shouldRenderBodyMarker();
         if (!espEnabled && !trajectoriesEnabled && !storageEnabled && !blockEnabled && !bodyMarker) return;
 
+        var renderService = me.mrhakan.agalarhack.services.ClientServices.require(me.mrhakan.agalarhack.services.RenderService.class);
         Vec3 camera = ctx.levelState().cameraRenderState.pos;
         List<LivingEntity> espTargets = espEnabled ? collectEspTargets(mc, esp) : List.of();
-        if (espEnabled && esp.getBooleanSetting("labels", true)) renderEspLabels(ctx, mc, esp, espTargets, camera);
-        if (storageEnabled && storage.getBooleanSetting("labels", false)) renderStorageLabels(ctx, mc, storage, camera);
+        if (espEnabled && esp.getBooleanSetting("labels", true)) renderService.guard(esp, () -> renderEspLabels(ctx, mc, esp, espTargets, camera));
+        if (storageEnabled && storage.getBooleanSetting("labels", false)) renderService.guard(storage, () -> renderStorageLabels(ctx, mc, storage, camera));
 
         ctx.submitNodeCollector().submitCustomGeometry(ctx.poseStack(), RenderTypes.lines(), (pose, buffer) -> {
-            if (espEnabled) renderEspGeometry(mc, esp, espTargets, camera, pose, buffer);
-            if (storageEnabled) renderStorageEsp(mc, storage, camera, pose, buffer);
-            if (blockEnabled) renderBlockEsp(mc, blockEsp, camera, pose, buffer);
-            if (trajectoriesEnabled) renderTrajectory(mc, trajectories, camera, pose, buffer);
-            if (bodyMarker) renderFreecamBodyMarker(mc, freecam, camera, pose, buffer);
+            if (espEnabled) renderService.guard(esp, () -> renderEspGeometry(mc, esp, espTargets, camera, pose, buffer));
+            if (storageEnabled) renderService.guard(storage, () -> renderStorageEsp(mc, storage, camera, pose, buffer));
+            if (blockEnabled) renderService.guard(blockEsp, () -> renderBlockEsp(mc, blockEsp, camera, pose, buffer));
+            if (trajectoriesEnabled) renderService.guard(trajectories, () -> renderTrajectory(mc, trajectories, camera, pose, buffer));
+            if (bodyMarker) renderService.guard(freecam, () -> renderFreecamBodyMarker(mc, freecam, camera, pose, buffer));
         });
     }
 
@@ -115,10 +116,11 @@ public final class WorldOverlayRenderer {
             int labelRgb = dimRgb(styled & 0xFFFFFF, 0.55 + 0.45 * espFadeFactor(mc, esp, living));
             Component text = Component.literal(label.toString()).withStyle(Style.EMPTY.withColor(TextColor.fromRgb(labelRgb)));
             stack.pushPose();
+            try {
             stack.translate(living.getX() - camera.x, living.getY() - camera.y, living.getZ() - camera.z);
             ctx.submitNodeCollector().submitNameTag(stack, new Vec3(0.0, living.getBbHeight() + 0.35, 0.0), 0, text, true,
                     LightCoordsUtil.FULL_BRIGHT, ctx.levelState().cameraRenderState);
-            stack.popPose();
+            } finally { stack.popPose(); }
         }
     }
 
@@ -179,11 +181,12 @@ public final class WorldOverlayRenderer {
             if (!module.matches(id)) continue;
             int rgb = storageRgb(id);
             stack.pushPose();
+            try {
             stack.translate(pos.getX() + 0.5 - camera.x, pos.getY() + 0.5 - camera.y, pos.getZ() + 0.5 - camera.z);
             ctx.submitNodeCollector().submitNameTag(stack, new Vec3(0.0, 0.8, 0.0), 0,
                     Component.literal(prettyBlockName(id)).withStyle(Style.EMPTY.withColor(TextColor.fromRgb(rgb))), true,
                     LightCoordsUtil.FULL_BRIGHT, ctx.levelState().cameraRenderState);
-            stack.popPose();
+            } finally { stack.popPose(); }
         }
     }
 

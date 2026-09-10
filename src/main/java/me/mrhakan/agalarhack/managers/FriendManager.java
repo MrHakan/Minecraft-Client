@@ -58,6 +58,8 @@ public class FriendManager {
         }
         friends.add(name.trim());
         save();
+        me.mrhakan.agalarhack.services.ClientServices.registry().find(me.mrhakan.agalarhack.services.NotificationService.class)
+                .ifPresent(service -> service.publish(me.mrhakan.agalarhack.services.NotificationService.Type.SUCCESS, "Friend added: " + name.trim()));
         return true;
     }
 

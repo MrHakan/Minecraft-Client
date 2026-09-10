@@ -98,6 +98,8 @@ public class ProfileManager {
         AgalarHackClient.TARGET_POLICY.applySnapshot(data.targetPolicy);
         AgalarHackClient.HUD_LAYOUT.applySnapshot(data.hud);
         activeProfile = name;
+        me.mrhakan.agalarhack.services.ClientServices.require(me.mrhakan.agalarhack.services.NotificationService.class)
+                .publish(me.mrhakan.agalarhack.services.NotificationService.Type.SUCCESS, "Profile loaded: " + name);
     }
 
     public boolean delete(String name) {

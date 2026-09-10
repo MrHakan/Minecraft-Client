@@ -46,6 +46,10 @@ public final class EventBus {
                 listener.callback.accept(event);
             } catch (RuntimeException failure) {
                 raw.active = false;
+                List<Listener<?>> remaining = new ArrayList<>(listeners.getOrDefault(event.getClass(), List.of()));
+                remaining.remove(raw);
+                if (remaining.isEmpty()) listeners.remove(event.getClass());
+                else listeners.put(event.getClass(), List.copyOf(remaining));
                 // Do not allow a broken error reporter to suppress unrelated listeners.
                 try { errors.accept(raw.owner, failure); }
                 catch (RuntimeException reportingFailure) { failure.addSuppressed(reportingFailure); }
