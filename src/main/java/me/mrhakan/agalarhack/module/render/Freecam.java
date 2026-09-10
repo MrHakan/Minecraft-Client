@@ -114,8 +114,10 @@ public class Freecam extends Module {
 
     @Override
     public void onDisable() {
-        if (mc.player != null) {
-            mc.setCameraEntity(previousCamera != null ? previousCamera : mc.player);
+        if (camera != null && mc.getCameraEntity() == camera) {
+            Entity restore = previousCamera != null && previousCamera.level() == mc.level && previousCamera.isAlive()
+                    ? previousCamera : mc.player;
+            mc.setCameraEntity(restore);
         }
         camera = null;
         previousCamera = null;

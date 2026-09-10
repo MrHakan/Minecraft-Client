@@ -46,8 +46,15 @@ public class Module {
 	}
 
 	/** Called after the play connection closes, including before menu-only ticks. */
-	public void onDisconnect() {
-	}
+    public void onDisconnect() {
+        if (!runsWithoutWorld()) onDisable();
+    }
+
+    /** Preserve enabled preference while rebuilding world-scoped state. */
+    public void onWorldChanged(boolean ready) {
+        onDisable();
+        if (ready) onEnable();
+    }
 
 	/** Override for modules such as AutoReconnect that must tick without a loaded world. */
 	public boolean runsWithoutWorld() {

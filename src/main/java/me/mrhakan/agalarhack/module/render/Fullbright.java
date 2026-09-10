@@ -7,7 +7,8 @@ import net.minecraft.world.effect.MobEffects;
 
 public class Fullbright extends Module {
 
-	private boolean appliedNightVision;
+	private net.minecraft.client.player.LocalPlayer capturedPlayer;
+    private MobEffectInstance appliedEffect;
 
 	public Fullbright() {
 		super("Fullbright", Category.RENDER, "Lights up the whole world (client-side night vision)");
@@ -15,19 +16,23 @@ public class Fullbright extends Module {
 
 	@Override
 	public void onUpdate() {
+        if (mc.player == null) return;
+        if (capturedPlayer != mc.player) { onDisable(); capturedPlayer = mc.player; }
 		if (!mc.player.hasEffect(MobEffects.NIGHT_VISION)) {
 			mc.player.addEffect(new MobEffectInstance(MobEffects.NIGHT_VISION, MobEffectInstance.INFINITE_DURATION, 0, false, false, false));
-			appliedNightVision = true;
+			appliedEffect = mc.player.getEffect(MobEffects.NIGHT_VISION);
 		}
 	}
 
 	@Override
 	public void onDisable() {
-		// Do not remove a potion/beacon effect that was already present before
-		// Fullbright supplied its own client-side night vision.
-		if (mc.player != null && appliedNightVision) {
-			mc.player.removeEffect(MobEffects.NIGHT_VISION);
-		}
-		appliedNightVision = false;
+        // Only remove the exact effect object installed by this module, not a later replacement.
+        if (capturedPlayer != null && appliedEffect != null
+                && capturedPlayer.getEffect(MobEffects.NIGHT_VISION) == appliedEffect
+                && appliedEffect.getDuration() == MobEffectInstance.INFINITE_DURATION) {
+            capturedPlayer.removeEffect(MobEffects.NIGHT_VISION);
+        }
+        capturedPlayer = null;
+        appliedEffect = null;
 	}
 }

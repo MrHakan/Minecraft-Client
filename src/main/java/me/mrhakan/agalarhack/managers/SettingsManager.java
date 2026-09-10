@@ -117,6 +117,11 @@ public class SettingsManager {
     }
 
     private void applyValues(Map<String, Settings> values, boolean syncEnabledState) {
+        if (syncEnabledState) {
+            for (Module module : AgalarHackClient.moduleManager.getModuleList()) {
+                if (module.isToggled()) module.setToggled(false, false);
+            }
+        }
         for (Module module : AgalarHackClient.moduleManager.getModuleList()) {
             if (syncEnabledState) {
                 // A named profile is a complete snapshot: modules/settings not present

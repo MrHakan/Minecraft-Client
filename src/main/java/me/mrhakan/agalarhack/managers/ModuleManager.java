@@ -37,6 +37,10 @@ public class ModuleManager {
     private final List<Module> modules = new ArrayList<>();
     private final Map<String, Module> modulesByName = new LinkedHashMap<>();
 
+    private Object observedPlayer;
+    private Object observedLevel;
+    private boolean observedAlive;
+
     public ModuleManager() {
         register(new Aura());
         register(new TriggerBot());
@@ -75,7 +79,22 @@ public class ModuleManager {
     }
 
     public void tick(Minecraft client) {
-        boolean worldReady = client.player != null && client.level != null;
+        boolean worldReady = client.player != null && client.level != null && client.player.isAlive();
+        if (observedPlayer != client.player || observedLevel != client.level || observedAlive != worldReady) {
+            observedPlayer = client.player;
+            observedLevel = client.level;
+            observedAlive = worldReady;
+            for (Module module : modules) {
+                if (!module.isToggled() || module.runsWithoutWorld()) continue;
+                try {
+                    module.onWorldChanged(worldReady);
+                } catch (RuntimeException failure) {
+                    AgalarHackClient.LOGGER.error("World transition failed for {}", module.getName(), failure);
+                    forceDisable(module);
+                }
+            }
+            AgalarHackClient.TARGET_TRACKER.clear();
+        }
         boolean stateChanged = false;
         for (Module module : modules) {
             if (!module.isToggled() || (!worldReady && !module.runsWithoutWorld())) {
@@ -97,6 +116,9 @@ public class ModuleManager {
     }
 
     public void onDisconnect() {
+        observedPlayer = null;
+        observedLevel = null;
+        observedAlive = false;
         for (Module module : modules) {
             if (!module.isToggled()) {
                 continue;
