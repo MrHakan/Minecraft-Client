@@ -13,6 +13,8 @@ import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.Style;
+import net.minecraft.network.chat.TextColor;
 import net.minecraft.util.LightCoordsUtil;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
@@ -100,15 +102,11 @@ public final class WorldOverlayRenderer {
 
     private static void renderEspGeometry(Minecraft mc, Module esp, List<LivingEntity> targets,
             Vec3 camera, PoseStack.Pose pose, VertexConsumer buffer) {
-        int color = color(
-                esp.getNumberSetting("red", 85.0),
-                esp.getNumberSetting("green", 170.0),
-                esp.getNumberSetting("blue", 255.0),
-                esp.getNumberSetting("alpha", 230.0));
         boolean boxes = esp.getBooleanSetting("boxes", true);
         boolean tracers = esp.getBooleanSetting("tracers", false);
 
         for (LivingEntity living : targets) {
+            int color = entityEspColor(mc, esp, living);
             if (boxes) {
                 AABB box = living.getBoundingBox().inflate(0.03).move(-camera.x, -camera.y, -camera.z);
                 box(buffer, pose, box, color);
@@ -135,18 +133,74 @@ public final class WorldOverlayRenderer {
                 label.append(String.format(Locale.ROOT, " [%.1f HP]", living.getHealth()));
             }
 
+            int styled = entityEspColor(mc, esp, living);
+            double fade = espFadeFactor(mc, esp, living);
+            int labelRgb = dimRgb(styled & 0xFFFFFF, 0.55 + 0.45 * fade);
+            Component text = Component.literal(label.toString())
+                    .withStyle(Style.EMPTY.withColor(TextColor.fromRgb(labelRgb)));
+
             stack.pushPose();
             stack.translate(living.getX() - camera.x, living.getY() - camera.y, living.getZ() - camera.z);
             ctx.submitNodeCollector().submitNameTag(
                     stack,
                     new Vec3(0.0, living.getBbHeight() + 0.35, 0.0),
                     0,
-                    Component.literal(label.toString()),
+                    text,
                     true,
                     LightCoordsUtil.FULL_BRIGHT,
                     ctx.levelState().cameraRenderState);
             stack.popPose();
         }
+    }
+
+    private static int entityEspColor(Minecraft mc, Module esp, LivingEntity living) {
+        int rgb = rgb(
+                esp.getNumberSetting("red", 85.0),
+                esp.getNumberSetting("green", 170.0),
+                esp.getNumberSetting("blue", 255.0));
+
+        if (living instanceof Player) {
+            boolean friend = AgalarHackClient.FRIEND_MANAGER.isFriend(living.getName().getString());
+            if (friend && esp.getBooleanSetting("friendColors", true)) {
+                rgb = rgb(
+                        esp.getNumberSetting("friendRed", 85.0),
+                        esp.getNumberSetting("friendGreen", 255.0),
+                        esp.getNumberSetting("friendBlue", 120.0));
+            } else if (esp.getBooleanSetting("teamColors", true) && mc.player.isAlliedTo(living)) {
+                rgb = living.getTeamColor() & 0xFFFFFF;
+            }
+        }
+
+        int baseAlpha = clampChannel(esp.getNumberSetting("alpha", 230.0));
+        int minimumAlpha = clampChannel(esp.getNumberSetting("minimumAlpha", 64.0));
+        int alpha = baseAlpha;
+        if (esp.getBooleanSetting("distanceFade", true)) {
+            double factor = espFadeFactor(mc, esp, living);
+            alpha = (int) Math.round(minimumAlpha + (baseAlpha - minimumAlpha) * factor);
+            alpha = Math.max(0, Math.min(255, alpha));
+        }
+        return (alpha << 24) | rgb;
+    }
+
+    private static double espFadeFactor(Minecraft mc, Module esp, LivingEntity living) {
+        if (!esp.getBooleanSetting("distanceFade", true)) {
+            return 1.0;
+        }
+        double range = Math.max(0.001, esp.getNumberSetting("range", 96.0));
+        double fadeStart = Math.max(0.0, Math.min(range, esp.getNumberSetting("fadeStart", 32.0)));
+        double distance = mc.player.distanceTo(living);
+        if (distance <= fadeStart || fadeStart >= range) {
+            return 1.0;
+        }
+        return Math.max(0.0, Math.min(1.0, 1.0 - (distance - fadeStart) / (range - fadeStart)));
+    }
+
+    private static int dimRgb(int rgb, double factor) {
+        factor = Math.max(0.0, Math.min(1.0, factor));
+        int r = (int) Math.round(((rgb >> 16) & 0xFF) * factor);
+        int g = (int) Math.round(((rgb >> 8) & 0xFF) * factor);
+        int b = (int) Math.round((rgb & 0xFF) * factor);
+        return (r << 16) | (g << 8) | b;
     }
 
     private static void renderTrajectory(Minecraft mc, Module module, Vec3 camera, PoseStack.Pose pose, VertexConsumer buffer) {
@@ -305,11 +359,15 @@ public final class WorldOverlayRenderer {
                 .setColor(r, g, b, a).setNormal(pose, nx, ny, nz).setLineWidth(1.0f);
     }
 
+    private static int rgb(double red, double green, double blue) {
+        return (clampChannel(red) << 16) | (clampChannel(green) << 8) | clampChannel(blue);
+    }
+
     private static int color(double red, double green, double blue, double alpha) {
-        int r = (int) Math.max(0, Math.min(255, Math.round(red)));
-        int g = (int) Math.max(0, Math.min(255, Math.round(green)));
-        int b = (int) Math.max(0, Math.min(255, Math.round(blue)));
-        int a = (int) Math.max(0, Math.min(255, Math.round(alpha)));
-        return (a << 24) | (r << 16) | (g << 8) | b;
+        return (clampChannel(alpha) << 24) | rgb(red, green, blue);
+    }
+
+    private static int clampChannel(double value) {
+        return (int) Math.max(0, Math.min(255, Math.round(value)));
     }
 }
