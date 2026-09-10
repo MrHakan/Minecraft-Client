@@ -45,6 +45,10 @@ public final class KeybindCaptureScreen extends Screen implements me.mrhakan.aga
                 .filter(other -> other != module && chord.key() != -1 && chord.equals(other.getChord())).map(Module::getName).toList();
         if (!duplicates.isEmpty()) ClientServices.require(NotificationService.class).publish(NotificationService.Type.WARNING,
                 "Shared bind: " + String.join(", ",duplicates));
+        if (AgalarHackClient.conflictsWithGuiKey(chord)) {
+            ClientServices.require(NotificationService.class).publish(NotificationService.Type.WARNING,
+                    "This bind also opens ClickGUI. Choose another key to avoid triggering both.");
+        }
         onClose();
     }
     @Override public void onClose() { minecraft.gui.setScreen(parent); }

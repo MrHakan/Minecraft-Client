@@ -59,6 +59,14 @@ public class AgalarHackClient implements ClientModInitializer {
                     screen -> screen instanceof me.mrhakan.agalarhack.ui.ClientScreen client ? client.parentScreen() : null,
                     screen -> { if (screen instanceof me.mrhakan.agalarhack.ui.ClientScreen client) client.abandoned(); });
 
+    /** The GUI binding is vanilla-configurable and does not require an exact modifier mask. */
+    public static boolean conflictsWithGuiKey(me.mrhakan.agalarhack.input.KeyChord chord) {
+        if (clickGuiKey == null || chord.key() == -1) return false;
+        var key = KeyMappingHelper.getBoundKeyOf(clickGuiKey);
+        if (key.getType() == InputConstants.Type.MOUSE) return chord.mouse() && chord.mouseButton() == key.getValue();
+        return key.getType() == InputConstants.Type.KEYSYM && !chord.mouse() && chord.key() == key.getValue();
+    }
+
     @Override
     public void onInitializeClient() {
         var services = ClientServices.registry();
