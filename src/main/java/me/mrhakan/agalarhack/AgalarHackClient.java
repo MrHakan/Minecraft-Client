@@ -1,5 +1,8 @@
 package me.mrhakan.agalarhack;
 
+import me.mrhakan.agalarhack.events.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import com.mojang.blaze3d.platform.InputConstants;
 import me.mrhakan.agalarhack.managers.CommandManager;
 import me.mrhakan.agalarhack.managers.FriendManager;
@@ -35,6 +38,8 @@ public class AgalarHackClient implements ClientModInitializer {
     public static final String NAME = "Agalar Hack";
     public static final String MOD_ID = "agalarhack";
     public static final String VERSION = "26.2.5";
+    public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
+    public static final EventBus EVENTS = new EventBus((owner, failure) -> LOGGER.error("Event listener failed: {}", owner, failure));
     public static String prefix = ".";
 
     public static ModuleManager moduleManager = new ModuleManager();
@@ -67,13 +72,14 @@ public class AgalarHackClient implements ClientModInitializer {
 
         ClientSendMessageEvents.ALLOW_CHAT.register(message -> !CommandManager.handleChat(message));
 
-        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
+        EVENTS.subscribe(ClientEvents.Disconnected.class, "disconnect", 0, event -> {
             moduleManager.onDisconnect();
             PROFILES.onDisconnect();
             TARGET_TRACKER.clear();
         });
 
-        ClientTickEvents.END_CLIENT_TICK.register(client -> {
+        EVENTS.subscribe(ClientEvents.ClientTick.class, "client-tick", 0, event -> {
+            var client = event.client();
             UTILITY_ACTIONS.beginTick();
             PROFILES.tick(client);
             KeybindManager.tick(client);
@@ -92,8 +98,10 @@ public class AgalarHackClient implements ClientModInitializer {
             }
         });
 
-        HudElementRegistry.addLast(Identifier.fromNamespaceAndPath(MOD_ID, "hud"), new Hud());
-        LevelRenderEvents.COLLECT_SUBMITS.register(WorldOverlayRenderer::collect);
+        Hud hud = new Hud();
+        EVENTS.subscribe(ClientEvents.HudRender.class, "hud", 0, event -> hud.extractRenderState(event.graphics(), event.delta()));
+        EVENTS.subscribe(ClientEvents.RenderSubmit.class, "world-overlays", 0, event -> WorldOverlayRenderer.collect(event.context()));
+        FabricEventBridge.register(EVENTS);
     }
 
     private static boolean isClientScreen(Screen screen) {
