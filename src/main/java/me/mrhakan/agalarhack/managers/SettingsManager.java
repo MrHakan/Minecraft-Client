@@ -35,9 +35,13 @@ public class SettingsManager {
             if (loaded != null) {
                 settingsArray = loaded;
             }
-        } catch (IOException | JsonSyntaxException e) {
-            System.err.println("[Agalar Hack] Failed to read config: " + e.getMessage());
+        } catch (JsonSyntaxException e) {
+            System.err.println("[Agalar Hack] Config JSON is malformed: " + e.getMessage());
             backupBrokenConfig();
+        } catch (IOException e) {
+            // An I/O failure does not necessarily mean the file is corrupt, so
+            // keep the original in place and avoid moving it out of the way.
+            System.err.println("[Agalar Hack] Failed to read config: " + e.getMessage());
         }
         return settingsArray;
     }
