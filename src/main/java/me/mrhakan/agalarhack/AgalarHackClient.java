@@ -2,6 +2,8 @@ package me.mrhakan.agalarhack;
 
 import me.mrhakan.agalarhack.events.*;
 import me.mrhakan.agalarhack.services.ClientServices;
+import me.mrhakan.agalarhack.services.InventoryService;
+import net.minecraft.client.Minecraft;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.mojang.blaze3d.platform.InputConstants;
@@ -68,6 +70,9 @@ public class AgalarHackClient implements ClientModInitializer {
         services.register(TargetTracker.class, TARGET_TRACKER);
         services.register(ProfileManager.class, PROFILES);
         services.register(UtilityActionManager.class, UTILITY_ACTIONS);
+        InventoryService inventory = services.register(InventoryService.class, new InventoryService(Minecraft.getInstance(), UTILITY_ACTIONS));
+        EVENTS.subscribe(ClientEvents.ClientTick.class, "inventory", 90, event -> inventory.tick());
+        EVENTS.subscribe(ClientEvents.Disconnected.class, "inventory", 100, event -> inventory.reset());
         FRIEND_MANAGER.load();
         HUD_LAYOUT.load();
         TARGET_POLICY.load();

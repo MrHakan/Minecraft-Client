@@ -36,6 +36,17 @@ public class UtilityActionManager {
         return false;
     }
 
+    /** Atomic acquisition prevents a failed dual claim from reserving half the controls. */
+    public boolean claimHotbarAndUse(String owner, int priority) {
+        if (owner == null || owner.isBlank()) return false;
+        boolean hotbar = hotbarOwner == null || hotbarOwner.equals(owner) || priority > hotbarPriority;
+        boolean use = useOwner == null || useOwner.equals(owner) || priority > usePriority;
+        if (!hotbar || !use) return false;
+        claimHotbar(owner, priority);
+        claimUse(owner, priority);
+        return true;
+    }
+
     public boolean ownsHotbar(String owner) {
         return owner != null && owner.equals(hotbarOwner);
     }
