@@ -50,10 +50,15 @@ public class HudLayoutManager {
 
     private final Gson gson = new GsonBuilder().setPrettyPrinting().create();
     private final Path path = FabricLoader.getInstance().getConfigDir().resolve("agalarhack-hud.json");
+    private final Map<String, WidgetState> defaults = new LinkedHashMap<>();
     private final Map<String, WidgetState> widgets = new LinkedHashMap<>();
 
     public HudLayoutManager() {
+        for(String id : new String[]{"branding","modules","info","target"}) defaults.put(id,defaultFor(id));
         resetDefaults();
+    }
+    public void registerDefault(String id,WidgetState state) {
+        defaults.putIfAbsent(id,state.copy());widgets.putIfAbsent(id,state.copy());
     }
 
     public void load() {
@@ -166,7 +171,7 @@ public class HudLayoutManager {
     }
 
     public void reset(String id) {
-        widgets.put(id, defaultFor(id));
+        widgets.put(id, defaults.getOrDefault(id,defaultFor(id)).copy());
         save();
     }
 
@@ -195,16 +200,11 @@ public class HudLayoutManager {
 
     private void resetDefaults() {
         widgets.clear();
-        widgets.put("branding", defaultFor("branding"));
-        widgets.put("modules", defaultFor("modules"));
-        widgets.put("info", defaultFor("info"));
-        widgets.put("target", defaultFor("target"));
+        defaults.forEach((id,state)->widgets.put(id,state.copy()));
     }
 
     private void ensureDefaults() {
-        for (String id : new String[] {"branding", "modules", "info", "target"}) {
-            widgets.putIfAbsent(id, defaultFor(id));
-        }
+        defaults.forEach((id,state)->widgets.putIfAbsent(id,state.copy()));
     }
 
     private WidgetState defaultFor(String id) {

@@ -20,12 +20,14 @@ public final class NotificationHud {
         for (var notice : notices) {
             int width = Math.min(Math.max(100, font.width(notice.text()) + 18), Math.max(20, graphics.guiWidth() - 16));
             int height = font.lineHeight + 16;
-            int y = top ? 8 + row * (height + 4) : graphics.guiHeight() - 8 - (row + 1) * (height + 4);
+            int groupHeight=Math.min(notices.size(),(graphics.guiHeight()-16)/(height+4))*(height+4);
+            int baseY=me.mrhakan.agalarhack.AgalarHackClient.HUD_LAYOUT.resolveY("notifications",graphics.guiHeight(),groupHeight);
+            int y=baseY+row*(height+4);
             if (y < 0 || y + height > graphics.guiHeight()) break;
             var theme=me.mrhakan.agalarhack.services.ClientServices.require(me.mrhakan.agalarhack.services.ThemeService.class).current();
             double progress = Math.min(1, (notifications.now() - notice.created()) * theme.animationSpeed / 180.0);
             int offset = module.getBooleanSetting("animations", true) && theme.uiAnimations ? (int) ((1 - progress) * 20) : 0;
-            int x = left ? 8 - offset : graphics.guiWidth() - width - 8 + offset;
+            int x=me.mrhakan.agalarhack.AgalarHackClient.HUD_LAYOUT.resolveX("notifications",graphics.guiWidth(),width)+(left?-offset:offset);
             int color = switch (notice.type()) { case INFO -> 0xff65adff; case SUCCESS -> 0xff67d9a2; case WARNING -> 0xffffc466; case ERROR -> 0xffff6b7a; };
             graphics.fill(x, y, x + width, y + height, 0xe818202b);
             graphics.fill(x, y, x + 3, y + height, color);

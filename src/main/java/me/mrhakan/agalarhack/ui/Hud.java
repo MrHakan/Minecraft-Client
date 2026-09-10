@@ -34,6 +34,34 @@ public class Hud implements HudElement {
             EquipmentSlot.OFFHAND
     };
 
+    private final me.mrhakan.agalarhack.ui.hud.HudRegistry registry = me.mrhakan.agalarhack.services.ClientServices.require(me.mrhakan.agalarhack.ui.hud.HudRegistry.class);
+    public Hud() {
+        register("branding","Branding",()->Minecraft.getInstance().font.width(AgalarHackClient.NAME+" "+AgalarHackClient.VERSION)+5,()->Minecraft.getInstance().font.lineHeight,this::renderBranding);
+        register("modules","Module List",()->AgalarHackClient.moduleManager.getModuleList().stream().filter(Module::isToggled).mapToInt(m->Minecraft.getInstance().font.width(m.getDisplayName())).max().orElse(100),
+                ()->Math.max(1,(int)AgalarHackClient.moduleManager.getModuleList().stream().filter(Module::isToggled).count())*Minecraft.getInstance().font.lineHeight,this::renderModuleList);
+        register("info","Info",()->150,()->48,this::renderInfo);
+        register("target","Target HUD",()->155,()->120,this::renderTarget);
+        textComponent("fps","FPS",()->"FPS "+Minecraft.getInstance().getFps());
+        textComponent("memory","Memory",()->"Memory "+(Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory())/(1024*1024)+" MiB");
+        textComponent("server","Server",()->me.mrhakan.agalarhack.services.ClientServices.require(me.mrhakan.agalarhack.services.ServerContextService.class).address(Minecraft.getInstance()));
+        textComponent("speed","Speed",()->{var v=Minecraft.getInstance().player.getDeltaMovement();return String.format(Locale.ROOT,"Speed %.2f b/s",Math.hypot(v.x,v.z)*20);});
+        textComponent("direction","Direction",()->"Facing "+Minecraft.getInstance().player.getDirection());
+        registry.register(new me.mrhakan.agalarhack.ui.hud.HudRegistry.Component("inventory","Inventory",()->170,()->62,event->{
+            var g=event.graphics();var mc=Minecraft.getInstance();int x=AgalarHackClient.HUD_LAYOUT.resolveX("inventory",g.guiWidth(),170),y=AgalarHackClient.HUD_LAYOUT.resolveY("inventory",g.guiHeight(),62);
+            g.fill(x,y,x+170,y+62,0xc8101620);
+            for(int i=9;i<36;i++){var item=mc.player.getInventory().getItem(i);int px=x+4+(i-9)%9*18,py=y+4+(i-9)/9*18;g.item(item,px,py);if(item.getCount()>1)g.text(mc.font,String.valueOf(item.getCount()),px+8,py+9,0xffffffff,true);}
+        }),new me.mrhakan.agalarhack.managers.HudLayoutManager.WidgetState(me.mrhakan.agalarhack.managers.HudLayoutManager.Anchor.BOTTOM_RIGHT,8,110,false));
+    }
+    private void register(String id,String title,java.util.function.IntSupplier width,java.util.function.IntSupplier height,java.util.function.BiConsumer<GuiGraphicsExtractor,Minecraft> render) {
+        registry.register(new me.mrhakan.agalarhack.ui.hud.HudRegistry.Component(id,title,width,height,event->render.accept(event.graphics(),Minecraft.getInstance())),AgalarHackClient.HUD_LAYOUT.get(id).copy());
+    }
+    private void textComponent(String id,String title,java.util.function.Supplier<String> text) {
+        registry.register(new me.mrhakan.agalarhack.ui.hud.HudRegistry.Component(id,title,()->Minecraft.getInstance().font.width(text.get()),()->Minecraft.getInstance().font.lineHeight,event->{
+            var g=event.graphics();var font=Minecraft.getInstance().font;String value=text.get();
+            g.text(font,value,AgalarHackClient.HUD_LAYOUT.resolveX(id,g.guiWidth(),font.width(value)),AgalarHackClient.HUD_LAYOUT.resolveY(id,g.guiHeight(),font.lineHeight),ClientUiTheme.TEXT,true);
+        }),new me.mrhakan.agalarhack.managers.HudLayoutManager.WidgetState(me.mrhakan.agalarhack.managers.HudLayoutManager.Anchor.TOP_LEFT,8,90+registry.ids().size()*12,false));
+    }
+
     public static class ModuleComparator implements Comparator<Module> {
         @Override
         public int compare(Module a, Module b) {
@@ -48,10 +76,7 @@ public class Hud implements HudElement {
         if (mc.player == null || AgalarHackClient.moduleManager == null) {
             return;
         }
-        renderBranding(graphics, mc);
-        renderModuleList(graphics, mc);
-        renderInfo(graphics, mc);
-        renderTarget(graphics, mc);
+        registry.render(new me.mrhakan.agalarhack.events.ClientEvents.HudRender(graphics,deltaTracker));
     }
 
     private void renderBranding(GuiGraphicsExtractor graphics, Minecraft mc) {

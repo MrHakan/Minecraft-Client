@@ -16,7 +16,7 @@ import net.minecraft.network.chat.Component;
 
 /** Drag-and-drop HUD editor with grid snapping and overlap diagnostics. */
 public class HudEditorScreen extends Screen {
-    private static final List<String> WIDGETS = List.of("branding", "modules", "info", "target");
+    private List<String> widgets(){return me.mrhakan.agalarhack.services.ClientServices.require(me.mrhakan.agalarhack.ui.hud.HudRegistry.class).ids();}
     private static final int GRID_SIZE = 10;
     private static final int SNAP_THRESHOLD = 6;
 
@@ -36,7 +36,7 @@ public class HudEditorScreen extends Screen {
     private HudEditorScreen(Screen parent, String selected) {
         super(Component.literal("HUD Editor"));
         this.parent = parent;
-        this.selected = WIDGETS.contains(selected) ? selected : "branding";
+        this.selected = widgets().contains(selected) ? selected : "branding";
     }
 
     @Override
@@ -88,8 +88,8 @@ public class HudEditorScreen extends Screen {
         }
 
         updateBounds();
-        for (int i = WIDGETS.size() - 1; i >= 0; i--) {
-            String id = WIDGETS.get(i);
+        for (int i = widgets().size() - 1; i >= 0; i--) {
+            String id = widgets().get(i);
             Bounds b = bounds.get(id);
             if (b != null && b.contains(event.x(), event.y())) {
                 selected = id;
@@ -156,7 +156,7 @@ public class HudEditorScreen extends Screen {
                         + " • selected " + title(selected),
                 width / 2, 20, 0xFF9FB1C7);
 
-        for (String id : WIDGETS) {
+        for (String id : widgets()) {
             Bounds b = bounds.get(id);
             WidgetState state = AgalarHackClient.HUD_LAYOUT.get(id);
             boolean active = id.equals(selected);
@@ -237,13 +237,13 @@ public class HudEditorScreen extends Screen {
 
     private Set<String> overlappingWidgets() {
         Set<String> overlaps = new LinkedHashSet<>();
-        for (int i = 0; i < WIDGETS.size(); i++) {
-            Bounds a = bounds.get(WIDGETS.get(i));
-            for (int j = i + 1; j < WIDGETS.size(); j++) {
-                Bounds b = bounds.get(WIDGETS.get(j));
+        for (int i = 0; i < widgets().size(); i++) {
+            Bounds a = bounds.get(widgets().get(i));
+            for (int j = i + 1; j < widgets().size(); j++) {
+                Bounds b = bounds.get(widgets().get(j));
                 if (a != null && b != null && a.intersects(b)) {
-                    overlaps.add(WIDGETS.get(i));
-                    overlaps.add(WIDGETS.get(j));
+                    overlaps.add(widgets().get(i));
+                    overlaps.add(widgets().get(j));
                 }
             }
         }
@@ -252,49 +252,23 @@ public class HudEditorScreen extends Screen {
 
     private void updateBounds() {
         bounds.clear();
-        for (String id : WIDGETS) {
+        for (String id : widgets()) {
             bounds.put(id, boundsFor(id));
         }
     }
 
     private Bounds boundsFor(String id) {
-        int w;
-        int h;
-        switch (id) {
-            case "branding" -> {
-                w = Math.max(110, font.width(AgalarHackClient.NAME + " " + AgalarHackClient.VERSION) + 10);
-                h = 34;
-            }
-            case "modules" -> {
-                w = 125;
-                h = 70;
-            }
-            case "info" -> {
-                w = 130;
-                h = 48;
-            }
-            case "target" -> {
-                w = 155;
-                h = 82;
-            }
-            default -> {
-                w = 100;
-                h = 40;
-            }
-        }
+        var component=me.mrhakan.agalarhack.services.ClientServices.require(me.mrhakan.agalarhack.ui.hud.HudRegistry.class).get(id);
+        int w=Math.max(70,Math.min(width,component.width().getAsInt()));
+        int h=Math.max(30,Math.min(height-34,component.height().getAsInt()));
         int x = AgalarHackClient.HUD_LAYOUT.resolveX(id, width, w);
         int y = AgalarHackClient.HUD_LAYOUT.resolveY(id, height, h);
         return new Bounds(x, y, w, h);
     }
 
     private String title(String id) {
-        return switch (id) {
-            case "branding" -> "Branding";
-            case "modules" -> "Module List";
-            case "info" -> "Info";
-            case "target" -> "Target HUD";
-            default -> id;
-        };
+        var component=me.mrhakan.agalarhack.services.ClientServices.require(me.mrhakan.agalarhack.ui.hud.HudRegistry.class).get(id);
+        return component==null?id:component.title();
     }
 
     private record Point(int x, int y) {

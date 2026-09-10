@@ -76,8 +76,10 @@ public class AgalarHackClient implements ClientModInitializer {
         EVENTS.subscribe(ClientEvents.Disconnected.class, "rotations", 100, event -> rotations.clear());
         var notifications = services.register(me.mrhakan.agalarhack.services.NotificationService.class,
                 new me.mrhakan.agalarhack.services.NotificationService());
+        var hudRegistry=services.register(me.mrhakan.agalarhack.ui.hud.HudRegistry.class,new me.mrhakan.agalarhack.ui.hud.HudRegistry(HUD_LAYOUT));
         var notificationHud = new me.mrhakan.agalarhack.ui.NotificationHud(notifications, moduleManager);
-        EVENTS.subscribe(ClientEvents.HudRender.class, "notifications", -10, notificationHud::render);
+        hudRegistry.register(new me.mrhakan.agalarhack.ui.hud.HudRegistry.Component("notifications","Notifications",()->220,()->90,notificationHud::render),
+                new HudLayoutManager.WidgetState(HudLayoutManager.Anchor.BOTTOM_RIGHT,8,8,true));
         var context = services.register(me.mrhakan.agalarhack.services.ServerContextService.class,
                 new me.mrhakan.agalarhack.services.ServerContextService(EVENTS));
         var input = services.register(me.mrhakan.agalarhack.services.InputStateService.class,
