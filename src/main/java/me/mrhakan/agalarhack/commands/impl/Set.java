@@ -1,5 +1,7 @@
 package me.mrhakan.agalarhack.commands.impl;
 
+import java.util.Locale;
+
 import me.mrhakan.agalarhack.AgalarHackClient;
 import me.mrhakan.agalarhack.commands.Command;
 import me.mrhakan.agalarhack.managers.MessageManager;
@@ -46,12 +48,24 @@ public class Set extends Command {
         Object current = module.settings.getSetting(key);
         Object newValue;
         if (current instanceof Boolean) {
-            newValue = Boolean.parseBoolean(args[3]);
+            String raw = args[3].toLowerCase(Locale.ROOT);
+            if (raw.equals("true") || raw.equals("on")) {
+                newValue = true;
+            } else if (raw.equals("false") || raw.equals("off")) {
+                newValue = false;
+            } else {
+                MessageManager.sendMessagePrefix(ChatFormatting.RED + "Expected " + ChatFormatting.WHITE + "true/false" + ChatFormatting.RED + " or " + ChatFormatting.WHITE + "on/off" + ChatFormatting.RED + " for " + ChatFormatting.WHITE + key);
+                return;
+            }
         } else if (current instanceof Number) {
             try {
-                newValue = Double.parseDouble(args[3]);
+                double parsed = Double.parseDouble(args[3]);
+                if (!Double.isFinite(parsed)) {
+                    throw new NumberFormatException("non-finite number");
+                }
+                newValue = parsed;
             } catch (NumberFormatException e) {
-                MessageManager.sendMessagePrefix(ChatFormatting.RED + "Expected a number for " + ChatFormatting.WHITE + key);
+                MessageManager.sendMessagePrefix(ChatFormatting.RED + "Expected a finite number for " + ChatFormatting.WHITE + key);
                 return;
             }
         } else {
