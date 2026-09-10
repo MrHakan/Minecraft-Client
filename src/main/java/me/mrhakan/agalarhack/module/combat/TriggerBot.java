@@ -7,7 +7,6 @@ import me.mrhakan.agalarhack.module.Module;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.EntityHitResult;
 
 /** Manual-aim automatic attack helper that shares the global target policy. */

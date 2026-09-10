@@ -3,8 +3,6 @@ package me.mrhakan.agalarhack.module.world;
 import me.mrhakan.agalarhack.services.InventoryService;
 import me.mrhakan.agalarhack.module.Category;
 import me.mrhakan.agalarhack.module.Module;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 
 /** Selects the fastest hotbar tool for the block currently being mined. */

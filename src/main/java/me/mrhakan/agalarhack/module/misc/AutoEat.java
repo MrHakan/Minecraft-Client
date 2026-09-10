@@ -3,11 +3,6 @@ package me.mrhakan.agalarhack.module.misc;
 import me.mrhakan.agalarhack.services.InventoryService;
 import me.mrhakan.agalarhack.module.Category;
 import me.mrhakan.agalarhack.module.Module;
-import net.minecraft.core.component.DataComponents;
-import net.minecraft.world.food.FoodProperties;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
 
 /** Automatically eats the best allowed food from the hotbar. */
 public class AutoEat extends Module {

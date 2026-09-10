@@ -131,6 +131,13 @@ Minecraft 26.2 multiplayer does not always synchronize complete active-effect st
 
 26.2.4 added drag-and-drop HUD positioning, ESP tracers/name labels, collision-aware Trajectories, richer TargetHUD, Freecam smoothing/body marker and full profile import/export/duplicate/rename. 26.2.3 introduced profiles/per-server configs, the HUD layout manager, shared target policy/tracker and utility/render modules. 26.2.2 established typed settings, friends, Aura/TriggerBot improvements, safer module lifecycle and modern CI.
 
+## Foundation development branch
+
+The shared service foundation and its current limitations are documented in
+[Foundation services](docs/FOUNDATION_SERVICES.md). This branch introduces an internal event
+bridge, inventory/target/rotation services, notifications, lifecycle cleanup and explicit
+module-config migration while preserving the existing 26.2 rendering pipeline.
+
 ## Building
 
 ```sh

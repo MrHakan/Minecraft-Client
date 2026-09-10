@@ -1,6 +1,5 @@
 package me.mrhakan.agalarhack.module.combat;
 
-import java.util.Locale;
 
 import me.mrhakan.agalarhack.AgalarHackClient;
 import me.mrhakan.agalarhack.services.TargetService;
@@ -8,9 +7,7 @@ import me.mrhakan.agalarhack.services.RotationService;
 import me.mrhakan.agalarhack.module.Category;
 import me.mrhakan.agalarhack.module.Module;
 import net.minecraft.world.InteractionHand;
-import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.player.Player;
 
 public class Aura extends Module {
 

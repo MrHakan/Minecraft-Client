@@ -13,8 +13,6 @@ import java.util.Map;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import com.google.gson.JsonSyntaxException;
-import com.google.gson.reflect.TypeToken;
 
 import me.mrhakan.agalarhack.AgalarHackClient;
 import me.mrhakan.agalarhack.module.Module;
