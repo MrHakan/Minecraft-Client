@@ -4,7 +4,7 @@
 
 **An anarchy utility mod for Minecraft 26.2 (Fabric).**
 
-[![Downloads](https://img.shields.io/github/downloads/MrHakan/Agalar-Hack/total?style=for-the-badge&logo=github&color=e94b4b)](https://github.com/MrHakan/Minecraft-Client/releases)
+[![Downloads](https://img.shields.io/github/downloads/MrHakan/Minecraft-Client/total?style=for-the-badge&logo=github&color=e94b4b)](https://github.com/MrHakan/Minecraft-Client/releases)
 [![Latest release](https://img.shields.io/github/v/release/MrHakan/Minecraft-Client?style=for-the-badge&color=4bb1e9)](https://github.com/MrHakan/Minecraft-Client/releases/latest)
 [![Build](https://img.shields.io/github/actions/workflow/status/MrHakan/Minecraft-Client/build.yml?style=for-the-badge&logo=gradle&label=build)](https://github.com/MrHakan/Minecraft-Client/actions/workflows/build.yml)
 [![Minecraft](https://img.shields.io/badge/Minecraft-26.2-62b132?style=for-the-badge&logo=minecraft&logoColor=white)](https://fabricmc.net/use/)
@@ -31,7 +31,7 @@
 2. Download the latest `agalarhack-*.jar` from the [Releases page](https://github.com/MrHakan/Minecraft-Client/releases).
 3. Also download [Fabric API](https://modrinth.com/mod/fabric-api) for 26.2.
 4. Drop both jars into your `.minecraft/mods/` folder.
-5. Launch the Fabric profile — you should see **Agalar Hack 26.2** in the top-left of the HUD.
+5. Launch the Fabric profile — you should see **Agalar Hack 26.2.1** in the top-left of the HUD.
 
 ## Commands
 
@@ -43,7 +43,8 @@ The command prefix is `.` (typed in chat).
 | `.modules` | `.list`, `.mods` | Lists all modules and their state |
 | `.toggle <module>` | `.t` | Toggles a module on or off |
 | `.bind <module> <key\|none>` | `.b` | Binds a module to a key (e.g. `r`, `g`, `f4`, `left.shift`) |
-| `.set <module> <setting> <value>` | `.setting` | Changes a module setting |
+| `.set <module> <setting> <value>` | `.setting` | Changes a module setting; booleans accept `true/false` or `on/off` |
+| `.panic` | `.disableall`, `.off` | Immediately disables every active module |
 
 ## Modules
 
@@ -57,9 +58,21 @@ The command prefix is `.` (typed in chat).
 | Movement | **Step** | `height` | Walk up full blocks without jumping |
 | Movement | **NoFall** | — | Prevents fall damage via `OnGroundOnly` packet |
 | Render | **Fullbright** | — | Client-side night vision (no gamma hack needed) |
+| Render | **Coordinates** | — | Shows live XYZ coordinates in the bottom-left HUD |
 
 Enabled modules, keybinds, and per-module settings are saved to
 `config/agalarhack.json` in your Minecraft folder and restored on the next launch.
+Config writes use a replace-safe temporary file; if malformed JSON is detected,
+the broken file is preserved as `agalarhack.json.broken-*` before defaults are rebuilt.
+
+## 26.2.1 improvements
+
+- Added the **Coordinates** HUD module.
+- Added `.panic` / `.disableall` / `.off` for one-command emergency shutdown.
+- Batched multi-module state changes so config is not rewritten once per module.
+- Prevented held keybinds from toggling a module immediately after closing chat or another screen.
+- Added strict boolean input and finite-number validation to `.set`.
+- Made config writes replace-safe and recoverable when the JSON file is malformed.
 
 ## Building from source
 
@@ -93,11 +106,11 @@ To cut an official release:
 
 1. Bump `mod_version` in `gradle.properties` and `AgalarHackClient.VERSION`.
 2. Commit and push.
-3. Tag the commit and push the tag:
+3. Tag the commit and push the tag, for example:
 
    ```sh
-   git tag v26.2
-   git push origin v26.2
+   git tag v26.2.1
+   git push origin v26.2.1
    ```
 
 > Both workflows need repo → **Settings → Actions → Workflow permissions** set to
@@ -106,13 +119,13 @@ To cut an official release:
 
 ## Branches
 
-- **`main`** – current Fabric 1.21.1 client (this is what you probably want).
+- **`main`** – current Minecraft 26.2 Fabric client.
 - **`og`** – the original 1.12.2 Forge client, kept for historical reasons.
 
 ## Credits
 
 - **MrHakan** — author
-- Built on [Fabric](https://fabricmc.net/) and [Yarn](https://github.com/FabricMC/yarn).
+- Built on [Fabric](https://fabricmc.net/) using Mojang's official mappings.
 
 _Use responsibly. This mod is intended for anarchy servers and singleplayer
 testing — using client-side mods on servers that forbid them will get you banned._
