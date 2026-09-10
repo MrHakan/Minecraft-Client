@@ -17,6 +17,7 @@ public class AutoEat extends Module {
     private boolean eating;
     private boolean ownsUseKey;
     private int previousSlot = -1;
+    private int appliedSlot = -1;
 
     public AutoEat() {
         super("AutoEat", Category.MISC, "Automatically eats food from the hotbar when hunger is low");
@@ -72,6 +73,7 @@ public class AutoEat extends Module {
         if (selected != bestSlot) {
             mc.player.getInventory().setSelectedSlot(bestSlot);
         }
+        appliedSlot = bestSlot;
 
         ownsUseKey = !mc.options.keyUse.isDown();
         mc.options.keyUse.setDown(true);
@@ -98,7 +100,7 @@ public class AutoEat extends Module {
             if (!allowGolden && (item == Items.GOLDEN_APPLE || item == Items.ENCHANTED_GOLDEN_APPLE)) {
                 continue;
             }
-            FoodProperties food = item.components().get(DataComponents.FOOD);
+            FoodProperties food = stack.get(DataComponents.FOOD);
             if (food == null) {
                 continue;
             }
@@ -115,12 +117,13 @@ public class AutoEat extends Module {
             mc.options.keyUse.setDown(false);
         }
         if (eating && getBooleanSetting("swapBack", true) && previousSlot >= 0 && previousSlot < 9
-                && mc.player != null) {
+                && mc.player != null && mc.player.getInventory().getSelectedSlot() == appliedSlot) {
             mc.player.getInventory().setSelectedSlot(previousSlot);
         }
         eating = false;
         ownsUseKey = false;
         previousSlot = -1;
+        appliedSlot = -1;
     }
 
     @Override
