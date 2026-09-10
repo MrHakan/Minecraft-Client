@@ -15,10 +15,24 @@ import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.util.ARGB;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 
 public class Hud implements HudElement {
+
+    private static final EquipmentSlot[] TARGET_EQUIPMENT = {
+            EquipmentSlot.HEAD,
+            EquipmentSlot.CHEST,
+            EquipmentSlot.LEGS,
+            EquipmentSlot.FEET,
+            EquipmentSlot.MAINHAND,
+            EquipmentSlot.OFFHAND
+    };
 
     public static class ModuleComparator implements Comparator<Module> {
         @Override
@@ -118,29 +132,108 @@ public class Hud implements HudElement {
         }
 
         Font font = mc.font;
+        boolean showHealth = targetHud.getBooleanSetting("showHealth", true);
+        boolean healthBar = targetHud.getBooleanSetting("healthBar", true);
+        boolean showDistance = targetHud.getBooleanSetting("showDistance", true);
+        boolean showArmor = targetHud.getBooleanSetting("showArmor", true) && target instanceof Player;
+        boolean showEquipment = targetHud.getBooleanSetting("showEquipment", true);
+        boolean showEffects = targetHud.getBooleanSetting("showEffects", true);
+
         List<String> lines = new ArrayList<>();
         lines.add(target.getName().getString());
-        if (targetHud.getBooleanSetting("showHealth", true)) {
+        if (showHealth) {
             lines.add(String.format(Locale.ROOT, "HP %.1f / %.1f", target.getHealth(), target.getMaxHealth()));
         }
-        if (targetHud.getBooleanSetting("showDistance", true)) {
+        if (showDistance) {
             lines.add(String.format(Locale.ROOT, "Distance %.1fm", mc.player.distanceTo(target)));
         }
-        if (targetHud.getBooleanSetting("showArmor", true) && target instanceof Player player) {
-            lines.add("Armor " + player.getArmorValue());
+        if (showArmor) {
+            lines.add("Armor " + target.getArmorValue());
+        }
+
+        List<ItemStack> equipment = new ArrayList<>();
+        if (showEquipment) {
+            for (EquipmentSlot slot : TARGET_EQUIPMENT) {
+                ItemStack item = target.getItemBySlot(slot);
+                if (!item.isEmpty()) {
+                    equipment.add(item);
+                }
+            }
+        }
+
+        List<MobEffectInstance> effects = new ArrayList<>();
+        if (showEffects) {
+            int limit = (int) Math.round(targetHud.getNumberSetting("maxEffects", 6.0));
+            for (MobEffectInstance effect : target.getActiveEffects()) {
+                if (effects.size() >= limit) {
+                    break;
+                }
+                effects.add(effect);
+            }
         }
 
         int contentWidth = lines.stream().mapToInt(font::width).max().orElse(80);
-        int boxWidth = Math.max(120, contentWidth + 12);
-        int boxHeight = lines.size() * font.lineHeight + 10;
+        int iconWidth = Math.max(equipment.size(), effects.size()) * 18;
+        int boxWidth = Math.max(132, Math.max(contentWidth + 12, iconWidth + 12));
+        int textHeight = lines.size() * font.lineHeight;
+        int boxHeight = textHeight + 10;
+        if (healthBar) {
+            boxHeight += 7;
+        }
+        if (!equipment.isEmpty()) {
+            boxHeight += 18;
+        }
+        if (!effects.isEmpty()) {
+            boxHeight += 20;
+        }
+
         int x = AgalarHackClient.HUD_LAYOUT.resolveX("target", graphics.guiWidth(), boxWidth);
         int y = AgalarHackClient.HUD_LAYOUT.resolveY("target", graphics.guiHeight(), boxHeight);
-        graphics.fill(x, y, x + boxWidth, y + boxHeight, 0xAA101010);
+        graphics.fill(x, y, x + boxWidth, y + boxHeight, 0xB0101010);
         graphics.fill(x, y, x + 3, y + boxHeight, 0xFF55AAFF);
-        int textY = y + 5;
+
+        int cursorY = y + 5;
         for (int i = 0; i < lines.size(); i++) {
-            graphics.text(font, lines.get(i), x + 7, textY, i == 0 ? 0xFFFFFFFF : 0xFFDDDDDD, true);
-            textY += font.lineHeight;
+            graphics.text(font, lines.get(i), x + 7, cursorY, i == 0 ? 0xFFFFFFFF : 0xFFDDDDDD, true);
+            cursorY += font.lineHeight;
+        }
+
+        if (healthBar) {
+            double ratio = target.getMaxHealth() <= 0 ? 0 : target.getHealth() / target.getMaxHealth();
+            ratio = Math.max(0.0, Math.min(1.0, ratio));
+            int barX = x + 7;
+            int barWidth = boxWidth - 14;
+            graphics.fill(barX, cursorY + 1, barX + barWidth, cursorY + 5, 0xFF333333);
+            int filled = (int) Math.round(barWidth * ratio);
+            int barColor = ratio > 0.6 ? 0xFF55DD55 : ratio > 0.3 ? 0xFFFFCC44 : 0xFFFF5555;
+            if (filled > 0) {
+                graphics.fill(barX, cursorY + 1, barX + filled, cursorY + 5, barColor);
+            }
+            cursorY += 7;
+        }
+
+        if (!equipment.isEmpty()) {
+            int itemX = x + 7;
+            for (ItemStack item : equipment) {
+                graphics.item(item, itemX, cursorY);
+                itemX += 18;
+            }
+            cursorY += 18;
+        }
+
+        if (!effects.isEmpty()) {
+            int effectX = x + 7;
+            for (MobEffectInstance effect : effects) {
+                graphics.blitSprite(
+                        RenderPipelines.GUI_TEXTURED,
+                        net.minecraft.client.gui.Hud.getMobEffectSprite(effect.getEffect()),
+                        effectX,
+                        cursorY + 1,
+                        18,
+                        18,
+                        ARGB.white(1.0f));
+                effectX += 18;
+            }
         }
     }
 
