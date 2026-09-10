@@ -41,6 +41,15 @@ public class Module {
 	public void onUpdate() {
 	}
 
+	/** Called after the play connection closes, including before menu-only ticks. */
+	public void onDisconnect() {
+	}
+
+	/** Override for modules such as AutoReconnect that must tick without a loaded world. */
+	public boolean runsWithoutWorld() {
+		return false;
+	}
+
 	public void selfSettings() {
 	}
 
@@ -55,13 +64,6 @@ public class Module {
 		setToggled(enabled, true);
 	}
 
-	/**
-	 * Sets the module state explicitly.
-	 *
-	 * @param enabled desired state
-	 * @param persist when false, callers can batch several state changes and
-	 *                persist the config once afterwards
-	 */
 	public void setToggled(boolean enabled, boolean persist) {
 		if (toggled == enabled) {
 			return;
