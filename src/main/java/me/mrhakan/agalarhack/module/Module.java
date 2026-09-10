@@ -32,6 +32,10 @@ public class Module {
 		selfSettings();
 	}
 
+	protected final <T> T service(Class<T> type) {
+		return me.mrhakan.agalarhack.services.ClientServices.require(type);
+	}
+
 	public void onEnable() {
 	}
 

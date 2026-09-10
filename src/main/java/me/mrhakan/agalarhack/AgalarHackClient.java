@@ -1,6 +1,7 @@
 package me.mrhakan.agalarhack;
 
 import me.mrhakan.agalarhack.events.*;
+import me.mrhakan.agalarhack.services.ClientServices;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.mojang.blaze3d.platform.InputConstants;
@@ -57,6 +58,16 @@ public class AgalarHackClient implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
+        var services = ClientServices.registry();
+        services.register(EventBus.class, EVENTS);
+        services.register(ModuleManager.class, moduleManager);
+        services.register(SettingsManager.class, SETTINGS_MANAGER);
+        services.register(FriendManager.class, FRIEND_MANAGER);
+        services.register(HudLayoutManager.class, HUD_LAYOUT);
+        services.register(TargetPolicyManager.class, TARGET_POLICY);
+        services.register(TargetTracker.class, TARGET_TRACKER);
+        services.register(ProfileManager.class, PROFILES);
+        services.register(UtilityActionManager.class, UTILITY_ACTIONS);
         FRIEND_MANAGER.load();
         HUD_LAYOUT.load();
         TARGET_POLICY.load();
@@ -78,12 +89,12 @@ public class AgalarHackClient implements ClientModInitializer {
             TARGET_TRACKER.clear();
         });
 
-        EVENTS.subscribe(ClientEvents.ClientTick.class, "client-tick", 0, event -> {
+        EVENTS.subscribe(ClientEvents.ClientTick.class, "utility-actions", 100, event -> UTILITY_ACTIONS.beginTick());
+        EVENTS.subscribe(ClientEvents.ClientTick.class, "profiles", 80, event -> PROFILES.tick(event.client()));
+        EVENTS.subscribe(ClientEvents.ClientTick.class, "keybinds", 60, event -> KeybindManager.tick(event.client()));
+        EVENTS.subscribe(ClientEvents.ClientTick.class, "modules", 40, event -> moduleManager.tick(event.client()));
+        EVENTS.subscribe(ClientEvents.ClientTick.class, "gui-key", 0, event -> {
             var client = event.client();
-            UTILITY_ACTIONS.beginTick();
-            PROFILES.tick(client);
-            KeybindManager.tick(client);
-            moduleManager.tick(client);
 
             while (clickGuiKey.consumeClick()) {
                 if (client.player == null) {
