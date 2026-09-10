@@ -35,7 +35,7 @@
 
 ## ClickGUI
 
-Type **`.gui`** (or `.clickgui`) to open the searchable ClickGUI. The interface uses Minecraft's native widgets, supports small resolutions, provides paged module browsing, direct ON/OFF toggles and a generic settings editor generated from each module's typed setting metadata.
+Press **Right Shift** or type **`.gui`** (or `.clickgui`) to open the searchable ClickGUI. The shortcut is a real Fabric key mapping and can be changed under **Options → Controls → Key Binds → Agalar Hack**. The interface uses Minecraft's native widgets, supports small resolutions, provides paged module browsing, direct ON/OFF toggles and a generic settings editor generated from each module's typed setting metadata.
 
 ## Commands
 
@@ -80,6 +80,7 @@ Config writes use a replace-safe temporary file. If malformed module JSON is det
 ## 26.2.2 improvements
 
 - Added a searchable, paged **ClickGUI** and generic typed settings editor.
+- Added a rebindable **Right Shift** Fabric key mapping for opening/closing the ClickGUI.
 - Reworked settings into typed metadata with number bounds, choice validation, descriptions and config sanitization.
 - Added persistent **friends** and friend-aware combat targeting.
 - Overhauled **Aura** with FOV, visible/wall range separation, target priority, invisible/friend filters, item-use/click gating and vanilla attack cooldown support.
