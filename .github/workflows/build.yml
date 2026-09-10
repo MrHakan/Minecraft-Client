@@ -7,6 +7,12 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# A new commit supersedes older work for the same PR/branch. This avoids
+# burning runner time on stale builds while keeping unrelated PRs independent.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: write
 
