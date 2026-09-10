@@ -135,6 +135,7 @@ public class ProfileManager {
             throw new IllegalArgumentException("Invalid profile JSON: " + e.getMessage());
         }
         validateProfileData(data);
+        sanitizeImportedData(data);
         writeProfile(name, data, true);
     }
 
@@ -274,6 +275,19 @@ public class ProfileManager {
         }
         if (data.hud == null) {
             data.hud = new LinkedHashMap<>();
+        }
+    }
+
+    private void sanitizeImportedData(ProfileData data) {
+        data.modules.entrySet().removeIf(entry -> entry.getKey() == null || entry.getValue() == null);
+        for (Settings settings : data.modules.values()) {
+            if (settings.settings == null) {
+                settings.settings = new LinkedHashMap<>();
+            }
+        }
+        data.hud.entrySet().removeIf(entry -> entry.getKey() == null || entry.getValue() == null);
+        if (data.targetPolicy != null && data.targetPolicy.settings == null) {
+            data.targetPolicy.settings = new LinkedHashMap<>();
         }
     }
 
