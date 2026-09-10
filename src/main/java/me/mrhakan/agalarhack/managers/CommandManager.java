@@ -6,6 +6,7 @@ import java.util.List;
 import me.mrhakan.agalarhack.AgalarHackClient;
 import me.mrhakan.agalarhack.commands.Command;
 import me.mrhakan.agalarhack.commands.impl.Bind;
+import me.mrhakan.agalarhack.commands.impl.Friend;
 import me.mrhakan.agalarhack.commands.impl.Help;
 import me.mrhakan.agalarhack.commands.impl.ModuleSettings;
 import me.mrhakan.agalarhack.commands.impl.Modules;
@@ -25,6 +26,7 @@ public class CommandManager {
         commands.add(new Bind());
         commands.add(new Set());
         commands.add(new ModuleSettings());
+        commands.add(new Friend());
         commands.add(new Panic());
     }
 
