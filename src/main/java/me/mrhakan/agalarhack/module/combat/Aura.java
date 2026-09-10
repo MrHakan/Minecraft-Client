@@ -15,7 +15,7 @@ public class Aura extends Module {
 	private int cooldown;
 
 	public Aura() {
-		super("Aura", Category.COMBAT, "Attacks the best valid entity in range using configurable target filters");
+		super("Aura", Category.COMBAT, "Attacks the best valid entity in range using global and module target filters");
 	}
 
 	@Override
@@ -23,8 +23,8 @@ public class Aura extends Module {
 		addNumberSetting("range", 4.2, 1.0, 6.0, "Maximum attack range when the target is visible");
 		addNumberSetting("wallsRange", 3.0, 0.0, 6.0, "Maximum range for targets without line of sight; 0 disables wall hits");
 		addNumberSetting("fov", 360.0, 1.0, 360.0, "Horizontal target field of view in degrees");
-		addBooleanSetting("players", true, "Allow player targets");
-		addBooleanSetting("mobs", true, "Allow non-player living targets");
+		addBooleanSetting("players", true, "Allow player targets after the global target policy");
+		addBooleanSetting("mobs", true, "Allow non-player living targets after the global target policy");
 		addBooleanSetting("ignoreFriends", true, "Never target players in the local friend list");
 		addBooleanSetting("ignoreInvisible", true, "Skip invisible targets");
 		addBooleanSetting("pauseOnUse", true, "Pause while using an item");
@@ -74,6 +74,7 @@ public class Aura extends Module {
 			return;
 		}
 
+		AgalarHackClient.TARGET_TRACKER.set(target);
 		setDisplayName("Aura [" + target.getName().getString() + "]");
 
 		if (vanillaCooldown) {
@@ -107,7 +108,7 @@ public class Aura extends Module {
 	}
 
 	private boolean isValidTarget(LivingEntity living) {
-		if (living == mc.player || !living.isAlive() || living.getHealth() <= 0 || living.isSpectator()) {
+		if (!AgalarHackClient.TARGET_POLICY.allows(living)) {
 			return false;
 		}
 
@@ -121,12 +122,9 @@ public class Aura extends Module {
 		if (getBooleanSetting("ignoreInvisible", true) && living.isInvisible()) {
 			return false;
 		}
-
-		if (playerTarget && getBooleanSetting("ignoreFriends", true)) {
-			Player player = (Player) living;
-			if (AgalarHackClient.FRIEND_MANAGER.isFriend(player.getName().getString())) {
-				return false;
-			}
+		if (playerTarget && getBooleanSetting("ignoreFriends", true)
+				&& AgalarHackClient.FRIEND_MANAGER.isFriend(living.getName().getString())) {
+			return false;
 		}
 
 		if (!isInsideFov(living, getNumberSetting("fov", 360.0))) {
