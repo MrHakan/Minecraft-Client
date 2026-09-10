@@ -141,7 +141,10 @@ The second and third six-commit batches passed Actions runs
 [34496559943](https://github.com/MrHakan/Minecraft-Client/actions/runs/34496559943).
 The fourth UI/persistence/scanner batch initially failed run 34533509097 on private ChunkPos
 fields. The follow-up uses the x()/z() accessors verified in Fabric 26.2 ClientChunkCacheMixin;
-its own Actions result is required. Local Gradle bootstrap is unavailable in the
+the follow-up passed `./gradlew build --stacktrace` (including JUnit) in Actions run
+[34533637579](https://github.com/MrHakan/Minecraft-Client/actions/runs/34533637579).
+The final choice-screen refresh correction must also pass its own CI run; see the PR for
+the latest head validation. Local Gradle bootstrap is unavailable in the
 restricted execution environment. A compiled JAR does not establish in-game visual correctness.
 
 ### Required in-game smoke tests
