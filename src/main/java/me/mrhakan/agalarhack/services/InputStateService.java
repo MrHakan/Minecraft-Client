@@ -28,6 +28,12 @@ public final class InputStateService {
             }
         }
     }
+    public int modifiers() {
+        return (keyDown(GLFW.GLFW_KEY_LEFT_SHIFT) || keyDown(GLFW.GLFW_KEY_RIGHT_SHIFT) ? 1 : 0)
+                | (keyDown(GLFW.GLFW_KEY_LEFT_CONTROL) || keyDown(GLFW.GLFW_KEY_RIGHT_CONTROL) ? 2 : 0)
+                | (keyDown(GLFW.GLFW_KEY_LEFT_ALT) || keyDown(GLFW.GLFW_KEY_RIGHT_ALT) ? 4 : 0)
+                | (keyDown(GLFW.GLFW_KEY_LEFT_SUPER) || keyDown(GLFW.GLFW_KEY_RIGHT_SUPER) ? 8 : 0);
+    }
     public boolean keyDown(int key) { return key >= 0 && key < keys.length && keys[key]; }
     public boolean mouseDown(int button) { return button >= 0 && button < mouse.length && mouse[button]; }
 }

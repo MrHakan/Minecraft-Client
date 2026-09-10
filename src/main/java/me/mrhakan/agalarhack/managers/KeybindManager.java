@@ -22,7 +22,15 @@ public class KeybindManager {
                 continue;
             }
 
-            boolean pressed = me.mrhakan.agalarhack.services.ClientServices.require(me.mrhakan.agalarhack.services.InputStateService.class).keyDown(key);
+            var input = me.mrhakan.agalarhack.services.ClientServices.require(me.mrhakan.agalarhack.services.InputStateService.class);
+            var chord = m.getChord();
+            int modifiers = input.modifiers();
+            // A modifier bound by itself does not require its own flag in the chord mask.
+            if (key == 340 || key == 344) modifiers &= ~1;
+            if (key == 341 || key == 345) modifiers &= ~2;
+            if (key == 342 || key == 346) modifiers &= ~4;
+            if (key == 343 || key == 347) modifiers &= ~8;
+            boolean pressed = (chord.mouse() ? input.mouseDown(chord.mouseButton()) : input.keyDown(key)) && chord.matchesModifiers(modifiers);
             if (!suppressToggles && pressed && !lastPressed.getOrDefault(m, false)) {
                 m.toggle();
             }

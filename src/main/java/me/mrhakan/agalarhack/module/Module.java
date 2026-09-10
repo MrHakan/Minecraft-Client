@@ -29,6 +29,7 @@ public class Module {
 	public void registerSettings() {
 		settings.addSetting("enabled", false);
 		settings.addSetting("keybind", String.valueOf(InputConstants.UNKNOWN.getValue()));
+		settings.addNumberSetting("keyModifiers", 0, 0, 15, "Keyboard modifier mask for the captured binding");
 		selfSettings();
 	}
 
@@ -123,17 +124,18 @@ public class Module {
 		settings.addChoiceSetting(name, defaultValue, description, choices);
 	}
 
-	public int getKey() {
-		Object key = settings.getSetting("keybind");
-		if (key == null) {
-			return InputConstants.UNKNOWN.getValue();
-		}
-		try {
-			return (int) Double.parseDouble(key.toString());
-		} catch (NumberFormatException e) {
-			return InputConstants.UNKNOWN.getValue();
-		}
-	}
+    public me.mrhakan.agalarhack.input.KeyChord getChord() {
+        return me.mrhakan.agalarhack.input.KeyChord.parse(settings.getSetting("keybind"), (int)getNumberSetting("keyModifiers",0));
+    }
+    public int getKey() { return getChord().key(); }
+    public String getBindLabel() {
+        var chord = getChord();
+        if (chord.key() == -1) return "Unbound";
+        String prefix = ((chord.modifiers() & 2) != 0 ? "Ctrl+" : "") + ((chord.modifiers() & 1) != 0 ? "Shift+" : "")
+                + ((chord.modifiers() & 4) != 0 ? "Alt+" : "") + ((chord.modifiers() & 8) != 0 ? "Super+" : "");
+        return prefix + (chord.mouse() ? "Mouse " + (chord.mouseButton()+1)
+                : InputConstants.Type.KEYSYM.getOrCreate(chord.key()).getDisplayName().getString());
+    }
 
 	public double getNumberSetting(String settingName, double defaultValue) {
 		Object value = settings.getSetting(settingName);

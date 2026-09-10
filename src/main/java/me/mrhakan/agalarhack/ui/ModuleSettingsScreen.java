@@ -41,10 +41,12 @@ public class ModuleSettingsScreen extends Screen {
         rows.clear();
         List<SettingSpec> editable = new ArrayList<>();
         for (SettingSpec spec : module.settings.getSpecs()) {
-            if (!spec.getName().equals("enabled") && !spec.getName().equals("keybind")) editable.add(spec);
+            if (!spec.getName().equals("enabled") && !spec.getName().equals("keybind") && !spec.getName().equals("keyModifiers")) editable.add(spec);
         }
         int panelX = Math.max(12, width / 2 - Math.min(310, width / 2 - 12));
         int panelWidth = Math.min(620, width - panelX * 2);
+        addRenderableWidget(Button.builder(Component.literal("Bind: " + module.getBindLabel()), b -> minecraft.gui.setScreen(new KeybindCaptureScreen(this,module)))
+                .bounds(Math.max(12,width/2-110),37,220,18).build());
         int listTop = 58;
         int listBottom = Math.max(listTop + ROW_HEIGHT, height - 42);
         int rowsPerPage = Math.max(1, (listBottom - listTop) / ROW_HEIGHT);
