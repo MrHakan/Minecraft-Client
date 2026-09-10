@@ -12,17 +12,21 @@ import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
-/** Searchable module browser with category filtering and first-party management tools. */
+/** Modern searchable control center with persistent category sidebar and module cards. */
 public class ClickGuiScreen extends Screen {
-    private static final int ROW_HEIGHT = 24;
+    private static final int SIDEBAR_WIDTH = 112;
+    private static final int HEADER_HEIGHT = 58;
+    private static final int ROW_HEIGHT = 40;
 
     private final String query;
     private final int page;
     private final int categoryIndex;
     private EditBox searchBox;
     private List<Module> visibleModules = List.of();
+    private final List<RowVisual> rowVisuals = new ArrayList<>();
     private int pageCount = 1;
     private int safePage;
+    private int enabledCount;
 
     public ClickGuiScreen() {
         this("", 0, 0);
@@ -38,28 +42,34 @@ public class ClickGuiScreen extends Screen {
     @Override
     public void init() {
         super.init();
+        rowVisuals.clear();
+        enabledCount = (int) AgalarHackClient.moduleManager.getModuleList().stream().filter(Module::isToggled).count();
 
-        int searchWidth = Math.max(90, Math.min(240, width - 150));
-        searchBox = new EditBox(font, 12, 26, searchWidth, 20, Component.literal("Search modules/settings"));
+        int contentLeft = SIDEBAR_WIDTH + 14;
+        int contentRight = width - 14;
+        int contentWidth = Math.max(180, contentRight - contentLeft);
+        int searchWidth = Math.max(90, Math.min(260, contentWidth - 250));
+        searchBox = new EditBox(font, contentLeft, 26, searchWidth, 20, Component.literal("Search modules & settings"));
         searchBox.setValue(query);
         addRenderableWidget(searchBox);
         addRenderableWidget(Button.builder(Component.literal("Search"), b -> openSearch(searchBox.getValue(), 0, categoryIndex))
-                .bounds(18 + searchWidth, 26, 58, 20).build());
+                .bounds(contentLeft + searchWidth + 5, 26, 58, 20).build());
         addRenderableWidget(Button.builder(Component.literal("Clear"), b -> openSearch("", 0, categoryIndex))
-                .bounds(80 + searchWidth, 26, 52, 20).build());
+                .bounds(contentLeft + searchWidth + 67, 26, 50, 20).build());
 
-        int navY = 50;
-        int navWidth = Math.max(60, Math.min(94, (width - 24) / 4));
-        int navStart = Math.max(8, (width - navWidth * 4) / 2);
-        addRenderableWidget(Button.builder(Component.literal("Category: " + categoryName()), b ->
-                openSearch(query, 0, (categoryIndex + 1) % (Category.values().length + 1)))
-                .bounds(navStart, navY, navWidth - 2, 20).build());
-        addRenderableWidget(Button.builder(Component.literal("HUD"), b -> minecraft.gui.setScreen(new HudEditorScreen(this)))
-                .bounds(navStart + navWidth, navY, navWidth - 2, 20).build());
-        addRenderableWidget(Button.builder(Component.literal("Profiles"), b -> minecraft.gui.setScreen(new ProfileScreen(this)))
-                .bounds(navStart + navWidth * 2, navY, navWidth - 2, 20).build());
+        int quickRight = contentRight;
         addRenderableWidget(Button.builder(Component.literal("Targets"), b -> minecraft.gui.setScreen(new TargetPolicyScreen(this)))
-                .bounds(navStart + navWidth * 3, navY, navWidth - 2, 20).build());
+                .bounds(quickRight - 64, 26, 64, 20).build());
+        addRenderableWidget(Button.builder(Component.literal("Profiles"), b -> minecraft.gui.setScreen(new ProfileScreen(this)))
+                .bounds(quickRight - 132, 26, 64, 20).build());
+        addRenderableWidget(Button.builder(Component.literal("HUD"), b -> minecraft.gui.setScreen(new HudEditorScreen(this)))
+                .bounds(quickRight - 184, 26, 48, 20).build());
+
+        int categoryY = 62;
+        addCategoryButton("ALL", 0, categoryY);
+        for (int i = 0; i < Category.values().length; i++) {
+            addCategoryButton(Category.values()[i].name, i + 1, categoryY + (i + 1) * 24);
+        }
 
         List<Module> matches = query.isBlank()
                 ? new ArrayList<>(AgalarHackClient.moduleManager.getModuleList())
@@ -69,8 +79,8 @@ public class ClickGuiScreen extends Screen {
             matches.removeIf(module -> module.getCategory() != wanted);
         }
 
-        int listTop = 82;
-        int listBottom = Math.max(listTop + ROW_HEIGHT, height - 34);
+        int listTop = HEADER_HEIGHT + 12;
+        int listBottom = Math.max(listTop + ROW_HEIGHT, height - 35);
         int rowsPerPage = Math.max(1, (listBottom - listTop) / ROW_HEIGHT);
         pageCount = Math.max(1, (int) Math.ceil(matches.size() / (double) rowsPerPage));
         safePage = Math.min(page, pageCount - 1);
@@ -78,35 +88,70 @@ public class ClickGuiScreen extends Screen {
         int end = Math.min(matches.size(), start + rowsPerPage);
         visibleModules = matches.subList(start, end);
 
-        int rowWidth = Math.max(180, Math.min(470, width - 24));
-        int rowX = (width - rowWidth) / 2;
-        int settingsWidth = 78;
-        int toggleWidth = Math.max(90, rowWidth - settingsWidth - 4);
-
         for (int i = 0; i < visibleModules.size(); i++) {
             Module module = visibleModules.get(i);
             int y = listTop + i * ROW_HEIGHT;
-            String state = module.isToggled() ? "ON  " : "OFF ";
-            addRenderableWidget(Button.builder(Component.literal(state + module.getName()), b -> {
+            int cardWidth = contentWidth;
+            rowVisuals.add(new RowVisual(contentLeft, y, cardWidth, ROW_HEIGHT - 4, module));
+            int settingsWidth = 70;
+            int toggleWidth = 66;
+            addRenderableWidget(Button.builder(Component.literal(module.isToggled() ? "ON" : "OFF"), b -> {
                 module.toggle();
-                minecraft.gui.setScreen(new ClickGuiScreen(query, safePage, categoryIndex));
-            }).bounds(rowX, y, toggleWidth, 20).build());
-
+                minecraft.gui.setScreen(new ClickGuiScreen(searchBox.getValue(), safePage, categoryIndex));
+            }).bounds(contentRight - settingsWidth - toggleWidth - 8, y + 7, toggleWidth, 20).build());
             addRenderableWidget(Button.builder(Component.literal("Settings"), b ->
                     minecraft.gui.setScreen(new ModuleSettingsScreen(this, module)))
-                    .bounds(rowX + toggleWidth + 4, y, settingsWidth, 20).build());
+                    .bounds(contentRight - settingsWidth, y + 7, settingsWidth, 20).build());
         }
 
         if (safePage > 0) {
-            addRenderableWidget(Button.builder(Component.literal("< Prev"), b -> openSearch(query, safePage - 1, categoryIndex))
-                    .bounds(12, height - 26, 64, 20).build());
+            addRenderableWidget(Button.builder(Component.literal("‹ Prev"), b -> openSearch(searchBox.getValue(), safePage - 1, categoryIndex))
+                    .bounds(contentLeft, height - 27, 62, 20).build());
         }
         if (safePage + 1 < pageCount) {
-            addRenderableWidget(Button.builder(Component.literal("Next >"), b -> openSearch(query, safePage + 1, categoryIndex))
-                    .bounds(width - 76, height - 26, 64, 20).build());
+            addRenderableWidget(Button.builder(Component.literal("Next ›"), b -> openSearch(searchBox.getValue(), safePage + 1, categoryIndex))
+                    .bounds(contentRight - 62, height - 27, 62, 20).build());
         }
-        addRenderableWidget(Button.builder(Component.literal("Done"), b -> onClose())
-                .bounds((width - 64) / 2, height - 26, 64, 20).build());
+        addRenderableWidget(Button.builder(Component.literal("Close"), b -> onClose())
+                .bounds((contentLeft + contentRight) / 2 - 30, height - 27, 60, 20).build());
+    }
+
+    private void addCategoryButton(String label, int index, int y) {
+        String prefix = categoryIndex == index ? "• " : "  ";
+        addRenderableWidget(Button.builder(Component.literal(prefix + label), b -> openSearch(searchBox.getValue(), 0, index))
+                .bounds(10, y, SIDEBAR_WIDTH - 20, 20).build());
+    }
+
+    @Override
+    public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
+        ClientUiTheme.backdrop(graphics, width, height);
+        graphics.fill(0, 2, SIDEBAR_WIDTH, height, ClientUiTheme.SIDEBAR);
+        graphics.fill(SIDEBAR_WIDTH, 2, width, HEADER_HEIGHT, 0xF7131C27);
+        graphics.fill(SIDEBAR_WIDTH - 1, 2, SIDEBAR_WIDTH, height, ClientUiTheme.BORDER);
+        for (RowVisual row : rowVisuals) {
+            ClientUiTheme.panel(graphics, row.x, row.y, row.width, row.height, row.module.isToggled());
+        }
+    }
+
+    @Override
+    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
+        super.extractRenderState(graphics, mouseX, mouseY, delta);
+        graphics.text(font, "AGALAR", 16, 14, ClientUiTheme.TEXT, true);
+        graphics.text(font, "HACK", 16, 26, ClientUiTheme.ACCENT, true);
+        graphics.text(font, "v" + AgalarHackClient.VERSION, 16, 40, ClientUiTheme.MUTED, false);
+        graphics.text(font, "CONTROL CENTER", SIDEBAR_WIDTH + 14, 9, ClientUiTheme.TEXT, true);
+        graphics.text(font, enabledCount + " active  •  " + categoryName() + "  •  page " + (safePage + 1) + "/" + pageCount,
+                SIDEBAR_WIDTH + 14, 48, ClientUiTheme.MUTED, false);
+
+        for (RowVisual row : rowVisuals) {
+            int nameColor = row.module.isToggled() ? ClientUiTheme.SUCCESS : ClientUiTheme.TEXT;
+            graphics.text(font, row.module.getName(), row.x + 10, row.y + 7, nameColor, true);
+            String desc = truncate(row.module.getDescription(), Math.max(60, row.width - 175));
+            graphics.text(font, desc, row.x + 10, row.y + 21, ClientUiTheme.MUTED, false);
+        }
+        if (visibleModules.isEmpty()) {
+            graphics.centeredText(font, "No modules match this filter.", (SIDEBAR_WIDTH + width) / 2, 90, 0xFFFFB86B);
+        }
     }
 
     private void openSearch(String search, int targetPage, int targetCategory) {
@@ -117,15 +162,17 @@ public class ClickGuiScreen extends Screen {
         return categoryIndex == 0 ? "ALL" : Category.values()[categoryIndex - 1].name;
     }
 
-    @Override
-    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
-        super.extractRenderState(graphics, mouseX, mouseY, delta);
-        graphics.centeredText(font, "Agalar Hack Control Center", width / 2, 8, 0xFFFFFFFF);
-        String status = categoryName() + " • " + (query.isBlank() ? "all modules" : "search: " + query)
-                + " • page " + (safePage + 1) + "/" + pageCount;
-        graphics.centeredText(font, status, width / 2, 72, 0xFFAAAAAA);
-        if (visibleModules.isEmpty()) {
-            graphics.centeredText(font, "No modules match this filter.", width / 2, 96, 0xFFFFAA55);
+    private String truncate(String text, int maxWidth) {
+        if (text == null || text.isBlank()) return "No description";
+        if (font.width(text) <= maxWidth) return text;
+        String suffix = "…";
+        StringBuilder out = new StringBuilder();
+        for (int i = 0; i < text.length(); i++) {
+            if (font.width(out.toString() + text.charAt(i) + suffix) > maxWidth) break;
+            out.append(text.charAt(i));
         }
+        return out + suffix;
     }
+
+    private record RowVisual(int x, int y, int width, int height, Module module) {}
 }
