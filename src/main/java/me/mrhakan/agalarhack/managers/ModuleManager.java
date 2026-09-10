@@ -148,14 +148,9 @@ public class ModuleManager {
         String normalized = normalize(query);
         List<Module> result = new ArrayList<>();
         for (Module module : modules) {
-            boolean matches = normalize(module.getName()).contains(normalized)
-                    || normalize(module.getDescription()).contains(normalized)
-                    || normalize(module.getCategory().name).contains(normalized);
-            if (!matches) {
-                matches = module.settings.getSpecs().stream()
-                        .anyMatch(spec -> normalize(spec.getName()).contains(normalized)
-                                || normalize(spec.getDescription()).contains(normalized));
-            }
+            StringBuilder searchable = new StringBuilder(module.getName()).append(' ').append(module.getDescription()).append(' ').append(module.getCategory().name);
+            for (var spec : module.settings.getSpecs()) searchable.append(' ').append(spec.getName()).append(' ').append(spec.getDescription());
+            boolean matches = me.mrhakan.agalarhack.ui.ModuleSearch.matches(normalized, searchable.toString());
             if (matches) {
                 result.add(module);
             }

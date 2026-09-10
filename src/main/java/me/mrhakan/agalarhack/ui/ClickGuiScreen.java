@@ -15,9 +15,11 @@ import net.minecraft.network.chat.Component;
 /** Modern searchable control center with persistent category sidebar and module cards. */
 public class ClickGuiScreen extends Screen {
     private static final int SIDEBAR_WIDTH = 112;
-    private static final int HEADER_HEIGHT = 58;
+    private static final int HEADER_HEIGHT = 82;
     private static final int ROW_HEIGHT = 40;
 
+    private static String filter = "All";
+    private static String sort = "Name";
     private final String query;
     private final int page;
     private final int categoryIndex;
@@ -48,7 +50,7 @@ public class ClickGuiScreen extends Screen {
         int contentLeft = SIDEBAR_WIDTH + 14;
         int contentRight = width - 14;
         int contentWidth = Math.max(180, contentRight - contentLeft);
-        int searchWidth = Math.max(90, Math.min(260, contentWidth - 250));
+        int searchWidth = Math.max(50, contentWidth - 125);
         searchBox = new EditBox(font, contentLeft, 26, searchWidth, 20, Component.literal("Search modules & settings"));
         searchBox.setValue(query);
         addRenderableWidget(searchBox);
@@ -57,13 +59,17 @@ public class ClickGuiScreen extends Screen {
         addRenderableWidget(Button.builder(Component.literal("Clear"), b -> openSearch("", 0, categoryIndex))
                 .bounds(contentLeft + searchWidth + 67, 26, 50, 20).build());
 
-        int quickRight = contentRight;
+        int actionWidth = Math.max(30,(contentWidth-16)/5);
         addRenderableWidget(Button.builder(Component.literal("Targets"), b -> minecraft.gui.setScreen(new TargetPolicyScreen(this)))
-                .bounds(quickRight - 64, 26, 64, 20).build());
+                .bounds(contentLeft,50,actionWidth,20).build());
         addRenderableWidget(Button.builder(Component.literal("Profiles"), b -> minecraft.gui.setScreen(new ProfileScreen(this)))
-                .bounds(quickRight - 132, 26, 64, 20).build());
+                .bounds(contentLeft+actionWidth+4,50,actionWidth,20).build());
         addRenderableWidget(Button.builder(Component.literal("HUD"), b -> minecraft.gui.setScreen(new HudEditorScreen(this)))
-                .bounds(quickRight - 184, 26, 48, 20).build());
+                .bounds(contentLeft+(actionWidth+4)*2,50,actionWidth,20).build());
+        addRenderableWidget(Button.builder(Component.literal("Filter"), b -> minecraft.gui.setScreen(new me.mrhakan.agalarhack.ui.components.ChoiceScreen(this,"Filter",List.of("All","Enabled","Bound","Favorites","Recent"),choice->filter=choice)))
+                .bounds(contentLeft+(actionWidth+4)*3,50,actionWidth,20).build());
+        addRenderableWidget(Button.builder(Component.literal("Sort"), b -> minecraft.gui.setScreen(new me.mrhakan.agalarhack.ui.components.ChoiceScreen(this,"Sort",List.of("Name","Category","Recent"),choice->sort=choice)))
+                .bounds(contentLeft+(actionWidth+4)*4,50,actionWidth,20).build());
 
         int categoryY = 62;
         addCategoryButton("ALL", 0, categoryY);
@@ -79,6 +85,14 @@ public class ClickGuiScreen extends Screen {
             matches.removeIf(module -> module.getCategory() != wanted);
         }
 
+        matches.removeIf(module -> switch(filter) {
+            case "Enabled" -> !module.isToggled(); case "Bound" -> module.getKey()==-1;
+            case "Favorites" -> !module.getBooleanSetting("favorite",false);
+            case "Recent" -> module.getNumberSetting("lastUsed",0)==0; default -> false;
+        });
+        java.util.Comparator<Module> byName=java.util.Comparator.comparing(Module::getName,String.CASE_INSENSITIVE_ORDER);
+        matches.sort(switch(sort){case "Category" -> java.util.Comparator.comparing((Module m)->m.getCategory().name).thenComparing(byName);
+            case "Recent" -> java.util.Comparator.comparingDouble((Module m)->m.getNumberSetting("lastUsed",0)).reversed().thenComparing(byName);default->byName;});
         int listTop = HEADER_HEIGHT + 12;
         int listBottom = Math.max(listTop + ROW_HEIGHT, height - 35);
         int rowsPerPage = Math.max(1, (listBottom - listTop) / ROW_HEIGHT);
@@ -140,18 +154,25 @@ public class ClickGuiScreen extends Screen {
         graphics.text(font, "HACK", 16, 26, ClientUiTheme.ACCENT, true);
         graphics.text(font, "v" + AgalarHackClient.VERSION, 16, 40, ClientUiTheme.MUTED, false);
         graphics.text(font, "CONTROL CENTER", SIDEBAR_WIDTH + 14, 9, ClientUiTheme.TEXT, true);
-        graphics.text(font, enabledCount + " active  •  " + categoryName() + "  •  page " + (safePage + 1) + "/" + pageCount,
-                SIDEBAR_WIDTH + 14, 48, ClientUiTheme.MUTED, false);
+        graphics.text(font, enabledCount + " active  •  " + categoryName() + "  •  " + filter + "  •  page " + (safePage + 1) + "/" + pageCount,
+                SIDEBAR_WIDTH + 14, 74, ClientUiTheme.MUTED, false);
 
         for (RowVisual row : rowVisuals) {
             int nameColor = row.module.isToggled() ? ClientUiTheme.SUCCESS : ClientUiTheme.TEXT;
-            graphics.text(font, row.module.getName(), row.x + 10, row.y + 7, nameColor, true);
+            graphics.text(font, (row.module.getBooleanSetting("favorite",false)?"★ ":"") + row.module.getName(), row.x + 10, row.y + 7, nameColor, true);
             String desc = truncate(row.module.getDescription(), Math.max(60, row.width - 175));
             graphics.text(font, desc, row.x + 10, row.y + 21, ClientUiTheme.MUTED, false);
         }
         if (visibleModules.isEmpty()) {
             graphics.centeredText(font, "No modules match this filter.", (SIDEBAR_WIDTH + width) / 2, 90, 0xFFFFB86B);
         }
+    }
+
+    @Override public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event,boolean doubleClick) {
+        if(event.button()==1) for(var row:rowVisuals) if(event.x()>=row.x && event.x()<row.x+row.width && event.y()>=row.y && event.y()<row.y+row.height) {
+            minecraft.gui.setScreen(new ModuleActionsScreen(this,row.module));return true;
+        }
+        return super.mouseClicked(event,doubleClick);
     }
 
     private void openSearch(String search, int targetPage, int targetCategory) {
