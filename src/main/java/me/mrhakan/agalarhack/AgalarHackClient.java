@@ -82,6 +82,15 @@ public class AgalarHackClient implements ClientModInitializer {
                 new me.mrhakan.agalarhack.services.NotificationService());
         var notificationHud = new me.mrhakan.agalarhack.ui.NotificationHud(notifications, moduleManager);
         EVENTS.subscribe(ClientEvents.HudRender.class, "notifications", -10, notificationHud::render);
+        var context = services.register(me.mrhakan.agalarhack.services.ServerContextService.class,
+                new me.mrhakan.agalarhack.services.ServerContextService(EVENTS));
+        var input = services.register(me.mrhakan.agalarhack.services.InputStateService.class,
+                new me.mrhakan.agalarhack.services.InputStateService(EVENTS));
+        EVENTS.subscribe(ClientEvents.ClientTick.class, "server-context", 300, event -> context.tick(event.client()));
+        EVENTS.subscribe(ClientEvents.ClientTick.class, "input", 200, event -> input.tick(event.client()));
+        EVENTS.subscribe(ClientEvents.WorldChanged.class, "world-services", 100, event -> { inventory.reset(); rotations.clear(); });
+        EVENTS.subscribe(ClientEvents.WorldChanged.class, "module-lifecycle", 0, event -> moduleManager.onWorldChanged(event.ready()));
+        EVENTS.subscribe(ClientEvents.Disconnected.class, "server-context", 110, event -> context.disconnected());
         FRIEND_MANAGER.load();
         HUD_LAYOUT.load();
         TARGET_POLICY.load();

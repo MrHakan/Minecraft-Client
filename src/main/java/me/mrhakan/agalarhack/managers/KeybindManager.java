@@ -22,7 +22,7 @@ public class KeybindManager {
                 continue;
             }
 
-            boolean pressed = InputConstants.isKeyDown(client.getWindow(), key);
+            boolean pressed = me.mrhakan.agalarhack.services.ClientServices.require(me.mrhakan.agalarhack.services.InputStateService.class).keyDown(key);
             if (!suppressToggles && pressed && !lastPressed.getOrDefault(m, false)) {
                 m.toggle();
             }

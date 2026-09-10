@@ -17,6 +17,9 @@ import net.minecraft.world.level.block.state.BlockState;
  */
 public final class InventoryService {
     private final Minecraft mc;
+    private LocalPlayer observedPlayer;
+    private final ItemStack[] observed = new ItemStack[36];
+    private int observedSlot = -1;
     private final InventoryLeaseController<LocalPlayer> leases;
     public InventoryService(Minecraft mc, UtilityActionManager actions) {
         this.mc = mc;
@@ -65,11 +68,32 @@ public final class InventoryService {
         });
     }
     public boolean owns(String owner) { return leases.owns(owner); }
-    public void tick() { leases.tick(mc.player != null && mc.level != null && mc.player.isAlive() && mc.gui.screen() == null); }
+    public void tick() {
+        leases.tick(mc.player != null && mc.level != null && mc.player.isAlive() && mc.gui.screen() == null);
+        if (observedPlayer != mc.player) {
+            observedPlayer = mc.player; java.util.Arrays.fill(observed, null); observedSlot = -1;
+        }
+        if (observedPlayer == null) return;
+        var events = ClientServices.require(me.mrhakan.agalarhack.events.EventBus.class);
+        for (int slot = 0; slot < observed.length; slot++) {
+            ItemStack current = observedPlayer.getInventory().getItem(slot);
+            ItemStack previous = observed[slot];
+            if (previous == null || !ItemStack.matches(previous, current)) {
+                observed[slot] = current.copy();
+                events.post(new me.mrhakan.agalarhack.events.ClientEvents.InventoryUpdated(observedPlayer, slot,
+                        previous == null ? ItemStack.EMPTY : previous.copy(), current.copy()));
+            }
+        }
+        int selected = selectedSlot();
+        if (observedSlot != selected) {
+            int previous = observedSlot; observedSlot = selected;
+            events.post(new me.mrhakan.agalarhack.events.ClientEvents.SelectedSlotChanged(previous, selected));
+        }
+    }
     public boolean select(String owner, int priority, int slot, boolean use, boolean restore) {
         if (mc.player == null || mc.level == null || !mc.player.isAlive() || mc.gui.screen() != null) return false;
         return leases.select(owner, priority, slot, use, restore);
     }
     public void release(String owner) { leases.release(owner); }
-    public void reset() { leases.clear(); }
+    public void reset() { leases.clear(); observedPlayer = null; observedSlot = -1; java.util.Arrays.fill(observed, null); }
 }

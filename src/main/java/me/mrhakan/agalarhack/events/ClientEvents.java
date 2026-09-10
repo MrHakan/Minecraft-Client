@@ -14,6 +14,14 @@ import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext;
 public final class ClientEvents {
     private ClientEvents() { }
     public record ClientTick(Minecraft client) { }
+    public record WorldChanged(ClientLevel previousLevel, ClientLevel level,
+                               net.minecraft.client.player.LocalPlayer previousPlayer,
+                               net.minecraft.client.player.LocalPlayer player, boolean ready) { }
+    public record InventoryUpdated(net.minecraft.client.player.LocalPlayer player, int slot,
+                                   net.minecraft.world.item.ItemStack previous, net.minecraft.world.item.ItemStack current) { }
+    public record SelectedSlotChanged(int previous, int current) { }
+    public record KeyInput(int key, boolean pressed, boolean inScreen) { }
+    public record MouseInput(int button, boolean pressed, boolean inScreen) { }
     public record WorldTick(ClientLevel level) { }
     public record RenderSubmit(LevelRenderContext context) { }
     public record HudRender(GuiGraphicsExtractor graphics, DeltaTracker delta) { }
