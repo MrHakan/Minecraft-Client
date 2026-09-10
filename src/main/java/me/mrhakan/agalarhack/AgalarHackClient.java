@@ -34,7 +34,7 @@ public class AgalarHackClient implements ClientModInitializer {
 
     public static final String NAME = "Agalar Hack";
     public static final String MOD_ID = "agalarhack";
-    public static final String VERSION = "26.2.4";
+    public static final String VERSION = "26.2.5";
     public static String prefix = ".";
 
     public static ModuleManager moduleManager = new ModuleManager();
