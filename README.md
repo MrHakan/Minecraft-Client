@@ -76,7 +76,7 @@ The profile lifecycle also supports:
 - **Duplicate** — clone an existing profile under a new name;
 - **Rename** — rename the profile while preserving server bindings that referenced it;
 - **Export** — copy canonical profile JSON to the system clipboard;
-- **Import** — create/replace a named profile from JSON currently in the system clipboard.
+- **Import** — create/replace a named profile from JSON currently in the system clipboard. Imported module/HUD maps are sanitized before storage so null entries cannot be carried into later profile loads.
 
 Profiles are stored in `config/agalarhack-profiles/`, with address bindings in `config/agalarhack-server-profiles.json`. Missing settings in profiles created by older client versions fall back to current-version defaults instead of leaking values from the previously active profile.
 
@@ -156,7 +156,7 @@ Main config writes use a replace-safe temporary file. Malformed module JSON is p
 - Added block and living-entity collision checks to **Trajectories**, with configurable impact/landing markers.
 - Upgraded **TargetHUD** with a proportional health bar, armor/mainhand/offhand item icons and known status-effect icons.
 - Added **Freecam smoothing** and a world-space body marker for the real anchored player position.
-- Expanded profile lifecycle with **clipboard import/export, duplicate and rename**; rename also migrates per-server bindings.
+- Expanded profile lifecycle with **clipboard import/export, duplicate and rename**; rename also migrates per-server bindings and imports sanitize malformed null entries.
 
 ### 26.2.3 architecture
 
