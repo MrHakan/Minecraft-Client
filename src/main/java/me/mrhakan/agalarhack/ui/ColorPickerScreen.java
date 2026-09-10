@@ -12,7 +12,8 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
 /** RGB/HSV/alpha editing with staged apply/cancel, hex and session recent colors. */
-public final class ColorPickerScreen extends Screen {
+public final class ColorPickerScreen extends Screen implements me.mrhakan.agalarhack.ui.ClientScreen {
+    @Override public Screen parentScreen() { return parent; }
     private static final List<Integer> RECENT=new ArrayList<>();
     private final Screen parent; private final IntConsumer apply; private int color; private boolean hsv;
     private EditBox hex; private String error="";

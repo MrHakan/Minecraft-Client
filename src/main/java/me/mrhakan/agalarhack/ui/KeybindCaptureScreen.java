@@ -13,7 +13,8 @@ import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 
-public final class KeybindCaptureScreen extends Screen {
+public final class KeybindCaptureScreen extends Screen implements me.mrhakan.agalarhack.ui.ClientScreen {
+    @Override public Screen parentScreen() { return parent; }
     private final Screen parent;
     private final Module module;
     public KeybindCaptureScreen(Screen parent, Module module) {

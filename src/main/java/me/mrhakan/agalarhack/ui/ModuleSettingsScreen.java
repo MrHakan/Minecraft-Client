@@ -14,7 +14,8 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
 /** Generic typed settings editor using the same visual language as the Control Center. */
-public class ModuleSettingsScreen extends Screen {
+public class ModuleSettingsScreen extends Screen implements me.mrhakan.agalarhack.ui.ClientScreen {
+    @Override public Screen parentScreen() { return parent; }
     private static final int ROW_HEIGHT = 32;
     private final Screen parent;
     private final Module module;

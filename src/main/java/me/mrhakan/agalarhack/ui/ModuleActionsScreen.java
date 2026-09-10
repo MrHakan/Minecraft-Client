@@ -11,7 +11,8 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
 /** Accessible context actions. Paste validates all setting values before applying any. */
-public final class ModuleActionsScreen extends Screen {
+public final class ModuleActionsScreen extends Screen implements me.mrhakan.agalarhack.ui.ClientScreen {
+    @Override public Screen parentScreen() { return parent; }
     private final Screen parent;
     private final Module module;
     private String feedback="";

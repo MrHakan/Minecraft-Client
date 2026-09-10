@@ -23,6 +23,7 @@ public final class ServerContextService {
             events.post(new ClientEvents.WorldChanged(previousLevel, level, previousPlayer, player, ready));
         }
         Screen next = mc.gui.screen();
+        me.mrhakan.agalarhack.AgalarHackClient.UI_SESSION.transition(next);
         if (screen != next) {
             Screen previous = screen; screen = next;
             if (previous != null) events.post(new ClientEvents.ScreenClosed(previous));

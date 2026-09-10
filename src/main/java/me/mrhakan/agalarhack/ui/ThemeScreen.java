@@ -9,7 +9,8 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
-public final class ThemeScreen extends Screen {
+public final class ThemeScreen extends Screen implements me.mrhakan.agalarhack.ui.ClientScreen {
+    @Override public Screen parentScreen() { return parent; }
     private final Screen parent;private final ThemeService service=ClientServices.require(ThemeService.class);
     private final ThemeService.Theme original;private ThemeService.Theme editing;private String feedback="";
     public ThemeScreen(Screen parent){super(Component.literal("Themes"));this.parent=parent;original=service.copy();editing=service.copy();}
@@ -24,7 +25,7 @@ public final class ThemeScreen extends Screen {
         addRenderableWidget(Button.builder(Component.literal("Animations: "+editing.uiAnimations),b->{editing.uiAnimations=!editing.uiAnimations;refresh();}).bounds(x,156,136,20).build());
         addRenderableWidget(Button.builder(Component.literal("Export"),b->minecraft.keyboardHandler.setClipboard(service.export(editing))).bounds(x+144,156,64,20).build());
         addRenderableWidget(Button.builder(Component.literal("Import"),b->{try{editing=service.parse(minecraft.keyboardHandler.getClipboard());service.preview(editing);refresh();}catch(RuntimeException e){feedback=e.getMessage();}}).bounds(x+216,156,64,20).build());
-        addRenderableWidget(Button.builder(Component.literal("Save"),b->{service.preview(editing);if(service.save())minecraft.gui.setScreen(parent);else feedback="Could not save theme";}).bounds(width/2-85,height-28,80,20).build());
+        addRenderableWidget(Button.builder(Component.literal("Save"),b->{service.preview(editing);if(service.save()){saved=true;minecraft.gui.setScreen(parent);}else feedback="Could not save theme";}).bounds(width/2-85,height-28,80,20).build());
         addRenderableWidget(Button.builder(Component.literal("Cancel"),b->onClose()).bounds(width/2+5,height-28,80,20).build());
     }
     private void chooseColor(String name){
@@ -36,6 +37,8 @@ public final class ThemeScreen extends Screen {
         }));
     }
     private Runnable pendingColor;
+    private boolean saved;
+    @Override public void abandoned() { pendingColor=null; if (!saved) service.preview(original); }
     @Override public void tick(){if(pendingColor!=null){Runnable next=pendingColor;pendingColor=null;next.run();}}
     private void refresh(){service.preview(editing);clearWidgets();init();}
     @Override public void onClose(){service.preview(original);minecraft.gui.setScreen(parent);}

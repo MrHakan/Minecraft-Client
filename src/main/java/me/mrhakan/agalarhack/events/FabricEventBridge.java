@@ -24,6 +24,7 @@ public final class FabricEventBridge {
         HudElementRegistry.addLast(Identifier.fromNamespaceAndPath("agalarhack", "hud"),
                 (graphics, delta) -> bus.post(new ClientEvents.HudRender(graphics, delta)));
         ScreenEvents.BEFORE_INIT.register((client, screen, width, height) -> {
+            me.mrhakan.agalarhack.AgalarHackClient.UI_SESSION.transition(screen);
             ScreenKeyboardEvents.beforeKeyPress(screen).register((s, key) -> bus.post(new ClientEvents.ScreenKeyInput(s, key, true)));
             ScreenKeyboardEvents.beforeKeyRelease(screen).register((s, key) -> bus.post(new ClientEvents.ScreenKeyInput(s, key, false)));
             ScreenMouseEvents.beforeMouseClick(screen).register((s, mouse) -> bus.post(new ClientEvents.ScreenMouseInput(s, mouse, true)));

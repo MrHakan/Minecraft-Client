@@ -7,7 +7,8 @@ import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 /** Exact text entry complements sliders for values requiring precision. */
-public final class ValueInputScreen extends Screen {
+public final class ValueInputScreen extends Screen implements me.mrhakan.agalarhack.ui.ClientScreen {
+    @Override public Screen parentScreen() { return parent; }
     private final Screen parent;private final String initial;private final Consumer<String> save;
     private EditBox input;private String error="";
     public ValueInputScreen(Screen parent,String title,String initial,Consumer<String> save){super(Component.literal(title));this.parent=parent;this.initial=initial;this.save=save;}

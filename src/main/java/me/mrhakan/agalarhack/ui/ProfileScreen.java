@@ -10,7 +10,8 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
 /** Full profile lifecycle UI including per-server binding and clipboard import/export. */
-public class ProfileScreen extends Screen {
+public class ProfileScreen extends Screen implements me.mrhakan.agalarhack.ui.ClientScreen {
+    @Override public Screen parentScreen() { return parent; }
     private final Screen parent;
     private EditBox nameBox;
     private EditBox targetBox;

@@ -15,7 +15,8 @@ import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 
 /** Drag-and-drop HUD editor with grid snapping and overlap diagnostics. */
-public class HudEditorScreen extends Screen {
+public class HudEditorScreen extends Screen implements me.mrhakan.agalarhack.ui.ClientScreen {
+    @Override public Screen parentScreen() { return parent; }
     private List<String> widgetOrder=List.of();
     private List<String> widgets(){return widgetOrder;}
     private int gridSize(){return AgalarHackClient.HUD_LAYOUT.editorOptions().gridSize;}

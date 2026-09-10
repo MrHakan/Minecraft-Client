@@ -9,7 +9,8 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
 /** Keyboard-accessible choice modal, paginated to keep every option reachable. */
-public final class ChoiceScreen extends Screen {
+public final class ChoiceScreen extends Screen implements me.mrhakan.agalarhack.ui.ClientScreen {
+    @Override public Screen parentScreen() { return parent; }
     private final Screen parent;
     private final List<String> choices;
     private final Consumer<String> selected;
@@ -21,7 +22,7 @@ public final class ChoiceScreen extends Screen {
         int count=Math.max(1,(height-90)/24), start=page*count;
         for(int i=start;i<Math.min(choices.size(),start+count);i++) {
             String choice=choices.get(i);
-            addRenderableWidget(Button.builder(Component.literal(choice),b->{selected.accept(choice);onClose();})
+            addRenderableWidget(Button.builder(Component.literal(choice),b->{onClose();selected.accept(choice);})
                     .bounds(Math.max(8,width/2-120),40+(i-start)*24,Math.min(240,width-16),20).build());
         }
         if(page>0)addRenderableWidget(Button.builder(Component.literal("Prev"),b->{page--;rebuild();}).bounds(width/2-120,height-35,60,20).build());

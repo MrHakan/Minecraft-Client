@@ -13,7 +13,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
 /** Modern searchable control center with persistent category sidebar and module cards. */
-public class ClickGuiScreen extends Screen {
+public class ClickGuiScreen extends Screen implements me.mrhakan.agalarhack.ui.ClientScreen {
     private static final int SIDEBAR_WIDTH = 112;
     private static final int HEADER_HEIGHT = 82;
     private static final int ROW_HEIGHT = 40;

@@ -53,6 +53,11 @@ public class AgalarHackClient implements ClientModInitializer {
     private static final KeyMapping.Category KEY_CATEGORY = KeyMapping.Category.register(
             Identifier.fromNamespaceAndPath(MOD_ID, "client"));
     private static KeyMapping clickGuiKey;
+    private static boolean capturedScreenInput;
+    public static final me.mrhakan.agalarhack.ui.state.UiSession<Screen> UI_SESSION =
+            new me.mrhakan.agalarhack.ui.state.UiSession<>(
+                    screen -> screen instanceof me.mrhakan.agalarhack.ui.ClientScreen client ? client.parentScreen() : null,
+                    screen -> { if (screen instanceof me.mrhakan.agalarhack.ui.ClientScreen client) client.abandoned(); });
 
     @Override
     public void onInitializeClient() {
@@ -117,20 +122,27 @@ public class AgalarHackClient implements ClientModInitializer {
         EVENTS.subscribe(ClientEvents.ClientTick.class, "profiles", 80, event -> PROFILES.tick(event.client()));
         EVENTS.subscribe(ClientEvents.ClientTick.class, "keybinds", 60, event -> KeybindManager.tick(event.client()));
         EVENTS.subscribe(ClientEvents.ClientTick.class, "modules", 40, event -> moduleManager.tick(event.client()));
+        EVENTS.subscribe(ClientEvents.ScreenKeyInput.class, "gui-key-capture", 100, event -> {
+            if (event.screen() instanceof me.mrhakan.agalarhack.ui.KeybindCaptureScreen) capturedScreenInput = true;
+        });
         EVENTS.subscribe(ClientEvents.ClientTick.class, "gui-key", 0, event -> {
             var client = event.client();
 
             while (clickGuiKey.consumeClick()) {
-                if (client.player == null) {
+                if (client.player == null || capturedScreenInput) {
                     continue;
                 }
                 Screen current = client.gui.screen();
-                if (isClientScreen(current)) {
+                if (current instanceof me.mrhakan.agalarhack.ui.KeybindCaptureScreen) {
+                    continue;
+                } else if (current instanceof me.mrhakan.agalarhack.ui.ClientScreen) {
+                    UI_SESSION.transition(null);
                     client.gui.setScreen(null);
-                } else {
+                } else if (current == null) {
                     client.gui.setScreen(new ClickGuiScreen());
                 }
             }
+            capturedScreenInput = false;
         });
 
         Hud hud = new Hud();
@@ -139,11 +151,4 @@ public class AgalarHackClient implements ClientModInitializer {
         FabricEventBridge.register(EVENTS);
     }
 
-    private static boolean isClientScreen(Screen screen) {
-        return screen instanceof ClickGuiScreen
-                || screen instanceof ModuleSettingsScreen
-                || screen instanceof HudEditorScreen
-                || screen instanceof ProfileScreen
-                || screen instanceof TargetPolicyScreen;
-    }
 }
