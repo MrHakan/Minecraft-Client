@@ -8,7 +8,7 @@ import net.minecraft.world.phys.Vec3;
 
 /**
  * Detaches the camera onto a client-only armor-stand entity while keeping the real
- * player anchored. No fake movement packets or server-side teleporting are used.
+ * player anchored. Position packets are not spoofed or replaced.
  */
 public class Freecam extends Module {
     private ArmorStand camera;
@@ -23,7 +23,7 @@ public class Freecam extends Module {
     public void selfSettings() {
         addNumberSetting("speed", 0.65, 0.05, 3.0, "Camera movement speed per tick");
         addNumberSetting("sprintMultiplier", 2.5, 1.0, 8.0, "Speed multiplier while the sprint key is held");
-        addBooleanSetting("freezePlayer", true, "Keep the real player anchored while freecam is active");
+        addBooleanSetting("freezePlayer", true, "Keep the real player's position anchored while freecam is active");
     }
 
     @Override
@@ -46,6 +46,11 @@ public class Freecam extends Module {
         if (mc.player == null || mc.level == null || camera == null) {
             return;
         }
+
+        // Vanilla mouse input still updates the local player's look rotation. Mirror
+        // that rotation onto the detached camera so normal mouse-look keeps working.
+        camera.setYRot(mc.player.getYRot());
+        camera.setXRot(mc.player.getXRot());
 
         if (getBooleanSetting("freezePlayer", true) && playerAnchor != null) {
             mc.player.setDeltaMovement(Vec3.ZERO);
