@@ -1,5 +1,6 @@
 package me.mrhakan.agalarhack.module.misc;
 
+import me.mrhakan.agalarhack.AgalarHackClient;
 import me.mrhakan.agalarhack.module.Category;
 import me.mrhakan.agalarhack.module.Module;
 import net.minecraft.core.component.DataComponents;
@@ -10,6 +11,9 @@ import net.minecraft.world.item.Items;
 
 /** Automatically eats the best allowed food from the hotbar. */
 public class AutoEat extends Module {
+    private static final String OWNER = "autoeat";
+    private static final int PRIORITY = 60;
+
     private boolean eating;
     private boolean ownsUseKey;
     private int previousSlot = -1;
@@ -28,7 +32,7 @@ public class AutoEat extends Module {
 
     @Override
     public void onUpdate() {
-        if (mc.player == null) {
+        if (mc.player == null || mc.gui.screen() != null) {
             stopEating();
             return;
         }
@@ -44,6 +48,10 @@ public class AutoEat extends Module {
                 stopEating();
                 return;
             }
+            if (!claimControls()) {
+                stopEating();
+                return;
+            }
             mc.options.keyUse.setDown(true);
             return;
         }
@@ -53,7 +61,7 @@ public class AutoEat extends Module {
         }
 
         int bestSlot = findBestFoodSlot();
-        if (bestSlot < 0) {
+        if (bestSlot < 0 || !claimControls()) {
             return;
         }
 
@@ -68,6 +76,12 @@ public class AutoEat extends Module {
         ownsUseKey = !mc.options.keyUse.isDown();
         mc.options.keyUse.setDown(true);
         eating = true;
+    }
+
+    private boolean claimControls() {
+        boolean hotbar = AgalarHackClient.UTILITY_ACTIONS.claimHotbar(OWNER, PRIORITY);
+        boolean use = AgalarHackClient.UTILITY_ACTIONS.claimUse(OWNER, PRIORITY);
+        return hotbar && use;
     }
 
     private int findBestFoodSlot() {
