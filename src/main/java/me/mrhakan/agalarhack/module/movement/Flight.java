@@ -5,19 +5,33 @@ import me.mrhakan.agalarhack.module.Module;
 
 public class Flight extends Module {
 
-	private static final float DEFAULT_FLY_SPEED = 0.05f;
+	private boolean captured;
+	private boolean previousMayfly;
+	private boolean previousFlying;
+	private float previousFlyingSpeed;
 
 	public Flight() {
-		super("Flight", Category.MOVEMENT, "Lets you fly like in creative mode");
+		super("Flight", Category.MOVEMENT, "Provides client-side creative-style flight while preserving prior abilities");
 	}
 
 	@Override
 	public void selfSettings() {
-		settings.addSetting("speed", 0.1);
+		addNumberSetting("speed", 0.1, 0.02, 1.0, "Creative-style flying speed multiplier");
+	}
+
+	@Override
+	public void onEnable() {
+		captureState();
 	}
 
 	@Override
 	public void onUpdate() {
+		if (mc.player == null) {
+			return;
+		}
+		if (!captured) {
+			captureState();
+		}
 		mc.player.getAbilities().mayfly = true;
 		mc.player.getAbilities().flying = true;
 		mc.player.getAbilities().setFlyingSpeed((float) getNumberSetting("speed", 0.1));
@@ -25,12 +39,21 @@ public class Flight extends Module {
 
 	@Override
 	public void onDisable() {
-		if (mc.player != null) {
-			if (!mc.player.getAbilities().instabuild) {
-				mc.player.getAbilities().mayfly = false;
-				mc.player.getAbilities().flying = false;
-			}
-			mc.player.getAbilities().setFlyingSpeed(DEFAULT_FLY_SPEED);
+		if (mc.player != null && captured) {
+			mc.player.getAbilities().mayfly = previousMayfly;
+			mc.player.getAbilities().flying = previousFlying;
+			mc.player.getAbilities().setFlyingSpeed(previousFlyingSpeed);
 		}
+		captured = false;
+	}
+
+	private void captureState() {
+		if (mc.player == null || captured) {
+			return;
+		}
+		previousMayfly = mc.player.getAbilities().mayfly;
+		previousFlying = mc.player.getAbilities().flying;
+		previousFlyingSpeed = mc.player.getAbilities().getFlyingSpeed();
+		captured = true;
 	}
 }
