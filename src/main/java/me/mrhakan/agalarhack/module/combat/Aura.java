@@ -58,7 +58,7 @@ public class Aura extends Module {
 
 	@Override
 	public void onUpdate() {
-		if (mc.player == null || mc.level == null || mc.gameMode == null) {
+		if (mc.player == null || mc.level == null || mc.gameMode == null || mc.gui.screen() != null) {
 			setDisplayName(null);
 			return;
 		}
@@ -86,14 +86,6 @@ public class Aura extends Module {
 		AgalarHackClient.TARGET_TRACKER.set(target);
 		setDisplayName("Aura [" + target.getName().getString() + "]");
 
-		if (vanillaCooldown) {
-			if (mc.player.getAttackStrengthScale(0.5f) < 1.0f) {
-				return;
-			}
-		} else if (cooldown > 0) {
-			return;
-		}
-
         var mode = RotationService.Mode.valueOf(getStringSetting("rotation", "NONE"));
         if (mode != RotationService.Mode.NONE) {
             double dx = target.getX() - mc.player.getX(), dz = target.getZ() - mc.player.getZ();
@@ -105,6 +97,14 @@ public class Aura extends Module {
             if (Math.abs(me.mrhakan.agalarhack.services.TargetSelection.wrapDegrees(yaw - mc.player.getYRot())) > 2
                     || Math.abs(pitch - mc.player.getXRot()) > 2) return;
         }
+		if (vanillaCooldown) {
+			if (mc.player.getAttackStrengthScale(0.5f) < 1.0f) {
+				return;
+			}
+		} else if (cooldown > 0) {
+			return;
+		}
+
 		mc.gameMode.attack(mc.player, target);
 		mc.player.swing(InteractionHand.MAIN_HAND);
 		if (!vanillaCooldown) {

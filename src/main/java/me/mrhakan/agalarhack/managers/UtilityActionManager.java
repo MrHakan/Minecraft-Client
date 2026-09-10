@@ -19,18 +19,20 @@ public class UtilityActionManager {
     }
 
     public boolean claimHotbar(String owner, int priority) {
+        if (owner == null || owner.isBlank()) return false;
         if (hotbarOwner == null || hotbarOwner.equals(owner) || priority > hotbarPriority) {
+            hotbarPriority = owner.equals(hotbarOwner) ? Math.max(hotbarPriority, priority) : priority;
             hotbarOwner = owner;
-            hotbarPriority = priority;
             return true;
         }
         return false;
     }
 
     public boolean claimUse(String owner, int priority) {
+        if (owner == null || owner.isBlank()) return false;
         if (useOwner == null || useOwner.equals(owner) || priority > usePriority) {
+            usePriority = owner.equals(useOwner) ? Math.max(usePriority, priority) : priority;
             useOwner = owner;
-            usePriority = priority;
             return true;
         }
         return false;

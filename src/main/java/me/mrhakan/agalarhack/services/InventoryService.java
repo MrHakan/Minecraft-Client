@@ -17,14 +17,24 @@ import net.minecraft.world.level.block.state.BlockState;
  */
 public final class InventoryService {
     private final Minecraft mc;
-    private final UtilityActionManager actions;
-    private Lease lease;
-    private static final class Lease {
-        String owner; int priority, previous, applied;
-        LocalPlayer player;
-        boolean restore, use, previousUse;
+    private final InventoryLeaseController<LocalPlayer> leases;
+    public InventoryService(Minecraft mc, UtilityActionManager actions) {
+        this.mc = mc;
+        leases = new InventoryLeaseController<>(new InventoryLeaseController.Controls<LocalPlayer>() {
+            public LocalPlayer currentPlayer() { return mc.player; }
+            public int selected(LocalPlayer player) { return player.getInventory().getSelectedSlot(); }
+            public void select(LocalPlayer player, int slot) { player.getInventory().setSelectedSlot(slot); }
+            public void use(boolean down) { mc.options.keyUse.setDown(down); }
+            public boolean physicalUseDown() {
+                var key = net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper.getBoundKeyOf(mc.options.keyUse);
+                if (key.getType() == com.mojang.blaze3d.platform.InputConstants.Type.MOUSE) {
+                    return org.lwjgl.glfw.GLFW.glfwGetMouseButton(mc.getWindow().handle(), key.getValue()) == org.lwjgl.glfw.GLFW.GLFW_PRESS;
+                }
+                return key.getType() == com.mojang.blaze3d.platform.InputConstants.Type.KEYSYM && key.getValue() >= 0
+                        && com.mojang.blaze3d.platform.InputConstants.isKeyDown(mc.getWindow(), key.getValue());
+            }
+        }, actions);
     }
-    public InventoryService(Minecraft mc, UtilityActionManager actions) { this.mc = mc; this.actions = actions; }
     public int selectedSlot() { return mc.player == null ? -1 : mc.player.getInventory().getSelectedSlot(); }
     public int findItem(Item item, boolean hotbar) { return find(stack -> stack.is(item), hotbar); }
     public int findBlock(boolean hotbar) { return find(stack -> stack.getItem() instanceof BlockItem, hotbar); }
@@ -54,34 +64,12 @@ public final class InventoryService {
             return stack.getDestroySpeed(state) + (stack.isCorrectToolForDrops(state) ? 1000 : 0);
         });
     }
-    public boolean owns(String owner) { return lease != null && lease.owner.equals(owner); }
-    public void tick() {
-        if (lease != null && (mc.player != lease.player || mc.level == null || !lease.player.isAlive()
-                || mc.gui.screen() != null || selectedSlot() != lease.applied)) reset();
-    }
+    public boolean owns(String owner) { return leases.owns(owner); }
+    public void tick() { leases.tick(mc.player != null && mc.level != null && mc.player.isAlive() && mc.gui.screen() == null); }
     public boolean select(String owner, int priority, int slot, boolean use, boolean restore) {
-        tick();
-        if (owner == null || owner.isBlank() || mc.player == null || mc.gui.screen() != null || slot < 0 || slot > 8) return false;
-        if (lease != null && !owns(owner) && priority <= lease.priority) return false;
-        if (use ? !actions.claimHotbarAndUse(owner, priority) : !actions.claimHotbar(owner, priority)) return false;
-        if (lease != null && !owns(owner)) reset();
-        if (lease == null) {
-            lease = new Lease(); lease.owner = owner; lease.priority = priority;
-            lease.player = mc.player; lease.previous = selectedSlot(); lease.restore = restore;
-        }
-        if (use && !lease.use) { lease.previousUse = mc.options.keyUse.isDown(); lease.use = true; }
-        lease.applied = slot;
-        lease.player.getInventory().setSelectedSlot(slot);
-        if (use) mc.options.keyUse.setDown(true);
-        return true;
+        if (mc.player == null || mc.level == null || !mc.player.isAlive() || mc.gui.screen() != null) return false;
+        return leases.select(owner, priority, slot, use, restore);
     }
-    public void release(String owner) { if (owns(owner)) reset(); }
-    public void reset() {
-        if (lease == null) return;
-        Lease previous = lease; lease = null;
-        if (previous.use) mc.options.keyUse.setDown(previous.previousUse);
-        if (previous.restore && previous.player.getInventory().getSelectedSlot() == previous.applied) {
-            previous.player.getInventory().setSelectedSlot(previous.previous);
-        }
-    }
+    public void release(String owner) { leases.release(owner); }
+    public void reset() { leases.clear(); }
 }

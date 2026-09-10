@@ -45,7 +45,7 @@ public class TriggerBot extends Module {
 
     @Override
     public void onUpdate() {
-        if (mc.player == null || mc.gameMode == null) {
+        if (mc.player == null || mc.gameMode == null || mc.gui.screen() != null) {
             setDisplayName(null);
             return;
         }
