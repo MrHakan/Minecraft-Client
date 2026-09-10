@@ -19,6 +19,7 @@ class BlockScanCursorTest {
             assertTrue(positions.add(cursor.x() + ":" + cursor.y() + ":" + cursor.z()));
             cursor.advance();
         }
+        assertEquals(1, cursor.cycle());
         assertEquals(firstX, cursor.x()); assertEquals(firstY, cursor.y()); assertEquals(firstZ, cursor.z());
     }
     @Test void unloadedChunkSkipAndResetDiscardTheOldCursor() {

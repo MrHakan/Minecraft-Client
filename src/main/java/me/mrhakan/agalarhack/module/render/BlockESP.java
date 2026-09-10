@@ -26,6 +26,7 @@ public class BlockESP extends Module {
     private final BlockPos.MutableBlockPos probe = new BlockPos.MutableBlockPos();
     private List<BlockPos> snapshot = List.of();
     private boolean snapshotDirty;
+    private long scanCycle;
     private EventBus.Subscription chunkUnload;
     private boolean anchorSet;
     private String targetSignature = "";
@@ -89,10 +90,12 @@ public class BlockESP extends Module {
 
         trimResults();
         int budget = Math.max(100, Math.min(12000, (int) Math.round(getNumberSetting("scanBudget", 2500.0))));
+        scanCycle = cursor.cycle();
         service(ScannerService.class).offer(this, ScanScheduler.Priority.BACKGROUND, budget, this::scanStep);
     }
 
     private ScanScheduler.Result scanStep(ScanScheduler.Budget budget) {
+        if (cursor.cycle() != scanCycle) return ScanScheduler.Result.DONE;
         int x = cursor.x(), y = cursor.y(), z = cursor.z();
         if (!mc.level.isInsideBuildHeight(y)) {
             if (!budget.take(1, 0, 0)) return ScanScheduler.Result.BLOCKED;

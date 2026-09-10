@@ -10,7 +10,7 @@ compatibility. Modules can use `service(Contract.class)` instead of static manag
 Existing Settings, profiles, HUD layouts and submit-node renderer remain in place.
 
 Registered services include existing managers, EventBus, InventoryService, TargetService,
-RotationService, NotificationService, ServerContextService, InputStateService and RenderService.
+RotationService, NotificationService, ServerContextService, InputStateService, RenderService, ScannerService, ThemeService and HudRegistry.
 Registration rejects duplicates. Optional integrations must use `registry().find(...)`.
 There is no external addon compatibility promise yet.
 
@@ -22,7 +22,7 @@ to asynchronous tasks. Priority sorts descending; equal priorities retain regist
 Subscriptions created during a post begin on the next post. Closing a subscription immediately
 prevents subsequent invocation. Failed listeners are removed and logged, without suppressing peers.
 
-Fabric feeds client/world ticks, joins, disconnects, entity loads/unloads, render submission,
+Fabric feeds client/world ticks, joins, disconnects, entity and chunk loads/unloads, render submission,
 HUD extraction and screen-specific input. ServerContextService publishes identity-based
 world/player/death transitions and screen open/close changes at tick boundaries; resizes do
 not create duplicate opens. InputStateService publishes bounded tick-sampled keyboard/mouse
@@ -30,7 +30,7 @@ edges, not a lossless raw GLFW event stream. Inventory changes cover the 36 main
 slots and selected slot; payloads contain copies rather than mutable cached stacks.
 
 Tick order: context (300), sampled input (200), action reset (100), inventory (90), profiles
-(80), module binds (60), modules (40), rotation resolution (20), GUI key (0).
+(80), module binds (60), modules (40), scanner execution (30), rotation resolution (20), GUI key (0).
 
 World changes clear service leases before enabled modules restore and rebuild world-scoped
 state. Menu-only modules retain their separate lifecycle. RenderService isolates deferred
@@ -73,8 +73,7 @@ verified appropriate movement/interaction adapter exists. No packet exploit chai
 Notifications render status/error toasts, with duration, queue bound, corner and animation
 controls under the Notifications module. Module-toggle notices can be disabled separately.
 Profile load, friend add, reconnect attempts and config recovery are connected. Queue size
-is capped at 10, text at 180 characters; repeated immediate duplicates are coalesced. Sound
-and a dynamically draggable HUD component are still pending.
+is capped at 10, text at 180 characters; repeated immediate duplicates are coalesced. Notifications are registered as a draggable HUD component. Sound remains pending.
 
 The module config migrates from a legacy bare module map (v0) to:
 
@@ -86,7 +85,47 @@ Module setting names and values survive migration. Profile JSON remains backward
 and contains its existing module snapshot map. A future schema is rejected without rewriting
 its file. An unreadable or oversized file disables writes. Malformed files are backed up
 before defaults may be written; failed backups also block writes. Atomic replacement remains.
-Other configuration stores retain their current formats; their migration audit is pending.
+HUD layout and editor files now use bounded reads and temporary-file replacement. Invalid,
+unreadable, oversized or future editor schemas preserve the source and disable writes until a
+successful reload. Layouts retain their legacy map format, bounded to 256 valid component IDs.
+Editor options accept older unversioned objects and now write schemaVersion 1. Other stores
+still require a migration audit.
+
+## UI session and clipboard boundaries
+
+Client screens expose their parent hierarchy. Opening a child keeps the parent edit session;
+leaving the entire branch (including external screen replacement) abandons it. Unsaved theme
+previews then restore the previous palette. Captured binding events cannot also trigger the
+GUI shortcut. The GUI shortcut does not replace unrelated vanilla screens.
+
+Module clipboard parsing canonicalizes metadata names, rejects case-insensitive protected keys
+and duplicate aliases, validates every scalar before mutation, and bounds payloads to 64 KiB.
+Applying/resetting settings to an active module restores its old state before re-enabling with
+the new settings. This boundary is covered by pure parsing tests.
+
+## Shared scanner execution
+
+BlockESP and StorageESP now offer work to one cooperative scheduler after module updates.
+Each tick allows at most 12,000 block probes, 64 explicit chunk lookups, 4,096 block-entity
+iterations and 16,384 task steps. Requests expire each tick. Steps reserve costs before world
+access; missing chunks are never requested for loading. Failed tasks disable only their owner.
+Near/focused/background priorities have weighted turns; equal-priority starting order rotates.
+The currently integrated scanners request background priority and traverse nearby chunks first.
+Budgets cover scanner discovery, not every client subsystem or existing render validation.
+
+BlockESP uses a tested chunk-local cursor, one reusable mutable probe, skips missing chunks,
+and only rebuilds immutable render snapshots when results change. StorageESP incrementally
+walks chunk block-entity maps and publishes a completed bounded pass. A map changed between
+ticks restarts that chunk's iterator; 4,096 visits per chunk bound retries and unusually dense
+chunks. `scanInterval` now means ticks between completed passes. Undyed shulker boxes are
+included. Chunk unload removes markers and releases active iterators. World/player changes,
+disable and config changes reset the applicable state.
+
+This is not a completed persistent chunk-result cache: lookup references live only for one
+scheduler tick; discovery still refreshes periodically. Block-update invalidation and shared
+budgets for other entity consumers remain pending. Storage scans may take multiple ticks and
+omit block entities beyond their bounded per-chunk/result caps. The submit-node pipeline is
+unchanged; rendering uses bounded snapshots and skips unloaded storage/block positions.
 
 ## Verification
 
@@ -97,7 +136,10 @@ notification expiry/eviction, settings sanitation and v0-to-v1 config migration.
 
 The first six commits passed `./gradlew build --stacktrace` with JDK 25 in Actions run
 [34493696597](https://github.com/MrHakan/Minecraft-Client/actions/runs/34493696597).
-Later commits require their own Actions result. Local Gradle bootstrap is unavailable in the
+The second and third six-commit batches passed Actions runs
+[34494795564](https://github.com/MrHakan/Minecraft-Client/actions/runs/34494795564) and
+[34496559943](https://github.com/MrHakan/Minecraft-Client/actions/runs/34496559943).
+The fourth UI/persistence/scanner batch requires its own Actions result. Local Gradle bootstrap is unavailable in the
 restricted execution environment. A compiled JAR does not establish in-game visual correctness.
 
 ### Required in-game smoke tests
@@ -114,16 +156,25 @@ restricted execution environment. A compiled JAR does not establish in-game visu
 - Try smooth Aura aim with return enabled, custom/vanilla cooldowns and manually moving view.
 - Check all existing overlays with labels and notifications at small GUI sizes.
 - Confirm notification preferences, reconnect attempts and config-recovery messages.
+- Open theme color/preset children, cancel them, close the whole GUI with its shortcut and
+  replace it with a vanilla screen/disconnect. Verify saved themes persist and abandoned previews revert.
+- Capture Right Shift and modifier combinations; confirm capture does not also close/reopen the GUI.
+- Paste mixed-case setting names, protected aliases and an invalid last field; verify no partial mutation.
+- Enable both scanners at maximum settings in a dense loaded area. Check scheduler counters,
+  unload/reload chunks, replace storage blocks during a pass, change filters/ranges, reconnect and
+  change dimension. Verify no stale world references or unloaded markers survive.
+- Check undyed/colored shulkers and storage distance culling. In-game timing and visuals remain unverified.
 
 ## Remaining roadmap
 
 Phase A remains in progress: lossless gameplay input/block-update producers, equipment and
-full-inventory queries, rotation integration hardening, notification sound, service-level
-scanner budgets and additional lifecycle integration tests. The 36-slot inventory event is
+full-inventory queries, rotation integration hardening, notification sound, further scanner/cache integration and additional lifecycle integration tests. The 36-slot inventory event is
 explicitly not an armor/offhand inventory event.
 
-Phase B follows with reusable setting controls, bind capture, colors/themes, dynamic HUD
-registration and alignment tools. Phases C–G (deeper rendering, player utilities, movement,
+Phase B now includes reusable sliders with exact entry, choices/toggles, keyboard/mouse/modifier
+bind capture, RGB/HSV/alpha colors, six independently persisted themes, dynamic HUD registration,
+inventory/information widgets and multi-selection/locking/z-order/alignment tools. Full animation,
+typography/blur/accessibility controls, richer Module List and TargetHUD remain pending. Phases C–G (deeper rendering, player utilities, movement,
 information/social, ecosystem/localization) remain pending. Phase H applies continuously;
 no phase is marked complete without its review and required validation.
 

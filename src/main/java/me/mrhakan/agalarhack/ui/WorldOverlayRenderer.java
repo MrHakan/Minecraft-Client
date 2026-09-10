@@ -165,6 +165,8 @@ public final class WorldOverlayRenderer {
     private static void renderStorageEsp(Minecraft mc, StorageESP module, Vec3 camera, PoseStack.Pose pose, VertexConsumer buffer) {
         double range = module.getNumberSetting("range", 64.0);
         for (BlockPos pos : module.getCachedPositions()) {
+            if (blockDistance(mc, pos) > module.getNumberSetting("range", 64.0)
+                    || !mc.level.hasChunk(pos.getX() >> 4, pos.getZ() >> 4)) continue;
             String id = blockId(mc, pos);
             if (!module.matches(id)) continue;
             int alpha = fadedAlpha(module.getNumberSetting("alpha", 220.0), blockDistance(mc, pos), range, module.getBooleanSetting("distanceFade", true));
@@ -177,6 +179,8 @@ public final class WorldOverlayRenderer {
     private static void renderStorageLabels(LevelRenderContext ctx, Minecraft mc, StorageESP module, Vec3 camera) {
         PoseStack stack = ctx.poseStack();
         for (BlockPos pos : module.getCachedPositions()) {
+            if (blockDistance(mc, pos) > module.getNumberSetting("range", 64.0)
+                    || !mc.level.hasChunk(pos.getX() >> 4, pos.getZ() >> 4)) continue;
             String id = blockId(mc, pos);
             if (!module.matches(id)) continue;
             int rgb = storageRgb(id);
@@ -194,6 +198,7 @@ public final class WorldOverlayRenderer {
         double range = module.getNumberSetting("horizontalRange", 24.0);
         int rgb = rgb(module.getNumberSetting("red", 255.0), module.getNumberSetting("green", 100.0), module.getNumberSetting("blue", 220.0));
         for (BlockPos pos : module.getMatches()) {
+            if (!mc.level.hasChunk(pos.getX() >> 4, pos.getZ() >> 4)) continue;
             String id = blockId(mc, pos);
             if (!module.matches(id)) continue;
             int alpha = fadedAlpha(module.getNumberSetting("alpha", 220.0), blockDistance(mc, pos), range, module.getBooleanSetting("distanceFade", true));
@@ -223,7 +228,7 @@ public final class WorldOverlayRenderer {
 
     private static int storageRgb(String id) {
         if (id.endsWith(":ender_chest")) return 0xAA55FF;
-        if (id.endsWith("_shulker_box")) return 0xFF55FF;
+        if (me.mrhakan.agalarhack.services.scanning.StorageKind.of(id) == me.mrhakan.agalarhack.services.scanning.StorageKind.SHULKER) return 0xFF55FF;
         if (id.endsWith(":barrel")) return 0xD89A55;
         if (StorageESP.isUtilityStorage(id)) return 0x55CCFF;
         return 0xFFAA33;

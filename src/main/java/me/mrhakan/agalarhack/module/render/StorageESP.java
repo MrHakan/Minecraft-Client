@@ -1,6 +1,15 @@
 package me.mrhakan.agalarhack.module.render;
 
-import java.util.ArrayList;
+import java.util.ConcurrentModificationException;
+import java.util.Iterator;
+import java.util.LinkedHashSet;
+import java.util.Set;
+import me.mrhakan.agalarhack.events.ClientEvents;
+import me.mrhakan.agalarhack.events.EventBus;
+import me.mrhakan.agalarhack.services.ScannerService;
+import me.mrhakan.agalarhack.services.scanning.ChunkScanOrder;
+import me.mrhakan.agalarhack.services.scanning.ScanScheduler;
+import me.mrhakan.agalarhack.services.scanning.StorageKind;
 import java.util.List;
 
 import me.mrhakan.agalarhack.module.Category;
@@ -9,12 +18,19 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.chunk.LevelChunk;
-import net.minecraft.world.level.chunk.status.ChunkStatus;
 
-/** Periodically caches loaded storage block entities for the world overlay renderer. */
+/** Incremental loaded-chunk storage scans, scheduled alongside other scanners with shared budgets. */
 public class StorageESP extends Module {
-    private final List<BlockPos> cachedPositions = new ArrayList<>();
-    private int ticksUntilScan;
+    private List<BlockPos> cachedPositions = List.of();
+    private final Set<BlockPos> passMatches = new LinkedHashSet<>();
+    private List<ChunkScanOrder.Chunk> scanChunks = List.of();
+    private int ticksUntilScan, chunkIndex, visitedInChunk, anchorX, anchorZ;
+    private int range, maximumResults;
+    private String signature = "";
+    private LevelChunk activeChunk;
+    private Iterator<BlockEntity> iterator;
+    private boolean scanning;
+    private EventBus.Subscription chunkUnload;
 
     public StorageESP() {
         super("StorageESP", Category.RENDER, "Highlights loaded storage and utility block entities with bounded scans");
@@ -23,7 +39,7 @@ public class StorageESP extends Module {
     @Override
     public void selfSettings() {
         addNumberSetting("range", 64.0, 16.0, 160.0, "Maximum storage scan/render distance in blocks");
-        addNumberSetting("scanInterval", 10.0, 1.0, 40.0, "Ticks between loaded block-entity scans");
+        addNumberSetting("scanInterval", 10.0, 1.0, 40.0, "Ticks between completed incremental scan passes");
         addNumberSetting("maxResults", 512.0, 16.0, 2048.0, "Maximum cached storage markers");
         addBooleanSetting("chests", true, "Highlight normal and trapped chests");
         addBooleanSetting("enderChests", true, "Highlight ender chests");
@@ -37,98 +53,110 @@ public class StorageESP extends Module {
 
     @Override
     public void onEnable() {
-        ticksUntilScan = 0;
+        reset();
+        if (chunkUnload != null) chunkUnload.close();
+        chunkUnload = service(EventBus.class).subscribe(ClientEvents.ChunkUnloaded.class, "storage-esp-cache", 0, event -> {
+            if (event.level() != mc.level) return;
+            var chunk = event.chunk().getPos();
+            passMatches.removeIf(pos -> inChunk(pos, chunk.x, chunk.z));
+            cachedPositions = cachedPositions.stream().filter(pos -> !inChunk(pos, chunk.x, chunk.z)).toList();
+            if (activeChunk == event.chunk()) finishChunk();
+        });
     }
 
     @Override
     public void onUpdate() {
-        if (mc.player == null || mc.level == null) {
-            return;
+        if (mc.player == null || mc.level == null) return;
+        int nextRange = (int)Math.round(getNumberSetting("range", 64.0));
+        int nextMaximum = (int)Math.round(getNumberSetting("maxResults", 512.0));
+        String nextSignature = nextRange + ":" + nextMaximum + ":" + getBooleanSetting("chests", true)
+                + ":" + getBooleanSetting("enderChests", true) + ":" + getBooleanSetting("barrels", true)
+                + ":" + getBooleanSetting("shulkers", true) + ":" + getBooleanSetting("utilities", true);
+        if (!signature.equals(nextSignature) || Math.abs(mc.player.getBlockX() - anchorX) > 16
+                || Math.abs(mc.player.getBlockZ() - anchorZ) > 16) {
+            reset();
+            signature = nextSignature;
         }
-        if (ticksUntilScan-- > 0) {
-            return;
+        if (!scanning) {
+            if (ticksUntilScan-- > 0) return;
+            range = nextRange;
+            maximumResults = nextMaximum;
+            anchorX = mc.player.getBlockX(); anchorZ = mc.player.getBlockZ();
+            scanChunks = ChunkScanOrder.around(anchorX, anchorZ, range);
+            chunkIndex = 0; visitedInChunk = 0;
+            passMatches.clear();
+            scanning = true;
         }
-        ticksUntilScan = Math.max(1, (int) Math.round(getNumberSetting("scanInterval", 10.0))) - 1;
-        scanLoadedStorage();
+        service(ScannerService.class).offer(this, ScanScheduler.Priority.BACKGROUND, 8192, this::scanStep);
     }
 
+    private ScanScheduler.Result scanStep(ScanScheduler.Budget budget) {
+        if (chunkIndex >= scanChunks.size() || passMatches.size() >= maximumResults) {
+            cachedPositions = List.copyOf(passMatches);
+            passMatches.clear(); scanChunks = List.of();
+            iterator = null; activeChunk = null; scanning = false;
+            ticksUntilScan = Math.max(1, (int)Math.round(getNumberSetting("scanInterval", 10.0))) - 1;
+            return ScanScheduler.Result.DONE;
+        }
+        var position = scanChunks.get(chunkIndex);
+        ScannerService scanner = service(ScannerService.class);
+        if (!scanner.reserveChunk(budget, position.x(), position.z())) return ScanScheduler.Result.BLOCKED;
+        LevelChunk chunk = scanner.loadedChunk(position.x(), position.z());
+        if (chunk == null || visitedInChunk >= 4096) {
+            finishChunk();
+            return ScanScheduler.Result.MORE;
+        }
+        if (chunk != activeChunk || iterator == null) {
+            // A chunk replacement or map mutation invalidates the borrowed iterator and partial results.
+            if (activeChunk != null || visitedInChunk > 0) passMatches.removeIf(pos -> inChunk(pos, position.x(), position.z()));
+            activeChunk = chunk;
+            iterator = chunk.getBlockEntities().values().iterator();
+        }
+        try {
+            if (!iterator.hasNext()) { finishChunk(); return ScanScheduler.Result.MORE; }
+            if (!budget.take(0, 0, 1)) return ScanScheduler.Result.BLOCKED;
+            visitedInChunk++;
+            BlockEntity entity = iterator.next();
+            if (entity == null || entity.isRemoved()) return ScanScheduler.Result.MORE;
+            BlockPos pos = entity.getBlockPos();
+            double dx = pos.getX() + 0.5 - mc.player.getX(), dy = pos.getY() + 0.5 - mc.player.getY();
+            double dz = pos.getZ() + 0.5 - mc.player.getZ();
+            if (dx * dx + dy * dy + dz * dz <= range * (double)range
+                    && matches(BuiltInRegistries.BLOCK.getKey(entity.getBlockState().getBlock()).toString())) {
+                passMatches.add(new BlockPos(pos.getX(), pos.getY(), pos.getZ()));
+            }
+        } catch (ConcurrentModificationException changed) {
+            iterator = null;
+            // The visit cap is retained across restarts, so a constantly changing chunk cannot monopolize scanning.
+        }
+        return ScanScheduler.Result.MORE;
+    }
+
+    private static boolean inChunk(BlockPos pos, int x, int z) {
+        return (pos.getX() >> 4) == x && (pos.getZ() >> 4) == z;
+    }
+    private void finishChunk() { chunkIndex++; visitedInChunk = 0; iterator = null; activeChunk = null; }
+    private void reset() {
+        cachedPositions = List.of(); passMatches.clear(); scanChunks = List.of();
+        iterator = null; activeChunk = null; scanning = false;
+        ticksUntilScan = 0; chunkIndex = 0; visitedInChunk = 0; signature = "";
+    }
     @Override
     public void onDisable() {
-        cachedPositions.clear();
-        ticksUntilScan = 0;
+        service(ScannerService.class).cancel(this);
+        if (chunkUnload != null) { chunkUnload.close(); chunkUnload = null; }
+        reset();
     }
-
-    public List<BlockPos> getCachedPositions() {
-        return List.copyOf(cachedPositions);
+    public List<BlockPos> getCachedPositions() { return cachedPositions; }
+    public boolean matches(String id) {
+        return switch (StorageKind.of(id)) {
+            case CHEST -> getBooleanSetting("chests", true);
+            case ENDER_CHEST -> getBooleanSetting("enderChests", true);
+            case BARREL -> getBooleanSetting("barrels", true);
+            case SHULKER -> getBooleanSetting("shulkers", true);
+            case UTILITY -> getBooleanSetting("utilities", true);
+            case OTHER -> false;
+        };
     }
-
-    public boolean matches(String blockId) {
-        if (blockId == null) {
-            return false;
-        }
-        if (blockId.endsWith(":ender_chest")) {
-            return getBooleanSetting("enderChests", true);
-        }
-        if (blockId.endsWith(":chest") || blockId.endsWith(":trapped_chest")) {
-            return getBooleanSetting("chests", true);
-        }
-        if (blockId.endsWith(":barrel")) {
-            return getBooleanSetting("barrels", true);
-        }
-        if (blockId.endsWith("_shulker_box")) {
-            return getBooleanSetting("shulkers", true);
-        }
-        return getBooleanSetting("utilities", true) && isUtilityStorage(blockId);
-    }
-
-    public static boolean isUtilityStorage(String blockId) {
-        return blockId.endsWith(":hopper")
-                || blockId.endsWith(":furnace")
-                || blockId.endsWith(":smoker")
-                || blockId.endsWith(":blast_furnace")
-                || blockId.endsWith(":dispenser")
-                || blockId.endsWith(":dropper")
-                || blockId.endsWith(":brewing_stand")
-                || blockId.endsWith(":crafter");
-    }
-
-    private void scanLoadedStorage() {
-        cachedPositions.clear();
-        int range = (int) Math.round(getNumberSetting("range", 64.0));
-        int maxResults = (int) Math.round(getNumberSetting("maxResults", 512.0));
-        int minimumChunkX = Math.floorDiv(mc.player.getBlockX() - range, 16);
-        int maximumChunkX = Math.floorDiv(mc.player.getBlockX() + range, 16);
-        int minimumChunkZ = Math.floorDiv(mc.player.getBlockZ() - range, 16);
-        int maximumChunkZ = Math.floorDiv(mc.player.getBlockZ() + range, 16);
-        double rangeSq = range * (double) range;
-
-        outer:
-        for (int chunkX = minimumChunkX; chunkX <= maximumChunkX; chunkX++) {
-            for (int chunkZ = minimumChunkZ; chunkZ <= maximumChunkZ; chunkZ++) {
-                LevelChunk chunk = mc.level.getChunkSource().getChunk(chunkX, chunkZ, ChunkStatus.FULL, false);
-                if (chunk == null) {
-                    continue;
-                }
-                for (BlockEntity blockEntity : chunk.getBlockEntities().values()) {
-                    if (blockEntity == null || blockEntity.isRemoved()) {
-                        continue;
-                    }
-                    BlockPos pos = blockEntity.getBlockPos();
-                    double dx = pos.getX() + 0.5 - mc.player.getX();
-                    double dy = pos.getY() + 0.5 - mc.player.getY();
-                    double dz = pos.getZ() + 0.5 - mc.player.getZ();
-                    if (dx * dx + dy * dy + dz * dz > rangeSq) {
-                        continue;
-                    }
-                    String id = BuiltInRegistries.BLOCK.getKey(blockEntity.getBlockState().getBlock()).toString();
-                    if (matches(id)) {
-                        cachedPositions.add(new BlockPos(pos.getX(), pos.getY(), pos.getZ()));
-                        if (cachedPositions.size() >= maxResults) {
-                            break outer;
-                        }
-                    }
-                }
-            }
-        }
-    }
+    public static boolean isUtilityStorage(String id) { return StorageKind.of(id) == StorageKind.UTILITY; }
 }
