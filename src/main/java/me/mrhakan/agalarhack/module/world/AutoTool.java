@@ -1,5 +1,6 @@
 package me.mrhakan.agalarhack.module.world;
 
+import me.mrhakan.agalarhack.AgalarHackClient;
 import me.mrhakan.agalarhack.module.Category;
 import me.mrhakan.agalarhack.module.Module;
 import net.minecraft.world.item.ItemStack;
@@ -8,7 +9,11 @@ import net.minecraft.world.phys.BlockHitResult;
 
 /** Selects the fastest hotbar tool for the block currently being mined. */
 public class AutoTool extends Module {
+    private static final String OWNER = "autotool";
+    private static final int PRIORITY = 40;
+
     private int previousSlot = -1;
+    private int appliedSlot = -1;
     private boolean swapped;
 
     public AutoTool() {
@@ -19,11 +24,13 @@ public class AutoTool extends Module {
     public void selfSettings() {
         addBooleanSetting("swapBack", true, "Return to the previous hotbar slot after mining");
         addBooleanSetting("miningOnly", true, "Only switch tools while the attack key is held");
+        addNumberSetting("minDurability", 5.0, 0.0, 1000.0, "Avoid damageable tools with this many or fewer uses remaining");
     }
 
     @Override
     public void onUpdate() {
-        if (mc.player == null || mc.level == null) {
+        if (mc.player == null || mc.level == null || mc.gui.screen() != null) {
+            restoreSlot();
             return;
         }
 
@@ -43,25 +50,34 @@ public class AutoTool extends Module {
             }
             return;
         }
+        if (!AgalarHackClient.UTILITY_ACTIONS.claimHotbar(OWNER, PRIORITY)) {
+            return;
+        }
 
         if (!swapped && getBooleanSetting("swapBack", true)) {
             previousSlot = current;
         }
         mc.player.getInventory().setSelectedSlot(bestSlot);
+        appliedSlot = bestSlot;
         swapped = true;
     }
 
     private int findBestSlot(BlockState state) {
         int best = -1;
-        float bestSpeed = 1.0f;
+        double bestScore = 1.0;
+        int minimumDurability = (int) Math.round(getNumberSetting("minDurability", 5.0));
         for (int slot = 0; slot < 9; slot++) {
             ItemStack stack = mc.player.getInventory().getItem(slot);
             if (stack.isEmpty()) {
                 continue;
             }
+            if (stack.isDamageableItem() && stack.getMaxDamage() - stack.getDamageValue() <= minimumDurability) {
+                continue;
+            }
             float speed = stack.getDestroySpeed(state);
-            if (speed > bestSpeed) {
-                bestSpeed = speed;
+            double score = speed + (stack.isCorrectToolForDrops(state) ? 1000.0 : 0.0);
+            if (score > bestScore) {
+                bestScore = score;
                 best = slot;
             }
         }
@@ -70,10 +86,11 @@ public class AutoTool extends Module {
 
     private void restoreSlot() {
         if (swapped && getBooleanSetting("swapBack", true) && previousSlot >= 0 && previousSlot < 9
-                && mc.player != null) {
+                && mc.player != null && mc.player.getInventory().getSelectedSlot() == appliedSlot) {
             mc.player.getInventory().setSelectedSlot(previousSlot);
         }
         previousSlot = -1;
+        appliedSlot = -1;
         swapped = false;
     }
 
