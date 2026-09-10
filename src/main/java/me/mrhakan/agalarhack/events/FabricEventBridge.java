@@ -18,6 +18,10 @@ public final class FabricEventBridge {
         ClientTickEvents.END_LEVEL_TICK.register(level -> bus.post(new ClientEvents.WorldTick(level)));
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> bus.post(new ClientEvents.Connected(client)));
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> bus.post(new ClientEvents.Disconnected(client)));
+        net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientChunkEvents.CHUNK_LOAD.register(
+                (level, chunk) -> bus.post(new ClientEvents.ChunkLoaded(level, chunk)));
+        net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientChunkEvents.CHUNK_UNLOAD.register(
+                (level, chunk) -> bus.post(new ClientEvents.ChunkUnloaded(level, chunk)));
         ClientEntityEvents.ENTITY_LOAD.register((entity, level) -> bus.post(new ClientEvents.EntityAdded(entity, level)));
         ClientEntityEvents.ENTITY_UNLOAD.register((entity, level) -> bus.post(new ClientEvents.EntityRemoved(entity, level)));
         LevelRenderEvents.COLLECT_SUBMITS.register(context -> bus.post(new ClientEvents.RenderSubmit(context)));

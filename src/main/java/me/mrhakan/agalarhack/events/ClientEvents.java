@@ -27,6 +27,8 @@ public final class ClientEvents {
     public record HudRender(GuiGraphicsExtractor graphics, DeltaTracker delta) { }
     public record Connected(Minecraft client) { }
     public record Disconnected(Minecraft client) { }
+    public record ChunkLoaded(ClientLevel level, net.minecraft.world.level.chunk.LevelChunk chunk) { }
+    public record ChunkUnloaded(ClientLevel level, net.minecraft.world.level.chunk.LevelChunk chunk) { }
     public record EntityAdded(Entity entity, ClientLevel level) { }
     public record EntityRemoved(Entity entity, ClientLevel level) { }
     public record ScreenOpened(Screen screen) { }
