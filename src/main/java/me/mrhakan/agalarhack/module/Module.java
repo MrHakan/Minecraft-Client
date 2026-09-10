@@ -48,15 +48,37 @@ public class Module {
 	}
 
 	public void toggle() {
-		toggled = !toggled;
+		setToggled(!toggled, true);
+	}
+
+	public void setToggled(boolean enabled) {
+		setToggled(enabled, true);
+	}
+
+	/**
+	 * Sets the module state explicitly.
+	 *
+	 * @param enabled desired state
+	 * @param persist when false, callers can batch several state changes and
+	 *                persist the config once afterwards
+	 */
+	public void setToggled(boolean enabled, boolean persist) {
+		if (toggled == enabled) {
+			return;
+		}
+
+		toggled = enabled;
+		settings.setSetting("enabled", toggled);
 		onToggle();
 		if (toggled) {
 			onEnable();
 		} else {
 			onDisable();
 		}
-		settings.setSetting("enabled", toggled);
-		AgalarHackClient.SETTINGS_MANAGER.updateSettings();
+
+		if (persist) {
+			AgalarHackClient.SETTINGS_MANAGER.updateSettings();
+		}
 	}
 
 	public void setSettings(Settings newSettings) {
