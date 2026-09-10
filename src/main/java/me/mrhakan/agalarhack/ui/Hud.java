@@ -4,10 +4,11 @@ import java.awt.Color;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Locale;
 
 import me.mrhakan.agalarhack.AgalarHackClient;
 import me.mrhakan.agalarhack.module.Module;
+import me.mrhakan.agalarhack.ui.hud.HudInfoProvider;
+import me.mrhakan.agalarhack.ui.hud.HudLine;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElement;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
@@ -56,11 +57,20 @@ public class Hud implements HudElement {
 			counter++;
 		}
 
-		Module coordinates = AgalarHackClient.moduleManager.getModule("Coordinates");
-		if (coordinates != null && coordinates.isToggled()) {
-			String text = String.format(Locale.ROOT, "XYZ: %.1f / %.1f / %.1f", mc.player.getX(), mc.player.getY(), mc.player.getZ());
-			int coordinatesY = extractor.guiHeight() - font.lineHeight - 2;
-			extractor.text(font, text, 2, coordinatesY, 0xFFF0F0F0, true);
+		// HUD-info modules render through a shared provider contract instead of
+		// hard-coded module name checks. New info modules can plug in without
+		// changing this renderer.
+		List<HudLine> infoLines = new ArrayList<>();
+		for (Module mod : AgalarHackClient.moduleManager.getModuleList()) {
+			if (mod.isToggled() && mod instanceof HudInfoProvider provider) {
+				infoLines.addAll(provider.getHudLines());
+			}
+		}
+
+		int infoY = extractor.guiHeight() - 2;
+		for (HudLine line : infoLines) {
+			infoY -= font.lineHeight;
+			extractor.text(font, line.text(), 2, infoY, line.color(), true);
 		}
 	}
 
