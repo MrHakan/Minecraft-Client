@@ -104,7 +104,7 @@ public class TriggerBot extends Module {
                 return false;
             }
             return !getBooleanSetting("ignoreFriends", true)
-                    || !AgalarHackClient.FRIEND_MANAGER.isFriend(player.getGameProfile().getName());
+                    || !AgalarHackClient.FRIEND_MANAGER.isFriend(player.getName().getString());
         }
         return getBooleanSetting("mobs", true);
     }
