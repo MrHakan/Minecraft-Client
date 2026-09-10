@@ -31,11 +31,51 @@
 2. Download the latest `agalarhack-*.jar` from the [Releases page](https://github.com/MrHakan/Minecraft-Client/releases).
 3. Also download [Fabric API](https://modrinth.com/mod/fabric-api) for 26.2.
 4. Drop both jars into your `.minecraft/mods/` folder.
-5. Launch the Fabric profile — you should see **Agalar Hack 26.2.2** in the top-left of the HUD.
+5. Launch the Fabric profile — you should see **Agalar Hack 26.2.3** in the HUD.
 
-## ClickGUI
+## Control Center / ClickGUI
 
-Press **Right Shift** or type **`.gui`** (or `.clickgui`) to open the searchable ClickGUI. The shortcut is a real Fabric key mapping and can be changed under **Options → Controls → Key Binds → Agalar Hack**. The interface uses Minecraft's native widgets, supports small resolutions, provides paged module browsing, direct ON/OFF toggles and a generic settings editor generated from each module's typed setting metadata.
+Press **Right Shift** or type **`.gui`** / `.clickgui` to open the control center. The shortcut is a real Fabric key mapping and can be changed under **Options → Controls → Key Binds → Agalar Hack**.
+
+The control center provides:
+
+- live module search across names, categories, descriptions and setting metadata;
+- category filtering and paged module browsing;
+- direct module ON/OFF controls and generic typed settings editing;
+- **HUD** editor access;
+- **Profiles** and per-server binding management;
+- shared **Global Target Policy** editing.
+
+The UI is built from Minecraft's native `Screen`, `Button` and `EditBox` widgets instead of a second custom input framework, which keeps the interface usable at small GUI scales and easier to maintain across game updates.
+
+## HUD editor
+
+Open **ClickGUI → HUD**. Four first-party widget groups can currently be positioned independently:
+
+- **Branding** — client name/version;
+- **Module List** — enabled module array list;
+- **Info** — Coordinates, Durability and future `HudInfoProvider` modules;
+- **Target HUD** — the active/recent combat target card.
+
+Each widget has a corner anchor (`TOP_LEFT`, `TOP_RIGHT`, `BOTTOM_LEFT`, `BOTTOM_RIGHT`), visibility toggle and X/Y offsets. The editor moves widgets in 5 px increments and saves changes immediately to `config/agalarhack-hud.json`. Corner anchoring means layouts remain attached to the intended screen edge when resolution or GUI scale changes.
+
+## Profiles and per-server configs
+
+Profiles are complete named snapshots, not just lists of enabled modules. A profile stores:
+
+- every module's enabled state, keybind and typed settings;
+- the shared Global Target Policy;
+- the HUD layout.
+
+Use **ClickGUI → Profiles** or `.profile`. A saved profile can be bound to the multiplayer server you are currently connected to. On the next connection to that address, the profile is automatically loaded once for that session.
+
+Profiles are stored in `config/agalarhack-profiles/`, with address bindings in `config/agalarhack-server-profiles.json`. Missing settings in profiles created by older client versions fall back to current-version defaults instead of leaking values from the previously active profile.
+
+## Global Target Policy
+
+**ClickGUI → Targets** controls a shared first-pass target filter used by Aura, TriggerBot and target-aware ESP behavior. The policy can globally allow/block players and mobs, ignore friends/invisible/sleeping entities and enforce a health range. Individual modules then apply their own stricter range/FOV/timing rules on top.
+
+This avoids target rules drifting apart between combat and render modules.
 
 ## Commands
 
@@ -47,54 +87,75 @@ The command prefix is `.` (typed in chat).
 | `.modules [query]` | `.list`, `.mods` | Lists modules or searches names, categories, descriptions and settings |
 | `.settings <module>` | `.cfg`, `.config` | Shows editable settings, current values, descriptions and allowed ranges |
 | `.toggle <module>` | `.t` | Toggles a module on or off |
-| `.bind <module> <key\|none>` | `.b` | Binds a module to a key (e.g. `r`, `g`, `f4`, `left.shift`) |
+| `.bind <module> <key\|none>` | `.b` | Binds a module to a key |
 | `.set <module> <setting> <value>` | `.setting` | Changes a setting through type/range validation |
-| `.friend add\|remove\|list\|clear [name]` | `.friends` | Manages the persistent local friend list used by combat filters |
-| `.gui` | `.clickgui` | Opens the searchable module/settings interface |
+| `.friend add\|remove\|list\|clear [name]` | `.friends` | Manages the persistent friend list used by target filters |
+| `.profile save\|load\|delete\|list\|bind\|unbind [name]` | `.profiles` | Manages complete profiles and current-server bindings |
+| `.gui` | `.clickgui` | Opens the control center |
 | `.panic` | `.disableall`, `.off` | Immediately disables every active module |
 
 ## Modules
 
 | Category | Module | Important settings | What it does |
 | --- | --- | --- | --- |
-| Combat | **Aura** | `range`, `wallsRange`, `fov`, `players`, `mobs`, `ignoreFriends`, `ignoreInvisible`, `pauseOnUse`, `onlyOnClick`, `vanillaCooldown`, `delay`, `priority` | Selects the best valid target using range/FOV/friend filters and attacks with vanilla or custom timing |
-| Combat | **TriggerBot** | `players`, `mobs`, `ignoreFriends`, `ignoreInvisible`, `pauseOnUse`, `onlyOnClick`, `vanillaCooldown`, `delay` | Attacks only the valid entity under the vanilla crosshair; no target searching or forced rotation |
-| Movement | **Speed** | `multiplier`, `maxSpeed`, `inFluids`, `whileSneaking` | Boosts ground movement while enforcing a configurable horizontal speed cap |
-| Movement | **Flight** | `speed` | Grants creative-style flight and restores the exact previous flight abilities/speed when disabled |
+| Combat | **Aura** | `range`, `wallsRange`, `fov`, `players`, `mobs`, `ignoreFriends`, `ignoreInvisible`, `pauseOnUse`, `onlyOnClick`, `vanillaCooldown`, `delay`, `priority` | Selects the best target allowed by global + local filters and attacks with vanilla or custom timing |
+| Combat | **TriggerBot** | `players`, `mobs`, `ignoreFriends`, `ignoreInvisible`, `pauseOnUse`, `onlyOnClick`, `vanillaCooldown`, `delay` | Attacks only a valid entity under the vanilla crosshair and feeds TargetHUD |
+| Misc | **AutoEat** | `hunger`, `fillToFull`, `swapBack`, `allowGoldenApples` | Selects the best allowed hotbar food, holds use, then safely restores owned input/slot state |
+| Misc | **AutoReconnect** | `delaySeconds`, `maxAttempts` | Reconnects from the vanilla disconnect screen with a bounded retry schedule; leaving that screen cancels the schedule |
+| Movement | **Speed** | `multiplier`, `maxSpeed`, `inFluids`, `whileSneaking` | Boosts ground movement while enforcing a horizontal speed cap |
+| Movement | **Flight** | `speed` | Grants creative-style flight and restores the exact previous flight ability/speed state |
 | Movement | **Jesus** | `water`, `lava`, `verticalSpeed` | Adds configurable buoyancy in selected fluids; sneaking allows normal diving |
 | Movement | **Sprint** | `whileUsing`, `whileSneaking` | Automatically sprints while respecting vanilla sprint eligibility |
-| Movement | **Step** | `height` | Raises step height and restores the exact previous attribute value when disabled |
-| Movement | **NoFall** | `threshold` | Sends the grounded status once per qualifying fall instead of spamming it every tick |
+| Movement | **Step** | `height` | Raises step height and restores the exact previous attribute value |
+| Movement | **NoFall** | `threshold` | Sends one grounded status packet per qualifying fall instead of per-tick spam |
 | Render | **Fullbright** | — | Client-side night vision while preserving a pre-existing Night Vision effect |
-| Render | **Coordinates** | `precision`, `facing` | Shows live XYZ and optional cardinal facing in the HUD |
-| Render | **Durability** | `showName`, `showPercent`, `warningPercent` | Shows remaining main-hand item durability and warns when it becomes low |
+| Render | **Coordinates** | `precision`, `facing` | Shows live XYZ and optional cardinal facing through the shared Info HUD widget |
+| Render | **Durability** | `showName`, `showPercent`, `warningPercent` | Shows remaining main-hand item durability with a low-durability warning |
+| Render | **ESP** | `range`, `respectTargetPolicy`, `players`, `mobs`, `red`, `green`, `blue`, `alpha` | Draws world-space boxes around living entities using Minecraft 26.2's submit-node renderer |
+| Render | **Trajectories** | `steps`, `powerScale`, `gravity`, `drag`, `onlyWhenUsing`, RGB | Draws an approximate path for common held projectiles |
+| Render | **TargetHUD** | `showHealth`, `showDistance`, `showArmor`, `timeout` | Shows the latest valid Aura/TriggerBot target with health, distance and optional armor |
+| Render | **Freecam** | `speed`, `sprintMultiplier`, `freezePlayer` | Detaches the client camera onto a separate camera entity while keeping the real player anchored |
+| World | **AutoTool** | `swapBack`, `miningOnly`, `minDurability` | Selects the fastest correct hotbar tool, avoids near-broken tools and restores its owned slot afterwards |
 
-Use `.settings <module>` for the exact allowed values and ranges. Numeric settings are bounded and persisted values are sanitized on load, so malformed/manual configs cannot inject `NaN`, infinity or extreme out-of-range values into movement/combat logic.
+AutoEat and AutoTool use a shared per-tick utility action arbiter. AutoEat has higher hotbar/use priority, so enabled automation modules do not fight over the player's selected slot in the same tick.
 
-## Configuration
+Use `.settings <module>` for exact allowed values and ranges. Numeric settings are bounded and persisted values are sanitized on load, so malformed/manual configs cannot inject `NaN`, infinity or extreme out-of-range values into module logic.
 
-Enabled modules, keybinds and per-module settings are saved to `config/agalarhack.json`. The friend list is stored separately in `config/agalarhack-friends.json`.
+## Configuration files
 
-Config writes use a replace-safe temporary file. If malformed module JSON is detected, the broken file is preserved as `agalarhack.json.broken-*` before defaults are rebuilt. Multi-module operations such as `.panic` batch persistence into one write.
+| Path | Purpose |
+| --- | --- |
+| `config/agalarhack.json` | Enabled states, keybinds and module settings |
+| `config/agalarhack-friends.json` | Local friend list |
+| `config/agalarhack-hud.json` | HUD anchors, visibility and offsets |
+| `config/agalarhack-target-policy.json` | Shared target filter |
+| `config/agalarhack-profiles/*.json` | Named complete snapshots |
+| `config/agalarhack-server-profiles.json` | Multiplayer server → profile bindings |
 
-## 26.2.2 improvements
+Main config writes use a replace-safe temporary file. Malformed module JSON is preserved as `agalarhack.json.broken-*` before defaults are rebuilt. Bulk operations such as `.panic` batch persistence into one write.
 
-- Added a searchable, paged **ClickGUI** and generic typed settings editor.
-- Added a rebindable **Right Shift** Fabric key mapping for opening/closing the ClickGUI.
-- Reworked settings into typed metadata with number bounds, choice validation, descriptions and config sanitization.
-- Added persistent **friends** and friend-aware combat targeting.
-- Overhauled **Aura** with FOV, visible/wall range separation, target priority, invisible/friend filters, item-use/click gating and vanilla attack cooldown support.
-- Added **TriggerBot** as a predictable manual-aim combat alternative.
-- Added **Durability** and generalized HUD info rendering so future HUD modules do not require hard-coded renderer branches.
-- Improved **Coordinates** with configurable precision and facing direction.
-- Fixed **Flight** and **Step** state restoration so they no longer overwrite abilities/attributes supplied by vanilla game modes or other mods.
-- Bounded **Speed** and added a horizontal speed cap plus fluid/sneak controls.
-- Made **Jesus** water/lava behavior and vertical velocity configurable.
-- Reduced **NoFall** from repeated per-tick packets to one status packet per qualifying fall.
-- Made **Sprint** use vanilla sprint eligibility and configurable item-use/sneak behavior.
-- Added module-name indexing, searchable module discovery and per-module tick failure isolation.
-- Hardened `.panic` and startup restoration so one broken module cannot leave the rest half-enabled.
-- Modernized GitHub Actions runtimes and cancel stale CI runs superseded by newer commits.
+## 26.2.3 improvements
+
+- Expanded ClickGUI into a searchable/category-filtered **Control Center** with HUD, Profiles and Targets pages.
+- Added persistent **HUD editing** with corner anchors, visibility and offsets.
+- Added complete **profiles** plus automatic **per-server profile bindings**.
+- Added a shared **Global Target Policy** consumed by combat and ESP.
+- Added a shared recent-target tracker and **TargetHUD**.
+- Added **AutoEat**, **AutoTool** and **AutoReconnect**, including hotbar/use ownership arbitration between utility automation modules.
+- Added **ESP** and **Trajectories** using Minecraft 26.2's `LevelRenderEvents.COLLECT_SUBMITS` submit-node rendering path.
+- Added **Freecam** with a separate client camera entity and real-player anchoring.
+- Improved profile compatibility so absent settings from older snapshots return to current defaults.
+- Added unit coverage for utility action priority/reset behavior in addition to typed setting regression tests.
+
+### Previous 26.2.2 foundation
+
+- Added the initial searchable ClickGUI and rebindable Right Shift key mapping.
+- Added typed setting metadata, validation and config sanitization.
+- Added persistent friends and friend-aware combat filters.
+- Overhauled Aura and added TriggerBot.
+- Added Coordinates/Durability HUD providers.
+- Corrected Flight/Step state restoration and hardened movement module limits.
+- Added module indexing, failure isolation, safe `.panic`, atomic config writes and modernized CI.
 
 ## Building from source
 
@@ -114,28 +175,22 @@ To run a dev client:
 
 ## Releases
 
-Two GitHub Actions workflows handle builds and releases:
-
-- **[`CI`](.github/workflows/build.yml)** runs on every push to `main` and every pull request. It builds the mod, uploads the jar as an artifact, cancels superseded runs for the same PR/branch and — for `main` pushes — publishes a rolling prerelease tagged with the workflow run ID.
-- **[`Release`](.github/workflows/release.yml)** runs when you push a `v*` tag. It builds the mod and publishes a GitHub Release with generated changelog notes and the jar attached.
+- **[`CI`](.github/workflows/build.yml)** runs on every push to `main` and every pull request. It builds/tests the mod, uploads the jar artifact, cancels superseded runs for the same PR/branch and — on `main` pushes — publishes a rolling prerelease.
+- **[`Release`](.github/workflows/release.yml)** runs for `v*` tags and publishes a GitHub Release with generated notes and the jar attached.
 
 To cut an official release:
 
-1. Bump `mod_version` in `gradle.properties` and `AgalarHackClient.VERSION`.
-2. Commit and push.
-3. Tag the commit and push the tag, for example:
+```sh
+git tag v26.2.3
+git push origin v26.2.3
+```
 
-   ```sh
-   git tag v26.2.2
-   git push origin v26.2.2
-   ```
-
-> Both workflows need repo → **Settings → Actions → Workflow permissions** set to **Read and write**. The workflow already requests `contents: write`, but the repository-level setting must also allow it.
+> Both workflows need repo → **Settings → Actions → Workflow permissions** set to **Read and write**. The workflow requests `contents: write`, but the repository-level setting must also permit it.
 
 ## Branches
 
 - **`main`** – current Minecraft 26.2 Fabric client.
-- **`og`** – the original 1.12.2 Forge client, kept for historical reasons.
+- **`og`** – original 1.12.2 Forge client, retained for history.
 
 ## Credits
 
