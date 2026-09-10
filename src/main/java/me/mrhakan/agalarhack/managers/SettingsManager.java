@@ -8,7 +8,7 @@ import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 import com.google.gson.Gson;
@@ -25,7 +25,7 @@ public class SettingsManager {
     private final Path configPath = FabricLoader.getInstance().getConfigDir().resolve("agalarhack.json");
 
     public Map<String, Settings> readSettings() {
-        Map<String, Settings> settingsArray = new HashMap<>();
+        Map<String, Settings> settingsArray = new LinkedHashMap<>();
         if (!Files.isRegularFile(configPath)) {
             return settingsArray;
         }
@@ -95,7 +95,7 @@ public class SettingsManager {
     }
 
     public void updateSettings() {
-        Map<String, Settings> settingsArray = new HashMap<>();
+        Map<String, Settings> settingsArray = new LinkedHashMap<>();
         for (Module module : AgalarHackClient.moduleManager.getModuleList()) {
             settingsArray.put(module.getName(), module.settings);
         }
@@ -105,13 +105,15 @@ public class SettingsManager {
     public void loadSettings() {
         Map<String, Settings> settingsArray = readSettings();
         for (Module module : AgalarHackClient.moduleManager.getModuleList()) {
-            // Register defaults first so new settings always exist, then
-            // overlay whatever was saved so old configs keep their values.
+            // Register defaults and metadata first, then overlay saved values.
+            // The sanitize pass keeps older/manual configs compatible while
+            // enforcing the bounds declared by the current module version.
             module.registerSettings();
             Settings saved = settingsArray.get(module.getName());
             if (saved != null && saved.settings != null) {
                 module.settings.settings.putAll(saved.settings);
             }
+            module.settings.sanitizeLoadedValues();
         }
         updateSettings();
     }
