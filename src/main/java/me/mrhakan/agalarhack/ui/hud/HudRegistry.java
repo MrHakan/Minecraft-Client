@@ -20,10 +20,11 @@ public final class HudRegistry {
         if(components.putIfAbsent(component.id(),component)!=null)throw new IllegalStateException("Duplicate HUD ID: "+component.id());
         layout.registerDefault(component.id(),defaults);
     }
-    public List<String> ids(){return List.copyOf(components.keySet());}
+    public List<String> ids(){return components.keySet().stream().sorted(java.util.Comparator.comparingInt(id->layout.get(id).zOrder)).toList();}
     public Component get(String id){return components.get(id);}
     public void render(ClientEvents.HudRender event){
-        for(Component component:components.values()){
+        for(String id:ids()){
+            Component component=components.get(id);
             if(!layout.get(component.id()).visible)continue;
             try{component.render().accept(event);}
             catch(RuntimeException failure){

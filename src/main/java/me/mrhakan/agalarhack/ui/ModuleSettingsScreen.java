@@ -46,10 +46,11 @@ public class ModuleSettingsScreen extends Screen {
         }
         int panelX = Math.max(12, width / 2 - Math.min(310, width / 2 - 12));
         int panelWidth = Math.min(620, width - panelX * 2);
+        int headerWidth=(panelWidth-24)/3;
         addRenderableWidget(Button.builder(Component.literal("Bind: " + module.getBindLabel()), b -> minecraft.gui.setScreen(new KeybindCaptureScreen(this,module)))
-                .bounds(Math.max(12,width/2-110),37,220,18).build());
+                .bounds(panelX+8+headerWidth+4,37,headerWidth,18).build());
         addRenderableWidget(Button.builder(Component.literal("Actions"),b->minecraft.gui.setScreen(new ModuleActionsScreen(this,module)))
-                .bounds(Math.max(12,width/2-190),37,72,18).build());
+                .bounds(panelX+8,37,headerWidth,18).build());
         if(module.settings.getSetting("red")!=null && module.settings.getSetting("green")!=null && module.settings.getSetting("blue")!=null)
             addRenderableWidget(Button.builder(Component.literal("Color"),b->{
                 int color=((int)module.getNumberSetting("alpha",255)<<24)|((int)module.getNumberSetting("red",255)<<16)|((int)module.getNumberSetting("green",255)<<8)|(int)module.getNumberSetting("blue",255);
@@ -58,7 +59,7 @@ public class ModuleSettingsScreen extends Screen {
                     if(module.settings.getSetting("alpha")!=null)module.settings.setSetting("alpha",(double)(chosen>>>24));
                     module.settings.sanitizeLoadedValues();AgalarHackClient.SETTINGS_MANAGER.updateSettings();
                 }));
-            }).bounds(width/2+116,37,66,18).build());
+            }).bounds(panelX+8+(headerWidth+4)*2,37,headerWidth,18).build());
         int listTop = 58;
         int listBottom = Math.max(listTop + ROW_HEIGHT, height - 42);
         int rowsPerPage = Math.max(1, (listBottom - listTop) / ROW_HEIGHT);
@@ -83,10 +84,13 @@ public class ModuleSettingsScreen extends Screen {
                         new me.mrhakan.agalarhack.ui.components.ChoiceScreen(this,spec.getName(),spec.getChoices(),value->{module.settings.setSetting(spec.getName(),value);AgalarHackClient.SETTINGS_MANAGER.updateSettings();})))
                         .bounds(controlX,y+4,controlWidth,20).build());
             } else if (spec.getType() == SettingType.NUMBER && spec.getMin()!=null && spec.getMax()!=null) {
-                var slider = new me.mrhakan.agalarhack.ui.components.NumberSlider(controlX,y+4,controlWidth,spec.getName(),spec.getMin(),spec.getMax(),
+                var slider = new me.mrhakan.agalarhack.ui.components.NumberSlider(controlX,y+4,controlWidth-46,spec.getName(),spec.getMin(),spec.getMax(),
                         ((Number)current).doubleValue(),value->{module.settings.setSetting(spec.getName(),value);dirty=true;});
                 slider.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(spec.getDescription())));
                 addRenderableWidget(slider);
+                addRenderableWidget(Button.builder(Component.literal("Edit"),b->minecraft.gui.setScreen(new me.mrhakan.agalarhack.ui.components.ValueInputScreen(this,spec.getName(),
+                        String.valueOf(module.settings.getSetting(spec.getName())),raw->{module.settings.setSetting(spec.getName(),module.settings.parseSettingValue(spec.getName(),raw));AgalarHackClient.SETTINGS_MANAGER.updateSettings();})))
+                        .bounds(controlX+controlWidth-42,y+4,42,20).build());
             } else {
                 int saveWidth = 46;
                 int inputWidth = Math.max(40, controlWidth - saveWidth - 4);

@@ -31,6 +31,8 @@ public class HudLayoutManager {
         public int offsetX;
         public int offsetY;
         public boolean visible;
+        public boolean locked;
+        public int zOrder;
 
         public WidgetState() {
             this(Anchor.TOP_LEFT, 2, 2, true);
@@ -44,10 +46,27 @@ public class HudLayoutManager {
         }
 
         public WidgetState copy() {
-            return new WidgetState(anchor, offsetX, offsetY, visible);
+            WidgetState copy=new WidgetState(anchor,offsetX,offsetY,visible);copy.locked=locked;copy.zOrder=zOrder;return copy;
         }
     }
 
+    public static class EditorOptions {
+        public int gridSize=10,snapStrength=6,safeMargin=4;
+        public boolean gridVisible=true,snapping=true;
+    }
+    private EditorOptions editorOptions=new EditorOptions();
+    public EditorOptions editorOptions(){return editorOptions;}
+    public void saveEditorOptions(){
+        try{Files.writeString(path.resolveSibling("agalarhack-hud-editor.json"),gson.toJson(editorOptions));}
+        catch(IOException failure){me.mrhakan.agalarhack.AgalarHackClient.LOGGER.error("Could not save HUD editor options",failure);}
+    }
+    private void loadEditorOptions(){
+        Path optionsPath=path.resolveSibling("agalarhack-hud-editor.json");
+        if(!Files.isRegularFile(optionsPath))return;
+        try{if(Files.size(optionsPath)>8192)return;var loaded=gson.fromJson(Files.readString(optionsPath),EditorOptions.class);
+            if(loaded!=null){loaded.gridSize=Math.max(2,Math.min(64,loaded.gridSize));loaded.snapStrength=Math.max(0,Math.min(24,loaded.snapStrength));loaded.safeMargin=Math.max(0,Math.min(32,loaded.safeMargin));editorOptions=loaded;}
+        }catch(Exception failure){me.mrhakan.agalarhack.AgalarHackClient.LOGGER.error("Could not read HUD editor options",failure);}
+    }
     private final Gson gson = new GsonBuilder().setPrettyPrinting().create();
     private final Path path = FabricLoader.getInstance().getConfigDir().resolve("agalarhack-hud.json");
     private final Map<String, WidgetState> defaults = new LinkedHashMap<>();
@@ -62,6 +81,7 @@ public class HudLayoutManager {
     }
 
     public void load() {
+        loadEditorOptions();
         if (!Files.isRegularFile(path)) {
             save();
             return;
@@ -223,6 +243,7 @@ public class HudLayoutManager {
         if (state.anchor == null) {
             state.anchor = Anchor.TOP_LEFT;
         }
+        state.zOrder=Math.max(-1000,Math.min(1000,state.zOrder));
         state.offsetX = Math.max(0, Math.min(10000, state.offsetX));
         state.offsetY = Math.max(0, Math.min(10000, state.offsetY));
         return state;

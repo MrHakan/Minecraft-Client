@@ -30,8 +30,8 @@ public class KeybindManager {
             if (key == 341 || key == 345) modifiers &= ~2;
             if (key == 342 || key == 346) modifiers &= ~4;
             if (key == 343 || key == 347) modifiers &= ~8;
-            boolean pressed = (chord.mouse() ? input.mouseDown(chord.mouseButton()) : input.keyDown(key)) && chord.matchesModifiers(modifiers);
-            if (!suppressToggles && pressed && !lastPressed.getOrDefault(m, false)) {
+            boolean pressed = chord.mouse() ? input.mouseDown(chord.mouseButton()) : input.keyDown(key);
+            if (!suppressToggles && pressed && !lastPressed.getOrDefault(m, false) && chord.matchesModifiers(modifiers)) {
                 m.toggle();
             }
 

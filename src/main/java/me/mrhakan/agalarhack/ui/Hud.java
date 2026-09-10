@@ -44,8 +44,8 @@ public class Hud implements HudElement {
         textComponent("fps","FPS",()->"FPS "+Minecraft.getInstance().getFps());
         textComponent("memory","Memory",()->"Memory "+(Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory())/(1024*1024)+" MiB");
         textComponent("server","Server",()->me.mrhakan.agalarhack.services.ClientServices.require(me.mrhakan.agalarhack.services.ServerContextService.class).address(Minecraft.getInstance()));
-        textComponent("speed","Speed",()->{var v=Minecraft.getInstance().player.getDeltaMovement();return String.format(Locale.ROOT,"Speed %.2f b/s",Math.hypot(v.x,v.z)*20);});
-        textComponent("direction","Direction",()->"Facing "+Minecraft.getInstance().player.getDirection());
+        textComponent("speed","Speed",()->{var player=Minecraft.getInstance().player;if(player==null)return "Speed --";var v=player.getDeltaMovement();return String.format(Locale.ROOT,"Speed %.2f b/s",Math.hypot(v.x,v.z)*20);});
+        textComponent("direction","Direction",()->Minecraft.getInstance().player==null?"Facing --":"Facing "+Minecraft.getInstance().player.getDirection());
         registry.register(new me.mrhakan.agalarhack.ui.hud.HudRegistry.Component("inventory","Inventory",()->170,()->62,event->{
             var g=event.graphics();var mc=Minecraft.getInstance();int x=AgalarHackClient.HUD_LAYOUT.resolveX("inventory",g.guiWidth(),170),y=AgalarHackClient.HUD_LAYOUT.resolveY("inventory",g.guiHeight(),62);
             g.fill(x,y,x+170,y+62,0xc8101620);
