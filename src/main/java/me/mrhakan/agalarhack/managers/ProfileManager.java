@@ -6,6 +6,7 @@ import java.io.Writer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -15,6 +16,7 @@ import java.util.Map;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonSyntaxException;
 import com.google.gson.reflect.TypeToken;
 
 import me.mrhakan.agalarhack.AgalarHackClient;
@@ -86,40 +88,16 @@ public class ProfileManager {
         data.modules = AgalarHackClient.SETTINGS_MANAGER.captureSettings();
         data.targetPolicy = deepCopy(AgalarHackClient.TARGET_POLICY.getSettings(), Settings.class);
         data.hud = AgalarHackClient.HUD_LAYOUT.snapshot();
-
-        try {
-            Files.createDirectories(dir);
-            try (Writer writer = Files.newBufferedWriter(profilePath(name), StandardCharsets.UTF_8)) {
-                gson.toJson(data, writer);
-            }
-            activeProfile = name;
-        } catch (IOException e) {
-            throw new IllegalStateException("Could not save profile: " + e.getMessage(), e);
-        }
+        writeProfile(name, data, true);
+        activeProfile = name;
     }
 
     public void load(String name) {
-        validateName(name);
-        Path path = profilePath(name);
-        if (!Files.isRegularFile(path)) {
-            throw new IllegalArgumentException("Profile does not exist: " + name);
-        }
-        try (Reader reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
-            ProfileData data = gson.fromJson(reader, ProfileData.class);
-            if (data == null) {
-                throw new IllegalArgumentException("Profile is empty or invalid: " + name);
-            }
-            AgalarHackClient.SETTINGS_MANAGER.applySettings(data.modules);
-            if (data.targetPolicy != null) {
-                AgalarHackClient.TARGET_POLICY.applySnapshot(data.targetPolicy);
-            }
-            if (data.hud != null && !data.hud.isEmpty()) {
-                AgalarHackClient.HUD_LAYOUT.applySnapshot(data.hud);
-            }
-            activeProfile = name;
-        } catch (IOException e) {
-            throw new IllegalStateException("Could not load profile: " + e.getMessage(), e);
-        }
+        ProfileData data = readProfile(name);
+        AgalarHackClient.SETTINGS_MANAGER.applySettings(data.modules);
+        AgalarHackClient.TARGET_POLICY.applySnapshot(data.targetPolicy);
+        AgalarHackClient.HUD_LAYOUT.applySnapshot(data.hud);
+        activeProfile = name;
     }
 
     public boolean delete(String name) {
@@ -136,6 +114,65 @@ public class ProfileManager {
             return deleted;
         } catch (IOException e) {
             throw new IllegalStateException("Could not delete profile: " + e.getMessage(), e);
+        }
+    }
+
+    /** Returns validated canonical profile JSON suitable for clipboard export. */
+    public String exportJson(String name) {
+        return gson.toJson(readProfile(name));
+    }
+
+    /** Imports a complete snapshot from JSON under a local profile name. */
+    public void importJson(String name, String json) {
+        validateName(name);
+        if (json == null || json.isBlank()) {
+            throw new IllegalArgumentException("Clipboard/profile JSON is empty.");
+        }
+        final ProfileData data;
+        try {
+            data = gson.fromJson(json, ProfileData.class);
+        } catch (JsonSyntaxException e) {
+            throw new IllegalArgumentException("Invalid profile JSON: " + e.getMessage());
+        }
+        validateProfileData(data);
+        writeProfile(name, data, true);
+    }
+
+    public void duplicate(String source, String target) {
+        validateName(source);
+        validateName(target);
+        if (exists(target)) {
+            throw new IllegalArgumentException("Target profile already exists: " + target);
+        }
+        writeProfile(target, readProfile(source), false);
+    }
+
+    public void rename(String source, String target) {
+        validateName(source);
+        validateName(target);
+        if (!exists(source)) {
+            throw new IllegalArgumentException("Profile does not exist: " + source);
+        }
+        if (exists(target)) {
+            throw new IllegalArgumentException("Target profile already exists: " + target);
+        }
+        try {
+            Files.createDirectories(dir);
+            Files.move(profilePath(source), profilePath(target), StandardCopyOption.ATOMIC_MOVE);
+        } catch (java.nio.file.AtomicMoveNotSupportedException ignored) {
+            try {
+                Files.move(profilePath(source), profilePath(target));
+            } catch (IOException e) {
+                throw new IllegalStateException("Could not rename profile: " + e.getMessage(), e);
+            }
+        } catch (IOException e) {
+            throw new IllegalStateException("Could not rename profile: " + e.getMessage(), e);
+        }
+
+        serverBindings.replaceAll((server, profile) -> profile.equalsIgnoreCase(source) ? target : profile);
+        saveBindings();
+        if (activeProfile.equalsIgnoreCase(source)) {
+            activeProfile = target;
         }
     }
 
@@ -193,6 +230,51 @@ public class ProfileManager {
 
     public Map<String, String> getServerBindings() {
         return Map.copyOf(serverBindings);
+    }
+
+    private ProfileData readProfile(String name) {
+        validateName(name);
+        Path path = profilePath(name);
+        if (!Files.isRegularFile(path)) {
+            throw new IllegalArgumentException("Profile does not exist: " + name);
+        }
+        try (Reader reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
+            ProfileData data = gson.fromJson(reader, ProfileData.class);
+            validateProfileData(data);
+            return data;
+        } catch (JsonSyntaxException e) {
+            throw new IllegalArgumentException("Profile JSON is invalid: " + name);
+        } catch (IOException e) {
+            throw new IllegalStateException("Could not load profile: " + e.getMessage(), e);
+        }
+    }
+
+    private void writeProfile(String name, ProfileData data, boolean overwrite) {
+        validateName(name);
+        validateProfileData(data);
+        if (!overwrite && exists(name)) {
+            throw new IllegalArgumentException("Profile already exists: " + name);
+        }
+        try {
+            Files.createDirectories(dir);
+            try (Writer writer = Files.newBufferedWriter(profilePath(name), StandardCharsets.UTF_8)) {
+                gson.toJson(data, writer);
+            }
+        } catch (IOException e) {
+            throw new IllegalStateException("Could not save profile: " + e.getMessage(), e);
+        }
+    }
+
+    private void validateProfileData(ProfileData data) {
+        if (data == null) {
+            throw new IllegalArgumentException("Profile is empty or invalid.");
+        }
+        if (data.modules == null) {
+            data.modules = new LinkedHashMap<>();
+        }
+        if (data.hud == null) {
+            data.hud = new LinkedHashMap<>();
+        }
     }
 
     private String currentServer(Minecraft mc) {
