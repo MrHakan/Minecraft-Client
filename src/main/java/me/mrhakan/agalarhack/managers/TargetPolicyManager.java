@@ -72,6 +72,10 @@ public class TargetPolicyManager {
     }
 
     public void applySnapshot(Settings snapshot) {
+        // Profiles are complete snapshots. Clear runtime values first so a field
+        // absent from an older profile receives the current default rather than a
+        // value inherited from the policy that happened to be active previously.
+        settings.settings.clear();
         registerDefaults();
         if (snapshot != null && snapshot.settings != null) {
             settings.settings.putAll(snapshot.settings);
