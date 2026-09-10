@@ -17,11 +17,13 @@ import net.minecraft.util.LightCoordsUtil;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.projectile.ProjectileUtil;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 
@@ -179,11 +181,26 @@ public final class WorldOverlayRenderer {
             Vec3 next = pos.add(velocity);
             Vec3 end = next;
             boolean collided = false;
+
             if (collisionEnabled) {
-                HitResult hit = mc.level.clip(new ClipContext(pos, next,
+                HitResult blockHit = mc.level.clip(new ClipContext(pos, next,
                         ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, mc.player));
-                if (hit.getType() == HitResult.Type.BLOCK) {
-                    end = hit.getLocation();
+                if (blockHit.getType() == HitResult.Type.BLOCK) {
+                    end = blockHit.getLocation();
+                    collided = true;
+                }
+
+                AABB search = AABB.ofSize(pos, 0.3, 0.3, 0.3)
+                        .expandTowards(end.subtract(pos)).inflate(1.0);
+                EntityHitResult entityHit = ProjectileUtil.getEntityHitResult(
+                        mc.player,
+                        pos,
+                        end,
+                        search,
+                        entity -> entity != mc.player && entity instanceof LivingEntity living && living.isAlive(),
+                        pos.distanceToSqr(end));
+                if (entityHit != null) {
+                    end = entityHit.getLocation();
                     collided = true;
                 }
             }
