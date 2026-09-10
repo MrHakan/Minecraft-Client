@@ -1,10 +1,6 @@
 package me.mrhakan.agalarhack.managers;
 
 import java.io.IOException;
-import java.io.Reader;
-import java.io.Writer;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -12,10 +8,11 @@ import java.util.Map;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
+import me.mrhakan.agalarhack.config.BoundedJsonFile;
 
 import net.fabricmc.loader.api.FabricLoader;
 
-/** Persistent positions for the small set of first-party HUD widgets. */
+/** Bounded persistence for dynamically registered HUD widgets and editor preferences. */
 public class HudLayoutManager {
     public enum Anchor {
         TOP_LEFT, TOP_RIGHT, BOTTOM_LEFT, BOTTOM_RIGHT;
@@ -51,24 +48,33 @@ public class HudLayoutManager {
     }
 
     public static class EditorOptions {
+        public int schemaVersion=1;
         public int gridSize=10,snapStrength=6,safeMargin=4;
         public boolean gridVisible=true,snapping=true;
     }
     private EditorOptions editorOptions=new EditorOptions();
     public EditorOptions editorOptions(){return editorOptions;}
-    public void saveEditorOptions(){
-        try{Files.writeString(path.resolveSibling("agalarhack-hud-editor.json"),gson.toJson(editorOptions));}
-        catch(IOException failure){me.mrhakan.agalarhack.AgalarHackClient.LOGGER.error("Could not save HUD editor options",failure);}
+    public void saveEditorOptions() {
+        try { editorFile.save(sanitizeOptions(editorOptions)); }
+        catch (IOException failure) { me.mrhakan.agalarhack.AgalarHackClient.LOGGER.error("Could not save HUD editor options", failure); }
     }
-    private void loadEditorOptions(){
-        Path optionsPath=path.resolveSibling("agalarhack-hud-editor.json");
-        if(!Files.isRegularFile(optionsPath))return;
-        try{if(Files.size(optionsPath)>8192)return;var loaded=gson.fromJson(Files.readString(optionsPath),EditorOptions.class);
-            if(loaded!=null){loaded.gridSize=Math.max(2,Math.min(64,loaded.gridSize));loaded.snapStrength=Math.max(0,Math.min(24,loaded.snapStrength));loaded.safeMargin=Math.max(0,Math.min(32,loaded.safeMargin));editorOptions=loaded;}
-        }catch(Exception failure){me.mrhakan.agalarhack.AgalarHackClient.LOGGER.error("Could not read HUD editor options",failure);}
+    private void loadEditorOptions() {
+        try { editorFile.load().ifPresent(loaded -> editorOptions = loaded); }
+        catch (IOException failure) { me.mrhakan.agalarhack.AgalarHackClient.LOGGER.warn("HUD editor config preserved; saving disabled", failure); }
+    }
+    private static EditorOptions sanitizeOptions(EditorOptions options) {
+        if (options == null || options.schemaVersion != 1) throw new IllegalArgumentException("Unsupported HUD editor schema");
+        options.gridSize=Math.max(2,Math.min(64,options.gridSize));
+        options.snapStrength=Math.max(0,Math.min(24,options.snapStrength));
+        options.safeMargin=Math.max(0,Math.min(32,options.safeMargin));
+        return options;
     }
     private final Gson gson = new GsonBuilder().setPrettyPrinting().create();
     private final Path path = FabricLoader.getInstance().getConfigDir().resolve("agalarhack-hud.json");
+    private final BoundedJsonFile<Map<String, WidgetState>> layoutFile = new BoundedJsonFile<>(path, 131072,
+            raw -> validateSnapshot(gson.fromJson(raw, new TypeToken<Map<String, WidgetState>>(){}.getType())), gson::toJson);
+    private final BoundedJsonFile<EditorOptions> editorFile = new BoundedJsonFile<>(path.resolveSibling("agalarhack-hud-editor.json"),
+            8192, raw -> sanitizeOptions(gson.fromJson(raw, EditorOptions.class)), gson::toJson);
     private final Map<String, WidgetState> defaults = new LinkedHashMap<>();
     private final Map<String, WidgetState> widgets = new LinkedHashMap<>();
 
@@ -82,35 +88,36 @@ public class HudLayoutManager {
 
     public void load() {
         loadEditorOptions();
-        if (!Files.isRegularFile(path)) {
-            save();
-            return;
-        }
-        try (Reader reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
-            Map<String, WidgetState> loaded = gson.fromJson(reader, new TypeToken<Map<String, WidgetState>>(){}.getType());
-            if (loaded != null) {
-                for (Map.Entry<String, WidgetState> entry : loaded.entrySet()) {
-                    WidgetState state = sanitize(entry.getValue());
-                    if (state != null) {
-                        widgets.put(entry.getKey(), state);
-                    }
-                }
-            }
-        } catch (Exception e) {
-            me.mrhakan.agalarhack.AgalarHackClient.LOGGER.warn("[Agalar Hack] Failed to load HUD layout: " + e.getMessage());
+        try {
+            var loaded = layoutFile.load();
+            if (loaded.isPresent()) {
+                resetDefaults();
+                widgets.putAll(loaded.get());
+            } else save();
+        } catch (IOException failure) {
+            me.mrhakan.agalarhack.AgalarHackClient.LOGGER.warn("HUD layout preserved; saving disabled", failure);
         }
         ensureDefaults();
     }
 
     public void save() {
-        try {
-            Files.createDirectories(path.getParent());
-            try (Writer writer = Files.newBufferedWriter(path, StandardCharsets.UTF_8)) {
-                gson.toJson(widgets, writer);
-            }
-        } catch (IOException e) {
-            me.mrhakan.agalarhack.AgalarHackClient.LOGGER.warn("[Agalar Hack] Failed to save HUD layout: " + e.getMessage());
+        try { layoutFile.save(validateSnapshot(widgets)); }
+        catch (IOException | IllegalArgumentException failure) {
+            me.mrhakan.agalarhack.AgalarHackClient.LOGGER.warn("Could not save HUD layout", failure);
         }
+    }
+
+    private Map<String, WidgetState> validateSnapshot(Map<String, WidgetState> source) {
+        if (source == null || source.size() > 256) throw new IllegalArgumentException("Invalid HUD component count");
+        Map<String, WidgetState> result = new LinkedHashMap<>();
+        for (var entry : source.entrySet()) {
+            if (entry.getKey() == null || !entry.getKey().matches("[a-z0-9_.:-]{1,64}")) {
+                throw new IllegalArgumentException("Invalid HUD component id");
+            }
+            WidgetState state = sanitize(entry.getValue() == null ? null : entry.getValue().copy());
+            if (state != null) result.put(entry.getKey(), state);
+        }
+        return result;
     }
 
     public WidgetState get(String id) {
@@ -125,15 +132,9 @@ public class HudLayoutManager {
     }
 
     public void applySnapshot(Map<String, WidgetState> snapshot) {
+        Map<String, WidgetState> validated = snapshot == null ? Map.of() : validateSnapshot(snapshot);
         resetDefaults();
-        if (snapshot != null) {
-            snapshot.forEach((key, value) -> {
-                WidgetState state = sanitize(value);
-                if (state != null) {
-                    widgets.put(key, state);
-                }
-            });
-        }
+        widgets.putAll(validated);
         ensureDefaults();
         save();
     }
