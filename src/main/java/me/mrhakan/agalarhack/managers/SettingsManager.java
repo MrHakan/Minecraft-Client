@@ -1,9 +1,13 @@
 package me.mrhakan.agalarhack.managers;
 
-import java.io.File;
-import java.io.FileReader;
-import java.io.FileWriter;
 import java.io.IOException;
+import java.io.Reader;
+import java.io.Writer;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -18,33 +22,71 @@ import net.fabricmc.loader.api.FabricLoader;
 
 public class SettingsManager {
     private final Gson gson = new GsonBuilder().setPrettyPrinting().create();
-    private final File configFile = FabricLoader.getInstance().getConfigDir().resolve("agalarhack.json").toFile();
+    private final Path configPath = FabricLoader.getInstance().getConfigDir().resolve("agalarhack.json");
 
     public Map<String, Settings> readSettings() {
         Map<String, Settings> settingsArray = new HashMap<>();
-        if (configFile.exists() && configFile.isFile()) {
-            try (FileReader reader = new FileReader(configFile)) {
-                Map<String, Settings> loaded = gson.fromJson(reader, new TypeToken<Map<String, Settings>>(){}.getType());
-                if (loaded != null) {
-                    settingsArray = loaded;
-                }
-            } catch (IOException | JsonSyntaxException e) {
-                e.printStackTrace();
+        if (!Files.isRegularFile(configPath)) {
+            return settingsArray;
+        }
+
+        try (Reader reader = Files.newBufferedReader(configPath, StandardCharsets.UTF_8)) {
+            Map<String, Settings> loaded = gson.fromJson(reader, new TypeToken<Map<String, Settings>>(){}.getType());
+            if (loaded != null) {
+                settingsArray = loaded;
             }
+        } catch (IOException | JsonSyntaxException e) {
+            System.err.println("[Agalar Hack] Failed to read config: " + e.getMessage());
+            backupBrokenConfig();
         }
         return settingsArray;
     }
 
     public void writeSettings(Map<String, Settings> settingsArray) {
-        File parent = configFile.getParentFile();
-        if (parent != null && !parent.exists()) {
-            parent.mkdirs();
+        Path parent = configPath.getParent();
+        if (parent == null) {
+            return;
         }
-        try (FileWriter fw = new FileWriter(configFile)) {
-            gson.toJson(settingsArray, fw);
-            fw.flush();
+
+        Path tempFile = null;
+        try {
+            Files.createDirectories(parent);
+            tempFile = Files.createTempFile(parent, "agalarhack-", ".tmp");
+            try (Writer writer = Files.newBufferedWriter(tempFile, StandardCharsets.UTF_8)) {
+                gson.toJson(settingsArray, writer);
+            }
+            replaceConfig(tempFile);
+            tempFile = null;
         } catch (IOException e) {
-            e.printStackTrace();
+            System.err.println("[Agalar Hack] Failed to write config: " + e.getMessage());
+        } finally {
+            if (tempFile != null) {
+                try {
+                    Files.deleteIfExists(tempFile);
+                } catch (IOException ignored) {
+                }
+            }
+        }
+    }
+
+    private void replaceConfig(Path tempFile) throws IOException {
+        try {
+            Files.move(tempFile, configPath, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+        } catch (AtomicMoveNotSupportedException ignored) {
+            Files.move(tempFile, configPath, StandardCopyOption.REPLACE_EXISTING);
+        }
+    }
+
+    private void backupBrokenConfig() {
+        if (!Files.isRegularFile(configPath)) {
+            return;
+        }
+        Path backup = configPath.resolveSibling("agalarhack.json.broken-" + System.currentTimeMillis());
+        try {
+            Files.move(configPath, backup, StandardCopyOption.REPLACE_EXISTING);
+            System.err.println("[Agalar Hack] Broken config backed up to " + backup.getFileName());
+        } catch (IOException backupError) {
+            System.err.println("[Agalar Hack] Could not back up broken config: " + backupError.getMessage());
         }
     }
 
