@@ -54,7 +54,7 @@ public class ProfileManager {
                 });
             }
         } catch (Exception e) {
-            System.err.println("[Agalar Hack] Failed to load server profile bindings: " + e.getMessage());
+            me.mrhakan.agalarhack.AgalarHackClient.LOGGER.warn("[Agalar Hack] Failed to load server profile bindings: " + e.getMessage());
         }
     }
 
@@ -73,7 +73,7 @@ public class ProfileManager {
                 load(profile);
                 System.out.println("[Agalar Hack] Auto-loaded profile '" + profile + "' for " + server);
             } catch (RuntimeException e) {
-                System.err.println("[Agalar Hack] Could not auto-load profile '" + profile + "': " + e.getMessage());
+                me.mrhakan.agalarhack.AgalarHackClient.LOGGER.warn("[Agalar Hack] Could not auto-load profile '" + profile + "': " + e.getMessage());
             }
         }
     }
@@ -190,7 +190,7 @@ public class ProfileManager {
                     .sorted(Comparator.naturalOrder())
                     .forEach(names::add);
         } catch (IOException e) {
-            System.err.println("[Agalar Hack] Could not list profiles: " + e.getMessage());
+            me.mrhakan.agalarhack.AgalarHackClient.LOGGER.warn("[Agalar Hack] Could not list profiles: " + e.getMessage());
         }
         return names;
     }
@@ -305,7 +305,7 @@ public class ProfileManager {
                 gson.toJson(serverBindings, writer);
             }
         } catch (IOException e) {
-            System.err.println("[Agalar Hack] Failed to save server profile bindings: " + e.getMessage());
+            me.mrhakan.agalarhack.AgalarHackClient.LOGGER.warn("[Agalar Hack] Failed to save server profile bindings: " + e.getMessage());
         }
     }
 

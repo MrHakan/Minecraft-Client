@@ -62,7 +62,7 @@ public class CommandManager {
             command.onCommand(args);
         } catch (Exception e) {
             MessageManager.sendMessagePrefix(ChatFormatting.RED + "An error occurred while running that command.");
-            e.printStackTrace();
+            me.mrhakan.agalarhack.AgalarHackClient.LOGGER.error("Operation failed", e);
         }
         return true;
     }

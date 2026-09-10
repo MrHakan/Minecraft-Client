@@ -117,8 +117,8 @@ public class ModuleManager {
             try {
                 module.onDisconnect();
             } catch (RuntimeException e) {
-                System.err.println("[Agalar Hack] Disconnect cleanup failed for " + module.getName());
-                e.printStackTrace();
+                me.mrhakan.agalarhack.AgalarHackClient.LOGGER.warn("[Agalar Hack] Disconnect cleanup failed for " + module.getName());
+                me.mrhakan.agalarhack.AgalarHackClient.LOGGER.error("Operation failed", e);
             }
         }
     }
@@ -188,8 +188,8 @@ public class ModuleManager {
             try {
                 module.setToggled(true, false);
             } catch (RuntimeException e) {
-                System.err.println("[Agalar Hack] Could not restore enabled module: " + module.getName());
-                e.printStackTrace();
+                me.mrhakan.agalarhack.AgalarHackClient.LOGGER.warn("[Agalar Hack] Could not restore enabled module: " + module.getName());
+                me.mrhakan.agalarhack.AgalarHackClient.LOGGER.error("Operation failed", e);
                 forceDisable(module);
                 changed = true;
             }
@@ -208,8 +208,8 @@ public class ModuleManager {
             }
         } catch (RuntimeException disableError) {
             module.settings.setSetting("enabled", false);
-            System.err.println("[Agalar Hack] Module cleanup failed: " + module.getName());
-            disableError.printStackTrace();
+            me.mrhakan.agalarhack.AgalarHackClient.LOGGER.warn("[Agalar Hack] Module cleanup failed: " + module.getName());
+            me.mrhakan.agalarhack.AgalarHackClient.LOGGER.error("Module cleanup failed", disableError);
         }
     }
 

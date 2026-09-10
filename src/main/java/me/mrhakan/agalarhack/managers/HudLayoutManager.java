@@ -72,7 +72,7 @@ public class HudLayoutManager {
                 }
             }
         } catch (Exception e) {
-            System.err.println("[Agalar Hack] Failed to load HUD layout: " + e.getMessage());
+            me.mrhakan.agalarhack.AgalarHackClient.LOGGER.warn("[Agalar Hack] Failed to load HUD layout: " + e.getMessage());
         }
         ensureDefaults();
     }
@@ -84,7 +84,7 @@ public class HudLayoutManager {
                 gson.toJson(widgets, writer);
             }
         } catch (IOException e) {
-            System.err.println("[Agalar Hack] Failed to save HUD layout: " + e.getMessage());
+            me.mrhakan.agalarhack.AgalarHackClient.LOGGER.warn("[Agalar Hack] Failed to save HUD layout: " + e.getMessage());
         }
     }
 

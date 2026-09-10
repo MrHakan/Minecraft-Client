@@ -46,9 +46,9 @@ public class FriendManager {
                 }
             }
         } catch (JsonSyntaxException e) {
-            System.err.println("[Agalar Hack] Friend list JSON is malformed: " + e.getMessage());
+            me.mrhakan.agalarhack.AgalarHackClient.LOGGER.warn("[Agalar Hack] Friend list JSON is malformed: " + e.getMessage());
         } catch (IOException e) {
-            System.err.println("[Agalar Hack] Failed to read friend list: " + e.getMessage());
+            me.mrhakan.agalarhack.AgalarHackClient.LOGGER.warn("[Agalar Hack] Failed to read friend list: " + e.getMessage());
         }
     }
 
@@ -108,7 +108,7 @@ public class FriendManager {
             }
             temp = null;
         } catch (IOException e) {
-            System.err.println("[Agalar Hack] Failed to write friend list: " + e.getMessage());
+            me.mrhakan.agalarhack.AgalarHackClient.LOGGER.warn("[Agalar Hack] Failed to write friend list: " + e.getMessage());
         } finally {
             if (temp != null) {
                 try {
