@@ -60,7 +60,7 @@ public class BlockESP extends Module {
         chunkUnload = service(EventBus.class).subscribe(ClientEvents.ChunkUnloaded.class, "block-esp-cache", 0, event -> {
             if (event.level() != mc.level) return;
             var chunk = event.chunk().getPos();
-            if (matches.removeIf(pos -> (pos.getX() >> 4) == chunk.x && (pos.getZ() >> 4) == chunk.z)) snapshotDirty = true;
+            if (matches.removeIf(pos -> (pos.getX() >> 4) == chunk.x() && (pos.getZ() >> 4) == chunk.z())) snapshotDirty = true;
         });
     }
 

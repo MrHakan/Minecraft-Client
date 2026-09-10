@@ -58,8 +58,8 @@ public class StorageESP extends Module {
         chunkUnload = service(EventBus.class).subscribe(ClientEvents.ChunkUnloaded.class, "storage-esp-cache", 0, event -> {
             if (event.level() != mc.level) return;
             var chunk = event.chunk().getPos();
-            passMatches.removeIf(pos -> inChunk(pos, chunk.x, chunk.z));
-            cachedPositions = cachedPositions.stream().filter(pos -> !inChunk(pos, chunk.x, chunk.z)).toList();
+            passMatches.removeIf(pos -> inChunk(pos, chunk.x(), chunk.z()));
+            cachedPositions = cachedPositions.stream().filter(pos -> !inChunk(pos, chunk.x(), chunk.z())).toList();
             if (activeChunk == event.chunk()) finishChunk();
         });
     }
