@@ -1,19 +1,28 @@
 package me.mrhakan.agalarhack.ui;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import me.mrhakan.agalarhack.AgalarHackClient;
 import me.mrhakan.agalarhack.module.Module;
+import me.mrhakan.agalarhack.module.render.Freecam;
 import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.rendertype.RenderTypes;
+import net.minecraft.network.chat.Component;
+import net.minecraft.util.LightCoordsUtil;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 
 /** World-space overlays built for Minecraft 26.2's submit-node render pipeline. */
@@ -29,30 +38,40 @@ public final class WorldOverlayRenderer {
 
         Module esp = AgalarHackClient.moduleManager.getModule("ESP");
         Module trajectories = AgalarHackClient.moduleManager.getModule("Trajectories");
-        if ((esp == null || !esp.isToggled()) && (trajectories == null || !trajectories.isToggled())) {
+        Module freecamModule = AgalarHackClient.moduleManager.getModule("Freecam");
+        Freecam freecam = freecamModule instanceof Freecam f ? f : null;
+        boolean espEnabled = esp != null && esp.isToggled();
+        boolean trajectoriesEnabled = trajectories != null && trajectories.isToggled();
+        boolean bodyMarker = freecam != null && freecam.shouldRenderBodyMarker();
+        if (!espEnabled && !trajectoriesEnabled && !bodyMarker) {
             return;
         }
 
         Vec3 camera = ctx.levelState().cameraRenderState.pos;
+        List<LivingEntity> espTargets = espEnabled ? collectEspTargets(mc, esp) : List.of();
+
+        if (espEnabled && esp.getBooleanSetting("labels", true)) {
+            renderEspLabels(ctx, mc, esp, espTargets, camera);
+        }
+
         ctx.submitNodeCollector().submitCustomGeometry(ctx.poseStack(), RenderTypes.lines(), (pose, buffer) -> {
-            if (esp != null && esp.isToggled()) {
-                renderEsp(mc, esp, camera, pose, buffer);
+            if (espEnabled) {
+                renderEspGeometry(mc, esp, espTargets, camera, pose, buffer);
             }
-            if (trajectories != null && trajectories.isToggled()) {
+            if (trajectoriesEnabled) {
                 renderTrajectory(mc, trajectories, camera, pose, buffer);
+            }
+            if (bodyMarker) {
+                renderFreecamBodyMarker(mc, freecam, camera, pose, buffer);
             }
         });
     }
 
-    private static void renderEsp(Minecraft mc, Module esp, Vec3 camera, PoseStack.Pose pose, VertexConsumer buffer) {
+    private static List<LivingEntity> collectEspTargets(Minecraft mc, Module esp) {
+        List<LivingEntity> targets = new ArrayList<>();
         double range = esp.getNumberSetting("range", 96.0);
         double rangeSq = range * range;
         boolean respectPolicy = esp.getBooleanSetting("respectTargetPolicy", true);
-        int color = color(
-                esp.getNumberSetting("red", 85.0),
-                esp.getNumberSetting("green", 170.0),
-                esp.getNumberSetting("blue", 255.0),
-                esp.getNumberSetting("alpha", 230.0));
 
         for (Entity entity : mc.level.entitiesForRendering()) {
             if (!(entity instanceof LivingEntity living) || entity == mc.player || !living.isAlive()) {
@@ -72,9 +91,59 @@ public final class WorldOverlayRenderer {
             } else if (!esp.getBooleanSetting("mobs", true)) {
                 continue;
             }
+            targets.add(living);
+        }
+        return targets;
+    }
 
-            AABB box = entity.getBoundingBox().inflate(0.03).move(-camera.x, -camera.y, -camera.z);
-            box(buffer, pose, box, color);
+    private static void renderEspGeometry(Minecraft mc, Module esp, List<LivingEntity> targets,
+            Vec3 camera, PoseStack.Pose pose, VertexConsumer buffer) {
+        int color = color(
+                esp.getNumberSetting("red", 85.0),
+                esp.getNumberSetting("green", 170.0),
+                esp.getNumberSetting("blue", 255.0),
+                esp.getNumberSetting("alpha", 230.0));
+        boolean boxes = esp.getBooleanSetting("boxes", true);
+        boolean tracers = esp.getBooleanSetting("tracers", false);
+
+        for (LivingEntity living : targets) {
+            if (boxes) {
+                AABB box = living.getBoundingBox().inflate(0.03).move(-camera.x, -camera.y, -camera.z);
+                box(buffer, pose, box, color);
+            }
+            if (tracers) {
+                Vec3 center = living.getBoundingBox().getCenter();
+                line(buffer, pose,
+                        0.0, -0.12, 0.0,
+                        center.x - camera.x, center.y - camera.y, center.z - camera.z,
+                        color);
+            }
+        }
+    }
+
+    private static void renderEspLabels(LevelRenderContext ctx, Minecraft mc, Module esp,
+            List<LivingEntity> targets, Vec3 camera) {
+        PoseStack stack = ctx.poseStack();
+        for (LivingEntity living : targets) {
+            StringBuilder label = new StringBuilder(living.getName().getString());
+            if (esp.getBooleanSetting("showDistance", true)) {
+                label.append(String.format(Locale.ROOT, " [%.1fm]", mc.player.distanceTo(living)));
+            }
+            if (esp.getBooleanSetting("showHealth", false)) {
+                label.append(String.format(Locale.ROOT, " [%.1f HP]", living.getHealth()));
+            }
+
+            stack.pushPose();
+            stack.translate(living.getX() - camera.x, living.getY() - camera.y, living.getZ() - camera.z);
+            ctx.submitNodeCollector().submitNameTag(
+                    stack,
+                    new Vec3(0.0, living.getBbHeight() + 0.35, 0.0),
+                    0,
+                    Component.literal(label.toString()),
+                    true,
+                    LightCoordsUtil.FULL_BRIGHT,
+                    ctx.levelState().cameraRenderState);
+            stack.popPose();
         }
     }
 
@@ -98,6 +167,8 @@ public final class WorldOverlayRenderer {
         int steps = (int) Math.round(module.getNumberSetting("steps", 80.0));
         double gravity = module.getNumberSetting("gravity", 0.05);
         double drag = module.getNumberSetting("drag", 0.99);
+        boolean collisionEnabled = module.getBooleanSetting("collision", true);
+        boolean landingMarker = module.getBooleanSetting("landingMarker", true);
         int color = color(
                 module.getNumberSetting("red", 255.0),
                 module.getNumberSetting("green", 220.0),
@@ -106,16 +177,49 @@ public final class WorldOverlayRenderer {
 
         for (int i = 0; i < steps; i++) {
             Vec3 next = pos.add(velocity);
+            Vec3 end = next;
+            boolean collided = false;
+            if (collisionEnabled) {
+                HitResult hit = mc.level.clip(new ClipContext(pos, next,
+                        ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, mc.player));
+                if (hit.getType() == HitResult.Type.BLOCK) {
+                    end = hit.getLocation();
+                    collided = true;
+                }
+            }
+
             line(buffer, pose,
                     pos.x - camera.x, pos.y - camera.y, pos.z - camera.z,
-                    next.x - camera.x, next.y - camera.y, next.z - camera.z,
+                    end.x - camera.x, end.y - camera.y, end.z - camera.z,
                     color);
+
+            if (collided) {
+                if (landingMarker) {
+                    marker(buffer, pose, end.subtract(camera), module.getNumberSetting("markerSize", 0.22), color);
+                }
+                break;
+            }
+
             pos = next;
             velocity = new Vec3(velocity.x * drag, velocity.y * drag - gravity, velocity.z * drag);
             if (pos.y < mc.level.getMinY() - 16) {
                 break;
             }
         }
+    }
+
+    private static void renderFreecamBodyMarker(Minecraft mc, Freecam freecam, Vec3 camera,
+            PoseStack.Pose pose, VertexConsumer buffer) {
+        Vec3 anchor = freecam.getBodyAnchor();
+        if (anchor == null) {
+            return;
+        }
+        Vec3 delta = anchor.subtract(new Vec3(mc.player.getX(), mc.player.getY(), mc.player.getZ()));
+        AABB body = mc.player.getBoundingBox().move(delta).inflate(0.05).move(-camera.x, -camera.y, -camera.z);
+        int markerColor = color(255, 85, 170, 245);
+        box(buffer, pose, body, markerColor);
+        Vec3 center = new Vec3((body.minX + body.maxX) * 0.5, body.maxY + 0.18, (body.minZ + body.maxZ) * 0.5);
+        marker(buffer, pose, center, 0.18, markerColor);
     }
 
     private static boolean isProjectile(Item item) {
@@ -136,6 +240,16 @@ public final class WorldOverlayRenderer {
             return 0.75;
         }
         return 1.5;
+    }
+
+    private static void marker(VertexConsumer buffer, PoseStack.Pose pose, Vec3 p, double size, int color) {
+        line(buffer, pose, p.x - size, p.y, p.z, p.x + size, p.y, p.z, color);
+        line(buffer, pose, p.x, p.y - size, p.z, p.x, p.y + size, p.z, color);
+        line(buffer, pose, p.x, p.y, p.z - size, p.x, p.y, p.z + size, color);
+        line(buffer, pose, p.x - size * 0.7, p.y, p.z - size * 0.7,
+                p.x + size * 0.7, p.y, p.z + size * 0.7, color);
+        line(buffer, pose, p.x - size * 0.7, p.y, p.z + size * 0.7,
+                p.x + size * 0.7, p.y, p.z - size * 0.7, color);
     }
 
     private static void box(VertexConsumer buffer, PoseStack.Pose pose, AABB b, int color) {
