@@ -38,6 +38,9 @@ public final class ScannerService {
     public boolean reserveChunk(ScanScheduler.Budget budget, int x, int z) {
         return chunks.containsKey(key(x, z)) || budget.take(0, 1, 0);
     }
+    public boolean reserveBlock(ScanScheduler.Budget budget, int x, int z) {
+        return budget.take(1, chunks.containsKey(key(x, z)) ? 0 : 1, 0);
+    }
     public LevelChunk loadedChunk(int x, int z) {
         long key = key(x, z);
         if (!chunks.containsKey(key)) {

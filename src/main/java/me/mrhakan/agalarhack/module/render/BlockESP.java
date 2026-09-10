@@ -1,6 +1,11 @@
 package me.mrhakan.agalarhack.module.render;
 
 import java.util.Iterator;
+import me.mrhakan.agalarhack.events.ClientEvents;
+import me.mrhakan.agalarhack.events.EventBus;
+import me.mrhakan.agalarhack.services.ScannerService;
+import me.mrhakan.agalarhack.services.scanning.BlockScanCursor;
+import me.mrhakan.agalarhack.services.scanning.ScanScheduler;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -17,7 +22,11 @@ public class BlockESP extends Module {
     private int anchorX;
     private int anchorY;
     private int anchorZ;
-    private int scanIndex;
+    private final BlockScanCursor cursor = new BlockScanCursor();
+    private final BlockPos.MutableBlockPos probe = new BlockPos.MutableBlockPos();
+    private List<BlockPos> snapshot = List.of();
+    private boolean snapshotDirty;
+    private EventBus.Subscription chunkUnload;
     private boolean anchorSet;
     private String targetSignature = "";
 
@@ -29,7 +38,7 @@ public class BlockESP extends Module {
     public void selfSettings() {
         addNumberSetting("horizontalRange", 24.0, 4.0, 64.0, "Horizontal scan radius in blocks");
         addNumberSetting("verticalRange", 16.0, 4.0, 48.0, "Vertical scan radius in blocks");
-        addNumberSetting("scanBudget", 2500.0, 100.0, 12000.0, "Block positions checked per client tick");
+        addNumberSetting("scanBudget", 2500.0, 100.0, 12000.0, "Maximum block positions requested per tick; shared scanner limits also apply");
         addNumberSetting("maxResults", 1024.0, 16.0, 4096.0, "Maximum cached highlighted blocks");
         addBooleanSetting("valuableOres", true, "Highlight diamond, emerald and ancient debris");
         addBooleanSetting("commonOres", false, "Highlight all other vanilla ore blocks");
@@ -46,6 +55,12 @@ public class BlockESP extends Module {
     @Override
     public void onEnable() {
         resetScanner();
+        if (chunkUnload != null) chunkUnload.close();
+        chunkUnload = service(EventBus.class).subscribe(ClientEvents.ChunkUnloaded.class, "block-esp-cache", 0, event -> {
+            if (event.level() != mc.level) return;
+            var chunk = event.chunk().getPos();
+            if (matches.removeIf(pos -> (pos.getX() >> 4) == chunk.x && (pos.getZ() >> 4) == chunk.z)) snapshotDirty = true;
+        });
     }
 
     @Override
@@ -67,47 +82,54 @@ public class BlockESP extends Module {
             anchorZ = mc.player.getBlockZ();
             targetSignature = signature;
             anchorSet = true;
-            scanIndex = 0;
+            cursor.reset(anchorX, anchorY, anchorZ, horizontal, vertical);
             matches.clear();
+            snapshotDirty = true;
         }
 
-        int diameter = horizontal * 2 + 1;
-        int height = vertical * 2 + 1;
-        int total = diameter * diameter * height;
-        int budget = Math.min(total, (int) Math.round(getNumberSetting("scanBudget", 2500.0)));
+        trimResults();
+        int budget = Math.max(100, Math.min(12000, (int) Math.round(getNumberSetting("scanBudget", 2500.0))));
+        service(ScannerService.class).offer(this, ScanScheduler.Priority.BACKGROUND, budget, this::scanStep);
+    }
 
-        for (int checked = 0; checked < budget; checked++) {
-            int index = scanIndex++;
-            if (scanIndex >= total) {
-                scanIndex = 0;
-            }
-            int xIndex = index % diameter;
-            int zIndex = (index / diameter) % diameter;
-            int yIndex = index / (diameter * diameter);
-            int x = anchorX + xIndex - horizontal;
-            int y = anchorY + yIndex - vertical;
-            int z = anchorZ + zIndex - horizontal;
-            BlockPos pos = new BlockPos(x, y, z);
-            matches.remove(pos);
-            if (!mc.level.isInsideBuildHeight(y) || !mc.level.hasChunk(x >> 4, z >> 4)) {
-                continue;
-            }
-            BlockState state = mc.level.getBlockState(pos);
-            String id = BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString();
-            if (matches(id)) {
-                matches.add(pos);
+    private ScanScheduler.Result scanStep(ScanScheduler.Budget budget) {
+        int x = cursor.x(), y = cursor.y(), z = cursor.z();
+        if (!mc.level.isInsideBuildHeight(y)) {
+            if (!budget.take(1, 0, 0)) return ScanScheduler.Result.BLOCKED;
+            cursor.advance();
+            return ScanScheduler.Result.MORE;
+        }
+        ScannerService scanner = service(ScannerService.class);
+        if (!scanner.reserveBlock(budget, x >> 4, z >> 4)) return ScanScheduler.Result.BLOCKED;
+        var chunk = scanner.loadedChunk(x >> 4, z >> 4);
+        if (chunk == null) {
+            cursor.skipChunk();
+            return ScanScheduler.Result.MORE;
+        }
+        probe.set(x, y, z);
+        BlockState state = chunk.getBlockState(probe);
+        String id = BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString();
+        if (matches(id)) {
+            if (!matches.contains(probe)) {
+                matches.add(new BlockPos(x, y, z));
+                snapshotDirty = true;
                 trimResults();
             }
-        }
+        } else if (matches.remove(probe)) snapshotDirty = true;
+        cursor.advance();
+        return ScanScheduler.Result.MORE;
     }
 
     @Override
     public void onDisable() {
+        service(ScannerService.class).cancel(this);
+        if (chunkUnload != null) { chunkUnload.close(); chunkUnload = null; }
         resetScanner();
     }
 
     public List<BlockPos> getMatches() {
-        return List.copyOf(matches);
+        if (snapshotDirty) { snapshot = List.copyOf(matches); snapshotDirty = false; }
+        return snapshot;
     }
 
     public boolean matches(String id) {
@@ -154,13 +176,15 @@ public class BlockESP extends Module {
             }
             iterator.next();
             iterator.remove();
+            snapshotDirty = true;
         }
     }
 
     private void resetScanner() {
         matches.clear();
         anchorSet = false;
-        scanIndex = 0;
+        snapshot = List.of();
+        snapshotDirty = false;
         targetSignature = "";
     }
 }
