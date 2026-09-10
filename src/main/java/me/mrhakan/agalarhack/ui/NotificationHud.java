@@ -22,8 +22,9 @@ public final class NotificationHud {
             int height = font.lineHeight + 16;
             int y = top ? 8 + row * (height + 4) : graphics.guiHeight() - 8 - (row + 1) * (height + 4);
             if (y < 0 || y + height > graphics.guiHeight()) break;
-            double progress = Math.min(1, (notifications.now() - notice.created()) / 180.0);
-            int offset = module.getBooleanSetting("animations", true) ? (int) ((1 - progress) * 20) : 0;
+            var theme=me.mrhakan.agalarhack.services.ClientServices.require(me.mrhakan.agalarhack.services.ThemeService.class).current();
+            double progress = Math.min(1, (notifications.now() - notice.created()) * theme.animationSpeed / 180.0);
+            int offset = module.getBooleanSetting("animations", true) && theme.uiAnimations ? (int) ((1 - progress) * 20) : 0;
             int x = left ? 8 - offset : graphics.guiWidth() - width - 8 + offset;
             int color = switch (notice.type()) { case INFO -> 0xff65adff; case SUCCESS -> 0xff67d9a2; case WARNING -> 0xffffc466; case ERROR -> 0xffff6b7a; };
             graphics.fill(x, y, x + width, y + height, 0xe818202b);

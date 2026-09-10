@@ -71,6 +71,7 @@ public class ClickGuiScreen extends Screen {
         addRenderableWidget(Button.builder(Component.literal("Sort"), b -> minecraft.gui.setScreen(new me.mrhakan.agalarhack.ui.components.ChoiceScreen(this,"Sort",List.of("Name","Category","Recent"),choice->sort=choice)))
                 .bounds(contentLeft+(actionWidth+4)*4,50,actionWidth,20).build());
 
+        addRenderableWidget(Button.builder(Component.literal("Themes"),b->minecraft.gui.setScreen(new ThemeScreen(this))).bounds(10,height-28,SIDEBAR_WIDTH-20,20).build());
         int categoryY = 62;
         addCategoryButton("ALL", 0, categoryY);
         for (int i = 0; i < Category.values().length; i++) {
@@ -140,7 +141,7 @@ public class ClickGuiScreen extends Screen {
     public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
         ClientUiTheme.backdrop(graphics, width, height);
         graphics.fill(0, 2, SIDEBAR_WIDTH, height, ClientUiTheme.SIDEBAR);
-        graphics.fill(SIDEBAR_WIDTH, 2, width, HEADER_HEIGHT, 0xF7131C27);
+        graphics.fill(SIDEBAR_WIDTH, 2, width, HEADER_HEIGHT, ClientUiTheme.SIDEBAR);
         graphics.fill(SIDEBAR_WIDTH - 1, 2, SIDEBAR_WIDTH, height, ClientUiTheme.BORDER);
         for (RowVisual row : rowVisuals) {
             ClientUiTheme.panel(graphics, row.x, row.y, row.width, row.height, row.module.isToggled());

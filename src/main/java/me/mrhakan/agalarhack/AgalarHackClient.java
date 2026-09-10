@@ -88,6 +88,8 @@ public class AgalarHackClient implements ClientModInitializer {
         EVENTS.subscribe(ClientEvents.WorldChanged.class, "module-lifecycle", 0, event -> moduleManager.onWorldChanged(event.ready()));
         EVENTS.subscribe(ClientEvents.Disconnected.class, "server-context", 110, event -> context.disconnected());
         services.register(me.mrhakan.agalarhack.services.RenderService.class, new me.mrhakan.agalarhack.services.RenderService());
+        var themes=services.register(me.mrhakan.agalarhack.services.ThemeService.class,new me.mrhakan.agalarhack.services.ThemeService());
+        themes.load();
         FRIEND_MANAGER.load();
         HUD_LAYOUT.load();
         TARGET_POLICY.load();
