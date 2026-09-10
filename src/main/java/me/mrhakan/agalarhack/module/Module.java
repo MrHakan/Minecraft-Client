@@ -75,12 +75,25 @@ public class Module {
 
 		toggled = enabled;
 		settings.setSetting("enabled", toggled);
-		onToggle();
-		if (toggled) {
-			onEnable();
-		} else {
-			onDisable();
-		}
+        try {
+            onToggle();
+            if (toggled) onEnable(); else onDisable();
+        } catch (RuntimeException failure) {
+            toggled = false;
+            settings.setSetting("enabled", false);
+            try { onDisable(); } catch (RuntimeException cleanup) { failure.addSuppressed(cleanup); }
+            AgalarHackClient.LOGGER.error("Module lifecycle failed: {}", name, failure);
+            me.mrhakan.agalarhack.services.ClientServices.registry().find(me.mrhakan.agalarhack.services.NotificationService.class)
+                    .ifPresent(service -> service.publish(me.mrhakan.agalarhack.services.NotificationService.Type.ERROR, name + " disabled after an error"));
+        }
+        if (persist) {
+            Module notifications = AgalarHackClient.moduleManager.getModule("Notifications");
+            if (notifications != null && notifications.getBooleanSetting("moduleToggles", true)) {
+                me.mrhakan.agalarhack.services.ClientServices.registry().find(me.mrhakan.agalarhack.services.NotificationService.class)
+                        .ifPresent(service -> service.publish(me.mrhakan.agalarhack.services.NotificationService.Type.INFO,
+                                name + (toggled ? " enabled" : " disabled")));
+            }
+        }
 
 		if (persist) {
 			AgalarHackClient.SETTINGS_MANAGER.updateSettings();

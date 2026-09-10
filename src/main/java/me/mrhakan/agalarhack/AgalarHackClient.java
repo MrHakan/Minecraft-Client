@@ -78,6 +78,10 @@ public class AgalarHackClient implements ClientModInitializer {
                 new me.mrhakan.agalarhack.services.RotationService(Minecraft.getInstance()));
         EVENTS.subscribe(ClientEvents.ClientTick.class, "rotations", 20, event -> rotations.resolve());
         EVENTS.subscribe(ClientEvents.Disconnected.class, "rotations", 100, event -> rotations.clear());
+        var notifications = services.register(me.mrhakan.agalarhack.services.NotificationService.class,
+                new me.mrhakan.agalarhack.services.NotificationService());
+        var notificationHud = new me.mrhakan.agalarhack.ui.NotificationHud(notifications, moduleManager);
+        EVENTS.subscribe(ClientEvents.HudRender.class, "notifications", -10, notificationHud::render);
         FRIEND_MANAGER.load();
         HUD_LAYOUT.load();
         TARGET_POLICY.load();

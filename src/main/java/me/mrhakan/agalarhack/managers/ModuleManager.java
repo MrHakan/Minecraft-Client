@@ -51,6 +51,7 @@ public class ModuleManager {
         register(new Step());
         register(new NoFall());
 
+        register(new me.mrhakan.agalarhack.module.render.Notifications());
         register(new Fullbright());
         register(new Coordinates());
         register(new Durability());
@@ -83,8 +84,9 @@ public class ModuleManager {
             try {
                 module.onUpdate();
             } catch (RuntimeException e) {
-                System.err.println("[Agalar Hack] Disabling module after tick failure: " + module.getName());
-                e.printStackTrace();
+                AgalarHackClient.LOGGER.error("Disabling module after tick failure: {}", module.getName(), e);
+                me.mrhakan.agalarhack.services.ClientServices.require(me.mrhakan.agalarhack.services.NotificationService.class).publish(
+                        me.mrhakan.agalarhack.services.NotificationService.Type.ERROR, module.getName() + " disabled after an error");
                 forceDisable(module);
                 stateChanged = true;
             }
