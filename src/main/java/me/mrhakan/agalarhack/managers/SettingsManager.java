@@ -118,6 +118,12 @@ public class SettingsManager {
 
     private void applyValues(Map<String, Settings> values, boolean syncEnabledState) {
         for (Module module : AgalarHackClient.moduleManager.getModuleList()) {
+            if (syncEnabledState) {
+                // A named profile is a complete snapshot: modules/settings not present
+                // in an older profile should use current-version defaults, not leak values
+                // from whichever profile happened to be active before it.
+                module.setSettings(new Settings());
+            }
             module.registerSettings();
             Settings saved = values.get(module.getName());
             if (saved != null && saved.settings != null) {
