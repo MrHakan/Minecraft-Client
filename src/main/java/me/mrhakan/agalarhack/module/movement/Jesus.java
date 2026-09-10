@@ -7,7 +7,7 @@ import net.minecraft.world.phys.Vec3;
 public class Jesus extends Module {
 
 	public Jesus() {
-		super("Jesus", Category.MOVEMENT, "Lets you walk on water");
+		super("Jesus", Category.MOVEMENT, "Lets you walk on water and lava");
 	}
 
 	@Override
