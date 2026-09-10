@@ -4,6 +4,7 @@ import java.util.Locale;
 
 import me.mrhakan.agalarhack.AgalarHackClient;
 import me.mrhakan.agalarhack.services.TargetService;
+import me.mrhakan.agalarhack.services.RotationService;
 import me.mrhakan.agalarhack.module.Category;
 import me.mrhakan.agalarhack.module.Module;
 import net.minecraft.world.InteractionHand;
@@ -22,6 +23,11 @@ public class Aura extends Module {
 	@Override
 	public void selfSettings() {
         TargetService.registerFilters(this);
+        addChoiceSetting("rotation", "NONE", "Optional visible aim assistance through the shared rotation service", "NONE", "CLIENT", "SMOOTH");
+        addNumberSetting("rotationSpeed", 180, 1, 720, "Smooth rotation speed in degrees per second");
+        addNumberSetting("maxYawStep", 45, 1, 180, "Maximum yaw movement per tick");
+        addNumberSetting("maxPitchStep", 30, 1, 90, "Maximum pitch movement per tick");
+        addBooleanSetting("returnRotation", false, "Restore starting view on release if the user has not moved it");
 		addNumberSetting("range", 4.2, 1.0, 6.0, "Maximum attack range when the target is visible");
 		addNumberSetting("wallsRange", 3.0, 0.0, 6.0, "Maximum range for targets without line of sight; 0 disables wall hits");
 		addNumberSetting("fov", 360.0, 1.0, 360.0, "Horizontal target field of view in degrees");
@@ -45,6 +51,7 @@ public class Aura extends Module {
 
 	@Override
 	public void onDisable() {
+        service(RotationService.class).release("aura");
 		cooldown = 0;
 		setDisplayName(null);
 	}
@@ -87,6 +94,17 @@ public class Aura extends Module {
 			return;
 		}
 
+        var mode = RotationService.Mode.valueOf(getStringSetting("rotation", "NONE"));
+        if (mode != RotationService.Mode.NONE) {
+            double dx = target.getX() - mc.player.getX(), dz = target.getZ() - mc.player.getZ();
+            float yaw = (float) (Math.toDegrees(Math.atan2(dz, dx)) - 90);
+            float pitch = (float) -Math.toDegrees(Math.atan2(target.getEyeY() - mc.player.getEyeY(), Math.hypot(dx, dz)));
+            service(RotationService.class).request(new RotationService.Request("aura", 50, mode, yaw, pitch,
+                    (float) getNumberSetting("rotationSpeed", 180), (float) getNumberSetting("maxYawStep", 45),
+                    (float) getNumberSetting("maxPitchStep", 30), getBooleanSetting("returnRotation", false)));
+            if (Math.abs(me.mrhakan.agalarhack.services.TargetSelection.wrapDegrees(yaw - mc.player.getYRot())) > 2
+                    || Math.abs(pitch - mc.player.getXRot()) > 2) return;
+        }
 		mc.gameMode.attack(mc.player, target);
 		mc.player.swing(InteractionHand.MAIN_HAND);
 		if (!vanillaCooldown) {
