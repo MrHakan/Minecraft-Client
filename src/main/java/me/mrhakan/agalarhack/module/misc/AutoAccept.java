@@ -36,7 +36,6 @@ public class AutoAccept extends Module {
 
     public AutoAccept() {
         super("AutoAccept", Category.MISC, "Answers teleport or party requests from listed players with a command you choose");
-        markExperimental();
     }
 
     @Override

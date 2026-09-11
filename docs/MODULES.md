@@ -12,7 +12,7 @@ Every module here is enabled, ticked and disabled inside a real world on every p
 request, so an UNTESTED one is known not to crash; what is missing is a check that it
 does the thing it exists to do. The badge is cleared in the commit that adds that check.
 
-53 modules across 6 categories; 20 marked UNTESTED.
+53 modules across 6 categories; 18 marked UNTESTED.
 
 ## Combat
 
@@ -110,7 +110,7 @@ Attacks the valid entity under your crosshair when the hit is ready
 
 ## Misc
 
-### AutoAccept — UNTESTED
+### AutoAccept
 
 Answers teleport or party requests from listed players with a command you choose
 
@@ -165,7 +165,7 @@ Hides chat lines containing phrases you list, and optionally repeated lines; loc
 | `hideRepeats` | `false` | `true/false or on/off` | Hide a line that repeats one of the last few |
 | `repeatWindow` | `4` | `1..32` | How many recent lines a repeat is compared against |
 
-### ChatMentions — UNTESTED
+### ChatMentions
 
 Notifies when your name, a friend, or a keyword appears in chat
 

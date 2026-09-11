@@ -273,7 +273,7 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 84 | Error reporting | Reviewed. Module tick, render, scanner, command, macro and HUD boundaries were already guarded. The one real gap was the shared chat callback: the bus detaches a listener that throws, so one chat module's bug disabled all three for the session. `ModuleGuard` now contains each module separately and reports once per failure episode, and ChatFilter fails open so a broken filter cannot hide chat |
 | 85 | Structured logging | Implemented SLF4J replacement for raw stderr. One `System.out.println` survived in the profile auto-load path and has now been replaced; the rest of the audit remains |
 | 86 | Module documentation | Implemented: `docs/MODULES.md` is generated from the live settings registry and a test fails when it and the code disagree, rewriting the file as it fails |
-| 87 | Experimental flags | Implemented: `markExperimental()` plus an UNTESTED badge in the ClickGUI, surfaced in the generated module reference. 20 of the original 31 remain; a source-level test stops a new module shipping unmarked **and** refuses a cleared flag that does not name a game test scenario that still exists |
+| 87 | Experimental flags | Implemented: `markExperimental()` plus an UNTESTED badge in the ClickGUI, surfaced in the generated module reference. 18 of the original 31 remain; a source-level test stops a new module shipping unmarked **and** refuses a cleared flag that does not name a game test scenario that still exists |
 
 ## Recommended next development batch
 
@@ -500,7 +500,7 @@ pointing at that scenario. The test fails if the scenario does not exist, so a f
 by editing a list — which is the only thing that makes the badge worth anything.
 
 Cleared so far: AutoTotem, AutoArmor, AutoWalk, SafeWalk, Parkour, CameraTweaks, AutoRefill,
-InventoryCleaner, AutoWeapon, BetterChat, ChatFilter.
+InventoryCleaner, AutoWeapon, BetterChat, ChatFilter, ChatMentions, AutoAccept.
 
 Write the control half of every scenario first. Each one asserts the effect is *absent* before the
 module is switched on; without that, an assertion that passes because the game does it anyway looks
@@ -925,12 +925,27 @@ overwrites before reading.
 
 ### Where to go next
 
-The 20 remaining badges are the queue. Chat is now reachable: `ChatView` in the game test source set
+The 18 remaining badges are the queue, and chat is done. `ChatView` in the game test source set
 reads `ChatComponent.allMessages` by reflection - the field is private with no accessor, and the
 helper throws rather than returning an empty list if it ever moves, so a rename cannot quietly turn
-every chat scenario into one that checks nothing. ChatMentions and AutoAccept are the next two that
-can use it. What is genuinely left after those is the pure render modules, which hold no observable
-state at all; `assertScreenshotEquals` in the game test API is the only honest option there.
+every chat scenario into one that checks nothing. Three rules the chat scenarios had to learn, each of them the module being
+right and the test being wrong: the client offers ChatMentions *player* chat only, so a server
+broadcast is correctly ignored; a player's own line arrives as `<Player0> ...` and the module refuses
+to call that a mention of you; and the client rejects chat from a sender id it does not know, so a
+line from "somebody else" needs the real player's UUID with another name bound via `ChatType.bind`.
+
+Also worth knowing, found while diagnosing those: `Notifications.onDisable` switches the whole
+notification service off, and the lifecycle test toggles that module off earlier in the run, so every
+`publish` after it is dropped. Any scenario asserting on a notification must enable that module first.
+
+What is left is the pure render modules, which hold no observable state at all. The plan there needs
+no reference images: screenshot twice with the module off to measure how much two consecutive frames
+differ by themselves, then once with it on, and require the on/off difference to clearly exceed that
+noise. The noise measurement is the control - if two off-frames differ as much as on-vs-off, the
+scenario proves nothing and says so - and because all three frames come from one run on one machine,
+it does not care which Mesa version drew them. It needs a still scene: the zombie `TestScene` spawns
+would move the picture on its own. Note the honest limit before clearing anything on this basis - it
+shows a module *draws something*, not that it draws the right thing.
 
 Superseded note, kept because it explains the helper: chat modules needed a way to read
 back what `ChatComponent` stored, which has no public accessor — reflection against the dev jar is

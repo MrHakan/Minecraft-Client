@@ -40,7 +40,9 @@ class ExperimentalFlagTest {
             java.util.Map.entry("InventoryCleaner.java", "inventoryCleaner"),
             java.util.Map.entry("AutoWeapon.java", "autoWeapon"),
             java.util.Map.entry("BetterChat.java", "betterChat"),
-            java.util.Map.entry("ChatFilter.java", "chatFilter"));
+            java.util.Map.entry("ChatFilter.java", "chatFilter"),
+            java.util.Map.entry("ChatMentions.java", "chatMentions"),
+            java.util.Map.entry("AutoAccept.java", "autoAccept"));
 
     private static final Path BEHAVIOUR_TEST =
             Path.of("src/gametest/java/me/mrhakan/agalarhack/gametest/ModuleBehaviourGameTest.java");
