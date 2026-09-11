@@ -93,6 +93,9 @@ Attacks the valid entity under your crosshair when the hit is ready
 | `onlyOnClick` | `false` | `true/false or on/off` | Only trigger while the attack key is held |
 | `vanillaCooldown` | `true` | `true/false or on/off` | Use Minecraft's normal fully-charged attack timing |
 | `delay` | `10` | `0..40` | Custom delay in ticks when vanillaCooldown is off |
+| `requireWeapon` | `any` | `any\|melee_weapon\|sword` | Only trigger while holding this kind of item |
+| `requireCritical` | `false` | `true/false or on/off` | Hold the attack until it would land as a critical hit, using Minecraft's own 26.2 rule |
+| `reactionTicks` | `0` | `0..20` | Ticks the crosshair must rest on a target first, so sweeping past something does not attack it |
 
 ## Misc
 
