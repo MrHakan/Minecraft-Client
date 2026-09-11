@@ -130,6 +130,40 @@ public class SettingsManager {
         updateSettings();
     }
 
+    /**
+     * Applies only the modules a selection names, leaving every other module untouched.
+     *
+     * <p>Deliberately not routed through {@link #applyValues}: a whole-profile load resets every
+     * module to defaults first, because a complete snapshot must not leak values from whichever
+     * profile was active before it. A partial load is the opposite promise — everything outside the
+     * selection has to survive — so the reset would be exactly the wrong behaviour.
+     *
+     * @return the names of the modules that were actually changed
+     */
+    public java.util.List<String> applyPartialSettings(Map<String, Settings> snapshot,
+            me.mrhakan.agalarhack.config.ProfileSelection selection) {
+        java.util.List<String> applied = new java.util.ArrayList<>();
+        if (snapshot == null || selection == null) return java.util.List.of();
+        for (Module module : AgalarHackClient.moduleManager.getModuleList()) {
+            if (!selection.includesModule(module.getName(), module.getCategory().name)) continue;
+            Settings saved = snapshot.get(module.getName());
+            if (saved == null || saved.settings == null) continue;
+            module.settings.settings.putAll(saved.settings);
+            module.settings.sanitizeLoadedValues();
+            applied.add(module.getName());
+            boolean desired = Boolean.TRUE.equals(module.settings.getSetting("enabled"));
+            if (module.isToggled() == desired) continue;
+            try {
+                module.setToggled(desired, false);
+            } catch (RuntimeException failure) {
+                AgalarHackClient.LOGGER.error("Failed to apply partial profile state for {}", module.getName(), failure);
+                module.settings.setSetting("enabled", false);
+            }
+        }
+        updateSettings();
+        return java.util.List.copyOf(applied);
+    }
+
     private void applyValues(Map<String, Settings> values, boolean syncEnabledState) {
         if (syncEnabledState) {
             for (Module module : AgalarHackClient.moduleManager.getModuleList()) {

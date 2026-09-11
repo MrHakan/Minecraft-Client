@@ -102,6 +102,62 @@ public class ProfileManager {
                 .publish(me.mrhakan.agalarhack.services.NotificationService.Type.SUCCESS, "Profile loaded: " + name);
     }
 
+    /**
+     * Applies only the parts of a profile the selection names.
+     *
+     * <p>Everything outside the selection is left exactly as it is, including which modules are on,
+     * so this never becomes a whole-profile load with extra steps.
+     *
+     * <p>The active profile name is deliberately not changed: after a partial load the live config
+     * matches no stored profile, and claiming otherwise would make the next {@code save} overwrite a
+     * profile the player never fully loaded.
+     *
+     * @return a human-readable summary of what was applied
+     */
+    public String loadPartial(String name, me.mrhakan.agalarhack.config.ProfileSelection selection) {
+        ProfileData data = readProfile(name);
+        if (selection == null || selection.isEverything()) {
+            load(name);
+            return "everything";
+        }
+        List<String> parts = new java.util.ArrayList<>();
+        List<String> modules = AgalarHackClient.SETTINGS_MANAGER.applyPartialSettings(data.modules, selection);
+        if (!modules.isEmpty()) {
+            parts.add(modules.size() + (modules.size() == 1 ? " module" : " modules"));
+        }
+        if (selection.includesTargetPolicy() && data.targetPolicy != null) {
+            AgalarHackClient.TARGET_POLICY.applySnapshot(data.targetPolicy);
+            parts.add("target policy");
+        }
+        if (selection.includesHud() && data.hud != null) {
+            AgalarHackClient.HUD_LAYOUT.applySnapshot(data.hud);
+            parts.add("HUD layout");
+        }
+        return parts.isEmpty() ? "nothing" : String.join(", ", parts);
+    }
+
+    /**
+     * Compares two stored profiles, or a stored profile against the live configuration.
+     *
+     * @param right the profile to compare to, or null for the current live settings
+     */
+    public List<me.mrhakan.agalarhack.config.ProfileDiff.Change> diff(String left, String right) {
+        Map<String, Map<String, Object>> from = moduleValues(readProfile(left).modules);
+        Map<String, Map<String, Object>> to = right == null
+                ? moduleValues(AgalarHackClient.SETTINGS_MANAGER.captureSettings())
+                : moduleValues(readProfile(right).modules);
+        return me.mrhakan.agalarhack.config.ProfileDiff.compare(from, to);
+    }
+
+    /** Unwraps the raw value maps the diff works on; a Settings with no values contributes an empty map. */
+    private static Map<String, Map<String, Object>> moduleValues(Map<String, Settings> modules) {
+        Map<String, Map<String, Object>> values = new LinkedHashMap<>();
+        if (modules == null) return values;
+        modules.forEach((module, settings) ->
+                values.put(module, settings == null || settings.settings == null ? Map.of() : settings.settings));
+        return values;
+    }
+
     public boolean delete(String name) {
         validateName(name);
         try {

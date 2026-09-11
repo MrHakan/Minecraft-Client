@@ -5,14 +5,20 @@ import java.util.Locale;
 
 import me.mrhakan.agalarhack.AgalarHackClient;
 import me.mrhakan.agalarhack.commands.Command;
+import me.mrhakan.agalarhack.config.ProfileDiff;
+import me.mrhakan.agalarhack.config.ProfileSelection;
 import me.mrhakan.agalarhack.managers.MessageManager;
+import me.mrhakan.agalarhack.module.Category;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 
 public class Profile extends Command {
+    /** Chat silently drops a long burst, so a truncated diff has to say so rather than look complete. */
+    private static final int MAX_DIFF_LINES = 30;
+
     public Profile() {
         super("profile", "Manages named client profiles and per-server bindings",
-                "profile <save|load|delete|list|bind|unbind|duplicate|rename|export|import> [name] [newName]", "profiles");
+                "profile <save|load|delete|list|bind|unbind|duplicate|rename|export|import|diff> [name] [newName|selection]", "profiles");
     }
 
     @Override
@@ -31,11 +37,8 @@ public class Profile extends Command {
                     AgalarHackClient.PROFILES.save(args[2]);
                     ok("Saved profile " + args[2]);
                 }
-                case "load" -> {
-                    requireName(args);
-                    AgalarHackClient.PROFILES.load(args[2]);
-                    ok("Loaded profile " + args[2]);
-                }
+                case "load" -> loadProfile(args);
+                case "diff" -> diffProfiles(args);
                 case "delete" -> {
                     requireName(args);
                     ok(AgalarHackClient.PROFILES.delete(args[2])
@@ -74,6 +77,50 @@ public class Profile extends Command {
             }
         } catch (RuntimeException e) {
             MessageManager.sendMessagePrefix(ChatFormatting.RED + e.getMessage());
+        }
+    }
+
+    /**
+     * {@code load <name>} is unchanged; anything after the name narrows it to those parts.
+     *
+     * <p>A selection naming nothing real is refused rather than applied, because a partial load that
+     * quietly does nothing looks identical to one that worked.
+     */
+    private void loadProfile(String[] args) {
+        requireName(args);
+        String spec = args.length > 3 ? String.join(" ", java.util.Arrays.copyOfRange(args, 3, args.length)) : "";
+        ProfileSelection selection = ProfileSelection.parse(spec);
+        if (!selection.isEverything()) {
+            List<String> modules = AgalarHackClient.moduleManager.getModuleList().stream()
+                    .map(module -> module.getName()).toList();
+            List<String> categories = java.util.Arrays.stream(Category.values()).map(value -> value.name).toList();
+            List<String> unknown = selection.unknown(modules, categories);
+            if (!unknown.isEmpty()) {
+                throw new IllegalArgumentException("Unknown selection: " + String.join(", ", unknown)
+                        + ". Use module or category names, or all/modules/hud/targets.");
+            }
+            if (selection.isEmpty(modules, categories)) {
+                throw new IllegalArgumentException("That selection would change nothing.");
+            }
+        }
+        String applied = AgalarHackClient.PROFILES.loadPartial(args[2], selection);
+        ok("Loaded " + applied + " from profile " + args[2]);
+    }
+
+    /** {@code diff <a> [b]}; with one name the comparison is against the live configuration. */
+    private void diffProfiles(String[] args) {
+        requireName(args);
+        String right = args.length > 3 ? args[3] : null;
+        List<ProfileDiff.Change> changes = AgalarHackClient.PROFILES.diff(args[2], right);
+        String against = right == null ? "current settings" : right;
+        if (changes.isEmpty()) {
+            ok(args[2] + " and " + against + " are identical");
+            return;
+        }
+        MessageManager.sendMessagePrefix(ChatFormatting.AQUA + args[2] + " -> " + against + ": "
+                + ChatFormatting.WHITE + ProfileDiff.summarise(changes));
+        for (String line : ProfileDiff.format(changes, MAX_DIFF_LINES)) {
+            MessageManager.sendRawMessage(ChatFormatting.GRAY + " " + line);
         }
     }
 
