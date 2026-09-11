@@ -48,6 +48,23 @@ Both arms are known to work: injecting a throw into `Fullbright.onUpdate` fails 
 name, and moving the same throw to `Fullbright.onDisable` slips past it and is caught by the log
 scan. A check nobody has watched fail is a check nobody should trust.
 
+## Machine speed must not change the answer
+
+The SafeWalk and Parkour scenarios dig a pit and walk into it, and the first version dug straight
+through a superflat world's four blocks of terrain into the void. It passed locally four times in a
+row, because the player was still falling when the sampling window closed, and failed on a slower CI
+runner where they fell forty blocks and died. The scenario then reported that SafeWalk had let the
+player fall - a true statement about a scene that no longer meant anything.
+
+The pit has a floor now, so the fall is exactly three blocks on any machine, and the control walk is
+checked for falling *too far* as well as far enough: a drop deeper than the pit means the scene is
+broken, not the module, and the failure says so. Each walk also resets the player's health, momentum
+and fall distance first, because three falls in a row otherwise accumulate into a death.
+
+The general rule this is an instance of: **a scenario whose result depends on how fast the machine is
+has no result.** Bound whatever the player is doing - give the pit a floor, cap the fall, reset the
+state - rather than widening a tolerance until CI goes quiet.
+
 ## What this does *not* prove
 
 It proves a module **runs**. It does not prove a module **works**. Nothing here asserts that AutoTotem

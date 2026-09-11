@@ -170,6 +170,13 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
                     + control.drop() + " blocks), so neither scenario below can tell a module apart "
                     + "from nothing");
         }
+        // A drop deeper than the pit means the player went through its floor and is falling through
+        // the world, which is a broken scene rather than a walk off a ledge. Left unchecked that
+        // reads as a healthy control and quietly invalidates both scenarios below.
+        if (control.drop() < -(PIT_DEPTH + 2.0)) {
+            throw new AssertionError("the control walk fell " + control.drop() + " blocks into a pit "
+                    + PIT_DEPTH + " deep; the scene is broken, not the module");
+        }
 
         toggle(context, "SafeWalk", true);
         Walk held = walkOffAndReport(context, singleplayer, ledge);
@@ -204,7 +211,18 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
         LOGGER.info("  Parkour jumped at the edge the control walk stepped off");
     }
 
-    /** Clears a 5x5 pit two blocks away and returns the standing spot facing it. */
+    /** How deep the pit is. Deep enough that falling in is unmistakable, shallow enough to survive. */
+    private static final int PIT_DEPTH = 3;
+
+    /**
+     * Clears a 5x5 pit two blocks away and returns the standing spot facing it.
+     *
+     * <p>The pit gets a floor. A superflat world is four blocks thick, so digging even this far
+     * without one punches straight through the bedrock and the "pit" becomes the void - which is
+     * exactly what the first version did. It passed locally, because the player was still falling
+     * when the sampling window closed, and failed on a slower CI runner where they fell far enough
+     * to die. A test whose meaning depends on how fast the machine is has no meaning.
+     */
     private static BlockPos digPit(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
         return singleplayer.getServer().computeOnServer(server -> {
             ServerPlayer player = singleplayer.getConnection().getServerPlayer();
@@ -212,7 +230,8 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
             BlockPos stand = player.blockPosition();
             for (int dx = 2; dx <= 6; dx++) {
                 for (int dz = -2; dz <= 2; dz++) {
-                    for (int dy = -1; dy >= -4; dy--) {
+                    level.setBlockAndUpdate(stand.offset(dx, -PIT_DEPTH - 1, dz), Blocks.STONE.defaultBlockState());
+                    for (int dy = -1; dy >= -PIT_DEPTH; dy--) {
                         level.setBlockAndUpdate(stand.offset(dx, dy, dz), Blocks.AIR.defaultBlockState());
                     }
                 }
@@ -237,6 +256,11 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
             ServerPlayer player = singleplayer.getConnection().getServerPlayer();
             player.setGameMode(GameType.SURVIVAL);
             player.teleportTo(ledge.getX() + 0.5, ledge.getY(), ledge.getZ() + 0.5);
+            // Each walk is its own experiment: a player carrying damage or momentum from the last
+            // one is a different player, and three walks in a row would eventually kill them.
+            player.setHealth(player.getMaxHealth());
+            player.setDeltaMovement(Vec3.ZERO);
+            player.fallDistance = 0;
         });
         context.waitTicks(20);
         context.getInput().lookAt(ledge.offset(4, 0, 0));

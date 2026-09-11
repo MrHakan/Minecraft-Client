@@ -878,6 +878,13 @@ fails the lifecycle check by name; the same throw moved to `onDisable` slips pas
 the log scan. Do this for any new gate here. A check nobody has seen fail is a check nobody should
 trust, and this branch already lost several commits to exactly that.
 
+**A scenario whose result depends on machine speed has no result.** The SafeWalk pit was first dug
+straight through a superflat world into the void; it passed locally four times and failed on a slower
+CI runner where the player fell forty blocks and died, reporting it as a SafeWalk failure. The pit has
+a floor now, the fall is exactly three blocks anywhere, and the control walk is checked for falling
+too far as well as far enough so a broken scene says it is a broken scene. Bound what the player is
+doing rather than widening a tolerance until CI goes quiet.
+
 **An empty world is a weak test.** `TestScene` places a chest, trapped chest, ender chest, barrel,
 shulker box, diamond ore, a two-deep obsidian hole, a zombie, a dropped item and a full inventory,
 because a scanner that throws the moment it finds a chest passes happily in a world with no chests.
