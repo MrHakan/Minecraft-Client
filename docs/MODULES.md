@@ -7,10 +7,12 @@
 Every module also has the shared settings `enabled`, `keybind`, `keyModifiers`,
 `showInHud`, `favorite` and `lastUsed`, which are not repeated below.
 
-**UNTESTED** marks a module that has never been exercised in a running game. It compiles and
-its logic is unit tested; nobody has confirmed it behaves correctly in Minecraft.
+**UNTESTED** marks a module whose behaviour has never been confirmed in a running game.
+Every module here is enabled, ticked and disabled inside a real world on every pull
+request, so an UNTESTED one is known not to crash; what is missing is a check that it
+does the thing it exists to do. The badge is cleared in the commit that adds that check.
 
-53 modules across 6 categories; 31 marked UNTESTED.
+53 modules across 6 categories; 29 marked UNTESTED.
 
 ## Combat
 
@@ -288,7 +290,7 @@ Lets you walk up taller blocks while restoring the original step height when dis
 
 ## Player
 
-### AutoArmor — UNTESTED
+### AutoArmor
 
 Equips the best available armour using the shared inventory transfer channel
 
@@ -331,7 +333,7 @@ Respawns automatically after a configurable delay
 | --- | --- | --- | --- |
 | `delay` | `10` | `0..200` | Ticks to wait on the death screen before respawning |
 
-### AutoTotem — UNTESTED
+### AutoTotem
 
 Keeps a totem of undying in the offhand and reports how many are left
 

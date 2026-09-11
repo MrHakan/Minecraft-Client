@@ -17,7 +17,6 @@ public class AutoArmor extends Module {
 
     public AutoArmor() {
         super("AutoArmor", Category.PLAYER, "Equips the best available armour using the shared inventory transfer channel");
-        markExperimental();
     }
 
     @Override

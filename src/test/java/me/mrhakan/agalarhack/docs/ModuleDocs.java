@@ -42,8 +42,10 @@ public final class ModuleDocs {
             Every module also has the shared settings `enabled`, `keybind`, `keyModifiers`,
             `showInHud`, `favorite` and `lastUsed`, which are not repeated below.
 
-            **UNTESTED** marks a module that has never been exercised in a running game. It compiles and
-            its logic is unit tested; nobody has confirmed it behaves correctly in Minecraft.
+            **UNTESTED** marks a module whose behaviour has never been confirmed in a running game.
+            Every module here is enabled, ticked and disabled inside a real world on every pull
+            request, so an UNTESTED one is known not to crash; what is missing is a check that it
+            does the thing it exists to do. The badge is cleared in the commit that adds that check.
             """;
 
     /**

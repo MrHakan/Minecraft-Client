@@ -23,7 +23,6 @@ public class AutoTotem extends Module {
 
     public AutoTotem() {
         super("AutoTotem", Category.PLAYER, "Keeps a totem of undying in the offhand and reports how many are left");
-        markExperimental();
     }
 
     @Override
