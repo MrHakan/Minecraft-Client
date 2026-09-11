@@ -9,6 +9,7 @@ import com.mojang.blaze3d.vertex.VertexConsumer;
 import me.mrhakan.agalarhack.AgalarHackClient;
 import me.mrhakan.agalarhack.module.Module;
 import me.mrhakan.agalarhack.module.render.BlockESP;
+import me.mrhakan.agalarhack.module.render.EntityESP;
 import me.mrhakan.agalarhack.module.render.Freecam;
 import me.mrhakan.agalarhack.module.render.StorageESP;
 import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext;
@@ -62,11 +63,14 @@ public final class WorldOverlayRenderer {
 
         var renderService = me.mrhakan.agalarhack.services.ClientServices.require(me.mrhakan.agalarhack.services.RenderService.class);
         Vec3 camera = ctx.levelState().cameraRenderState.pos;
-        List<LivingEntity> espTargets = espEnabled ? collectEspTargets(mc, esp) : List.of();
+        List<LivingEntity> espTargets = espEnabled && esp instanceof EntityESP entityEsp ? entityEsp.targets() : List.of();
         if (espEnabled && esp.getBooleanSetting("labels", true)) renderService.guard(esp, () -> renderEspLabels(ctx, mc, esp, espTargets, camera));
         if (storageEnabled && storage.getBooleanSetting("labels", false)) renderService.guard(storage, () -> renderStorageLabels(ctx, mc, storage, camera));
 
+        var submittedLevel = mc.level;
+        var submittedPlayer = mc.player;
         ctx.submitNodeCollector().submitCustomGeometry(ctx.poseStack(), RenderTypes.lines(), (pose, buffer) -> {
+            if (mc.level != submittedLevel || mc.player != submittedPlayer || mc.player == null) return;
             if (espEnabled) renderService.guard(esp, () -> renderEspGeometry(mc, esp, espTargets, camera, pose, buffer));
             if (storageEnabled) renderService.guard(storage, () -> renderStorageEsp(mc, storage, camera, pose, buffer));
             if (blockEnabled) renderService.guard(blockEsp, () -> renderBlockEsp(mc, blockEsp, camera, pose, buffer));
@@ -75,28 +79,17 @@ public final class WorldOverlayRenderer {
         });
     }
 
-    private static List<LivingEntity> collectEspTargets(Minecraft mc, Module esp) {
-        List<LivingEntity> targets = new ArrayList<>();
-        double range = esp.getNumberSetting("range", 96.0);
-        double rangeSq = range * range;
-        boolean respectPolicy = esp.getBooleanSetting("respectTargetPolicy", true);
-        for (Entity entity : mc.level.entitiesForRendering()) {
-            if (!(entity instanceof LivingEntity living) || entity == mc.player || !living.isAlive()) continue;
-            if (mc.player.distanceToSqr(entity) > rangeSq) continue;
-            if (respectPolicy) {
-                if (!AgalarHackClient.TARGET_POLICY.allows(living)) continue;
-            } else if (living instanceof Player) {
-                if (!esp.getBooleanSetting("players", true)) continue;
-            } else if (!esp.getBooleanSetting("mobs", true)) continue;
-            targets.add(living);
-        }
-        return targets;
+    private static boolean currentEspTarget(Minecraft mc, Module esp, LivingEntity target) {
+        double range = esp.getNumberSetting("range", 96);
+        return mc.level != null && mc.player != null && target.level() == mc.level && target.isAlive()
+                && mc.level.getEntity(target.getId()) == target && mc.player.distanceToSqr(target) <= range * range;
     }
 
     private static void renderEspGeometry(Minecraft mc, Module esp, List<LivingEntity> targets, Vec3 camera, PoseStack.Pose pose, VertexConsumer buffer) {
         boolean boxes = esp.getBooleanSetting("boxes", true);
         boolean tracers = esp.getBooleanSetting("tracers", false);
         for (LivingEntity living : targets) {
+            if (!currentEspTarget(mc, esp, living)) continue;
             int color = entityEspColor(mc, esp, living);
             if (boxes) box(buffer, pose, living.getBoundingBox().inflate(0.03).move(-camera.x, -camera.y, -camera.z), color);
             if (tracers) {
@@ -108,7 +101,9 @@ public final class WorldOverlayRenderer {
 
     private static void renderEspLabels(LevelRenderContext ctx, Minecraft mc, Module esp, List<LivingEntity> targets, Vec3 camera) {
         PoseStack stack = ctx.poseStack();
+        double labelRange = esp.getNumberSetting("labelRange", 64);
         for (LivingEntity living : targets) {
+            if (!currentEspTarget(mc, esp, living) || mc.player.distanceToSqr(living) > labelRange * labelRange) continue;
             StringBuilder label = new StringBuilder(living.getName().getString());
             if (esp.getBooleanSetting("showDistance", true)) label.append(String.format(Locale.ROOT, " [%.1fm]", mc.player.distanceTo(living)));
             if (esp.getBooleanSetting("showHealth", false)) label.append(String.format(Locale.ROOT, " [%.1f HP]", living.getHealth()));

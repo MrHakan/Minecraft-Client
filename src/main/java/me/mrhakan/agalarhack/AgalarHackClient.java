@@ -115,6 +115,8 @@ public class AgalarHackClient implements ClientModInitializer {
         TARGET_POLICY.load();
         PROFILES.loadBindings();
         moduleManager.loadModules();
+        var notificationModule = moduleManager.getModule("Notifications");
+        notifications.setEnabled(notificationModule != null && notificationModule.isToggled());
         CommandManager.init();
 
         clickGuiKey = KeyMappingHelper.registerKeyMapping(new KeyMapping(

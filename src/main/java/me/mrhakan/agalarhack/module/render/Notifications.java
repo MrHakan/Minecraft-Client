@@ -17,7 +17,6 @@ public final class Notifications extends Module {
     }
     @Override public void onEnable() {
         var notifications = service(NotificationService.class);
-        notifications.clear();
         notifications.setEnabled(true);
         onUpdate();
     }
