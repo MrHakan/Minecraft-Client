@@ -17,6 +17,7 @@ import me.mrhakan.agalarhack.commands.impl.Panic;
 import me.mrhakan.agalarhack.commands.impl.Profile;
 import me.mrhakan.agalarhack.commands.impl.Set;
 import me.mrhakan.agalarhack.commands.impl.Toggle;
+import me.mrhakan.agalarhack.commands.impl.PortalCommand;
 import me.mrhakan.agalarhack.commands.impl.WaypointCommand;
 import net.minecraft.ChatFormatting;
 
@@ -90,6 +91,7 @@ public class CommandManager {
         commands.add(new Profile());
         commands.add(new Gui());
         commands.add(new WaypointCommand());
+        commands.add(new PortalCommand());
         loadAliases();
         loadMacros();
         commands.add(new Alias());
