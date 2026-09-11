@@ -200,7 +200,7 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 11 | Color picker | Implemented: RGB/HSV/alpha/hex/recent/copy-paste plus `RainbowColors`, a per-module cycling flag on all seven overlays with colour sliders. Saturation and brightness come from the module's own colour, and phase offsets spread a trail or a screen of tracers along the cycle |
 | 12 | Themes | Partial: six presets, guarded import/export, high contrast/reduced motion; font scale/blur and full accessibility integration missing |
 | 13 | Dynamic HUD | Partial: registry plus useful components; full suggested catalogue missing |
-| 14 | HUD editor | Partial: groups/locks/z-order/grid/guides/snapping and guarded exact small bounds; duplication/undo and legacy Info/Target bounds pending |
+| 14 | HUD editor | Implemented: groups/locks/z-order/grid/guides/snapping, plus undo/redo over bounded whole-layout snapshots (`LayoutHistory`) and Ctrl+D to match placement across a selection. Legacy Info/Target bounds still pending |
 | 15 | Module List HUD | Partial: alignment/sorting/style/case/display/row cap/per-module hiding implemented; row animations and additional suffix producers pending |
 | 16 | EntityESP | Partial: boxes/tracers/labels/colors/fade; now bounded tick discovery, caps and label distance; expanded modes pending |
 | 17 | Nametags | Implemented: single-line opt-in fields, friend marker, bounded discovery; no per-field styling yet |
@@ -261,16 +261,16 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 72 | Addon metadata | Not started |
 | 73 | Addon template repo | Not created; create MrHakan/AgalarHack-Addon-Template only after API stability |
 | 74 | Baritone | **Deliberately deferred.** Baritone has no 26.2 build, so any bridge would be unverifiable, and the obvious shortcut - sending `#goto` through `sendChat` - leaks the command to public chat whenever Baritone is absent or its prefix is off. Revisit when a 26.2 Baritone exists and its API can actually be called |
-| 75 | Localization | Partial: `Translations` with English fallback, `en_us`/`tr_tr`, ClickGUI labels translated. Module names/descriptions and command output remain English |
+| 75 | Localization | Partial: `Translations` with English fallback, `en_us`/`tr_tr`, ClickGUI labels and **all 52 module descriptions** translated, guarded by three key tests. Module **names** stay untranslated deliberately - they are the identifiers commands and configs use. Setting descriptions and command output remain English |
 | 76 | Accessibility | Partial: keyboard controls, paginated themes, high contrast/reduced motion, two colourblind presets, and a WCAG contrast guard that raises text a picked or imported theme made unreadable. UI scale, text size and blur controls still pending |
 | 77 | Unified scheduler | Implemented: all nine scanning modules go through it, and the shared per-tick ceiling is now tunable through `ScanBudgets` and the Performance module. Balanced reproduces the previous constants exactly |
 | 78 | Chunk result cache | Implemented for BlockESP: bounded LRU clean-chunk cache with block-update, unload, anchor and filter invalidation. Other scanners still sweep |
 | 79 | Render culling | Implemented: box overlays test the frustum the game already built, in world space. Tracers and breadcrumbs are deliberately exempt and a test enforces that. Safe because it is view-volume, not occlusion, culling - the overlays draw through walls on purpose |
 | 80 | Performance HUD | Implemented: `ModuleTimings` ranks per-module tick cost over a rolling window, in a hidden-by-default widget. Measurement is self-expiring rather than a setting, and a module that stops ticking is dropped rather than frozen on screen |
-| 81 | Unit tests | 548 tests; adds block-update batching, chunk cache eviction, cursor completion, id-list parsing, notification sinks, waypoint normalisation/persistence and compass bearings; trajectory and fade coverage pending |
+| 81 | Unit tests | 572 tests; adds block-update batching, chunk cache eviction, cursor completion, id-list parsing, notification sinks, waypoint normalisation/persistence and compass bearings; trajectory and fade coverage pending |
 | 82 | Integration smoke tests | Partial: the client now boots headless under xvfb/llvmpipe and all six mixin injections are verified applied in the transformed bytecode. No gameplay was exercised; behaviour checks remain manual |
 | 83 | Lifecycle audit | Partial code audit/restoration; all listed state-changing modules need in-game transition checks |
-| 84 | Error reporting | Partial logger/module/render/scanner isolation; guarded HUD measurements/renderers with notices and retry; remaining boundaries need review |
+| 84 | Error reporting | Reviewed. Module tick, render, scanner, command, macro and HUD boundaries were already guarded. The one real gap was the shared chat callback: the bus detaches a listener that throws, so one chat module's bug disabled all three for the session. `ModuleGuard` now contains each module separately and reports once per failure episode, and ChatFilter fails open so a broken filter cannot hide chat |
 | 85 | Structured logging | Implemented SLF4J replacement for raw stderr. One `System.out.println` survived in the profile auto-load path and has now been replaced; the rest of the audit remains |
 | 86 | Module documentation | Implemented: `docs/MODULES.md` is generated from the live settings registry and a test fails when it and the code disagree, rewriting the file as it fails |
 | 87 | Experimental flags | Implemented: `markExperimental()` plus an UNTESTED badge in the ClickGUI, applied to all 31 modules added here and surfaced in the generated module reference; a source-level test stops a new module shipping unmarked |
@@ -677,6 +677,32 @@ files, because the only themes it changes are ones that were already too faint.
 additive half duplicates AutoEat and the valuable half requires taking a key away from the player,
 which `PlayerInputOverrides` establishes as something this client does not do.
 
+## Latest continuation: HUD history, error boundaries and Turkish descriptions
+
+Three topic commits.
+
+**HUD undo/redo** (14). Whole-layout snapshots rather than per-widget deltas — a drag moves one
+widget, a snap moves it and changes its anchor, and expressing that as reversible operations is a lot
+of machinery for a map of small records. Deep copies, because widget states are mutable and live
+references would make every snapshot equal the current state. One drag is one step, recorded *before*
+the first pixel moves. Ctrl+D copies placement across a selection rather than cloning a widget: HUD
+widgets are a fixed registry, so a duplicated id would be a widget nothing knows how to draw.
+
+**Error boundary review** (84). Module tick, render, scanner, command, macro and HUD boundaries were
+already guarded. The one real gap: the event bus detaches a listener that throws, which is right for
+a single-purpose listener and wrong for the chat callback, where three modules share one listener —
+a bug in any of them silently disabled chat handling for all three for the session. `ModuleGuard`
+applies the tick loop's policy (contain, report once, disable that module) to shared callbacks.
+ChatFilter additionally fails **open**: a filter that throws must not hide chat. `RenderService`
+keeps its own guard deliberately, because it defers the disable to the client thread.
+
+**Turkish module descriptions** (75). All 52, keyed by module name. Module **names** stay English on
+purpose — they are identifiers used by `.toggle`, the keybind file and every profile, so translating
+the displayed name would either break those or make the thing on screen differ from the thing you
+type. Same trap as the ClickGUI filter list, same answer. The generated docs read a new
+`rawDescription()`, or regenerating on a Turkish client would produce a half-translated page that
+fails its own guard.
+
 ## Validation and source references
 
 Canonical command: **`./gradlew build --stacktrace` with JDK 25**.
@@ -783,6 +809,17 @@ Fabric's 26.2 `ClientChunkCacheMixin`. Do not reintroduce 1.20/1.21 examples bli
   and closing the inventory mid-swap, during death/respawn and dimension changes, and while AutoEat/AutoTool are
   also active. Confirm no item is ever left on the cursor, that AutoTotem preempts AutoArmor, that a popped totem
   cancels the pending restore, and that a renamed armour piece is never auto-equipped by default.
+
+### Manual acceptance for the HUD history and localization batch
+
+- HUD editor: drag a widget, press Ctrl+Z and confirm it returns exactly where it was; Ctrl+Shift+Z
+  to go forward again; make a new change after an undo and confirm redo is gone. Select several
+  widgets and press Ctrl+D. Confirm the shortcut hints show the current depth.
+- Error boundary: hard to trigger deliberately — if a chat module ever errors, confirm only that
+  module is disabled and that the notification appears once rather than every message.
+- Turkish: run the client in Turkish and confirm module descriptions read correctly in the ClickGUI
+  and in `.modulesettings`, that module **names** are still English, and that search still finds
+  modules by their Turkish description.
 
 ### Manual acceptance for the crit, portal, request and contrast batch
 
