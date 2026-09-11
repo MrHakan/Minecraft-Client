@@ -46,6 +46,8 @@ Attacks the best valid entity in range using global and module target filters
 | `vanillaCooldown` | `true` | `true/false or on/off` | Use Minecraft's normal fully-charged attack timing |
 | `delay` | `10` | `0..40` | Custom delay in ticks when vanillaCooldown is off |
 | `priority` | `closest` | `closest\|lowest_health\|highest_health\|lowest_armor\|angle\|crosshair\|hurt_time\|recent_attacker` | How valid targets are prioritized |
+| `switchDelay` | `8` | `0..60` | Ticks a chosen target is kept even when another ranks higher; 0 always takes the top-ranked one |
+| `maxTargets` | `1` | `1..8` | Spread attacks across this many targets, one per landed hit; 1 is ordinary single-target behaviour |
 
 ### CombatHistory — UNTESTED
 
