@@ -17,6 +17,7 @@ import net.minecraft.network.chat.PlayerChatMessage;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.entity.EquipmentSlot;
@@ -69,6 +70,7 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
             chatFilter(context, singleplayer);
             chatMentions(context, singleplayer);
             autoAccept(context, singleplayer);
+            holeEsp(context, singleplayer);
 
             LOGGER.info("Module behaviour scenarios passed");
         }
@@ -624,6 +626,111 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
                     + echo + "\" back into chat");
         }
         LOGGER.info("  AutoAccept answered a listed requester and the server echoed the command");
+    }
+
+    /**
+     * The first render module checked by what it draws rather than by what it stores.
+     *
+     * <p>An overlay leaves nothing behind to assert on, so the evidence is the picture. See
+     * {@link Frames} for why nothing is compared against a stored reference image. The noise
+     * measurement here is the control, and it is a real one: if the scene will not hold still, two
+     * frames taken under identical conditions differ as much as the module does and the scenario
+     * reports that instead of passing.
+     *
+     * <p>What this proves is that HoleESP draws something where a hole is. It does not prove the
+     * marker is the right shape, colour or place.
+     *
+     * <p>The camera is inside the hole for a reason that cost several runs to find. These overlays
+     * are depth tested: seen from outside, the marker lies behind the near rim and the frame does
+     * not change by a single pixel, which reads exactly like a module that draws nothing. Looking
+     * down the shaft at it is the difference between measuring the module and measuring occlusion.
+     */
+    private void holeEsp(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        BlockPos hole = stillSceneWithHole(context, singleplayer);
+        // Straight down the shaft at the marker on the floor.
+        context.getInput().lookAt(0.0f, 89.0f);
+
+        // Clouds drift whatever the world clock does, and on their own they moved the picture by
+        // 1.77 - enough to argue with the signal. Turning them off removes the noise rather than
+        // widening the tolerance until it stops mattering.
+        context.runOnClient(client -> client.options.cloudStatus().set(net.minecraft.client.CloudStatus.OFF));
+        // F1. The HUD is the other thing that changes when a module is toggled: an enabled-module
+        // list would make every render scenario pass without anything being drawn in the world.
+        context.getInput().pressKey(options -> options.keyToggleGui);
+        context.waitTicks(40);
+
+        // Both windows are the same length on purpose. Measuring noise over ten ticks and signal
+        // over sixty compares unequal things: anything that drifts with time - clouds, most
+        // obviously - scales with the window, and the first version of this read six times the
+        // cloud drift as a healthy signal from a module that was in fact drawing nothing.
+        final int window = 60;
+        java.nio.file.Path before = context.takeScreenshot("holeesp-off-1");
+        context.waitTicks(window);
+        java.nio.file.Path stillOff = context.takeScreenshot("holeesp-off-2");
+        double noise = Frames.difference(before, stillOff);
+
+        toggle(context, "HoleESP", true);
+        // The scanner works through its budget over several ticks before anything is marked.
+        context.waitTicks(window);
+        java.nio.file.Path on = context.takeScreenshot("holeesp-on");
+        toggle(context, "HoleESP", false);
+        double signal = Frames.difference(stillOff, on);
+        context.getInput().pressKey(options -> options.keyToggleGui);
+
+        LOGGER.info("    HoleESP frames: noise={} signal={}",
+                String.format("%.3f", noise), String.format("%.3f", signal));
+        if (noise > 1.0) {
+            throw new AssertionError("two frames taken with nothing changed differ by " + noise
+                    + "; the scene will not hold still, so no screenshot scenario here means anything");
+        }
+        if (signal < Math.max(0.5, noise * 5)) {
+            throw new AssertionError("HoleESP changed the picture by " + signal + " against a noise "
+                    + "floor of " + noise + "; it drew nothing over a hole it should have marked");
+        }
+        LOGGER.info("  HoleESP drew over the hole");
+    }
+
+    /**
+     * Builds a fresh hole on untouched ground and empties the world of everything that moves.
+     *
+     * <p>Both halves matter. A hole left over from an earlier scenario may have been walked through
+     * or built over, and a single wandering mob changes every frame by itself, which would make the
+     * noise floor swallow the signal.
+     */
+    private static BlockPos stillSceneWithHole(ClientGameTestContext context,
+            TestSingleplayerContext singleplayer) {
+        BlockPos hole = singleplayer.getServer().computeOnServer(server -> {
+            ServerPlayer player = singleplayer.getConnection().getServerPlayer();
+            ServerLevel level = player.level();
+            for (Entity entity : level.getAllEntities()) {
+                if (!(entity instanceof ServerPlayer)) entity.discard();
+            }
+
+            BlockPos centre = ledgeOrSpawn(player).offset(0, 0, 20);
+            for (int dx = -1; dx <= 1; dx++) {
+                for (int dz = -1; dz <= 1; dz++) {
+                    for (int dy = 0; dy >= -1; dy--) {
+                        level.setBlockAndUpdate(centre.offset(dx, dy, dz), Blocks.OBSIDIAN.defaultBlockState());
+                    }
+                }
+            }
+            level.setBlockAndUpdate(centre, Blocks.AIR.defaultBlockState());
+            level.setBlockAndUpdate(centre.below(), Blocks.AIR.defaultBlockState());
+
+            // Standing in the hole itself. The marker is a slab across its floor, and from
+            // outside the rim occludes it: the sight line enters the obsidian before it
+            // reaches the slab, so the module draws correctly and nothing shows.
+            player.teleportTo(centre.getX() + 0.5, centre.getY(), centre.getZ() + 0.5);
+            player.setDeltaMovement(Vec3.ZERO);
+            return centre;
+        });
+        singleplayer.getConnection().waitForChunksRender();
+        context.waitTicks(40);
+        return hole;
+    }
+
+    private static BlockPos ledgeOrSpawn(ServerPlayer player) {
+        return player.blockPosition();
     }
 
     /**
