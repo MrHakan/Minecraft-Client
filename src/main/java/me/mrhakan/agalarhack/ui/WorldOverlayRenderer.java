@@ -51,6 +51,9 @@ public final class WorldOverlayRenderer {
         Module freecamModule = AgalarHackClient.moduleManager.getModule("Freecam");
         Module storageModule = AgalarHackClient.moduleManager.getModule("StorageESP");
         Module blockModule = AgalarHackClient.moduleManager.getModule("BlockESP");
+        Module tracerModule = AgalarHackClient.moduleManager.getModule("Tracers");
+        me.mrhakan.agalarhack.module.render.Tracers tracers =
+                tracerModule instanceof me.mrhakan.agalarhack.module.render.Tracers t ? t : null;
         Module breadcrumbModule = AgalarHackClient.moduleManager.getModule("Breadcrumbs");
         me.mrhakan.agalarhack.module.render.Breadcrumbs breadcrumbs =
                 breadcrumbModule instanceof me.mrhakan.agalarhack.module.render.Breadcrumbs b ? b : null;
@@ -75,7 +78,8 @@ public final class WorldOverlayRenderer {
         boolean itemsEnabled = itemEsp != null && itemEsp.isToggled();
         boolean nametagsEnabled = nametags != null && nametags.isToggled();
         boolean breadcrumbsEnabled = breadcrumbs != null && breadcrumbs.isToggled();
-        if (!breadcrumbsEnabled && !espEnabled && !trajectoriesEnabled && !storageEnabled && !blockEnabled && !bodyMarker
+        boolean tracersEnabled = tracers != null && tracers.isToggled();
+        if (!tracersEnabled && !breadcrumbsEnabled && !espEnabled && !trajectoriesEnabled && !storageEnabled && !blockEnabled && !bodyMarker
                 && !waypointsEnabled && !itemsEnabled && !nametagsEnabled) return;
 
         var renderService = me.mrhakan.agalarhack.services.ClientServices.require(me.mrhakan.agalarhack.services.RenderService.class);
@@ -104,6 +108,7 @@ public final class WorldOverlayRenderer {
             if (storageEnabled) renderService.guard(storage, () -> renderStorageEsp(mc, storage, camera, pose, buffer));
             if (blockEnabled) renderService.guard(blockEsp, () -> renderBlockEsp(mc, blockEsp, camera, pose, buffer));
             if (trajectoriesEnabled) renderService.guard(trajectories, () -> renderTrajectory(mc, trajectories, camera, pose, buffer));
+            if (tracersEnabled) renderService.guard(tracers, () -> renderTracers(tracers, camera, pose, buffer));
             if (breadcrumbsEnabled) renderService.guard(breadcrumbs, () -> renderBreadcrumbs(breadcrumbs, camera, pose, buffer));
             if (itemsEnabled && itemEsp.getBooleanSetting("boxes", true)) {
                 renderService.guard(itemEsp, () -> renderItemEsp(mc, itemEsp, camera, pose, buffer));
@@ -234,6 +239,26 @@ public final class WorldOverlayRenderer {
             AABB block = new AABB(pos.getX(), pos.getY(), pos.getZ(), pos.getX() + 1.0, pos.getY() + 1.0, pos.getZ() + 1.0)
                     .inflate(0.015).move(-camera.x, -camera.y, -camera.z);
             box(buffer, pose, block, (alpha << 24) | rgb);
+        }
+    }
+
+    private static void renderTracers(me.mrhakan.agalarhack.module.render.Tracers module,
+            Vec3 camera, PoseStack.Pose pose, VertexConsumer buffer) {
+        // Origins are camera-relative; the ESP tracer's -0.12 sits just under the crosshair.
+        double originY = switch (module.getStringSetting("origin", "center")) {
+            case "bottom" -> -0.8;
+            case "crosshair" -> -0.12;
+            default -> 0.0;
+        };
+        int alpha = (int) Math.max(32, Math.min(255, module.getNumberSetting("alpha", 180.0))) << 24;
+        for (var entity : module.targets()) {
+            if (!entity.isAlive()) continue;
+            var group = me.mrhakan.agalarhack.module.render.Tracers.group(entity);
+            if (!module.enabled(group)) continue;
+            Vec3 center = entity.getBoundingBox().getCenter();
+            line(buffer, pose, 0.0, originY, 0.0,
+                    center.x - camera.x, center.y - camera.y, center.z - camera.z,
+                    alpha | module.colorFor(group));
         }
     }
 
