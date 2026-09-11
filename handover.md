@@ -8,8 +8,10 @@ Repository: `MrHakan/Minecraft-Client`. Build a polished, maintainable Minecraft
 Fabric utility/anarchy client with deep useful modules, predictable restoration, bounded
 scanners, strong configuration and an eventual addon API. Module count is not a success metric.
 
-Work continues on **`claude/main-goal-mvph38`**, branched from the same tree as
-`codex/foundation-services-26.2` (draft **[PR #9](https://github.com/MrHakan/Minecraft-Client/pull/9)**).
+Work continues on **`codex/foundation-services-26.2`**, draft **[PR #9](https://github.com/MrHakan/Minecraft-Client/pull/9)**.
+Keep using that branch and that PR; do not open a second PR for the same line of work.
+`claude/main-goal-mvph38` is a mirror of the same commits, kept only because the session was told to
+push there, and it carries nothing #9 does not.
 Last inspected `main`: **`19f83ab888a55d9b459f84fbae27dffe39036f71`** (26.2.5, merged PR #8).
 At the 2026-09-11 re-inspection, #9 was still the only open PR, at head `f3eb4ff`. Always inspect current main and all
 open PRs again: this document is a checkpoint, not a substitute for live repository state.
