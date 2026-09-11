@@ -32,6 +32,12 @@ public class HudEditorScreen extends Screen implements me.mrhakan.agalarhack.ui.
     private double grabY;
 
     private final Map<String, Bounds> bounds = new LinkedHashMap<>();
+    /**
+     * Whole-layout snapshots. Arranging a HUD is an experiment, and reset is not an undo: it throws
+     * away the entire layout rather than the last thing you did.
+     */
+    private final me.mrhakan.agalarhack.ui.state.LayoutHistory<WidgetState> history =
+            new me.mrhakan.agalarhack.ui.state.LayoutHistory<>(WidgetState::copy);
 
     public HudEditorScreen(Screen parent) {
         this(parent, "branding");
@@ -109,6 +115,9 @@ public class HudEditorScreen extends Screen implements me.mrhakan.agalarhack.ui.
                 if(shift){if(!selection.add(id))selection.remove(id);return true;}
                 if(!selection.contains(id)){selection.clear();selection.add(id);}
                 if(AgalarHackClient.HUD_LAYOUT.get(id).locked)return true;
+                // Recorded before the first pixel moves: a snapshot taken afterwards would restore
+                // the change it is meant to undo. One drag is one undo step, not one per pixel.
+                history.record(AgalarHackClient.HUD_LAYOUT.snapshot());
                 dragging = id;
                 grabX = event.x() - b.x;
                 grabY = event.y() - b.y;
@@ -208,6 +217,11 @@ public class HudEditorScreen extends Screen implements me.mrhakan.agalarhack.ui.
         }
         graphics.centeredText(font, status, width / 2, toolbarTop - 12,
                 overlaps.isEmpty() ? 0xFFB8C5D6 : 0xFFFF8A94);
+        // Shortcuts that exist but are invisible get used by nobody, so the editor says so.
+        String hints = "Ctrl+Z undo" + (history.canUndo() ? " (" + history.undoDepth() + ")" : "")
+                + " • Ctrl+Shift+Z redo" + (history.canRedo() ? " (" + history.redoDepth() + ")" : "")
+                + " • Ctrl+D match placement to selection";
+        graphics.centeredText(font, hints, width / 2, toolbarTop - 22, 0xFF6E7E90);
     }
 
     private void moveSelection(int dx,int dy,boolean anchor){
@@ -226,12 +240,65 @@ public class HudEditorScreen extends Screen implements me.mrhakan.agalarhack.ui.
         }
     }
     @Override public boolean keyPressed(net.minecraft.client.input.KeyEvent event){
-        if((event.modifiers()&2)!=0 && event.key()>=262 && event.key()<=265){
-            int step=(event.modifiers()&1)!=0?10:1;
+        boolean control=(event.modifiers()&2)!=0;
+        boolean shift=(event.modifiers()&1)!=0;
+        // Ctrl+Z and Ctrl+Shift+Z / Ctrl+Y, which is what every editor uses.
+        if(control && event.key()==90 && !shift){ return applyHistory(history.undo(AgalarHackClient.HUD_LAYOUT.snapshot()),"Undo"); }
+        if(control && ((event.key()==90 && shift) || event.key()==89)){
+            return applyHistory(history.redo(AgalarHackClient.HUD_LAYOUT.snapshot()),"Redo");
+        }
+        if(control && event.key()==68){ return duplicateSelection(); }
+        if(control && event.key()>=262 && event.key()<=265){
+            int step=shift?10:1;
+            history.record(AgalarHackClient.HUD_LAYOUT.snapshot());
             moveSelection(event.key()==262?step:event.key()==263?-step:0,event.key()==264?step:event.key()==265?-step:0,false);
             AgalarHackClient.HUD_LAYOUT.save();return true;
         }
         return super.keyPressed(event);
+    }
+
+    /** @return true when something was restored, so the key is only swallowed when it did something */
+    private boolean applyHistory(Map<String,WidgetState> restored,String what){
+        if(restored==null) return false;
+        AgalarHackClient.HUD_LAYOUT.applySnapshot(restored);
+        AgalarHackClient.HUD_LAYOUT.save();
+        updateBounds();
+        // Selection can name a widget the restored layout no longer has.
+        selection.removeIf(id->AgalarHackClient.HUD_LAYOUT.get(id)==null);
+        me.mrhakan.agalarhack.services.ClientServices.registry()
+                .find(me.mrhakan.agalarhack.services.NotificationService.class)
+                .ifPresent(notifications->notifications.publish(
+                        me.mrhakan.agalarhack.services.NotificationService.Type.INFO,what+" layout change"));
+        return true;
+    }
+
+    /**
+     * Places the selected widgets slightly offset from where they are.
+     *
+     * <p>HUD widgets are a fixed registry, not user-created objects, so there is nothing to clone -
+     * duplicating a widget id would produce a second widget nothing knows how to draw. What is
+     * actually useful is copying one widget's placement onto the others in the selection, which is
+     * the tedious part of lining a HUD up by hand.
+     */
+    private boolean duplicateSelection(){
+        if(selected==null||selection.size()<2) return false;
+        WidgetState source=AgalarHackClient.HUD_LAYOUT.get(selected);
+        if(source==null) return false;
+        history.record(AgalarHackClient.HUD_LAYOUT.snapshot());
+        int step=Math.max(1,gridSize());
+        int index=1;
+        for(String id:selection){
+            if(id.equals(selected)) continue;
+            WidgetState target=AgalarHackClient.HUD_LAYOUT.get(id);
+            if(target==null||target.locked) continue;
+            target.anchor=source.anchor;
+            target.offsetX=source.offsetX+step*index;
+            target.offsetY=source.offsetY+step*index;
+            index++;
+        }
+        AgalarHackClient.HUD_LAYOUT.save();
+        updateBounds();
+        return true;
     }
 
     private Point snapPosition(String id, int x, int y, int contentWidth, int contentHeight) {
