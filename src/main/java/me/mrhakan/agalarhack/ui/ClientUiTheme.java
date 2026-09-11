@@ -21,6 +21,12 @@ public final class ClientUiTheme {
         BACKGROUND=theme.background; SIDEBAR=theme.background; PANEL=((int)(theme.panelOpacity*255)<<24)|(theme.panel&0xffffff);
         PANEL_HOVER=PANEL;BORDER=theme.off;ACCENT=theme.accent;TEXT=theme.text;MUTED=theme.muted;SUCCESS=theme.on;
         radius=theme.cornerRadius;shadows=theme.shadows;
+        if (theme.highContrast) {
+            BACKGROUND=SIDEBAR=PANEL=PANEL_HOVER=0xff000000;
+            TEXT=MUTED=BORDER=0xffffffff;
+            ACCENT=0xffffff00; SUCCESS=0xff64c8ff; DANGER=0xffffa64d;
+            shadows=false;
+        } else DANGER=0xffff6b78;
     }
     private ClientUiTheme() {
     }

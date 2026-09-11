@@ -15,6 +15,8 @@ public final class ThemeService {
         public double panelOpacity=0.92,animationSpeed=1;
         public int cornerRadius=4;
         public boolean shadows=true,uiAnimations=true;
+        public boolean reducedMotion=false,highContrast=false;
+        public boolean motionEnabled() { return uiAnimations && !reducedMotion; }
     }
     private final me.mrhakan.agalarhack.config.BoundedJsonFile<Theme> file =
             new me.mrhakan.agalarhack.config.BoundedJsonFile<>(

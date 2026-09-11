@@ -42,7 +42,7 @@ public final class NotificationHud {
             var notice = notices.get(row);
             int y = baseY + row * (bounds.rowHeight() + NotificationLayout.GAP);
             double progress = Math.max(0, Math.min(1, (now - notice.created()) * theme.animationSpeed / 180.0));
-            int offset = module.getBooleanSetting("animations", true) && theme.uiAnimations ? (int)((1 - progress) * 20) : 0;
+            int offset = module.getBooleanSetting("animations", true) && theme.motionEnabled() ? (int)((1 - progress) * 20) : 0;
             int x = baseX + (left ? -offset : offset);
             int color = switch (notice.type()) {
                 case INFO -> 0xff65adff; case SUCCESS -> 0xff67d9a2; case WARNING -> 0xffffc466; case ERROR -> 0xffff6b7a;

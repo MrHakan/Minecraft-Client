@@ -14,7 +14,7 @@ public final class ThemeCodec {
     private static final Set<String> INTEGERS = Set.of("schemaVersion", "background", "panel", "accent",
             "text", "muted", "on", "off", "cornerRadius");
     private static final Set<String> NUMBERS = Set.of("panelOpacity", "animationSpeed");
-    private static final Set<String> BOOLEANS = Set.of("shadows", "uiAnimations");
+    private static final Set<String> BOOLEANS = Set.of("shadows", "uiAnimations", "reducedMotion", "highContrast");
 
     private ThemeCodec() { }
 

@@ -34,6 +34,19 @@ class ThemeCodecTest {
         assertThrows(IllegalArgumentException.class, () -> ThemeCodec.decode("{\"name\":\"" + "界".repeat(6000) + "\"}"));
     }
 
+    @Test void reducedMotionOverridesAnimationsAndSurvivesExport() {
+        var theme = ThemeCodec.decode("{\"reducedMotion\":true,\"highContrast\":true,\"uiAnimations\":true}");
+        assertFalse(theme.motionEnabled());
+        var restored = ThemeCodec.decode(ThemeCodec.encode(theme));
+        assertTrue(restored.highContrast);
+        assertFalse(restored.motionEnabled());
+        restored.reducedMotion = false;
+        assertTrue(restored.motionEnabled());
+        restored.uiAnimations = false;
+        assertFalse(restored.motionEnabled());
+        assertFalse(ThemeCodec.decode("{}").highContrast);
+    }
+
     @Test void invalidThemeIsPreservedAndSuccessfulReloadUnlocksSaving() throws Exception {
         Path path = directory.resolve("theme.json");
         Files.writeString(path, "{\"schemaVersion\":2}");

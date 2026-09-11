@@ -266,6 +266,9 @@ public class Hud implements HudElement {
     }
 
     public static int rainbow(int delay) {
+        var themes = me.mrhakan.agalarhack.services.ClientServices.registry().find(me.mrhakan.agalarhack.services.ThemeService.class);
+        if (themes.isPresent() && (!themes.get().current().motionEnabled() || themes.get().current().highContrast))
+            return ClientUiTheme.ACCENT;
         double rainbowState = Math.ceil((System.currentTimeMillis() + delay) / 25.0);
         rainbowState %= 360;
         return Color.getHSBColor((float) (rainbowState / 360.0f), 1f, 1f).getRGB();
