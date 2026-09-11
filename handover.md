@@ -267,8 +267,8 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 78 | Chunk result cache | Implemented for BlockESP: bounded LRU clean-chunk cache with block-update, unload, anchor and filter invalidation. Other scanners still sweep |
 | 79 | Render culling | Implemented: box overlays test the frustum the game already built, in world space. Tracers and breadcrumbs are deliberately exempt and a test enforces that. Safe because it is view-volume, not occlusion, culling - the overlays draw through walls on purpose |
 | 80 | Performance HUD | Implemented: `ModuleTimings` ranks per-module tick cost over a rolling window, in a hidden-by-default widget. Measurement is self-expiring rather than a setting, and a module that stops ticking is dropped rather than frozen on screen |
-| 81 | Unit tests | 628 tests; adds block-update batching, chunk cache eviction, cursor completion, id-list parsing, notification sinks, waypoint normalisation/persistence and compass bearings; trajectory and fade coverage pending |
-| 82 | Integration smoke tests | Partial: the client boots headless under xvfb/llvmpipe and all **nine** mixin injections across five target classes are verified applied in the transformed bytecode. No gameplay was exercised; behaviour checks remain manual |
+| 81 | Unit tests | 631 tests; adds block-update batching, chunk cache eviction, cursor completion, id-list parsing, notification sinks, waypoint normalisation/persistence and compass bearings; trajectory and fade coverage pending |
+| 82 | Integration smoke tests | Partial: the client boots headless under xvfb/llvmpipe and all **nine** mixin injections across five target classes are verified applied in the transformed bytecode. **Check the run succeeded, not just the export** - transformation happens at class load, so a client that crashes later still writes a complete `.mixin.out`, which hid a startup crash here for several commits. No gameplay was exercised |
 | 83 | Lifecycle audit | Partial code audit/restoration; all listed state-changing modules need in-game transition checks |
 | 84 | Error reporting | Reviewed. Module tick, render, scanner, command, macro and HUD boundaries were already guarded. The one real gap was the shared chat callback: the bus detaches a listener that throws, so one chat module's bug disabled all three for the session. `ModuleGuard` now contains each module separately and reports once per failure episode, and ChatFilter fails open so a broken filter cannot hide chat |
 | 85 | Structured logging | Implemented SLF4J replacement for raw stderr. One `System.out.println` survived in the profile auto-load path and has now been replaced; the rest of the audit remains |
@@ -790,6 +790,28 @@ end, because that reads as the wrong row moving. Reordering moves rows rather th
 and back, so changing the sort does not look like everything was re-enabled. Reduced motion and the
 theme switch both make appearance and removal instant.
 
+## Latest continuation: chat rewriting, and a startup crash I caused
+
+**Chat timestamps and repeat hiding** (58). The deferral reason was that Fabric 26.2 can veto or
+observe a chat line but not rewrite one, and doing it fragilely was worse than not doing it. What
+changed is that this branch now verifies mixins at runtime, so "fragile" no longer applies.
+Timestamps use a `ModifyVariable` on `ChatComponent.addMessage`'s `Component` parameter — the private
+choke point all three public `add*` methods delegate to, and a change that depends on the signature
+rather than on anything inside the method. Repeat hiding needed **no mixin at all**: vetoing the
+duplicate through the existing `ALLOW_CHAT` path stops the spam without rewriting chat history.
+
+**A startup crash, mine.** `Hud.register` copied whatever `HUD_LAYOUT.get(id)` returned, and that was
+null for an id with no declared default — during client initialisation, before any screen exists to
+report it. **The client had not started since the movement stats widget landed.** `get()` is total
+now; `defaultFor` already existed and already handled unknown ids, it simply was not being used.
+
+The reason it went unnoticed for several commits is worth more than the fix: **a complete
+`.mixin.out` does not mean the client started.** Transformation happens at class load, long before
+most startup work, so the export is written in full even by a run that crashes later. I checked the
+exports and the mixin failure count and never checked that the run itself succeeded. The procedure
+doc now says to grep for `Game crashed` and for texture stitching, and notes that `ChatComponent`
+only loads once the GUI is built — so its presence in the export doubles as a health signal.
+
 ## Validation and source references
 
 Canonical command: **`./gradlew build --stacktrace` with JDK 25**.
@@ -896,6 +918,17 @@ Fabric's 26.2 `ClientChunkCacheMixin`. Do not reintroduce 1.20/1.21 examples bli
   and closing the inventory mid-swap, during death/respawn and dimension changes, and while AutoEat/AutoTool are
   also active. Confirm no item is ever left on the cursor, that AutoTotem preempts AutoArmor, that a popped totem
   cancels the pending restore, and that a renamed armour piece is never auto-equipped by default.
+
+### Manual acceptance for chat
+
+- BetterChat: confirm timestamps appear on player chat, server messages and the client's own
+  notifications, that seconds can be turned on, and that turning the module off removes them cleanly.
+- ChatFilter repeats: have someone send the same line twice and confirm the second is hidden; have two
+  people alternate the same two lines and confirm the window catches it; change one character and
+  confirm it is shown. Reconnect and confirm the first line of the new session is never hidden.
+- **Startup**: this is the batch that fixed a crash-on-launch, so simply confirm the client reaches
+  the main menu and that the HUD editor shows the Movement Stats widget hidden rather than stacked on
+  the branding line.
 
 ### Manual acceptance for tracers and row motion
 
