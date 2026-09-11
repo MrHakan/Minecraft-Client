@@ -38,6 +38,26 @@ jobs:
       - name: Build
         run: ./gradlew build --stacktrace
 
+      # `./gradlew build` passes whether or not the client can start: a mixin target is
+      # named in an annotation string, so a missing one compiles fine and fails at launch,
+      # and a null dereference during client initialisation is a crash no unit test reaches.
+      # This branch shipped exactly that for several commits. Only on pull requests, since
+      # it costs a few minutes and main is only reached through one.
+      - name: Client smoke test
+        if: github.event_name == 'pull_request'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends xvfb mesa-utils libgl1-mesa-dri
+          ./tools/smoke-client.sh
+
+      - name: Upload smoke log
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-client-log
+          path: build/smoke-client.log
+          if-no-files-found: ignore
+
       - name: Read mod version
         id: getModVersion
         run: |

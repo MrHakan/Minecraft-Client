@@ -268,7 +268,7 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 79 | Render culling | Implemented: box overlays test the frustum the game already built, in world space. Tracers and breadcrumbs are deliberately exempt and a test enforces that. Safe because it is view-volume, not occlusion, culling - the overlays draw through walls on purpose |
 | 80 | Performance HUD | Implemented: `ModuleTimings` ranks per-module tick cost over a rolling window, in a hidden-by-default widget. Measurement is self-expiring rather than a setting, and a module that stops ticking is dropped rather than frozen on screen |
 | 81 | Unit tests | 631 tests; adds block-update batching, chunk cache eviction, cursor completion, id-list parsing, notification sinks, waypoint normalisation/persistence and compass bearings; trajectory and fade coverage pending |
-| 82 | Integration smoke tests | Partial: the client boots headless under xvfb/llvmpipe and all **nine** mixin injections across five target classes are verified applied in the transformed bytecode. **Check the run succeeded, not just the export** - transformation happens at class load, so a client that crashes later still writes a complete `.mixin.out`, which hid a startup crash here for several commits. No gameplay was exercised |
+| 82 | Integration smoke tests | Implemented as `tools/smoke-client.sh`, **run by CI on every pull request**: it starts the client headless, fails on a crash report, fails if startup did not reach texture stitching, and fails if any mixin in the config was not applied to the running bytecode. It reads the mixin config rather than a hand-kept list, so a new mixin is covered automatically. No gameplay is exercised; behaviour checks remain manual |
 | 83 | Lifecycle audit | Partial code audit/restoration; all listed state-changing modules need in-game transition checks |
 | 84 | Error reporting | Reviewed. Module tick, render, scanner, command, macro and HUD boundaries were already guarded. The one real gap was the shared chat callback: the bus detaches a listener that throws, so one chat module's bug disabled all three for the session. `ModuleGuard` now contains each module separately and reports once per failure episode, and ChatFilter fails open so a broken filter cannot hide chat |
 | 85 | Structured logging | Implemented SLF4J replacement for raw stderr. One `System.out.println` survived in the profile auto-load path and has now been replaced; the rest of the audit remains |
@@ -811,6 +811,29 @@ most startup work, so the export is written in full even by a run that crashes l
 exports and the mixin failure count and never checked that the run itself succeeded. The procedure
 doc now says to grep for `Game crashed` and for texture stitching, and notes that `ChatComponent`
 only loads once the GUI is built — so its presence in the export doubles as a health signal.
+
+## Latest continuation: the startup check is CI's job now
+
+`tools/smoke-client.sh`, wired into CI on every pull request.
+
+`./gradlew build` passes whether or not the client can start. A mixin target is named in an annotation
+string, so a missing one compiles cleanly and fails at launch; and a null dereference during client
+initialisation is a crash no unit test reaches. This branch shipped exactly that for several commits,
+and the reason it survived is that I was checking the mixin export by hand and never the run itself.
+
+The script checks four things, in the order they can fail:
+
+1. no crash report;
+2. startup reached texture atlas stitching — the check whose absence hid the crash, since
+   transformation happens at class load and a complete `.mixin.out` is written even by a run that dies
+   later;
+3. no mixin reported a failure to apply;
+4. **every** mixin in `agalarhack.mixins.json` produced a transformed class carrying an `agalarhack`
+   injection. It resolves targets from the config and each mixin's own `@Mixin` annotation, so a new
+   mixin is covered without anyone remembering to add it here.
+
+The manual procedure in `docs/RUNTIME_MIXIN_VERIFICATION.md` is still the way to inspect *which*
+injection landed where; the script is the pass/fail gate.
 
 ## Validation and source references
 
