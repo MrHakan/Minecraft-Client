@@ -17,8 +17,8 @@ At the 2026-09-11 re-inspection, #9 was still the only open PR, at head `f3eb4ff
 open PRs again: this document is a checkpoint, not a substitute for live repository state.
 **Nothing in this work has been automatically merged into main.**
 
-Approximate progress against the complete requested roadmap: **62–68% implemented;
-32–38% remains**. This is a qualitative scope estimate, not measured work hours, a count
+Approximate progress against the complete requested roadmap: **64–70% implemented;
+30–36% remains**. This is a qualitative scope estimate, not measured work hours, a count
 of commits, or a release-readiness percentage. Earlier estimate was about 20%; this batch
 mainly deepens existing foundations. Do not extrapolate remaining duration from these numbers.
 No entire phase is accepted as complete; Minecraft in-game smoke testing remains outstanding.
@@ -29,7 +29,7 @@ No entire phase is accepted as complete; Minecraft in-game smoke testing remains
 | B: UI/HUD | 62–67% | Full widget/animation/accessibility coverage, Module List transitions, player faces, remaining legacy bounds |
 | C: rendering | 75–80% | More ESP render modes, per-block BlockESP colours |
 | D: player utility | 55–60% | AutoFish, AutoWalk, AutoAccept, FastPlace, inventory HUD depth |
-| E: movement/world | 45–50% | BaseFinder, light/spawn visualization, NewChunks |
+| E: movement/world | 55–60% | BaseFinder, NewChunks |
 | F: information/social | 60–65% | BetterChat rendering (timestamps/highlighting), macros |
 | G: ecosystem | 0% | Stable external addon API/template, optional Baritone, localization |
 | H: hardening | 50–55% | In-game lifecycle testing, complete profiling/config migration audit |
@@ -241,7 +241,7 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 52 | Totem tracker | Implemented from observed EntityEvent.PROTECTED_FROM_DEATH; resets on death/timeout, labelled "(seen)" |
 | 53 | BaseFinder | Not started; reuse scheduler and local evidence |
 | 54 | NewChunks | Not started; conservative observable classification only |
-| 55 | Light/spawn visualization | Not started; verify 26.2 spawn rules and bounded scanning |
+| 55 | Light/spawn visualization | Implemented as SpawnESP over light levels only; deliberately does not model biome/mob/cap rules and says so |
 | 56 | HoleESP | Implemented: safe vs unsafe by real explosion resistance, bounded shared-cursor scan, block-update invalidation |
 | 57 | Portal/gateway finder | Partial existing BlockESP portal filter; reuse this infrastructure |
 | 58 | BetterChat | Partial: local-only phrase filtering via ChatFilter. Timestamps, highlighting and duplicate compaction need a chat-rendering mixin Fabric does not replace |
@@ -267,7 +267,7 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 78 | Chunk result cache | Implemented for BlockESP: bounded LRU clean-chunk cache with block-update, unload, anchor and filter invalidation. Other scanners still sweep |
 | 79 | Render culling | Partial distance/target/label bounds shared through EntityDiscovery; frustum culling pending |
 | 80 | Performance HUD | Partial scanner diagnostics and memory; module tick/render timings and broader counters pending |
-| 81 | Unit tests | 288 tests; adds block-update batching, chunk cache eviction, cursor completion, id-list parsing, notification sinks, waypoint normalisation/persistence and compass bearings; trajectory and fade coverage pending |
+| 81 | Unit tests | 294 tests; adds block-update batching, chunk cache eviction, cursor completion, id-list parsing, notification sinks, waypoint normalisation/persistence and compass bearings; trajectory and fade coverage pending |
 | 82 | Integration smoke tests | Not performed in-game; automate where feasible and record exact environment/results |
 | 83 | Lifecycle audit | Partial code audit/restoration; all listed state-changing modules need in-game transition checks |
 | 84 | Error reporting | Partial logger/module/render/scanner isolation; guarded HUD measurements/renderers with notices and retry; remaining boundaries need review |
@@ -447,6 +447,12 @@ whenever a server heals, absorbs or cancels a hit.
 **AutoJump was skipped on purpose** — see requirement 45 above. Do not add it later without checking
 that reasoning.
 
+**SpawnESP is light-only by design.** Block light zero, with sky light deciding night-only versus
+always. Biome rules, mob-specific placement, spawn caps and difficulty are **not** modelled, and the
+module says "light permits" rather than "mobs will spawn" in its description, its documentation and
+its colour split. If someone later widens it, the claim in the UI has to widen with it — overclaiming
+here is the same failure as reporting a server's TPS as fact.
+
 Still missing in Phase B: full widget/animation coverage, Module List row transitions, player faces
 on the target card, UI scale and blur controls, and the remaining legacy Info bounds.
 Still missing in Phase C: camera tweaks, per-block BlockESP colours and richer ESP render modes.
@@ -513,6 +519,9 @@ Fabric's 26.2 `ClientChunkCacheMixin`. Do not reintroduce 1.20/1.21 examples bli
 - TargetHUD: switch between all three layouts while a target is live; check absorption on a target
   with golden apples; confirm the bar does not slide when the target changes; confirm reduced motion
   disables the easing; confirm ping disappears for mobs and for players whose latency is unknown.
+- SpawnESP: compare marks against a torch-lit area and an enclosed cave; confirm placing a torch
+  clears the neighbourhood rather than leaving stale marks, and that "always" versus "night" matches
+  whether the spot sees sky.
 - Parkour with SafeWalk both on: confirm Parkour stands down rather than fighting the edge hold.
   Test at speed, while sprinting, in water and on stairs/slabs.
 - ElytraInfo: confirm warnings fire once rather than repeatedly at the threshold, and that firework
