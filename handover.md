@@ -240,7 +240,7 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 51 | Critical information | Not started; no packet exploit chains |
 | 52 | Totem tracker | Implemented from observed EntityEvent.PROTECTED_FROM_DEATH; resets on death/timeout, labelled "(seen)" |
 | 53 | BaseFinder | Implemented over StorageESP's existing results with single-link clustering; opens no scan of its own and says "likely" |
-| 54 | NewChunks | Not started; conservative observable classification only |
+| 54 | NewChunks | **Deliberately not implemented.** The usual detection infers server-side chunk generation from packet artefacts, which is exactly the server-hidden inference this client refuses elsewhere (TPS, totems, BaseFinder). No honest client-side signal was found that is also version-safe, and none could be verified without running the game. Revisit only with a signal that can be stated truthfully |
 | 55 | Light/spawn visualization | Implemented as SpawnESP over light levels only; deliberately does not model biome/mob/cap rules and says so |
 | 56 | HoleESP | Implemented: safe vs unsafe by real explosion resistance, bounded shared-cursor scan, block-update invalidation |
 | 57 | Portal/gateway finder | Partial existing BlockESP portal filter; reuse this infrastructure |
@@ -267,13 +267,13 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 78 | Chunk result cache | Implemented for BlockESP: bounded LRU clean-chunk cache with block-update, unload, anchor and filter invalidation. Other scanners still sweep |
 | 79 | Render culling | Partial distance/target/label bounds shared through EntityDiscovery; frustum culling pending |
 | 80 | Performance HUD | Partial scanner diagnostics and memory; module tick/render timings and broader counters pending |
-| 81 | Unit tests | 323 tests; adds block-update batching, chunk cache eviction, cursor completion, id-list parsing, notification sinks, waypoint normalisation/persistence and compass bearings; trajectory and fade coverage pending |
+| 81 | Unit tests | 326 tests; adds block-update batching, chunk cache eviction, cursor completion, id-list parsing, notification sinks, waypoint normalisation/persistence and compass bearings; trajectory and fade coverage pending |
 | 82 | Integration smoke tests | Not performed in-game; automate where feasible and record exact environment/results |
 | 83 | Lifecycle audit | Partial code audit/restoration; all listed state-changing modules need in-game transition checks |
 | 84 | Error reporting | Partial logger/module/render/scanner isolation; guarded HUD measurements/renderers with notices and retry; remaining boundaries need review |
 | 85 | Structured logging | Implemented SLF4J replacement for raw stderr; logging quality audit remains |
 | 86 | Module documentation | Partial metadata/foundation docs/handover; generated per-module defaults/limitations docs pending |
-| 87 | Experimental flags | Not started |
+| 87 | Experimental flags | Implemented: `markExperimental()` plus an UNTESTED badge in the ClickGUI, applied to all 25 modules added here; a source-level test stops a new module shipping unmarked |
 
 ## Recommended next development batch
 
@@ -447,6 +447,14 @@ whenever a server heals, absorbs or cancels a hit.
 **AutoJump was skipped on purpose** — see requirement 45 above. Do not add it later without checking
 that reasoning.
 
+## Untested badge
+
+Every module added in this work is marked with `markExperimental()` and shows **UNTESTED** in the
+ClickGUI. The criterion: inventory manipulation, a mixin dependency, or simply never having been run
+in Minecraft. **Compiling and passing unit tests does not clear it.** Clear a flag only after
+actually using that module in game, and remove the module's name from the exempt list in
+`ExperimentalFlagTest` only if it genuinely predates this work.
+
 **Localisation uses a fallback at every call site.** `Translations.text(key, english)` renders the
 English text when a key is missing, so partial coverage never shows raw keys. **Do not translate the
 ClickGUI filter/sort lists**: the chosen string is also the stored value the switches compare
@@ -535,6 +543,8 @@ Fabric's 26.2 `ClientChunkCacheMixin`. Do not reintroduce 1.20/1.21 examples bli
 - TargetHUD: switch between all three layouts while a target is live; check absorption on a target
   with golden apples; confirm the bar does not slide when the target changes; confirm reduced motion
   disables the easing; confirm ping disappears for mobs and for players whose latency is unknown.
+- After any module is verified in game, clear its `markExperimental()` call in the same commit that
+  records what was tested. The badge is only useful while it is accurate.
 - Localization: run the client in Turkish and in a language with no file at all; confirm the ClickGUI
   reads correctly in Turkish and falls back to English elsewhere, with no raw `agalarhack.*` keys
   anywhere. Confirm filtering and sorting still work in Turkish.
