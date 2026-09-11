@@ -18,7 +18,8 @@ public class ProjectileWarning extends Module {
     private int lastWarnedId = -1;
 
     public ProjectileWarning() {
-        super("ProjectileWarning", Category.RENDER, "Estimates whether an incoming projectile will pass close to you");
+        super("ProjectileWarning", Category.RENDER,
+                "Estimates whether an incoming projectile will pass close to you; reads ProjectileESP's tracked list, so enable that too");
     }
 
     @Override
@@ -33,7 +34,7 @@ public class ProjectileWarning extends Module {
     public void onEnable() { cooldown = 0; lastWarnedId = -1; }
 
     @Override
-    public void onDisable() { cooldown = 0; lastWarnedId = -1; }
+    public void onDisable() { cooldown = 0; lastWarnedId = -1; setDisplayName(null); }
 
     @Override public void onDisconnect() { onDisable(); }
 
@@ -43,7 +44,13 @@ public class ProjectileWarning extends Module {
         if (cooldown > 0) { cooldown--; return; }
 
         var espModule = me.mrhakan.agalarhack.AgalarHackClient.moduleManager.getModule("ProjectileESP");
-        if (!(espModule instanceof ProjectileESP esp) || !esp.isToggled()) return;
+        if (!(espModule instanceof ProjectileESP esp) || !esp.isToggled()) {
+            // This module reuses ProjectileESP's discovery rather than opening a second entity sweep.
+            // Say so instead of silently doing nothing, which would look like a broken module.
+            setDisplayName("ProjectileWarning [needs ProjectileESP]");
+            return;
+        }
+        setDisplayName(null);
 
         double radius = getNumberSetting("radius", 2.5);
         int lookahead = (int) Math.round(getNumberSetting("lookahead", 60));
