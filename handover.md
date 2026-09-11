@@ -213,7 +213,7 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 24 | ProjectileESP | Implemented: bounded discovery, boxes and heading lines; TNT optional |
 | 25 | Projectile warning | Implemented: closest-approach estimate through the shared simulator, labelled as an estimate, informational only |
 | 26 | Freecam expansion | Partial existing camera/body/motion settings plus restoration changes; full requested controls/QA pending |
-| 27 | Fullbright modes | Partial: existing effect-based mode and restoration; safe gamma-like mode pending |
+| 27 | Fullbright modes | Implemented: `nightVision` (brighter, but adds an effect the server never granted) and `gamma` (only moves the brightness slider, inside vanilla's own range, restored on disable and disconnect). The gamma mode is new and has not been used in game |
 | 28 | Camera tweaks | Implemented: no hurt shake (third mixin), bobbing, FOV override, steady FOV, all with guarded restoration |
 | 29 | Trajectory simulator | Implemented: ProjectilePhysics/ProjectileSimulator extracted and consumed by the renderer and the warning module |
 | 30 | Trajectory accuracy | Partial existing charge/collision/custom physics; full physics-family audit and markers/time details pending |
@@ -669,6 +669,23 @@ Fabric's 26.2 `ClientChunkCacheMixin`. Do not reintroduce 1.20/1.21 examples bli
   and closing the inventory mid-swap, during death/respawn and dimension changes, and while AutoEat/AutoTool are
   also active. Confirm no item is ever left on the cursor, that AutoTotem preempts AutoArmor, that a popped totem
   cancels the pending restore, and that a renamed armour piece is never auto-equipped by default.
+
+### Manual acceptance for the performance and lag batch
+
+- Module timings: open the widget and confirm it fills in within a couple of seconds, that switching a
+  module off removes it from the list rather than freezing its last figure, and that closing the widget
+  stops measurement (the figures should restart from "sampling..." when reopened).
+- Movement stats: compare the speed reading against walking, sprinting, sprint-jumping and elytra; walk
+  into a wall and confirm the reading does not flicker to zero the way the old one did; take a portal
+  and confirm the window clears instead of showing a teleport as speed.
+- Ping spike and silence warnings: confirm each fires once rather than repeatedly, that the spike
+  warning stays quiet for the first few samples after joining, and that turning a warning off and on
+  again does not immediately re-fire for a condition that was already true.
+- **Fullbright gamma mode** (new, untested): switch to `gamma`, confirm the brightness rises without a
+  night vision effect appearing in the inventory, move the vanilla brightness slider yourself and
+  confirm the module puts it back, then disable the module and confirm your original brightness
+  returns. Disconnect while enabled and confirm the slider is restored there too. Note that a crash
+  while enabled can leave the raised value in options.txt.
 
 ### Manual acceptance checks added by this batch
 

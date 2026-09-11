@@ -439,9 +439,12 @@ Detaches the camera with smooth accelerated movement without moving the real pla
 
 ### Fullbright
 
-Lights up the whole world (client-side night vision)
+Lights up the whole world, either by night vision or by raising the brightness slider
 
-No settings of its own.
+| Setting | Default | Values | Description |
+| --- | --- | --- | --- |
+| `mode` | `nightVision` | `nightVision\|gamma` | nightVision is brighter but adds an effect the server never gave you; gamma only moves the brightness slider |
+| `gammaLevel` | `1` | `0.5..1` | Brightness to use in gamma mode, within the range vanilla allows |
 
 ### HoleESP — UNTESTED
 
