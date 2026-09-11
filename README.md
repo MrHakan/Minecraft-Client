@@ -13,6 +13,8 @@
 > [!NOTE]
 > The original 1.12.2 Forge client is retained on the [`og` branch](../../tree/og).
 
+AI contributors: read [handover.md](handover.md) for current progress, architecture, remaining work and validation requirements.
+
 ## Requirements
 
 | Dependency | Version |

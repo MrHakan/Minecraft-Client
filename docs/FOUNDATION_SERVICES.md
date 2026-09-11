@@ -27,7 +27,8 @@ HUD extraction and screen-specific input. ServerContextService publishes identit
 world/player/death transitions and screen open/close changes at tick boundaries; resizes do
 not create duplicate opens. InputStateService publishes bounded tick-sampled keyboard/mouse
 edges, not a lossless raw GLFW event stream. Inventory changes cover the 36 main inventory
-slots and selected slot; payloads contain copies rather than mutable cached stacks.
+slots and selected slot; separate EquipmentUpdated events cover four armor slots and both hands.
+SlotSnapshots isolates cached state from source stacks and event payloads; player replacement resets both trackers.
 
 Tick order: context (300), sampled input (200), action reset (100), inventory (90), profiles
 (80), module binds (60), modules (40), scanner execution (30), rotation resolution (20), GUI key (0).
@@ -39,7 +40,7 @@ geometry failures and schedules module disable/persistence on the client thread.
 ## Inventory
 
 Inventory queries inspect at most 36 slots (hotbar queries: 9). Food and tool scoring are
-shared by AutoEat/AutoTool. Generic predicate/item/block/potion lookups are available.
+shared by AutoEat/AutoTool. Generic predicate/item/block/potion lookups, full-inventory food selection and defensive inventory/equipment snapshots are available.
 Leases persist across ticks; priority preemption restores the previous owner before a new
 owner captures the baseline. Dual hotbar/use acquisition is atomic. Cleanup targets the
 captured player, never a replacement player's inventory. Manual slot changes cancel the lease
@@ -105,12 +106,14 @@ the new settings. This boundary is covered by pure parsing tests.
 
 ## Shared scanner execution
 
-BlockESP and StorageESP now offer work to one cooperative scheduler after module updates.
+BlockESP, StorageESP and EntityESP offer work to one cooperative scheduler after module updates.
 Each tick allows at most 12,000 block probes, 64 explicit chunk lookups, 4,096 block-entity
 iterations and 16,384 task steps. Requests expire each tick. Steps reserve costs before world
 access; missing chunks are never requested for loading. Failed tasks disable only their owner.
 Near/focused/background priorities have weighted turns; equal-priority starting order rotates.
-The currently integrated scanners request background priority and traverse nearby chunks first.
+BlockESP and StorageESP request background priority and traverse nearby chunks first. EntityESP
+requests NEAR priority, observes at most 4096 entities and retains at most 512 nearest observed targets
+(default 256). Labels have a separate distance setting. It no longer discovers entities in render callbacks.
 Budgets cover scanner discovery, not every client subsystem or existing render validation.
 
 BlockESP uses a tested chunk-local cursor, one reusable mutable probe, skips missing chunks,
@@ -172,9 +175,9 @@ restricted execution environment. A compiled JAR does not establish in-game visu
 
 ## Remaining roadmap
 
-Phase A remains in progress: lossless gameplay input/block-update producers, equipment and
-full-inventory queries, rotation integration hardening, notification sound, further scanner/cache integration and additional lifecycle integration tests. The 36-slot inventory event is
-explicitly not an armor/offhand inventory event.
+Phase A remains in progress: lossless gameplay input/block-update producers, specialized weapon/armor
+scoring and inventory transfers, rotation integration hardening, notification sound, further scanner/cache
+integration and additional lifecycle integration tests. Equipment has a distinct event contract from main inventory slots.
 
 Phase B now includes reusable sliders with exact entry, choices/toggles, keyboard/mouse/modifier
 bind capture, RGB/HSV/alpha colors, six independently persisted themes, dynamic HUD registration,
@@ -189,3 +192,11 @@ no phase is marked complete without its review and required validation.
 - [Fabric screen API, 26.2](https://github.com/FabricMC/fabric-api/tree/26.2/fabric-screen-api-v1/src/client/java/net/fabricmc/fabric/api/client/screen/v1)
 - [Fabric render API, 26.2](https://github.com/FabricMC/fabric-api/tree/26.2/fabric-rendering-v1/src/client/java/net/fabricmc/fabric/api/client/rendering/v1)
 - [KeyMappingHelper, 26.2](https://github.com/FabricMC/fabric-api/blob/26.2/fabric-key-mapping-api-v1/src/client/java/net/fabricmc/fabric/api/client/keymapping/v1/KeyMappingHelper.java)
+
+## Current handover
+
+See [../handover.md](../handover.md) for the numbered roadmap, current estimates and exact continuation rules.
+The optional scanner_debug HUD displays last-tick discovery counters and elapsed time without initiating scans.
+NotificationLayout shares measured bounds between rendering and editor placement; motion follows the actual
+HUD anchor. Disabling notifications clears and suppresses their queue. Deferred world geometry skips changed
+world/player identities. In-game acceptance remains pending; consult the latest PR-head CI result.
