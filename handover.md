@@ -17,8 +17,8 @@ At the 2026-09-11 re-inspection, #9 was still the only open PR, at head `f3eb4ff
 open PRs again: this document is a checkpoint, not a substitute for live repository state.
 **Nothing in this work has been automatically merged into main.**
 
-Approximate progress against the complete requested roadmap: **38–44% implemented;
-56–62% remains**. This is a qualitative scope estimate, not measured work hours, a count
+Approximate progress against the complete requested roadmap: **42–48% implemented;
+52–58% remains**. This is a qualitative scope estimate, not measured work hours, a count
 of commits, or a release-readiness percentage. Earlier estimate was about 20%; this batch
 mainly deepens existing foundations. Do not extrapolate remaining duration from these numbers.
 No entire phase is accepted as complete; Minecraft in-game smoke testing remains outstanding.
@@ -27,7 +27,7 @@ No entire phase is accepted as complete; Minecraft in-game smoke testing remains
 | --- | --- | --- |
 | A: foundation | 90–95% | Rotation adoption beyond Aura, shared selector adoption by visuals, integration tests |
 | B: UI/HUD | 55–60% | Full widget/animation/accessibility coverage, Module List transitions, richer TargetHUD, remaining legacy bounds |
-| C: rendering | 35–40% | More ESP modes, projectiles, breadcrumbs, generalized tracers, user block sets, trajectory extraction |
+| C: rendering | 50–55% | More ESP modes, projectiles and warnings, camera tweaks, trajectory simulator extraction |
 | D: player utility | 55–60% | AutoFish, AutoWalk, AutoAccept, FastPlace, inventory HUD depth |
 | E: movement/world | 0–5% | SafeWalk, Parkour, Elytra utility, BaseFinder/HoleESP/light visualization |
 | F: information/social | 0–5% | BetterChat, totems, TPS estimates/ping graph, macros and aliases |
@@ -205,10 +205,10 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 16 | EntityESP | Partial: boxes/tracers/labels/colors/fade; now bounded tick discovery, caps and label distance; expanded modes pending |
 | 17 | Nametags | Implemented: single-line opt-in fields, friend marker, bounded discovery; no per-field styling yet |
 | 18 | StorageESP | Partial: types, colors/labels, bounded incremental scans and live block-entity tracking; per-type controls/fill/tracers pending |
-| 19 | BlockESP search | Partial: existing category filters; custom registry IDs/colors and preset management pending |
+| 19 | BlockESP search | Implemented: category filters, user block ids and eight mergeable presets; per-block colours pending |
 | 20 | Waypoints | Implemented: persistence, .waypoint commands, beams, labels, HUD arrow; death waypoint still pending |
-| 21 | Breadcrumbs | Not started |
-| 22 | Generalized tracers | Not started; existing ESP tracer mode remains |
+| 21 | Breadcrumbs | Implemented: distance-based sampling, bounded store, optional age limit, fade, cleared on dimension change |
+| 22 | Generalized tracers | Implemented as its own module with per-group filters, colours and origin; ESP keeps its own tracer toggle |
 | 23 | ItemESP | Implemented: bounded discovery, whitelist/blacklist, rarity colouring, count/distance labels |
 | 24 | ProjectileESP | Not started |
 | 25 | Projectile warning | Not started; informational only when implemented |
@@ -267,7 +267,7 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 78 | Chunk result cache | Implemented for BlockESP: bounded LRU clean-chunk cache with block-update, unload, anchor and filter invalidation. Other scanners still sweep |
 | 79 | Render culling | Partial distance/target/label bounds shared through EntityDiscovery; frustum culling pending |
 | 80 | Performance HUD | Partial scanner diagnostics and memory; module tick/render timings and broader counters pending |
-| 81 | Unit tests | 172 tests; adds block-update batching, chunk cache eviction, cursor completion, id-list parsing, notification sinks, waypoint normalisation/persistence and compass bearings; trajectory and fade coverage pending |
+| 81 | Unit tests | 187 tests; adds block-update batching, chunk cache eviction, cursor completion, id-list parsing, notification sinks, waypoint normalisation/persistence and compass bearings; trajectory and fade coverage pending |
 | 82 | Integration smoke tests | Not performed in-game; automate where feasible and record exact environment/results |
 | 83 | Lifecycle audit | Partial code audit/restoration; all listed state-changing modules need in-game transition checks |
 | 84 | Error reporting | Partial logger/module/render/scanner isolation; guarded HUD measurements/renderers with notices and retry; remaining boundaries need review |
@@ -350,8 +350,21 @@ Five topic commits.
    not copied a third time; EntityESP and ItemESP were refactored onto it.
 5. This handover and the foundation document.
 
-Still missing in Phase C: ProjectileESP, projectile warning, breadcrumbs, generalized tracers, custom
-BlockESP block sets, camera tweaks and the trajectory simulator extraction.
+## Latest continuation: breadcrumbs, tracers and user block sets
+
+Three more topic commits on top of the waypoint batch.
+
+1. **Breadcrumbs.** `BreadcrumbTrail` samples by distance, not by tick, so standing still records
+   nothing. Bounded store with optional age expiry; cleared on disable, disconnect and dimension
+   change, and whenever the level instance changes underneath it.
+2. **Tracers** as its own module rather than widening ESP's filter, since tracers and boxes are
+   usually wanted for different sets. Uses `EntityDiscovery`, so no new sweep.
+3. **BlockESP user block ids** through `ItemIdList`, plus eight presets that merge into the editable
+   list and then reset the selector. The custom list is part of the scan signature, so editing it
+   invalidates the chunk cache.
+
+Still missing in Phase C: ProjectileESP, projectile warning, camera tweaks, per-block BlockESP colours
+and the trajectory simulator extraction.
 
 ## Validation and source references
 
