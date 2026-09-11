@@ -48,6 +48,7 @@ public class Hud implements HudElement {
         textComponent("memory","Memory",()->"Memory "+(Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory())/(1024*1024)+" MiB");
         textComponent("server","Server",()->me.mrhakan.agalarhack.services.ClientServices.require(me.mrhakan.agalarhack.services.ServerContextService.class).address(Minecraft.getInstance()));
         textComponent("speed","Speed",()->{var player=Minecraft.getInstance().player;if(player==null)return "Speed --";var v=player.getDeltaMovement();return String.format(Locale.ROOT,"Speed %.2f b/s",Math.hypot(v.x,v.z)*20);});
+        textComponent("waypoint","Waypoint",()->nearestWaypointLine());
         textComponent("direction","Direction",()->Minecraft.getInstance().player==null?"Facing --":"Facing "+Minecraft.getInstance().player.getDirection());
         registry.register(new me.mrhakan.agalarhack.ui.hud.HudRegistry.Component("inventory","Inventory",()->170,()->62,event->{
             var g=event.graphics();var mc=Minecraft.getInstance();int x=AgalarHackClient.HUD_LAYOUT.resolveX("inventory",g.guiWidth(),170),y=AgalarHackClient.HUD_LAYOUT.resolveY("inventory",g.guiHeight(),62);
@@ -55,6 +56,30 @@ public class Hud implements HudElement {
             for(int i=9;i<36;i++){var item=mc.player.getInventory().getItem(i);int px=x+4+(i-9)%9*18,py=y+4+(i-9)/9*18;g.item(item,px,py);if(item.getCount()>1)g.text(mc.font,String.valueOf(item.getCount()),px+8,py+9,0xffffffff,true);}
         }),new me.mrhakan.agalarhack.managers.HudLayoutManager.WidgetState(me.mrhakan.agalarhack.managers.HudLayoutManager.Anchor.BOTTOM_RIGHT,8,110,false));
     }
+    /** Nearest visible waypoint in this dimension, with an arrow relative to where the player looks. */
+    private static String nearestWaypointLine() {
+        var mc=Minecraft.getInstance();
+        if(mc.player==null||mc.level==null) return "Waypoint --";
+        var module=AgalarHackClient.moduleManager.getModule("Waypoints");
+        if(module==null||!module.isToggled()) return "Waypoint --";
+        String dimension=me.mrhakan.agalarhack.module.render.Waypoints.currentDimension(mc);
+        var service=me.mrhakan.agalarhack.services.ClientServices.registry()==null?null
+                :me.mrhakan.agalarhack.services.ClientServices.registry()
+                        .find(me.mrhakan.agalarhack.services.WaypointService.class).orElse(null);
+        if(service==null||dimension==null) return "Waypoint --";
+        me.mrhakan.agalarhack.services.Waypoint nearest=null;
+        double best=Double.MAX_VALUE;
+        for(var point:service.visibleIn(dimension)){
+            double distance=point.horizontalDistanceTo(mc.player.getX(),mc.player.getZ());
+            if(distance<best){best=distance;nearest=point;}
+        }
+        if(nearest==null) return "Waypoint --";
+        char arrow=me.mrhakan.agalarhack.services.WaypointCompass.arrow(
+                me.mrhakan.agalarhack.services.WaypointCompass.relativeBearing(
+                        mc.player.getX(),mc.player.getZ(),nearest.x()+0.5,nearest.z()+0.5,mc.player.getYRot()));
+        return arrow+" "+nearest.name()+" "+Math.round(best)+"m";
+    }
+
     private void register(String id,String title,java.util.function.IntSupplier width,java.util.function.IntSupplier height,java.util.function.BiConsumer<GuiGraphicsExtractor,Minecraft> render) {
         registry.register(new me.mrhakan.agalarhack.ui.hud.HudRegistry.Component(id,title,width,height,event->render.accept(event.graphics(),Minecraft.getInstance())),AgalarHackClient.HUD_LAYOUT.get(id).copy());
     }
