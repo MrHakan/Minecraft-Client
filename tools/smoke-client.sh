@@ -94,6 +94,12 @@ PY
 grep -F '(agalarhack-gametest)' "$LOG" | grep -vE ' ok$' | sed 's/.*(agalarhack-gametest) /  /'
 
 if [ "$failed" -ne 0 ]; then
+    # Repeated last, deliberately. A failing job's log ends with several hundred lines of runner
+    # cleanup, and GitHub's log API returns the tail, so an assertion printed when it happened sits
+    # out of reach and costs a full log download to read. Here it is the last thing in the step.
+    echo
+    echo "=== what failed ==="
+    grep -m1 -A4 -E 'AssertionError|Game crashed' "$LOG" | sed 's/^/  /' || echo "  (no assertion in $LOG)"
     echo "Smoke check FAILED; see $LOG"
     exit 1
 fi
