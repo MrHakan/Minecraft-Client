@@ -30,7 +30,7 @@ No entire phase is accepted as complete; Minecraft in-game smoke testing remains
 | C: rendering | 65–70% | More ESP render modes, camera tweaks, per-block BlockESP colours |
 | D: player utility | 55–60% | AutoFish, AutoWalk, AutoAccept, FastPlace, inventory HUD depth |
 | E: movement/world | 10–15% | Parkour, AutoJump, Elytra utility, BaseFinder/HoleESP/light visualization |
-| F: information/social | 0–5% | BetterChat, totems, TPS estimates/ping graph, macros and aliases |
+| F: information/social | 10–15% | BetterChat, TPS estimates/ping graph, macros and aliases |
 | G: ecosystem | 0% | Stable external addon API/template, optional Baritone, localization |
 | H: hardening | 50–55% | In-game lifecycle testing, complete profiling/config migration audit |
 
@@ -238,7 +238,7 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 49 | TriggerBot improvements | Partial shared filters and baseline cooldown behavior; full weapon/critical/reaction settings pending |
 | 50 | AutoWeapon | Implemented on the hotbar lease above AutoTool, using scoring and the damage-family tags |
 | 51 | Critical information | Not started; no packet exploit chains |
-| 52 | Totem tracker | Not started; client-visible activations only |
+| 52 | Totem tracker | Implemented from observed EntityEvent.PROTECTED_FROM_DEATH; resets on death/timeout, labelled "(seen)" |
 | 53 | BaseFinder | Not started; reuse scheduler and local evidence |
 | 54 | NewChunks | Not started; conservative observable classification only |
 | 55 | Light/spawn visualization | Not started; verify 26.2 spawn rules and bounded scanning |
@@ -267,7 +267,7 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 78 | Chunk result cache | Implemented for BlockESP: bounded LRU clean-chunk cache with block-update, unload, anchor and filter invalidation. Other scanners still sweep |
 | 79 | Render culling | Partial distance/target/label bounds shared through EntityDiscovery; frustum culling pending |
 | 80 | Performance HUD | Partial scanner diagnostics and memory; module tick/render timings and broader counters pending |
-| 81 | Unit tests | 202 tests; adds block-update batching, chunk cache eviction, cursor completion, id-list parsing, notification sinks, waypoint normalisation/persistence and compass bearings; trajectory and fade coverage pending |
+| 81 | Unit tests | 213 tests; adds block-update batching, chunk cache eviction, cursor completion, id-list parsing, notification sinks, waypoint normalisation/persistence and compass bearings; trajectory and fade coverage pending |
 | 82 | Integration smoke tests | Not performed in-game; automate where feasible and record exact environment/results |
 | 83 | Lifecycle audit | Partial code audit/restoration; all listed state-changing modules need in-game transition checks |
 | 84 | Error reporting | Partial logger/module/render/scanner isolation; guarded HUD measurements/renderers with notices and retry; remaining boundaries need review |
@@ -379,7 +379,10 @@ Three more topic commits.
    `isStayingOnGroundSurface` gate rather than reimplementing edge detection. `Player` is common code,
    so the injection is restricted to the client's own player.
 
-There are now **two mixins**; both are listed in `agalarhack.mixins.json` under `client`.
+There are now **two mixin classes** listed in `agalarhack.mixins.json` under `client`.
+`ClientPacketListenerMixin` carries three TAIL injections: block update, section blocks update and
+entity event. Entity events feed **TotemTracker** (`EntityEvent.PROTECTED_FROM_DEATH`), which counts
+only activations the client observed and says "(seen)" rather than implying a server-side tally.
 
 Still missing in Phase C: camera tweaks, per-block BlockESP colours and richer ESP render modes.
 
