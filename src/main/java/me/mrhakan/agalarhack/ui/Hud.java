@@ -49,6 +49,9 @@ public class Hud implements HudElement {
         textComponent("server","Server",()->me.mrhakan.agalarhack.services.ClientServices.require(me.mrhakan.agalarhack.services.ServerContextService.class).address(Minecraft.getInstance()));
         textComponent("speed","Speed",()->{var player=Minecraft.getInstance().player;if(player==null)return "Speed --";var v=player.getDeltaMovement();return String.format(Locale.ROOT,"Speed %.2f b/s",Math.hypot(v.x,v.z)*20);});
         textComponent("waypoint","Waypoint",()->nearestWaypointLine());
+        textComponent("tps","TPS (estimate)",()->serverInfoLine());
+        registry.register(new me.mrhakan.agalarhack.ui.hud.HudRegistry.Component("ping_graph","Ping Graph",()->104,()->34,event->renderPingGraph(event.graphics())),
+                new me.mrhakan.agalarhack.managers.HudLayoutManager.WidgetState(me.mrhakan.agalarhack.managers.HudLayoutManager.Anchor.TOP_LEFT,8,150,false));
         textComponent("direction","Direction",()->Minecraft.getInstance().player==null?"Facing --":"Facing "+Minecraft.getInstance().player.getDirection());
         registry.register(new me.mrhakan.agalarhack.ui.hud.HudRegistry.Component("inventory","Inventory",()->170,()->62,event->{
             var g=event.graphics();var mc=Minecraft.getInstance();int x=AgalarHackClient.HUD_LAYOUT.resolveX("inventory",g.guiWidth(),170),y=AgalarHackClient.HUD_LAYOUT.resolveY("inventory",g.guiHeight(),62);
@@ -56,6 +59,41 @@ public class Hud implements HudElement {
             for(int i=9;i<36;i++){var item=mc.player.getInventory().getItem(i);int px=x+4+(i-9)%9*18,py=y+4+(i-9)/9*18;g.item(item,px,py);if(item.getCount()>1)g.text(mc.font,String.valueOf(item.getCount()),px+8,py+9,0xffffffff,true);}
         }),new me.mrhakan.agalarhack.managers.HudLayoutManager.WidgetState(me.mrhakan.agalarhack.managers.HudLayoutManager.Anchor.BOTTOM_RIGHT,8,110,false));
     }
+    private static me.mrhakan.agalarhack.module.misc.ServerInfo serverInfo() {
+        var module=AgalarHackClient.moduleManager.getModule("ServerInfo");
+        return module instanceof me.mrhakan.agalarhack.module.misc.ServerInfo info && info.isToggled()?info:null;
+    }
+
+    /** Always labelled as an estimate: the client is never told the server's real tick rate. */
+    private static String serverInfoLine() {
+        var info=serverInfo();
+        if(info==null||!info.tickEstimate().hasEstimate()) return "TPS --";
+        var ticks=info.tickEstimate();
+        return String.format(Locale.ROOT,"~%.1f tps (est, min %.1f)",ticks.average(),ticks.minimum());
+    }
+
+    private static void renderPingGraph(GuiGraphicsExtractor g) {
+        var info=serverInfo();
+        int x=AgalarHackClient.HUD_LAYOUT.resolveX("ping_graph",g.guiWidth(),104);
+        int y=AgalarHackClient.HUD_LAYOUT.resolveY("ping_graph",g.guiHeight(),34);
+        g.fill(x,y,x+104,y+34,0xc8101620);
+        var mc=Minecraft.getInstance();
+        if(info==null){g.text(mc.font,"Ping --",x+4,y+4,ClientUiTheme.TEXT,true);return;}
+        var samples=info.pingSamples().snapshot();
+        if(samples.length==0){g.text(mc.font,"Ping --",x+4,y+4,ClientUiTheme.TEXT,true);return;}
+        double maximum=Math.max(50,info.pingSamples().maximum());
+        int plotTop=y+14,plotBottom=y+32;
+        // One column per sample, newest on the right; the bar height is relative to the window maximum.
+        int columns=Math.min(100,samples.length);
+        for(int i=0;i<columns;i++){
+            double value=samples[samples.length-columns+i];
+            int height=(int)Math.round((plotBottom-plotTop)*Math.min(1.0,value/maximum));
+            int color=value>300?0xffff5555:value>150?0xffffcc55:0xff55ff88;
+            g.fill(x+2+i,plotBottom-height,x+3+i,plotBottom,color);
+        }
+        g.text(mc.font,String.format(Locale.ROOT,"Ping %d ms",Math.round(info.pingSamples().latest())),x+4,y+3,ClientUiTheme.TEXT,true);
+    }
+
     /** Nearest visible waypoint in this dimension, with an arrow relative to where the player looks. */
     private static String nearestWaypointLine() {
         var mc=Minecraft.getInstance();

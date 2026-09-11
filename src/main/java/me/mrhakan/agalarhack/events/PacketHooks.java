@@ -9,15 +9,15 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.state.BlockState;
 
 /**
- * Bridge between the block-update mixin and the internal event bus.
+ * Bridge between the packet mixin and the internal event bus.
  *
- * <p>Fabric API 26.2 exposes chunk, block-entity and player-break events but no general
- * server-sent block update, so the two packet handlers are the only honest producer for it. This
- * class keeps the mixin trivial: it holds no state, resolves the bus defensively, and never lets a
- * listener failure escape into Minecraft's packet handling.
+ * <p>Fabric API 26.2 exposes chunk, block-entity and player-break events, but nothing for
+ * server-sent block updates, entity events or time updates, so the packet handlers are the only
+ * honest producer for those. This class keeps the mixin trivial: it holds no state, resolves the bus
+ * defensively, and never lets a listener failure escape into Minecraft's packet handling.
  */
-public final class BlockUpdateHooks {
-    private BlockUpdateHooks() { }
+public final class PacketHooks {
+    private PacketHooks() { }
 
     /**
      * Individual updates stop after this many blocks in one packet and a single chunk-wide
@@ -41,6 +41,14 @@ public final class BlockUpdateHooks {
     public static void entityEvent(ClientLevel level, net.minecraft.world.entity.Entity entity, byte eventId) {
         if (level == null || entity == null) return;
         post(bus -> bus.post(new ClientEvents.EntityEventReceived(level, entity, eventId)));
+    }
+
+    /**
+     * A world-time update. Vanilla sends these on a fixed server-tick cadence, which is what makes
+     * their spacing usable as a tick-rate estimate - an estimate, never an authoritative figure.
+     */
+    public static void serverTime(long gameTime) {
+        post(bus -> bus.post(new ClientEvents.ServerTimeUpdated(gameTime)));
     }
 
     public static void sectionUpdated(ClientLevel level, SectionReplay replay) {

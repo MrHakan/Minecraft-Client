@@ -1,4 +1,4 @@
-[04:19:10] [Test worker/WARN]: Waypoints preserved; saving disabled until a successful reload
+[04:22:47] [Test worker/WARN]: Waypoints preserved; saving disabled until a successful reload
 java.io.IOException: Invalid config; original file preserved
 	at me.mrhakan.agalarhack.config.BoundedJsonFile.load(BoundedJsonFile.java:46)
 	at me.mrhakan.agalarhack.services.WaypointService.load(WaypointService.java:45)
