@@ -11,7 +11,9 @@ import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
 import net.minecraft.client.Minecraft;
+import net.minecraft.network.chat.ChatType;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.PlayerChatMessage;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -65,6 +67,8 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
             autoWeapon(context, singleplayer);
             betterChat(context, singleplayer);
             chatFilter(context, singleplayer);
+            chatMentions(context, singleplayer);
+            autoAccept(context, singleplayer);
 
             LOGGER.info("Module behaviour scenarios passed");
         }
@@ -514,6 +518,112 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
                     + "filter that swallows everything is worse than no filter");
         }
         LOGGER.info("  ChatFilter hid the listed line and left the other alone");
+    }
+
+    /**
+     * A mention is a notification, so the notification service is where the effect shows up.
+     *
+     * <p>Sent as player chat rather than from the server console, because the client deliberately
+     * offers this module player chat only - a system line is a plugin talking, not someone
+     * addressing you. The first draft used a server broadcast and the module was right to ignore it.
+     *
+     * <p>The trigger is a keyword from another speaker. Both halves are forced: the module ignores
+     * your own messages, so the line cannot come from the local player, and with only one real
+     * player in the world the server has to speak for a second one.
+     */
+    private void chatMentions(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        String keyword = "zarfblat";
+        configure(context, "ChatMentions", module -> {
+            module.settings.setSetting("keywords", keyword);
+            module.settings.setSetting("ownName", false);
+            // The cue would reach for an audio device this machine does not have.
+            module.settings.setSetting("sound", false);
+            module.settings.setSetting("cooldown", 0.0);
+        });
+
+        // A mention surfaces as a toast, and the Notifications module is what makes toasts exist:
+        // its onDisable switches the whole notification service off, and the lifecycle test toggled
+        // it off earlier in this run. Without this the service silently drops every publish.
+        toggle(context, "Notifications", true);
+
+        somebodySays(context, singleplayer, "Someone", "control line mentioning " + keyword);
+        if (mentionNotified(context)) {
+            throw new AssertionError("a mention was reported before ChatMentions was enabled");
+        }
+
+        toggle(context, "ChatMentions", true);
+        somebodySays(context, singleplayer, "Someone", "second line mentioning " + keyword);
+        boolean noticed = mentionNotified(context);
+        toggle(context, "ChatMentions", false);
+        toggle(context, "Notifications", false);
+        if (!noticed) {
+            throw new AssertionError("ChatMentions did not report a chat line containing its "
+                    + "configured keyword");
+        }
+        LOGGER.info("  ChatMentions reported a keyword in player chat");
+    }
+
+    /**
+     * Chat attributed to somebody who is not the local player.
+     *
+     * <p>Sending it from the player instead does not work, and the module is right about that: a
+     * player chat line arrives rendered as {@code <Player0> ...}, which contains the player's own
+     * name, and ChatMentions deliberately refuses to treat your own message as a mention of you.
+     * There is only one real player in a test world, so the server speaks for a second one.
+     */
+    private static void somebodySays(ClientGameTestContext context, TestSingleplayerContext singleplayer,
+            String speaker, String text) {
+        singleplayer.getServer().runOnServer(server -> server.getPlayerList().broadcastChatMessage(
+                // The real player's id, with somebody else's name bound to the line. A made-up id is
+                // rejected by the client as a chat validation error - it only accepts messages from
+                // senders it knows about - and the display name is all the module reads anyway.
+                PlayerChatMessage.unsigned(singleplayer.getConnection().getServerPlayer().getUUID(), text),
+                server.createCommandSourceStack(),
+                ChatType.bind(ChatType.CHAT, server.registryAccess(), Component.literal(speaker))));
+        context.waitTicks(10);
+    }
+
+    private static boolean mentionNotified(ClientGameTestContext context) {
+        return context.computeOnClient(client ->
+                me.mrhakan.agalarhack.services.ClientServices.require(
+                                me.mrhakan.agalarhack.services.NotificationService.class)
+                        .visible().stream().anyMatch(notice -> notice.text().contains("mentioned in chat")));
+    }
+
+    /**
+     * The strongest end-to-end check here: the module answers by sending a real command, so the
+     * assertion is that the server echoed it back. Nothing about that can be faked client-side.
+     *
+     * <p>The reply is {@code /me} rather than {@code /say} because it needs no permission level - a
+     * reply the server refuses would look exactly like a module that never fired.
+     */
+    private void autoAccept(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        String requester = "Requester";
+        String echo = "autoaccept answered a request";
+        configure(context, "AutoAccept", module -> {
+            module.settings.setSetting("phrases", "wants to teleport");
+            module.settings.setSetting("reply", "/me " + echo);
+            module.settings.setSetting("friendsOnly", false);
+            module.settings.setSetting("allowedNames", requester);
+            module.settings.setSetting("cooldownSeconds", 1.0);
+        });
+
+        String request = requester + " wants to teleport to you";
+        say(context, singleplayer, request);
+        if (context.computeOnClient(client -> ChatView.contains(client, echo))) {
+            throw new AssertionError("the reply appeared in chat before AutoAccept was enabled");
+        }
+
+        toggle(context, "AutoAccept", true);
+        say(context, singleplayer, request);
+        context.waitTicks(20);
+        boolean answered = context.computeOnClient(client -> ChatView.contains(client, echo));
+        toggle(context, "AutoAccept", false);
+        if (!answered) {
+            throw new AssertionError("AutoAccept did not send its reply; the server never echoed \""
+                    + echo + "\" back into chat");
+        }
+        LOGGER.info("  AutoAccept answered a listed requester and the server echoed the command");
     }
 
     /**
