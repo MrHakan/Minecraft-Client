@@ -51,6 +51,9 @@ public final class WorldOverlayRenderer {
         Module freecamModule = AgalarHackClient.moduleManager.getModule("Freecam");
         Module storageModule = AgalarHackClient.moduleManager.getModule("StorageESP");
         Module blockModule = AgalarHackClient.moduleManager.getModule("BlockESP");
+        Module waypointModule = AgalarHackClient.moduleManager.getModule("Waypoints");
+        me.mrhakan.agalarhack.module.render.Waypoints waypoints =
+                waypointModule instanceof me.mrhakan.agalarhack.module.render.Waypoints w ? w : null;
         Freecam freecam = freecamModule instanceof Freecam f ? f : null;
         StorageESP storage = storageModule instanceof StorageESP s ? s : null;
         BlockESP blockEsp = blockModule instanceof BlockESP b ? b : null;
@@ -59,13 +62,18 @@ public final class WorldOverlayRenderer {
         boolean storageEnabled = storage != null && storage.isToggled();
         boolean blockEnabled = blockEsp != null && blockEsp.isToggled();
         boolean bodyMarker = freecam != null && freecam.shouldRenderBodyMarker();
-        if (!espEnabled && !trajectoriesEnabled && !storageEnabled && !blockEnabled && !bodyMarker) return;
+        boolean waypointsEnabled = waypoints != null && waypoints.isToggled();
+        if (!espEnabled && !trajectoriesEnabled && !storageEnabled && !blockEnabled && !bodyMarker && !waypointsEnabled) return;
 
         var renderService = me.mrhakan.agalarhack.services.ClientServices.require(me.mrhakan.agalarhack.services.RenderService.class);
         Vec3 camera = ctx.levelState().cameraRenderState.pos;
         List<LivingEntity> espTargets = espEnabled && esp instanceof EntityESP entityEsp ? entityEsp.targets() : List.of();
         if (espEnabled && esp.getBooleanSetting("labels", true)) renderService.guard(esp, () -> renderEspLabels(ctx, mc, esp, espTargets, camera));
         if (storageEnabled && storage.getBooleanSetting("labels", false)) renderService.guard(storage, () -> renderStorageLabels(ctx, mc, storage, camera));
+        if (waypointsEnabled && waypoints.getBooleanSetting("labels", true)) {
+            var labelled = waypoints;
+            renderService.guard(labelled, () -> renderWaypointLabels(ctx, mc, labelled, camera));
+        }
 
         var submittedLevel = mc.level;
         var submittedPlayer = mc.player;
@@ -75,6 +83,7 @@ public final class WorldOverlayRenderer {
             if (storageEnabled) renderService.guard(storage, () -> renderStorageEsp(mc, storage, camera, pose, buffer));
             if (blockEnabled) renderService.guard(blockEsp, () -> renderBlockEsp(mc, blockEsp, camera, pose, buffer));
             if (trajectoriesEnabled) renderService.guard(trajectories, () -> renderTrajectory(mc, trajectories, camera, pose, buffer));
+            if (waypointsEnabled) renderService.guard(waypoints, () -> renderWaypoints(mc, waypoints, camera, pose, buffer));
             if (bodyMarker) renderService.guard(freecam, () -> renderFreecamBodyMarker(mc, freecam, camera, pose, buffer));
         });
     }
@@ -200,6 +209,48 @@ public final class WorldOverlayRenderer {
             AABB block = new AABB(pos.getX(), pos.getY(), pos.getZ(), pos.getX() + 1.0, pos.getY() + 1.0, pos.getZ() + 1.0)
                     .inflate(0.015).move(-camera.x, -camera.y, -camera.z);
             box(buffer, pose, block, (alpha << 24) | rgb);
+        }
+    }
+
+    private static void renderWaypoints(Minecraft mc, me.mrhakan.agalarhack.module.render.Waypoints module,
+            Vec3 camera, PoseStack.Pose pose, VertexConsumer buffer) {
+        double limit = module.getNumberSetting("renderDistance", 512);
+        double size = module.getNumberSetting("markerSize", 1.0);
+        boolean beams = module.getBooleanSetting("beams", true);
+        double beamHeight = module.getNumberSetting("beamHeight", 256);
+        for (var point : module.visible()) {
+            if (point.horizontalDistanceTo(mc.player.getX(), mc.player.getZ()) > limit) continue;
+            double half = size / 2.0;
+            AABB marker = new AABB(point.x() + 0.5 - half, point.y(), point.z() + 0.5 - half,
+                    point.x() + 0.5 + half, point.y() + size, point.z() + 0.5 + half)
+                    .move(-camera.x, -camera.y, -camera.z);
+            box(buffer, pose, marker, point.color());
+            if (!beams || !point.beam()) continue;
+            // A thin tall box reads as a beam and reuses the same line geometry as every other overlay.
+            AABB beam = new AABB(point.x() + 0.45, point.y(), point.z() + 0.45,
+                    point.x() + 0.55, point.y() + beamHeight, point.z() + 0.55)
+                    .move(-camera.x, -camera.y, -camera.z);
+            box(buffer, pose, beam, (point.color() & 0x00FFFFFF) | 0x60000000);
+        }
+    }
+
+    private static void renderWaypointLabels(LevelRenderContext ctx, Minecraft mc,
+            me.mrhakan.agalarhack.module.render.Waypoints module, Vec3 camera) {
+        double limit = module.getNumberSetting("renderDistance", 512);
+        boolean withDistance = module.getBooleanSetting("distanceInLabel", true);
+        double size = module.getNumberSetting("markerSize", 1.0);
+        PoseStack stack = ctx.poseStack();
+        for (var point : module.visible()) {
+            double distance = point.horizontalDistanceTo(mc.player.getX(), mc.player.getZ());
+            if (distance > limit) continue;
+            String label = withDistance ? point.name() + " " + Math.round(distance) + "m" : point.name();
+            stack.pushPose();
+            try {
+                stack.translate(point.x() + 0.5 - camera.x, point.y() + size - camera.y, point.z() + 0.5 - camera.z);
+                ctx.submitNodeCollector().submitNameTag(stack, new Vec3(0.0, 0.4, 0.0), 0,
+                        Component.literal(label).withStyle(Style.EMPTY.withColor(TextColor.fromRgb(point.color() & 0x00FFFFFF))),
+                        true, LightCoordsUtil.FULL_BRIGHT, ctx.levelState().cameraRenderState);
+            } finally { stack.popPose(); }
         }
     }
 

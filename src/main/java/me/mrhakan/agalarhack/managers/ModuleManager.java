@@ -34,6 +34,7 @@ import me.mrhakan.agalarhack.module.render.Freecam;
 import me.mrhakan.agalarhack.module.render.Fullbright;
 import me.mrhakan.agalarhack.module.render.StorageESP;
 import me.mrhakan.agalarhack.module.render.TargetHUD;
+import me.mrhakan.agalarhack.module.render.Waypoints;
 import me.mrhakan.agalarhack.module.render.Trajectories;
 import me.mrhakan.agalarhack.module.world.AutoTool;
 import net.minecraft.client.Minecraft;
@@ -68,6 +69,7 @@ public class ModuleManager {
         register(new Trajectories());
         register(new TargetHUD());
         register(new Freecam());
+        register(new Waypoints());
 
         register(new AutoTotem());
         register(new AutoArmor());

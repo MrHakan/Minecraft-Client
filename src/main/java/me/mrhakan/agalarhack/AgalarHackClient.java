@@ -104,12 +104,15 @@ public class AgalarHackClient implements ClientModInitializer {
         EVENTS.subscribe(ClientEvents.Disconnected.class, "server-context", 110, event -> context.disconnected());
         services.register(me.mrhakan.agalarhack.services.RenderService.class, new me.mrhakan.agalarhack.services.RenderService());
         var themes=services.register(me.mrhakan.agalarhack.services.ThemeService.class,new me.mrhakan.agalarhack.services.ThemeService());
+        var waypoints = services.register(me.mrhakan.agalarhack.services.WaypointService.class,
+                new me.mrhakan.agalarhack.services.WaypointService());
         var scanners = services.register(me.mrhakan.agalarhack.services.ScannerService.class,
                 new me.mrhakan.agalarhack.services.ScannerService(Minecraft.getInstance()));
         EVENTS.subscribe(ClientEvents.ClientTick.class, "scanners", 30, event -> scanners.tick());
         EVENTS.subscribe(ClientEvents.WorldChanged.class, "scanner-world", 100, event -> scanners.reset());
         EVENTS.subscribe(ClientEvents.Disconnected.class, "scanner-disconnect", 100, event -> scanners.reset());
         themes.load();
+        waypoints.load();
         FRIEND_MANAGER.load();
         HUD_LAYOUT.load();
         TARGET_POLICY.load();
