@@ -32,6 +32,11 @@ public final class ClientEvents {
     public record Disconnected(Minecraft client) { }
     public record ChunkLoaded(ClientLevel level, net.minecraft.world.level.chunk.LevelChunk chunk) { }
     public record ChunkUnloaded(ClientLevel level, net.minecraft.world.level.chunk.LevelChunk chunk) { }
+    /** A server-sent block change, posted after the world already holds the new state. */
+    public record BlockUpdated(ClientLevel level, net.minecraft.core.BlockPos pos,
+                               net.minecraft.world.level.block.state.BlockState state) { }
+    /** Too many changes arrived at once to report individually; treat the whole chunk as stale. */
+    public record ChunkBlocksInvalidated(ClientLevel level, int chunkX, int chunkZ) { }
     public record EntityAdded(Entity entity, ClientLevel level) { }
     public record EntityRemoved(Entity entity, ClientLevel level) { }
     public record ScreenOpened(Screen screen) { }
