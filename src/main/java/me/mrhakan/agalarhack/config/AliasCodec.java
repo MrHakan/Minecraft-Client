@@ -31,15 +31,7 @@ public final class AliasCodec {
         var root = JsonParser.parseString(raw);
         if (!root.isJsonObject()) throw new IllegalArgumentException("Alias file must be an object");
         JsonObject object = root.getAsJsonObject();
-        if (object.has("schemaVersion")) {
-            var version = object.get("schemaVersion");
-            if (!version.isJsonPrimitive() || !version.getAsJsonPrimitive().isNumber()) {
-                throw new IllegalArgumentException("Invalid alias schema version");
-            }
-            if (version.getAsInt() > SCHEMA_VERSION) {
-                throw new IllegalArgumentException("Alias file was written by a newer version");
-            }
-        }
+        SchemaVersions.require(object, SCHEMA_VERSION, "alias");
         if (!object.has("aliases") || !object.get("aliases").isJsonObject()) {
             throw new IllegalArgumentException("Alias file has no alias map");
         }

@@ -29,15 +29,7 @@ public final class MacroCodec {
         var root = JsonParser.parseString(raw);
         if (!root.isJsonObject()) throw new IllegalArgumentException("Macro file must be an object");
         JsonObject object = root.getAsJsonObject();
-        if (object.has("schemaVersion")) {
-            var version = object.get("schemaVersion");
-            if (!version.isJsonPrimitive() || !version.getAsJsonPrimitive().isNumber()) {
-                throw new IllegalArgumentException("Invalid macro schema version");
-            }
-            if (version.getAsInt() > SCHEMA_VERSION) {
-                throw new IllegalArgumentException("Macro file was written by a newer version");
-            }
-        }
+        SchemaVersions.require(object, SCHEMA_VERSION, "macro");
         if (!object.has("macros") || !object.get("macros").isJsonArray()) {
             throw new IllegalArgumentException("Macro file has no macro list");
         }

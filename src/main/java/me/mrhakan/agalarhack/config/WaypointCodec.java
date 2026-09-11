@@ -36,10 +36,7 @@ public final class WaypointCodec {
         var root = JsonParser.parseString(raw);
         if (!root.isJsonObject()) throw new IllegalArgumentException("Waypoint file must be an object");
         JsonObject object = root.getAsJsonObject();
-        int version = readVersion(object);
-        if (version > SCHEMA_VERSION) {
-            throw new IllegalArgumentException("Waypoint file was written by a newer version");
-        }
+        SchemaVersions.require(object, SCHEMA_VERSION, "waypoint");
         if (!object.has("waypoints") || !object.get("waypoints").isJsonArray()) {
             throw new IllegalArgumentException("Waypoint file has no waypoint list");
         }
@@ -52,19 +49,6 @@ public final class WaypointCodec {
             if (waypoint != null) result.put(waypoint.key(), waypoint);
         }
         return result;
-    }
-
-    private static int readVersion(JsonObject object) {
-        if (!object.has("schemaVersion")) return SCHEMA_VERSION;
-        var value = object.get("schemaVersion");
-        if (!value.isJsonPrimitive() || !value.getAsJsonPrimitive().isNumber()) {
-            throw new IllegalArgumentException("Invalid waypoint schema version");
-        }
-        try {
-            return value.getAsJsonPrimitive().getAsBigDecimal().intValueExact();
-        } catch (ArithmeticException failure) {
-            throw new IllegalArgumentException("Invalid waypoint schema version", failure);
-        }
     }
 
     private static Waypoint readWaypoint(com.google.gson.JsonElement element) {

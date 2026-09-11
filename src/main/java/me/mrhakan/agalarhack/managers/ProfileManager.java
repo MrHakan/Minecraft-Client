@@ -25,7 +25,16 @@ import net.minecraft.client.Minecraft;
 
 /** Named client snapshots with optional automatic server-address binding. */
 public class ProfileManager {
+    /**
+     * Profiles are the only store that had no version marker, which meant a profile written by a
+     * later client would be loaded as if it were current and silently re-saved in today's shape.
+     */
+    public static final int PROFILE_SCHEMA_VERSION = 1;
+
     public static final class ProfileData {
+        /** Absent in every profile written before this field existed, which is version 1 by definition. */
+        public int schemaVersion = PROFILE_SCHEMA_VERSION;
+
         public Map<String, Settings> modules = new LinkedHashMap<>();
         public Settings targetPolicy;
         public Map<String, HudLayoutManager.WidgetState> hud = new LinkedHashMap<>();
@@ -408,8 +417,15 @@ public class ProfileManager {
         if (!Files.isRegularFile(path)) {
             throw new IllegalArgumentException("Profile does not exist: " + name);
         }
-        try (Reader reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
-            ProfileData data = gson.fromJson(reader, ProfileData.class);
+        try {
+            // Parsed as a tree first so the version is checked before Gson coerces anything: a
+            // profile from a later client must be left alone, not loaded and written back in
+            // today's shape. One read, then both checks work off the same tree.
+            var root = com.google.gson.JsonParser.parseString(Files.readString(path, StandardCharsets.UTF_8));
+            if (!root.isJsonObject()) throw new IllegalArgumentException("Profile is empty or invalid.");
+            me.mrhakan.agalarhack.config.SchemaVersions.require(
+                    root.getAsJsonObject(), PROFILE_SCHEMA_VERSION, "profile");
+            ProfileData data = gson.fromJson(root, ProfileData.class);
             validateProfileData(data);
             return data;
         } catch (JsonSyntaxException e) {
@@ -438,6 +454,13 @@ public class ProfileManager {
     private void validateProfileData(ProfileData data) {
         if (data == null) {
             throw new IllegalArgumentException("Profile is empty or invalid.");
+        }
+        // Gson leaves the field at 0 when the JSON omits it, which is every pre-versioning profile.
+        if (data.schemaVersion <= 0) {
+            data.schemaVersion = PROFILE_SCHEMA_VERSION;
+        }
+        if (data.schemaVersion > PROFILE_SCHEMA_VERSION) {
+            throw new IllegalArgumentException("Profile was written by a newer version");
         }
         if (data.modules == null) {
             data.modules = new LinkedHashMap<>();
