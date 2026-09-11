@@ -110,6 +110,16 @@ public class AgalarHackClient implements ClientModInitializer {
                 new me.mrhakan.agalarhack.services.ScannerService(Minecraft.getInstance()));
         var timings = services.register(me.mrhakan.agalarhack.services.ModuleTimings.class,
                 new me.mrhakan.agalarhack.services.ModuleTimings());
+        var movement = services.register(me.mrhakan.agalarhack.services.MovementStats.class,
+                new me.mrhakan.agalarhack.services.MovementStats());
+        EVENTS.subscribe(ClientEvents.ClientTick.class, "movement-stats", 55, event -> {
+            var player = Minecraft.getInstance().player;
+            if (player == null) movement.reset();
+            else movement.sample(player.getX(), player.getY(), player.getZ());
+        });
+        // A new world or a fresh connection is a different situation; smearing across it would lie.
+        EVENTS.subscribe(ClientEvents.WorldChanged.class, "movement-stats-world", 100, event -> movement.reset());
+        EVENTS.subscribe(ClientEvents.Disconnected.class, "movement-stats-disconnect", 100, event -> movement.reset());
         // Ahead of the module tick (priority 30 below) so a tick is counted from its own beginning.
         EVENTS.subscribe(ClientEvents.ClientTick.class, "module-timings", 60, event -> timings.beginTick());
         EVENTS.subscribe(ClientEvents.Disconnected.class, "module-timings-disconnect", 100, event -> timings.clear());

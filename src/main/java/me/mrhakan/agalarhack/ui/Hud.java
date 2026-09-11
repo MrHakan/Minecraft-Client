@@ -50,7 +50,8 @@ public class Hud implements HudElement {
         textComponent("fps","FPS",()->"FPS "+Minecraft.getInstance().getFps());
         textComponent("memory","Memory",()->"Memory "+(Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory())/(1024*1024)+" MiB");
         textComponent("server","Server",()->me.mrhakan.agalarhack.services.ClientServices.require(me.mrhakan.agalarhack.services.ServerContextService.class).address(Minecraft.getInstance()));
-        textComponent("speed","Speed",()->{var player=Minecraft.getInstance().player;if(player==null)return "Speed --";var v=player.getDeltaMovement();return String.format(Locale.ROOT,"Speed %.2f b/s",Math.hypot(v.x,v.z)*20);});
+        textComponent("speed","Speed",Hud::speedLine);
+        register("movement","Movement Stats",()->132,()->48,this::renderMovementStats);
         textComponent("waypoint","Waypoint",()->nearestWaypointLine());
         textComponent("tps","TPS (estimate)",()->serverInfoLine());
         registry.register(new me.mrhakan.agalarhack.ui.hud.HudRegistry.Component("ping_graph","Ping Graph",()->104,()->34,event->renderPingGraph(event.graphics())),
@@ -62,6 +63,42 @@ public class Hud implements HudElement {
             for(int i=9;i<36;i++){var item=mc.player.getInventory().getItem(i);int px=x+4+(i-9)%9*18,py=y+4+(i-9)/9*18;g.item(item,px,py);if(item.getCount()>1)g.text(mc.font,String.valueOf(item.getCount()),px+8,py+9,0xffffffff,true);}
         }),new me.mrhakan.agalarhack.managers.HudLayoutManager.WidgetState(me.mrhakan.agalarhack.managers.HudLayoutManager.Anchor.BOTTOM_RIGHT,8,110,false));
     }
+    private static me.mrhakan.agalarhack.services.MovementStats movementStats() {
+        return me.mrhakan.agalarhack.services.ClientServices.require(me.mrhakan.agalarhack.services.MovementStats.class);
+    }
+
+    /**
+     * Measured from where the player ended up, not from the motion vector, which a collision zeroes
+     * the moment you scrape a wall - exactly when the reading is being watched.
+     */
+    private static String speedLine() {
+        var stats=movementStats();
+        return stats.hasSamples()?String.format(Locale.ROOT,"Speed %.2f b/s",stats.horizontalSpeed()):"Speed --";
+    }
+
+    /** Horizontal and vertical speed, recent average and peak, plus acceleration while it is changing. */
+    private void renderMovementStats(GuiGraphicsExtractor g, Minecraft client) {
+        var stats=movementStats();
+        var font=client.font;
+        List<String> lines=new ArrayList<>(4);
+        if(!stats.hasSamples()) lines.add("Movement --");
+        else{
+            lines.add(String.format(Locale.ROOT,"H %.2f b/s  V %+.2f",stats.horizontalSpeed(),stats.verticalSpeed()));
+            lines.add(String.format(Locale.ROOT,"avg %.2f  peak %.2f",stats.averageHorizontalSpeed(),stats.peakHorizontalSpeed()));
+            lines.add(String.format(Locale.ROOT,"accel %+.1f b/s2",stats.horizontalAcceleration()));
+            double fall=stats.peakFallSpeed();
+            lines.add(fall>0?String.format(Locale.ROOT,"peak fall %.2f b/s",fall):"peak fall --");
+        }
+        int width=Math.max(132,lines.stream().mapToInt(font::width).max().orElse(0)+10);
+        int height=lines.size()*(font.lineHeight+2)+6;
+        int x=AgalarHackClient.HUD_LAYOUT.resolveX("movement",g.guiWidth(),width);
+        int y=AgalarHackClient.HUD_LAYOUT.resolveY("movement",g.guiHeight(),height);
+        g.fill(x,y,x+width,y+height,ClientUiTheme.PANEL);
+        for(int index=0;index<lines.size();index++){
+            g.text(font,lines.get(index),x+5,y+3+index*(font.lineHeight+2),ClientUiTheme.TEXT,true);
+        }
+    }
+
     private static me.mrhakan.agalarhack.module.misc.ServerInfo serverInfo() {
         var module=AgalarHackClient.moduleManager.getModule("ServerInfo");
         return module instanceof me.mrhakan.agalarhack.module.misc.ServerInfo info && info.isToggled()?info:null;
