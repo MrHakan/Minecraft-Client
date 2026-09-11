@@ -37,6 +37,7 @@ import me.mrhakan.agalarhack.module.render.Coordinates;
 import me.mrhakan.agalarhack.module.render.Durability;
 import me.mrhakan.agalarhack.module.render.EntityESP;
 import me.mrhakan.agalarhack.module.render.Freecam;
+import me.mrhakan.agalarhack.module.render.HoleESP;
 import me.mrhakan.agalarhack.module.render.ItemESP;
 import me.mrhakan.agalarhack.module.render.Nametags;
 import me.mrhakan.agalarhack.module.render.Fullbright;
@@ -89,6 +90,7 @@ public class ModuleManager {
         register(new ItemESP());
         register(new Nametags());
         register(new Breadcrumbs());
+        register(new HoleESP());
         register(new Tracers());
         register(new ProjectileESP());
         register(new ProjectileWarning());

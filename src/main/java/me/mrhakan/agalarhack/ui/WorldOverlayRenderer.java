@@ -51,6 +51,9 @@ public final class WorldOverlayRenderer {
         Module freecamModule = AgalarHackClient.moduleManager.getModule("Freecam");
         Module storageModule = AgalarHackClient.moduleManager.getModule("StorageESP");
         Module blockModule = AgalarHackClient.moduleManager.getModule("BlockESP");
+        Module holeModule = AgalarHackClient.moduleManager.getModule("HoleESP");
+        me.mrhakan.agalarhack.module.render.HoleESP holes =
+                holeModule instanceof me.mrhakan.agalarhack.module.render.HoleESP h ? h : null;
         Module projectileModule = AgalarHackClient.moduleManager.getModule("ProjectileESP");
         me.mrhakan.agalarhack.module.render.ProjectileESP projectiles =
                 projectileModule instanceof me.mrhakan.agalarhack.module.render.ProjectileESP p ? p : null;
@@ -83,7 +86,8 @@ public final class WorldOverlayRenderer {
         boolean breadcrumbsEnabled = breadcrumbs != null && breadcrumbs.isToggled();
         boolean tracersEnabled = tracers != null && tracers.isToggled();
         boolean projectilesEnabled = projectiles != null && projectiles.isToggled();
-        if (!projectilesEnabled && !tracersEnabled && !breadcrumbsEnabled && !espEnabled && !trajectoriesEnabled && !storageEnabled && !blockEnabled && !bodyMarker
+        boolean holesEnabled = holes != null && holes.isToggled();
+        if (!holesEnabled && !projectilesEnabled && !tracersEnabled && !breadcrumbsEnabled && !espEnabled && !trajectoriesEnabled && !storageEnabled && !blockEnabled && !bodyMarker
                 && !waypointsEnabled && !itemsEnabled && !nametagsEnabled) return;
 
         var renderService = me.mrhakan.agalarhack.services.ClientServices.require(me.mrhakan.agalarhack.services.RenderService.class);
@@ -112,6 +116,7 @@ public final class WorldOverlayRenderer {
             if (storageEnabled) renderService.guard(storage, () -> renderStorageEsp(mc, storage, camera, pose, buffer));
             if (blockEnabled) renderService.guard(blockEsp, () -> renderBlockEsp(mc, blockEsp, camera, pose, buffer));
             if (trajectoriesEnabled) renderService.guard(trajectories, () -> renderTrajectory(mc, trajectories, camera, pose, buffer));
+            if (holesEnabled) renderService.guard(holes, () -> renderHoles(holes, camera, pose, buffer));
             if (projectilesEnabled) renderService.guard(projectiles, () -> renderProjectiles(projectiles, camera, pose, buffer));
             if (tracersEnabled) renderService.guard(tracers, () -> renderTracers(tracers, camera, pose, buffer));
             if (breadcrumbsEnabled) renderService.guard(breadcrumbs, () -> renderBreadcrumbs(breadcrumbs, camera, pose, buffer));
@@ -244,6 +249,22 @@ public final class WorldOverlayRenderer {
             AABB block = new AABB(pos.getX(), pos.getY(), pos.getZ(), pos.getX() + 1.0, pos.getY() + 1.0, pos.getZ() + 1.0)
                     .inflate(0.015).move(-camera.x, -camera.y, -camera.z);
             box(buffer, pose, block, (alpha << 24) | rgb);
+        }
+    }
+
+    private static void renderHoles(me.mrhakan.agalarhack.module.render.HoleESP module,
+            Vec3 camera, PoseStack.Pose pose, VertexConsumer buffer) {
+        int alpha = (int) Math.max(32, Math.min(255, module.getNumberSetting("alpha", 150.0))) << 24;
+        for (var entry : module.results()) {
+            BlockPos pos = entry.getKey();
+            // Green reads as safe and orange as "encloses you but will not hold"; the distinction
+            // is the whole point of the module, so it is carried by colour rather than a label.
+            int rgb = entry.getValue() == me.mrhakan.agalarhack.services.scanning.HoleDetector.Hole.SAFE
+                    ? 0x55FF88 : 0xFFAA33;
+            AABB box = new AABB(pos.getX(), pos.getY(), pos.getZ(),
+                    pos.getX() + 1.0, pos.getY() + 0.12, pos.getZ() + 1.0)
+                    .move(-camera.x, -camera.y, -camera.z);
+            box(buffer, pose, box, alpha | rgb);
         }
     }
 
