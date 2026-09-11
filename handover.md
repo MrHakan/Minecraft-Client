@@ -23,7 +23,7 @@ No entire phase is accepted as complete; Minecraft in-game smoke testing remains
 | Phase | Approximate implementation | Main remaining work |
 | --- | --- | --- |
 | A: foundation | 70–75% | Block-update producer, specialized inventory scoring/transfers, rotation integration, sound, integration tests |
-| B: UI/HUD | 50–55% | Full widget/animation/accessibility coverage, richer Module List and TargetHUD, editor precision |
+| B: UI/HUD | 55–60% | Full widget/animation/accessibility coverage, Module List transitions, richer TargetHUD, remaining legacy bounds |
 | C: rendering | 10–15% | More ESP modes, nametags/items/projectiles, waypoints, breadcrumbs, user block sets, trajectory extraction |
 | D: player utility | 0–5% | AutoArmor/Totem/Refill/Cleaner/Fish/Respawn using inventory ownership |
 | E: movement/world | 0–5% | SafeWalk, Parkour, Elytra utility, BaseFinder/HoleESP/light visualization |
@@ -105,7 +105,8 @@ module isolation and Java 25 CI/JUnit. Inspect concrete implementations before e
 - Reusable toggle, bounded slider/exact number entry, choice modal and RGB/HSV/alpha/hex color editor.
   Numeric RGBA storage stays compatible. Full widget catalogue/rainbow picker is not finished.
 - `ThemeService`/`ThemeScreen`: six palettes (Dark, AMOLED, Light, Ocean, Crimson, Purple), separate
-  persistence/import/export, opacity/radius/shadows and animation controls. No font-scale/blur implementation yet.
+  persistence/import/export, opacity/radius/shadows and animation controls. Latest continuation adds guarded theme files,
+  paginated editing, high contrast and reduced motion. No font-scale/blur implementation yet.
 - `UiSession`/`ClientScreen`: parent ancestry preserves nested edit sessions and reverts abandoned theme previews.
   Choice callbacks run **before** parent rebuilding; theme color opening is deferred to the next tick.
 - `ModuleSettingsClipboard`: bounded payload, canonical names, protected-key checks regardless of casing,
@@ -114,7 +115,7 @@ module isolation and Java 25 CI/JUnit. Inspect concrete implementations before e
   direction/inventory and the new scanner diagnostics. Editor has multi-selection, group drag, locks,
   z-order, grid/magnet/margins, snapping, guides and overlap warnings. Some legacy bounds are approximate.
 
-### Shared discovery and latest continuation batch
+### Shared discovery and previous continuation batch
 
 - `ScanScheduler`: weighted NEAR/FOCUSED/BACKGROUND turns, rotating equal-priority order, per-tick
   expiring requests, atomic budget costs and bounded task execution. One failure disables its scanner owner.
@@ -124,20 +125,57 @@ module isolation and Java 25 CI/JUnit. Inspect concrete implementations before e
   bounded result snapshots and chunk-unload marker cleanup. Still periodically rescans static blocks.
 - StorageESP: incremental block-entity iteration across ticks, completed-pass snapshots, per-chunk visit/retry
   cap 4096, unload cleanup. `scanInterval` now delays between completed passes. Undyed shulkers are included.
-- **Latest batch, commit topic 1:** `SlotSnapshots` now tracks 36 inventory slots and six equipment slots
+- **Previous batch, commit topic 1:** `SlotSnapshots` now tracks 36 inventory slots and six equipment slots
   (head/chest/legs/feet/mainhand/offhand). `EquipmentUpdated` is separate from `InventoryUpdated`;
   copied payloads and player-replacement reset are tested. Added defensive read snapshots and full-inventory food lookup.
-- **Latest batch, topic 2:** notification render/editor bounds share `NotificationLayout`, fitting row counts
+- **Previous batch, topic 2:** notification render/editor bounds share `NotificationLayout`, fitting row counts
   and widths to the viewport. Animation direction follows the actual HUD anchor. Disabling clears/suppresses
   queued notices; startup recovery messages are preserved when notifications start enabled.
-- **Latest batch, topic 3:** EntityESP discovery moved out of render collection into scheduler work at NEAR
+- **Previous batch, topic 3:** EntityESP discovery moved out of render collection into scheduler work at NEAR
   priority. `NearestCandidates` retains nearest observed entities (default 256, cap 512) from at most 4096
   observations; global budget sharing may yield fewer. `labelRange` is separate. Despawn/world/player checks
   prevent stale snapshots and deferred geometry from referencing a replacement world.
-- **Latest batch, topic 4:** hidden-by-default `scanner_debug` HUD displays budget counters, cached marker
+- **Previous batch, topic 4:** hidden-by-default `scanner_debug` HUD displays budget counters, cached marker
   counts and measured discovery elapsed time. Enable in HUD editor via Select -> scanner_debug -> Visible.
   It initiates no world scan; it is a developer diagnostic, not a gameplay module or full profiler.
-- **Latest batch, topic 5:** this handover plus updates to foundation docs. No empty modules were added.
+- **Previous batch, topic 5:** this handover plus updates to foundation docs. No empty modules were added.
+
+### Latest continuation: theme safety, accessibility and module-list HUD
+
+This batch adds four implementation topics plus this updated handover. Main and every open PR were
+re-inspected first; main remained `19f83ab`, with only draft PR #9 open at head `e9bcd1b`.
+
+1. `ThemeCodec` validates object/field types, integral colors/schema, finite values and a **16 KiB UTF-8**
+   limit before import. Existing schema 1 and missing-field defaults remain supported; new accessibility
+   booleans default false. Unknown fields are rejected to avoid silently discarding unsupported data.
+   `ThemeService` now reuses `BoundedJsonFile`; failed reads block writes, and a successful reload restores
+   write access. Tests cover preservation, repair/reload, defaults, type coercions and multibyte limits.
+2. Themes expose `highContrast` and `reducedMotion`, with paginated keyboard-accessible controls that
+   adapt the number of rows to GUI height. High contrast overrides the shared palette with opaque black,
+   white text and yellow/blue accents without destroying chosen colors. `motionEnabled()` combines the
+   existing animation switch with reduced motion; notification sliding and HUD rainbow stop when disabled.
+   Palette selection keeps accessibility choices; import intentionally replaces the full theme. Not every
+   legacy hardcoded HUD/editor color has been migrated, and no UI scale/large text/blur control exists yet.
+3. `ModuleList` is a real Render settings module controlling the existing `modules` HUD ID (default enabled,
+   hidden from its own list). `ModuleListHud` replaces the old inline renderer. Controls: left/right/anchor
+   alignment, width/name/category sorting, normal/upper/lower case, module display/name/category text,
+   rainbow/accent/category color, panel background, edge strip, text shadow and maximum rows (1–64,
+   default 32; further capped by viewport). Existing modules gain `showInHud=true`; hiding leaves automation
+   behavior intact. Display mode uses existing module-provided suffixes, not invented server information.
+   `ModuleListModel` tests stable ties, formatting, Turkish-system-locale behavior, bounds and ordering.
+   Row animations and new per-module suffix producers remain pending. UI settings participate in existing
+   module config/profile snapshots; existing HUD positions and visibility are preserved.
+4. `HudRegistry` validates registrations and caps at 256. Renderer/measurement failures suspend only that
+   component, log and notify once, without modifying saved visibility. HUD editor shows `[ERROR]` and has
+   a **Retry** action. `HudMeasurement` bounds provider sizes to viewport/4096 and rejects negative sizes;
+   failures reach the registry boundary. The editor no longer expands small components to 70x30, which
+   previously shifted right/bottom anchors. Tiny labels are clipped to their actual rectangle. Dynamic
+   Module List/notification bounds use their latest rendered measurement; legacy Info/Target dimensions
+   are still approximate. Pure dimension tests do not substitute for runtime failure-injection testing.
+
+No scanners, inventory ownership or world render pipeline were rewritten in this UI/HUD batch.
+Overall scope remains roughly **20–25% implemented / 75–80% remaining**. The modest Phase B estimate
+increase reflects deeper existing controls, not completion of the whole phase.
 
 ## Roadmap coverage by original requirement number
 
@@ -157,10 +195,10 @@ module isolation and Java 25 CI/JUnit. Inspect concrete implementations before e
 | 9 | Module browser | Substantially implemented: filters/favorites/recency/search/sort/actions; visual/manual QA remains |
 | 10 | Bind capture | Implemented keyboard/mouse/modifiers/ESC and conflict warnings; in-game duplicate/reserved-key tests remain |
 | 11 | Color picker | Partial: RGB/HSV/alpha/hex/recent/copy-paste; rainbow and richer visual control pending |
-| 12 | Themes | Partial: six presets and separate export/import; font scale/blur/accessibility integration missing |
+| 12 | Themes | Partial: six presets, guarded import/export, high contrast/reduced motion; font scale/blur and full accessibility integration missing |
 | 13 | Dynamic HUD | Partial: registry plus useful components; full suggested catalogue missing |
-| 14 | HUD editor | Partial: groups/locks/z-order/grid/guides/snapping; duplication/undo and exact legacy bounds pending |
-| 15 | Module List HUD | Partial baseline; richer sorting/style/suffix/hide/animation controls pending |
+| 14 | HUD editor | Partial: groups/locks/z-order/grid/guides/snapping and guarded exact small bounds; duplication/undo and legacy Info/Target bounds pending |
+| 15 | Module List HUD | Partial: alignment/sorting/style/case/display/row cap/per-module hiding implemented; row animations and additional suffix producers pending |
 | 16 | EntityESP | Partial: boxes/tracers/labels/colors/fade; now bounded tick discovery, caps and label distance; expanded modes pending |
 | 17 | Nametags | Not started as a dedicated rich module |
 | 18 | StorageESP | Partial: types, colors/labels and bounded incremental scans; per-type controls/fill/tracers pending |
@@ -221,7 +259,7 @@ module isolation and Java 25 CI/JUnit. Inspect concrete implementations before e
 | 73 | Addon template repo | Not created; create MrHakan/AgalarHack-Addon-Template only after API stability |
 | 74 | Baritone | Not started; optional detection/integration, no mandatory dependency |
 | 75 | Localization | Not started; English/Turkish resources required |
-| 76 | Accessibility | Partial keyboard controls/AMOLED/Light/reduced motion; UI scale/text/contrast/colorblind/blur controls pending |
+| 76 | Accessibility | Partial keyboard controls, paginated themes, high contrast/reduced motion; full legacy color migration, UI scale/text/colorblind/blur controls pending |
 | 77 | Unified scheduler | Partial implemented for BlockESP/StorageESP/EntityESP; further consumers/configurable budgets pending |
 | 78 | Chunk result cache | Partial unload invalidation and tick-only lookup cache; persistent chunk cache/block-update invalidation missing |
 | 79 | Render culling | Partial distance/target/label bounds; frustum and broader render cap coverage pending |
@@ -229,7 +267,7 @@ module isolation and Java 25 CI/JUnit. Inspect concrete implementations before e
 | 81 | Unit tests | Extended across pure services/settings/config/UI/scanner logic; trajectory/armor/scoring/fade coverage pending |
 | 82 | Integration smoke tests | Not performed in-game; automate where feasible and record exact environment/results |
 | 83 | Lifecycle audit | Partial code audit/restoration; all listed state-changing modules need in-game transition checks |
-| 84 | Error reporting | Partial logger/module/HUD/render/scanner isolation and notices; remaining callback boundaries need review |
+| 84 | Error reporting | Partial logger/module/render/scanner isolation; guarded HUD measurements/renderers with notices and retry; remaining boundaries need review |
 | 85 | Structured logging | Implemented SLF4J replacement for raw stderr; logging quality audit remains |
 | 86 | Module documentation | Partial metadata/foundation docs/handover; generated per-module defaults/limitations docs pending |
 | 87 | Experimental flags | Not started |
@@ -242,7 +280,7 @@ module isolation and Java 25 CI/JUnit. Inspect concrete implementations before e
 3. Extend InventoryService with verified 26.2 armor/weapon attribute/enchantment scoring and container-safe transfer
    ownership. Keep hotbar and menu slot coordinates explicit; test cursor/stack safety and cancellation before automation.
 4. Complete notification sound and menu rendering/lifecycle behavior, then close remaining Phase A integration gaps.
-5. Continue Phase B quality work (exact HUD measurements, richer Module List/TargetHUD, accessibility) before aggressively
+5. Continue Phase B quality work (exact HUD measurements, Module List transitions/TargetHUD, accessibility) before aggressively
    adding the Phase C–F module catalogue. Addon template and Baritone belong after stable internal contracts.
 
 Choose 5–6 meaningful topic commits, not arbitrary tiny edits just to reach a count. If the user changes scope,
@@ -253,13 +291,16 @@ follow their latest instruction. Keep this file updated whenever a system's stat
 Canonical command: **`./gradlew build --stacktrace` with JDK 25**.
 Workflow: `.github/workflows/build.yml` (`CI`), PR events on main. Latest branch-head CI and manual checklist
 are maintained in [PR #9](https://github.com/MrHakan/Minecraft-Client/pull/9); inspect the exact head SHA/run,
-not a previous green run. Historical baseline before this continuation passed
-[34534340677](https://github.com/MrHakan/Minecraft-Client/actions/runs/34534340677).
-The newly added continuation code must be checked against its own CI result before being treated as verified.
+not a previous green run. Historical baseline before this UI/HUD continuation: head `e9bcd1b` passed
+[34551618912](https://github.com/MrHakan/Minecraft-Client/actions/runs/34551618912), job `103115542075`,
+`BUILD SUCCESSFUL in 23s`; compileJava/JUnit/build logs were inspected.
+For the current continuation, consult the head-matched run and result recorded in PR #9; never reuse the
+baseline green check as evidence for new code. The PR CI section is updated after publishing this batch.
 
 Pure tests cover dispatch, registry, leases/arbitration, selection/geometry, rotations, notifications,
 config migrations/file preservation, key chords, UI sessions/search/colors/layout, scan budgets/cursors/order,
-and now copied slot snapshots, notification layout and nearest-candidate retention.
+copied slot snapshots, notification layout, nearest-candidate retention, theme preservation/accessibility,
+module-list ordering/formatting and HUD measurement bounds.
 **No Minecraft in-game run, screenshot validation or measured gameplay performance has been performed here.**
 The scanner HUD exposes timing for future real measurements; its presence is not a performance benchmark.
 
@@ -280,6 +321,12 @@ Fabric's 26.2 `ClientChunkCacheMixin`. Do not reintroduce 1.20/1.21 examples bli
 - UI: small/large GUI scales, keyboard navigation, modifier/mouse/Right Shift capture, duplicate conflicts,
   exact numeric entry, mixed-case/protected clipboard keys and invalid final values (no partial application).
 - Themes: edit nested presets/colors, apply/cancel, GUI shortcut close, external screen replacement and disconnect.
+  Test page navigation at GUI scales, high contrast on/off with custom colors, reduced-motion precedence,
+  preset changes preserving accessibility and theme export/import. Preserve a deliberately unreadable theme file.
+- Module List: old layout/config upgrade, disabling the controller, per-module hiding, each sort/alignment/case/color,
+  background/strip changes, tiny viewport clipping and profile switches. Check editor bounds at each anchor.
+- Inject a failing HUD renderer or width supplier: peers continue, one error is logged/notified, visibility preference
+  survives and Retry reactivates a repaired component. Tiny component labels must stay inside selection bounds.
 - HUD: notification bounds and animation after anchor changes, crowded/small screens, groups/locks/z-order,
   hidden components and overlap warnings. Enable scanner_debug only when diagnosing.
 - All three scanners together at maximum settings: verify budgets, dense areas, chunks unloading/reloading,

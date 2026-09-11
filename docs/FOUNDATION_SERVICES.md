@@ -182,7 +182,7 @@ integration and additional lifecycle integration tests. Equipment has a distinct
 Phase B now includes reusable sliders with exact entry, choices/toggles, keyboard/mouse/modifier
 bind capture, RGB/HSV/alpha colors, six independently persisted themes, dynamic HUD registration,
 inventory/information widgets and multi-selection/locking/z-order/alignment tools. Full animation,
-typography/blur/accessibility controls, richer Module List and TargetHUD remain pending. Phases C–G (deeper rendering, player utilities, movement,
+typography/blur/full accessibility controls, Module List transitions and richer TargetHUD remain pending. Phases C–G (deeper rendering, player utilities, movement,
 information/social, ecosystem/localization) remain pending. Phase H applies continuously;
 no phase is marked complete without its review and required validation.
 
@@ -200,3 +200,25 @@ The optional scanner_debug HUD displays last-tick discovery counters and elapsed
 NotificationLayout shares measured bounds between rendering and editor placement; motion follows the actual
 HUD anchor. Disabling notifications clears and suppresses their queue. Deferred world geometry skips changed
 world/player identities. In-game acceptance remains pending; consult the latest PR-head CI result.
+
+
+## Theme and HUD continuation
+
+ThemeService now uses the shared BoundedJsonFile with a typed ThemeCodec (16 KiB UTF-8).
+Existing schema-1 themes and defaults remain supported; invalid/future/unknown-field input is rejected,
+original bytes survive failed reads, and a successful reload unlocks saving. High contrast overrides the
+shared palette without changing stored colors. Reduced motion takes precedence over uiAnimations and
+stops notification movement and HUD rainbow. Theme controls paginate; font scaling/blur and migration
+of every hardcoded legacy HUD color remain pending.
+
+ModuleList controls the existing `modules` HUD ID and preserves saved positions. It defaults enabled and
+hides itself; modules have a showInHud setting. The renderer supports stable width/name/category sorting,
+left/right/anchor alignment, case/display modes, rainbow/accent/category colors, background/edge/shadow
+and bounded rows. The pure ModuleListModel formats with Locale.ROOT and caps custom labels at 128 chars.
+No module-list transition animation or artificial suffix data is introduced.
+
+HUD registration is capped at 256 with non-null callbacks and validated IDs/titles. Render/measurement
+failures suspend the component and emit one error without persisting hidden state. The editor's Retry
+reopens that boundary. HudMeasurement keeps small dimensions exact and clamps oversize providers;
+legacy Info/Target bounds still need extraction from their render models. Latest head-specific CI evidence
+and manual acceptance checklist are in PR #9 and handover.md.
