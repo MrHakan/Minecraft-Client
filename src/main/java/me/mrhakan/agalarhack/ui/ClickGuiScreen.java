@@ -73,9 +73,15 @@ public class ClickGuiScreen extends Screen implements me.mrhakan.agalarhack.ui.C
 
         addRenderableWidget(Button.builder(Component.literal("Themes"),b->minecraft.gui.setScreen(new ThemeScreen(this))).bounds(10,height-28,SIDEBAR_WIDTH-20,20).build());
         int categoryY = 62;
-        addCategoryButton("ALL", 0, categoryY);
+        // The sidebar must stay above the Themes button at every GUI scale, so the row pitch
+        // shrinks once the category list no longer fits instead of overlapping it.
+        int entries = Category.values().length + 1;
+        int sidebarSpace = Math.max(entries * 12, height - 28 - 6 - categoryY);
+        int step = Math.max(12, Math.min(24, sidebarSpace / entries));
+        int buttonHeight = Math.max(9, step - 4);
+        addCategoryButton("ALL", 0, categoryY, buttonHeight);
         for (int i = 0; i < Category.values().length; i++) {
-            addCategoryButton(Category.values()[i].name, i + 1, categoryY + (i + 1) * 24);
+            addCategoryButton(Category.values()[i].name, i + 1, categoryY + (i + 1) * step, buttonHeight);
         }
 
         List<Module> matches = query.isBlank()
@@ -131,10 +137,10 @@ public class ClickGuiScreen extends Screen implements me.mrhakan.agalarhack.ui.C
                 .bounds((contentLeft + contentRight) / 2 - 30, height - 27, 60, 20).build());
     }
 
-    private void addCategoryButton(String label, int index, int y) {
+    private void addCategoryButton(String label, int index, int y, int buttonHeight) {
         String prefix = categoryIndex == index ? "• " : "  ";
         addRenderableWidget(Button.builder(Component.literal(prefix + label), b -> openSearch(searchBox.getValue(), 0, index))
-                .bounds(10, y, SIDEBAR_WIDTH - 20, 20).build());
+                .bounds(10, y, SIDEBAR_WIDTH - 20, buttonHeight).build());
     }
 
     @Override

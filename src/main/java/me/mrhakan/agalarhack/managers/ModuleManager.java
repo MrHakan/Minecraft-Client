@@ -15,6 +15,7 @@ import me.mrhakan.agalarhack.module.combat.TriggerBot;
 import me.mrhakan.agalarhack.module.misc.AutoEat;
 import me.mrhakan.agalarhack.module.misc.AutoReconnect;
 import me.mrhakan.agalarhack.module.movement.Flight;
+import me.mrhakan.agalarhack.module.player.AutoArmor;
 import me.mrhakan.agalarhack.module.movement.Jesus;
 import me.mrhakan.agalarhack.module.movement.NoFall;
 import me.mrhakan.agalarhack.module.movement.Speed;
@@ -62,6 +63,8 @@ public class ModuleManager {
         register(new Trajectories());
         register(new TargetHUD());
         register(new Freecam());
+
+        register(new AutoArmor());
 
         register(new AutoTool());
     }
