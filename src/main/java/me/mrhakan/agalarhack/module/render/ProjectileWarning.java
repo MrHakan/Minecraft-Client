@@ -20,6 +20,7 @@ public class ProjectileWarning extends Module {
     public ProjectileWarning() {
         super("ProjectileWarning", Category.RENDER,
                 "Estimates whether an incoming projectile will pass close to you; reads ProjectileESP's tracked list, so enable that too");
+        markExperimental();
     }
 
     @Override

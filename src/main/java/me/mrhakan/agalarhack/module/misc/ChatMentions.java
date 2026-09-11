@@ -22,6 +22,7 @@ public class ChatMentions extends Module {
 
     public ChatMentions() {
         super("ChatMentions", Category.MISC, "Notifies when your name, a friend, or a keyword appears in chat");
+        markExperimental();
     }
 
     @Override

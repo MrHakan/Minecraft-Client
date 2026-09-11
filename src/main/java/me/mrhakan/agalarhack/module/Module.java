@@ -13,6 +13,7 @@ public class Module {
 	private String description;
 	private Category category;
 	private boolean toggled;
+	private boolean experimental;
 	public Settings settings = new Settings();
 
 	public Module(String name, Category category) {
@@ -25,6 +26,21 @@ public class Module {
 		this.description = description;
 		toggled = false;
 	}
+
+	/**
+	 * Marks a module as not yet validated in a running game.
+	 *
+	 * <p>The criterion is deliberately blunt: anything that manipulates the player's inventory,
+	 * depends on a mixin, or has otherwise never been exercised in Minecraft is experimental until
+	 * someone confirms it works there. Compiling and passing unit tests is not that confirmation.
+	 * Clearing a flag is a statement that the module was actually used in game.
+	 */
+	protected final Module markExperimental() {
+		this.experimental = true;
+		return this;
+	}
+
+	public boolean isExperimental() { return experimental; }
 
 	public void registerSettings() {
 		settings.addSetting("enabled", false);

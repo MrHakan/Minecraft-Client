@@ -22,6 +22,7 @@ public class Nametags extends Module {
 
     public Nametags() {
         super("Nametags", Category.RENDER, "Compact single-line nametags with health, armour and held item");
+        markExperimental();
     }
 
     @Override

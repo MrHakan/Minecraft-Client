@@ -19,6 +19,7 @@ public class CombatHistory extends Module {
 
     public CombatHistory() {
         super("CombatHistory", Category.COMBAT, "Remembers who you recently fought, from what this client observed");
+        markExperimental();
     }
 
     @Override

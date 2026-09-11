@@ -26,6 +26,7 @@ public class Tracers extends Module {
 
     public Tracers() {
         super("Tracers", Category.RENDER, "Draws lines toward chosen entity groups, independent of ESP filters");
+        markExperimental();
     }
 
     @Override

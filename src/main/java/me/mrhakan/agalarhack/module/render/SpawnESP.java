@@ -34,6 +34,7 @@ public class SpawnESP extends Module {
 
     public SpawnESP() {
         super("SpawnESP", Category.RENDER, "Marks spots where light level alone permits hostile spawning; not a spawn prediction");
+        markExperimental();
     }
 
     @Override

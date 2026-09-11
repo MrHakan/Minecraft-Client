@@ -32,6 +32,7 @@ public class HoleESP extends Module {
 
     public HoleESP() {
         super("HoleESP", Category.RENDER, "Marks standable holes nearby and whether they are blast resistant");
+        markExperimental();
     }
 
     @Override

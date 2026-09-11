@@ -170,7 +170,13 @@ public class ClickGuiScreen extends Screen implements me.mrhakan.agalarhack.ui.C
 
         for (RowVisual row : rowVisuals) {
             int nameColor = row.module.isToggled() ? ClientUiTheme.SUCCESS : ClientUiTheme.TEXT;
-            graphics.text(font, (row.module.getBooleanSetting("favorite",false)?"★ ":"") + row.module.getName(), row.x + 10, row.y + 7, nameColor, true);
+            String label = (row.module.getBooleanSetting("favorite",false)?"\u2605 ":"") + row.module.getName();
+            graphics.text(font, label, row.x + 10, row.y + 7, nameColor, true);
+            if (row.module.isExperimental()) {
+                // Sits right after the name so it cannot be missed, and is worded as a fact about
+                // verification rather than a quality judgement.
+                graphics.text(font, "UNTESTED", row.x + 14 + font.width(label), row.y + 7, 0xFFFFB86B, false);
+            }
             String desc = truncate(row.module.getDescription(), Math.max(60, row.width - 175));
             graphics.text(font, desc, row.x + 10, row.y + 21, ClientUiTheme.MUTED, false);
         }

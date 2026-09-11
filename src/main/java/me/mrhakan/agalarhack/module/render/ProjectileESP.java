@@ -18,6 +18,7 @@ public class ProjectileESP extends Module {
 
     public ProjectileESP() {
         super("ProjectileESP", Category.RENDER, "Highlights projectiles in flight with their direction of travel");
+        markExperimental();
     }
 
     @Override

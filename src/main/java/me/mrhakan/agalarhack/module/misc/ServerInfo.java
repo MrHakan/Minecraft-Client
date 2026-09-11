@@ -25,6 +25,7 @@ public class ServerInfo extends Module {
 
     public ServerInfo() {
         super("ServerInfo", Category.MISC, "Ping history and an estimated server tick rate, both clearly labelled as client-side");
+        markExperimental();
     }
 
     @Override

@@ -11,6 +11,7 @@ import net.minecraft.client.Minecraft;
 public class Waypoints extends Module {
     public Waypoints() {
         super("Waypoints", Category.RENDER, "Shows saved waypoints for the current dimension with optional beams and labels");
+        markExperimental();
     }
 
     @Override

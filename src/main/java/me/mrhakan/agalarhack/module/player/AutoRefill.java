@@ -17,6 +17,7 @@ public class AutoRefill extends Module {
 
     public AutoRefill() {
         super("AutoRefill", Category.PLAYER, "Refills low hotbar stacks from the inventory before they run out");
+        markExperimental();
     }
 
     @Override

@@ -32,6 +32,7 @@ public class InventoryCleaner extends Module {
 
     public InventoryCleaner() {
         super("InventoryCleaner", Category.PLAYER, "Drops only the items you list as junk, protecting enchanted and named gear");
+        markExperimental();
     }
 
     @Override

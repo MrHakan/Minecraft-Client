@@ -16,6 +16,7 @@ public class AutoWeapon extends Module {
 
     public AutoWeapon() {
         super("AutoWeapon", Category.PLAYER, "Picks the strongest hotbar weapon for the current target");
+        markExperimental();
     }
 
     @Override

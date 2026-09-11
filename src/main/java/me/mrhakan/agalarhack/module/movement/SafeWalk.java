@@ -15,6 +15,7 @@ import net.minecraft.client.Minecraft;
 public class SafeWalk extends Module {
     public SafeWalk() {
         super("SafeWalk", Category.MOVEMENT, "Prevents walking off block edges using Minecraft's own sneak-edge check");
+        markExperimental();
     }
 
     @Override
