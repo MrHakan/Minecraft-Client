@@ -26,7 +26,7 @@ No entire phase is accepted as complete; Minecraft in-game smoke testing remains
 | Phase | Approximate implementation | Main remaining work |
 | --- | --- | --- |
 | A: foundation | 90–95% | Rotation adoption beyond Aura, shared selector adoption by visuals, integration tests |
-| B: UI/HUD | 55–60% | Full widget/animation/accessibility coverage, Module List transitions, richer TargetHUD, remaining legacy bounds |
+| B: UI/HUD | 62–67% | Full widget/animation/accessibility coverage, Module List transitions, player faces, remaining legacy bounds |
 | C: rendering | 65–70% | More ESP render modes, camera tweaks, per-block BlockESP colours |
 | D: player utility | 55–60% | AutoFish, AutoWalk, AutoAccept, FastPlace, inventory HUD depth |
 | E: movement/world | 10–15% | Parkour, AutoJump, Elytra utility, BaseFinder/HoleESP/light visualization |
@@ -217,7 +217,7 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 28 | Camera tweaks | Not started |
 | 29 | Trajectory simulator | Implemented: ProjectilePhysics/ProjectileSimulator extracted and consumed by the renderer and the warning module |
 | 30 | Trajectory accuracy | Partial existing charge/collision/custom physics; full physics-family audit and markers/time details pending |
-| 31 | TargetHUD | Partial existing health/equipment/effects card; faces/layouts/animations/detail expansion pending |
+| 31 | TargetHUD | Substantially implemented: three layouts, absorption, ping, friend marker, hurt tint, eased bar; player faces still pending |
 | 32 | Combat history | Not started |
 | 33 | AutoArmor | Implemented via scoring plus the container channel; in-game swap/cursor testing outstanding |
 | 34 | AutoTotem | Implemented with hysteresis-guarded offhand restore and totem counting; explosion/falling triggers and in-game testing outstanding |
@@ -267,7 +267,7 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 78 | Chunk result cache | Implemented for BlockESP: bounded LRU clean-chunk cache with block-update, unload, anchor and filter invalidation. Other scanners still sweep |
 | 79 | Render culling | Partial distance/target/label bounds shared through EntityDiscovery; frustum culling pending |
 | 80 | Performance HUD | Partial scanner diagnostics and memory; module tick/render timings and broader counters pending |
-| 81 | Unit tests | 245 tests; adds block-update batching, chunk cache eviction, cursor completion, id-list parsing, notification sinks, waypoint normalisation/persistence and compass bearings; trajectory and fade coverage pending |
+| 81 | Unit tests | 260 tests; adds block-update batching, chunk cache eviction, cursor completion, id-list parsing, notification sinks, waypoint normalisation/persistence and compass bearings; trajectory and fade coverage pending |
 | 82 | Integration smoke tests | Not performed in-game; automate where feasible and record exact environment/results |
 | 83 | Lifecycle audit | Partial code audit/restoration; all listed state-changing modules need in-game transition checks |
 | 84 | Error reporting | Partial logger/module/render/scanner isolation; guarded HUD measurements/renderers with notices and retry; remaining boundaries need review |
@@ -396,6 +396,17 @@ Two more topic commits.
 2. **Command aliases**, persistent and single-pass. An alias cannot loop, cannot name itself, and
    cannot shadow a real command; loading re-validates hand-edited entries through the same rules.
 
+## Latest continuation: TargetHUD depth
+
+`TargetHudModel` holds the layout rules and the bar easing, free of Minecraft types, so the renderer
+is placement only. Minimal/Compact/Detailed; absorption counts toward the same bar rather than
+overflowing it and is called out in the text; ping is omitted when unknown instead of shown as -1;
+the eased bar resets on target change so it never slides between two players, and snaps once the gap
+is invisible. **Reduced motion and the theme animation switch both override the module's own
+animation toggle** — accessibility wins over a per-module preference.
+
+Still missing in Phase B: full widget/animation coverage, Module List row transitions, player faces
+on the target card, UI scale and blur controls, and the remaining legacy Info bounds.
 Still missing in Phase C: camera tweaks, per-block BlockESP colours and richer ESP render modes.
 Still missing in Phase F: BetterChat, chat mentions, macros and combat history.
 
@@ -457,6 +468,9 @@ Fabric's 26.2 `ClientChunkCacheMixin`. Do not reintroduce 1.20/1.21 examples bli
   `required: true` with `defaultRequire: 1` means a failed injection is a hard crash at load, so this is
   the first thing to check in-game. Place and break blocks, trigger a piston or explosion for the
   section path, and watch BlockESP markers update without a rescan.
+- TargetHUD: switch between all three layouts while a target is live; check absorption on a target
+  with golden apples; confirm the bar does not slide when the target changes; confirm reduced motion
+  disables the easing; confirm ping disappears for mobs and for players whose latency is unknown.
 - ServerInfo: compare the estimate against a server whose real tick rate you know, confirm it never
   reads above 20, that it resets on dimension change, and that the lag warning fires once rather than
   repeatedly while the rate hovers at the threshold.
