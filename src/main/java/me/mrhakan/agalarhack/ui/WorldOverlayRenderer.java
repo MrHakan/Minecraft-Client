@@ -51,6 +51,9 @@ public final class WorldOverlayRenderer {
         Module freecamModule = AgalarHackClient.moduleManager.getModule("Freecam");
         Module storageModule = AgalarHackClient.moduleManager.getModule("StorageESP");
         Module blockModule = AgalarHackClient.moduleManager.getModule("BlockESP");
+        Module breadcrumbModule = AgalarHackClient.moduleManager.getModule("Breadcrumbs");
+        me.mrhakan.agalarhack.module.render.Breadcrumbs breadcrumbs =
+                breadcrumbModule instanceof me.mrhakan.agalarhack.module.render.Breadcrumbs b ? b : null;
         Module nametagModule = AgalarHackClient.moduleManager.getModule("Nametags");
         me.mrhakan.agalarhack.module.render.Nametags nametags =
                 nametagModule instanceof me.mrhakan.agalarhack.module.render.Nametags n ? n : null;
@@ -71,7 +74,8 @@ public final class WorldOverlayRenderer {
         boolean waypointsEnabled = waypoints != null && waypoints.isToggled();
         boolean itemsEnabled = itemEsp != null && itemEsp.isToggled();
         boolean nametagsEnabled = nametags != null && nametags.isToggled();
-        if (!espEnabled && !trajectoriesEnabled && !storageEnabled && !blockEnabled && !bodyMarker
+        boolean breadcrumbsEnabled = breadcrumbs != null && breadcrumbs.isToggled();
+        if (!breadcrumbsEnabled && !espEnabled && !trajectoriesEnabled && !storageEnabled && !blockEnabled && !bodyMarker
                 && !waypointsEnabled && !itemsEnabled && !nametagsEnabled) return;
 
         var renderService = me.mrhakan.agalarhack.services.ClientServices.require(me.mrhakan.agalarhack.services.RenderService.class);
@@ -100,6 +104,7 @@ public final class WorldOverlayRenderer {
             if (storageEnabled) renderService.guard(storage, () -> renderStorageEsp(mc, storage, camera, pose, buffer));
             if (blockEnabled) renderService.guard(blockEsp, () -> renderBlockEsp(mc, blockEsp, camera, pose, buffer));
             if (trajectoriesEnabled) renderService.guard(trajectories, () -> renderTrajectory(mc, trajectories, camera, pose, buffer));
+            if (breadcrumbsEnabled) renderService.guard(breadcrumbs, () -> renderBreadcrumbs(breadcrumbs, camera, pose, buffer));
             if (itemsEnabled && itemEsp.getBooleanSetting("boxes", true)) {
                 renderService.guard(itemEsp, () -> renderItemEsp(mc, itemEsp, camera, pose, buffer));
             }
@@ -229,6 +234,26 @@ public final class WorldOverlayRenderer {
             AABB block = new AABB(pos.getX(), pos.getY(), pos.getZ(), pos.getX() + 1.0, pos.getY() + 1.0, pos.getZ() + 1.0)
                     .inflate(0.015).move(-camera.x, -camera.y, -camera.z);
             box(buffer, pose, block, (alpha << 24) | rgb);
+        }
+    }
+
+    private static void renderBreadcrumbs(me.mrhakan.agalarhack.module.render.Breadcrumbs module,
+            Vec3 camera, PoseStack.Pose pose, VertexConsumer buffer) {
+        var points = module.points();
+        if (points.size() < 2) return;
+        int rgb = rgb(module.getNumberSetting("red", 120.0), module.getNumberSetting("green", 220.0),
+                module.getNumberSetting("blue", 255.0));
+        int maxAlpha = (int) Math.max(32, Math.min(255, module.getNumberSetting("alpha", 200.0)));
+        boolean fade = module.getBooleanSetting("fade", true);
+        for (int index = 1; index < points.size(); index++) {
+            var from = points.get(index - 1);
+            var to = points.get(index);
+            // Older segments sit nearer the start of the list, so fade by position in the trail.
+            int alpha = fade ? Math.max(16, (int) (maxAlpha * (index / (double) points.size()))) : maxAlpha;
+            line(buffer, pose,
+                    from.x() - camera.x, from.y() - camera.y, from.z() - camera.z,
+                    to.x() - camera.x, to.y() - camera.y, to.z() - camera.z,
+                    (alpha << 24) | rgb);
         }
     }
 

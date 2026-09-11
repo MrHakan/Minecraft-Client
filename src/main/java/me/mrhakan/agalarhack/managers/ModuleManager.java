@@ -27,6 +27,7 @@ import me.mrhakan.agalarhack.module.movement.Speed;
 import me.mrhakan.agalarhack.module.movement.Sprint;
 import me.mrhakan.agalarhack.module.movement.Step;
 import me.mrhakan.agalarhack.module.render.BlockESP;
+import me.mrhakan.agalarhack.module.render.Breadcrumbs;
 import me.mrhakan.agalarhack.module.render.Coordinates;
 import me.mrhakan.agalarhack.module.render.Durability;
 import me.mrhakan.agalarhack.module.render.EntityESP;
@@ -74,6 +75,7 @@ public class ModuleManager {
         register(new Waypoints());
         register(new ItemESP());
         register(new Nametags());
+        register(new Breadcrumbs());
 
         register(new AutoTotem());
         register(new AutoArmor());
