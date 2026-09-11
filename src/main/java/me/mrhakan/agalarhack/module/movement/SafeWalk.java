@@ -15,11 +15,6 @@ import net.minecraft.client.Minecraft;
 public class SafeWalk extends Module {
     public SafeWalk() {
         super("SafeWalk", Category.MOVEMENT, "Prevents walking off block edges using Minecraft's own sneak-edge check");
-        // Re-marked. Its scenario failed about one run in ten because the pit was dug wherever the
-        // previous scenario left the player, sometimes on top of the scene's own blocks. That is
-        // fixed, but a badge asserts that a check keeps the module honest, and this one has not yet
-        // earned that back.
-        markExperimental();
     }
 
     @Override

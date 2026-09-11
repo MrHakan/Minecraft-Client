@@ -500,7 +500,8 @@ pointing at that scenario. The test fails if the scenario does not exist, so a f
 by editing a list — which is the only thing that makes the badge worth anything.
 
 Cleared so far: AutoTotem, AutoArmor, AutoWalk, SafeWalk, Parkour, CameraTweaks, AutoRefill,
-InventoryCleaner, AutoWeapon, BetterChat, ChatFilter, ChatMentions, AutoAccept, HoleESP.
+InventoryCleaner, AutoWeapon, BetterChat, ChatFilter, ChatMentions, AutoAccept, HoleESP,
+SafeWalk.
 
 Write the control half of every scenario first. Each one asserts the effect is *absent* before the
 module is switched on; without that, an assertion that passes because the game does it anyway looks

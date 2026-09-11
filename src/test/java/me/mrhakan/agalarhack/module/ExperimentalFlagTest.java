@@ -35,6 +35,7 @@ class ExperimentalFlagTest {
             java.util.Map.entry("CameraTweaks.java", "cameraTweaks"),
             java.util.Map.entry("AutoWalk.java", "autoWalk"),
             java.util.Map.entry("Parkour.java", "parkour"),
+            java.util.Map.entry("SafeWalk.java", "safeWalk"),
             java.util.Map.entry("AutoRefill.java", "autoRefill"),
             java.util.Map.entry("InventoryCleaner.java", "inventoryCleaner"),
             java.util.Map.entry("AutoWeapon.java", "autoWeapon"),
