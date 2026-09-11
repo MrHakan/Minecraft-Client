@@ -14,13 +14,25 @@ public final class Notifications extends Module {
         addChoiceSetting("position", "bottom_right", "Default corner; HUD editor can override placement", "bottom_right", "top_right", "bottom_left", "top_left");
         addBooleanSetting("animations", true, "Ease notifications into view");
         addBooleanSetting("moduleToggles", true, "Notify when a module is enabled or disabled");
+        addBooleanSetting("sound", false, "Play a short cue when a notification appears");
+        addNumberSetting("soundVolume", 0.5, 0.05, 1.0, "Notification cue volume");
+        addChoiceSetting("soundFor", "all", "Which severities are audible", "all", "warnings", "errors");
     }
     @Override public void onEnable() {
         var notifications = service(NotificationService.class);
         notifications.setEnabled(true);
+        notifications.onPublished(notice -> {
+            if (!getBooleanSetting("sound", false)) return;
+            if (!me.mrhakan.agalarhack.services.NotificationSounds.audible(notice.type(), getStringSetting("soundFor", "all"))) return;
+            me.mrhakan.agalarhack.services.NotificationSounds.play(notice.type(), (float) getNumberSetting("soundVolume", 0.5));
+        });
         onUpdate();
     }
-    @Override public void onDisable() { service(NotificationService.class).setEnabled(false); }
+    @Override public void onDisable() {
+        var notifications = service(NotificationService.class);
+        notifications.onPublished(null);
+        notifications.setEnabled(false);
+    }
     @Override public boolean runsWithoutWorld() { return true; }
     @Override public void onUpdate() {
         String position=getStringSetting("position","bottom_right");
