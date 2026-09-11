@@ -32,6 +32,8 @@ public class BlockESP extends Module {
     private EventBus.Subscription blockUpdate;
     private EventBus.Subscription chunkInvalidated;
     private final ChunkScanCache scanned = new ChunkScanCache();
+    private String parsedCustom;
+    private java.util.Set<String> customIds = java.util.Set.of();
     private boolean anchorSet;
     private String targetSignature = "";
 
@@ -50,6 +52,9 @@ public class BlockESP extends Module {
         addBooleanSetting("spawners", true, "Highlight normal and trial spawners");
         addBooleanSetting("portals", false, "Highlight loaded portal and gateway blocks");
         addBooleanSetting("beacons", false, "Highlight beacon blocks");
+        settings.addSetting("customBlocks", "");
+        addChoiceSetting("preset", "none", "Load a starting block set into customBlocks on the next toggle",
+                "none", "ores", "ancient_debris", "spawners", "portals", "beacons", "containers", "redstone", "valuables");
         addBooleanSetting("distanceFade", true, "Fade highlighted blocks toward the horizontal range limit");
         addNumberSetting("red", 255.0, 0.0, 255.0, "Block overlay red channel");
         addNumberSetting("green", 100.0, 0.0, 255.0, "Block overlay green channel");
@@ -59,6 +64,7 @@ public class BlockESP extends Module {
 
     @Override
     public void onEnable() {
+        applyPreset();
         resetScanner();
         closeSubscriptions();
         EventBus events = service(EventBus.class);
@@ -85,6 +91,19 @@ public class BlockESP extends Module {
             if (event.level() != mc.level) return;
             forgetChunk(event.chunkX(), event.chunkZ());
         });
+    }
+
+    /** A chosen preset is merged into the editable list once, then cleared so it does not reapply. */
+    private void applyPreset() {
+        String preset = getStringSetting("preset", "none");
+        String blocks = presetBlocks(preset);
+        if (blocks.isEmpty()) return;
+        String existing = getStringSetting("customBlocks", "");
+        var merged = new java.util.LinkedHashSet<>(me.mrhakan.agalarhack.services.ItemIdList.parse(existing));
+        merged.addAll(me.mrhakan.agalarhack.services.ItemIdList.parse(blocks));
+        settings.setSetting("customBlocks", String.join(", ", merged));
+        settings.setSetting("preset", "none");
+        parsedCustom = null;
     }
 
     private void forgetChunk(int chunkX, int chunkZ) {
@@ -223,11 +242,47 @@ public class BlockESP extends Module {
                 && (id.endsWith(":nether_portal") || id.endsWith(":end_portal") || id.endsWith(":end_gateway"))) {
             return true;
         }
-        return getBooleanSetting("beacons", false) && id.endsWith(":beacon");
+        if (getBooleanSetting("beacons", false) && id.endsWith(":beacon")) return true;
+        return customIds().contains(id);
+    }
+
+    /** User-listed block ids, re-parsed only when the setting text changes. */
+    private java.util.Set<String> customIds() {
+        String raw = getStringSetting("customBlocks", "");
+        if (!raw.equals(parsedCustom)) {
+            customIds = me.mrhakan.agalarhack.services.ItemIdList.parse(raw);
+            parsedCustom = raw;
+        }
+        return customIds;
+    }
+
+    /**
+     * Built-in starting points for the custom list. Applying a preset fills the editable setting
+     * rather than acting as a hidden filter, so the player can see and adjust exactly what it added.
+     */
+    public static String presetBlocks(String preset) {
+        return switch (preset == null ? "none" : preset.toLowerCase(java.util.Locale.ROOT)) {
+            case "ores" -> "coal_ore, deepslate_coal_ore, iron_ore, deepslate_iron_ore, copper_ore, "
+                    + "deepslate_copper_ore, gold_ore, deepslate_gold_ore, redstone_ore, deepslate_redstone_ore, "
+                    + "lapis_ore, deepslate_lapis_ore, diamond_ore, deepslate_diamond_ore, emerald_ore, "
+                    + "deepslate_emerald_ore, nether_quartz_ore, nether_gold_ore, ancient_debris";
+            case "ancient_debris" -> "ancient_debris";
+            case "spawners" -> "spawner, trial_spawner, creaking_heart";
+            case "portals" -> "nether_portal, end_portal, end_portal_frame, end_gateway";
+            case "beacons" -> "beacon, conduit";
+            case "containers" -> "chest, trapped_chest, barrel, ender_chest, hopper, dispenser, dropper, "
+                    + "shulker_box, furnace, blast_furnace, smoker, brewing_stand, crafter";
+            case "redstone" -> "redstone_block, repeater, comparator, observer, piston, sticky_piston, "
+                    + "dispenser, dropper, hopper, tnt";
+            case "valuables" -> "diamond_ore, deepslate_diamond_ore, emerald_ore, deepslate_emerald_ore, "
+                    + "ancient_debris, spawner, trial_spawner, beacon, conduit, enchanting_table, anvil";
+            default -> "";
+        };
     }
 
     private String signature() {
-        return getBooleanSetting("valuableOres", true) + ":"
+        return customIds().size() + ":" + getStringSetting("customBlocks", "") + ":"
+                + getBooleanSetting("valuableOres", true) + ":"
                 + getBooleanSetting("commonOres", false) + ":"
                 + getBooleanSetting("spawners", true) + ":"
                 + getBooleanSetting("portals", false) + ":"
