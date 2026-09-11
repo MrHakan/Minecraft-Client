@@ -119,6 +119,30 @@ public final class WaypointService {
         return true;
     }
 
+    /**
+     * Removes several waypoints and stores one, writing the file once.
+     *
+     * <p>{@link #add} and {@link #remove} each save, so applying a prune plan through them would
+     * rewrite the file up to {@value me.mrhakan.agalarhack.services.DeathWaypoints#MAX_KEEP} times
+     * for a single death. Callers that already know the whole change use this instead.
+     *
+     * @return false when the store is full and the addition could not be made; removals still applied
+     */
+    public boolean apply(List<Waypoint> remove, Waypoint add) {
+        if (remove != null) {
+            for (Waypoint waypoint : remove) {
+                if (waypoint != null) waypoints.remove(waypoint.key());
+            }
+        }
+        boolean added = true;
+        if (add != null) {
+            if (!waypoints.containsKey(add.key()) && waypoints.size() >= WaypointCodec.MAX_WAYPOINTS) added = false;
+            else waypoints.put(add.key(), add);
+        }
+        save();
+        return added;
+    }
+
     public int clear(String dimension) {
         int before = waypoints.size();
         waypoints.values().removeIf(point -> dimension == null || point.dimension().equals(dimension));
