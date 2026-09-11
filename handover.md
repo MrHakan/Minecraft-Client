@@ -205,8 +205,8 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 16 | EntityESP | Partial: boxes/tracers/labels/colors/fade; now bounded tick discovery, caps and label distance; expanded modes pending |
 | 17 | Nametags | Implemented: single-line opt-in fields, friend marker, bounded discovery; no per-field styling yet |
 | 18 | StorageESP | Partial: types, colors/labels, bounded incremental scans and live block-entity tracking; per-type controls/fill/tracers pending |
-| 19 | BlockESP search | Implemented: category filters, user block ids and eight mergeable presets; per-block colours pending |
-| 20 | Waypoints | Implemented: persistence, .waypoint commands, beams, labels, HUD arrow; death waypoint still pending |
+| 19 | BlockESP search | Implemented: category filters, user block ids, eight mergeable presets and per-block colours in three tiers (explicit `id=RRGGBB` override, built-in colour, module sliders) |
+| 20 | Waypoints | Implemented: persistence, .waypoint commands, beams, labels, HUD arrow and an opt-in death waypoint with a capped, oldest-first prune that never touches hand-made entries |
 | 21 | Breadcrumbs | Implemented: distance-based sampling, bounded store, optional age limit, fade, cleared on dimension change |
 | 22 | Generalized tracers | Implemented as its own module with per-group filters, colours and origin; ESP keeps its own tracer toggle |
 | 23 | ItemESP | Implemented: bounded discovery, whitelist/blacklist, rarity colouring, count/distance labels |
@@ -224,8 +224,8 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 35 | AutoRefill | Implemented: threshold refills that prefer the smallest source stack |
 | 36 | InventoryCleaner | Implemented whitelist-driven with enchanted/named/hotbar protection |
 | 37 | AutoFish | Not started; legitimate local bite cues only |
-| 38 | AutoWalk | Not started |
-| 39 | AutoRespawn | Implemented with a configurable delay; optional death waypoint still depends on WaypointService |
+| 38 | AutoWalk | Implemented over a shared input-override helper: adds a key press without ever taking one away, pauses on a screen and stands itself down after sustained collision |
+| 39 | AutoRespawn | Implemented with a configurable delay. The death waypoint deliberately lives on the Waypoints module instead, since it is useful whether or not you respawn automatically |
 | 40 | AutoAccept | Not started; explicitly opt-in local requests only |
 | 41 | Use tweaks | Not started; bounded, no packet spam |
 | 42 | Inventory HUD | Partial implemented main-inventory viewer; richer item overlays/layouts pending |
@@ -254,26 +254,26 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 65 | TPS monitor | Implemented as an estimate from world-time update spacing, labelled "(est)" everywhere and capped at 20 |
 | 66 | Lag detector | Partial: optional one-shot warning when the tick estimate drops, re-armed on recovery; ping-spike and frozen-world detection pending |
 | 67 | Profile manager 2 | Partial existing rename/duplicate/import/export/bindings; metadata/search/dimension overrides pending |
-| 68 | Partial profiles | Not started |
-| 69 | Profile diff | Not started |
+| 68 | Partial profiles | Implemented: `.profile load <name> [selection]` narrows to named modules, categories, `hud` or `targets`; an unknown token or a selection that would change nothing is refused rather than applied |
+| 69 | Profile diff | Implemented: `.profile diff <a> [b]` against another profile or the live config, with numeric-tolerant comparison so a Gson round trip is not reported as a change |
 | 70 | Config schemas | Partial module v1 and HUD editor v1; remaining store migrations pending |
 | 71 | Addon API | Internal groundwork only; no external stable API or JAR loading |
 | 72 | Addon metadata | Not started |
 | 73 | Addon template repo | Not created; create MrHakan/AgalarHack-Addon-Template only after API stability |
-| 74 | Baritone | Not started; optional detection/integration, no mandatory dependency |
+| 74 | Baritone | **Deliberately deferred.** Baritone has no 26.2 build, so any bridge would be unverifiable, and the obvious shortcut - sending `#goto` through `sendChat` - leaks the command to public chat whenever Baritone is absent or its prefix is off. Revisit when a 26.2 Baritone exists and its API can actually be called |
 | 75 | Localization | Partial: `Translations` with English fallback, `en_us`/`tr_tr`, ClickGUI labels translated. Module names/descriptions and command output remain English |
 | 76 | Accessibility | Partial keyboard controls, paginated themes, high contrast/reduced motion; full legacy color migration, UI scale/text/colorblind/blur controls pending |
 | 77 | Unified scheduler | Partial implemented for BlockESP/StorageESP/EntityESP; further consumers/configurable budgets pending |
 | 78 | Chunk result cache | Implemented for BlockESP: bounded LRU clean-chunk cache with block-update, unload, anchor and filter invalidation. Other scanners still sweep |
 | 79 | Render culling | Partial distance/target/label bounds shared through EntityDiscovery; frustum culling pending |
 | 80 | Performance HUD | Partial scanner diagnostics and memory; module tick/render timings and broader counters pending |
-| 81 | Unit tests | 333 tests; adds block-update batching, chunk cache eviction, cursor completion, id-list parsing, notification sinks, waypoint normalisation/persistence and compass bearings; trajectory and fade coverage pending |
+| 81 | Unit tests | 390 tests; adds block-update batching, chunk cache eviction, cursor completion, id-list parsing, notification sinks, waypoint normalisation/persistence and compass bearings; trajectory and fade coverage pending |
 | 82 | Integration smoke tests | Partial: the client now boots headless under xvfb/llvmpipe and all six mixin injections are verified applied in the transformed bytecode. No gameplay was exercised; behaviour checks remain manual |
 | 83 | Lifecycle audit | Partial code audit/restoration; all listed state-changing modules need in-game transition checks |
 | 84 | Error reporting | Partial logger/module/render/scanner isolation; guarded HUD measurements/renderers with notices and retry; remaining boundaries need review |
 | 85 | Structured logging | Implemented SLF4J replacement for raw stderr; logging quality audit remains |
-| 86 | Module documentation | Partial metadata/foundation docs/handover; generated per-module defaults/limitations docs pending |
-| 87 | Experimental flags | Implemented: `markExperimental()` plus an UNTESTED badge in the ClickGUI, applied to all 25 modules added here; a source-level test stops a new module shipping unmarked |
+| 86 | Module documentation | Implemented: `docs/MODULES.md` is generated from the live settings registry and a test fails when it and the code disagree, rewriting the file as it fails |
+| 87 | Experimental flags | Implemented: `markExperimental()` plus an UNTESTED badge in the ClickGUI, applied to all 26 modules added here and surfaced in the generated module reference; a source-level test stops a new module shipping unmarked |
 
 ## Recommended next development batch
 
@@ -523,6 +523,46 @@ on the target card, UI scale and blur controls, and the remaining legacy Info bo
 Still missing in Phase C: camera tweaks, per-block BlockESP colours and richer ESP render modes.
 Still missing in Phase F: BetterChat, chat mentions, macros and combat history.
 
+## Latest continuation: colours, deaths, walking, profiles and generated docs
+
+Six topic commits after the runtime mixin verification.
+
+**Per-block BlockESP colours.** `BlockColorRules` resolves in three tiers: an explicit `id=RRGGBB`
+override, a built-in colour for blocks worth telling apart, then the module's existing sliders.
+Turning `perBlockColors` off restores the previous single-colour behaviour exactly. Three-digit hex
+shorthand is rejected on purpose, since `f00` is far more likely to be a truncated paste. The parsed
+map is cached on the module, so this costs nothing per block per frame.
+
+**Death waypoints.** On the Waypoints module rather than AutoRespawn, because it is useful whether or
+not you respawn automatically. Names carry the coordinates, so dying twice in one spot replaces an
+entry rather than accumulating one, and dying somewhere new never overwrites the marker you are
+walking towards. Recognition is name-based rather than a stored flag, which avoided a config
+migration and means renaming a death waypoint protects it from pruning. Pruning is oldest-first
+across all dimensions and never touches hand-made waypoints. `WaypointService.apply` writes the file
+once per death instead of once per add/remove.
+
+**AutoWalk plus `PlayerInputOverrides`.** `Input` is an all-or-nothing record, so holding one key
+means rebuilding it and copying six booleans back. Parkour was the only caller; a second one made
+that a helper. It is also what makes the record safe to share: each edit preserves the other fields,
+so tick order between AutoWalk and Parkour does not matter, and a test asserts both orders agree.
+Nothing here ever releases a key the player is holding.
+
+**Profile diff and partial loads.** `ProfileDiff` compares numerically across types, because
+snapshots go through Gson (everything becomes `Double`) while live settings hold whatever the module
+assigned. `ProfileSelection` does not know module or category names, so it matches tokens against
+both and reports the unrecognised ones - a partial load that silently does nothing looks exactly like
+one that worked. `applyPartialSettings` deliberately does not route through `applyValues`, which
+resets every module to defaults first; a partial load makes the opposite promise. A partial load also
+does not claim the profile as active, since afterwards the live config matches no stored profile.
+
+**Generated module reference.** `docs/MODULES.md` comes from the live settings registry, guarded by a
+test that rewrites the file as it fails. The generator lives in the test source set because nothing
+in the client reads it.
+
+Useful finding: **constructing a Module in a test works.** `ExperimentalFlagTest` assumes otherwise
+and reads source text; `Minecraft.getInstance()` returns null and no module touches it during
+construction, so future guards can use the real settings registry instead of grepping sources.
+
 ## Validation and source references
 
 Canonical command: **`./gradlew build --stacktrace` with JDK 25**.
@@ -629,6 +669,23 @@ Fabric's 26.2 `ClientChunkCacheMixin`. Do not reintroduce 1.20/1.21 examples bli
   and closing the inventory mid-swap, during death/respawn and dimension changes, and while AutoEat/AutoTool are
   also active. Confirm no item is ever left on the cursor, that AutoTotem preempts AutoArmor, that a popped totem
   cancels the pending restore, and that a renamed armour piece is never auto-equipped by default.
+
+### Manual acceptance checks added by this batch
+
+- BlockESP colours: turn on several categories at once and confirm ores, spawners and containers are
+  distinguishable at a glance; set a custom `blockColors` entry and confirm it beats the built-in
+  colour; turn `perBlockColors` off and confirm the sliders take over again.
+- Death waypoints: die with the setting on and confirm the marker lands where you died with a beam;
+  die again in the same spot and confirm one entry, not two; die three more times and confirm the
+  oldest death waypoint goes and hand-made ones do not; rename a death waypoint and confirm it then
+  survives pruning; die in the nether and confirm the cap still counts it.
+- AutoWalk: confirm steering still works while it runs, that pressing the opposite key stops you
+  without the module fighting back, that opening chat pauses it, and that walking into a wall turns it
+  off with a notification after the configured time. Run it with Parkour on and confirm both act.
+- Profiles: `.profile diff` two profiles you know differ, then diff one against the live config after
+  changing a single setting. `.profile load <name> hud`, then a category, then a module name, and
+  confirm nothing outside the selection changed - including which modules are enabled. Confirm a
+  typo is refused by name rather than applied.
 
 ## Environment and publishing notes for the next agent
 
