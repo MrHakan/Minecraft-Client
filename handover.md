@@ -273,7 +273,7 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 84 | Error reporting | Reviewed. Module tick, render, scanner, command, macro and HUD boundaries were already guarded. The one real gap was the shared chat callback: the bus detaches a listener that throws, so one chat module's bug disabled all three for the session. `ModuleGuard` now contains each module separately and reports once per failure episode, and ChatFilter fails open so a broken filter cannot hide chat |
 | 85 | Structured logging | Implemented SLF4J replacement for raw stderr. One `System.out.println` survived in the profile auto-load path and has now been replaced; the rest of the audit remains |
 | 86 | Module documentation | Implemented: `docs/MODULES.md` is generated from the live settings registry and a test fails when it and the code disagree, rewriting the file as it fails |
-| 87 | Experimental flags | Implemented: `markExperimental()` plus an UNTESTED badge in the ClickGUI, surfaced in the generated module reference. 18 of the original 31 remain; a source-level test stops a new module shipping unmarked **and** refuses a cleared flag that does not name a game test scenario that still exists |
+| 87 | Experimental flags | Implemented: `markExperimental()` plus an UNTESTED badge in the ClickGUI, surfaced in the generated module reference. 17 of the original 31 remain; a source-level test stops a new module shipping unmarked **and** refuses a cleared flag that does not name a game test scenario that still exists |
 
 ## Recommended next development batch
 
@@ -500,7 +500,7 @@ pointing at that scenario. The test fails if the scenario does not exist, so a f
 by editing a list — which is the only thing that makes the badge worth anything.
 
 Cleared so far: AutoTotem, AutoArmor, AutoWalk, SafeWalk, Parkour, CameraTweaks, AutoRefill,
-InventoryCleaner, AutoWeapon, BetterChat, ChatFilter, ChatMentions, AutoAccept.
+InventoryCleaner, AutoWeapon, BetterChat, ChatFilter, ChatMentions, AutoAccept, HoleESP.
 
 Write the control half of every scenario first. Each one asserts the effect is *absent* before the
 module is switched on; without that, an assertion that passes because the game does it anyway looks
@@ -938,14 +938,34 @@ Also worth knowing, found while diagnosing those: `Notifications.onDisable` swit
 notification service off, and the lifecycle test toggles that module off earlier in the run, so every
 `publish` after it is dropped. Any scenario asserting on a notification must enable that module first.
 
-What is left is the pure render modules, which hold no observable state at all. The plan there needs
-no reference images: screenshot twice with the module off to measure how much two consecutive frames
+What is left is the pure render modules, and the technique for them now exists and is proven on a
+runner as well as here: `Frames.difference` compares screenshots the test took itself, needing screenshot twice with the module off to measure how much two consecutive frames
 differ by themselves, then once with it on, and require the on/off difference to clearly exceed that
 noise. The noise measurement is the control - if two off-frames differ as much as on-vs-off, the
 scenario proves nothing and says so - and because all three frames come from one run on one machine,
 it does not care which Mesa version drew them. It needs a still scene: the zombie `TestScene` spawns
-would move the picture on its own. Note the honest limit before clearing anything on this basis - it
-shows a module *draws something*, not that it draws the right thing.
+would move the picture on its own, so `stillSceneWithHole` discards every non-player entity. Note the
+honest limit before clearing anything on this basis - it shows a module *draws something*, not that it
+draws the right thing.
+
+Three rules the HoleESP scenario paid for, all of them ways to read a number that means nothing:
+
+* **Measure noise and signal over the same number of ticks.** Anything drifting with time scales with
+  the window. Ten ticks of noise against sixty of signal read six times the cloud drift as a healthy
+  13.8 from a module that was drawing nothing whatsoever.
+* **Turn clouds off and hide the HUD** (F1). Clouds alone put the noise floor at 1.77; with them off
+  it is 0.000. Hiding the HUD matters for correctness, not quiet: the enabled-module list changes on
+  every toggle and would pass any render scenario with nothing drawn in the world.
+* **Put the camera where the marker is not occluded.** These overlays are depth tested. Seen from
+  outside the hole, HoleESP's marker sits behind the near rim and the frame does not change by a
+  single pixel - indistinguishable from a module that draws nothing. I had `results=1`, a correct
+  dispatch, no swallowed exception and BlockESP drawing 2.598 in the same frame, and was one step from
+  filing HoleESP as broken. From inside the hole it draws 1.335. Work out the sight line first.
+
+**The PR description is wrong about this and needs fixing:** it says these overlays draw through walls
+on purpose and rests the frustum-culling safety argument on that. They do not. The conclusion holds
+anyway, because frustum culling is about the view volume rather than occlusion, but the reason given
+is false.
 
 Superseded note, kept because it explains the helper: chat modules needed a way to read
 back what `ChatComponent` stored, which has no public accessor — reflection against the dev jar is

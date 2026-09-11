@@ -12,7 +12,7 @@ Every module here is enabled, ticked and disabled inside a real world on every p
 request, so an UNTESTED one is known not to crash; what is missing is a check that it
 does the thing it exists to do. The badge is cleared in the commit that adds that check.
 
-53 modules across 6 categories; 18 marked UNTESTED.
+53 modules across 6 categories; 17 marked UNTESTED.
 
 ## Combat
 
@@ -514,7 +514,7 @@ Lights up the whole world, either by night vision or by raising the brightness s
 | `mode` | `nightVision` | `nightVision\|gamma` | nightVision is brighter but adds an effect the server never gave you; gamma only moves the brightness slider |
 | `gammaLevel` | `1` | `0.5..1` | Brightness to use in gamma mode, within the range vanilla allows |
 
-### HoleESP — UNTESTED
+### HoleESP
 
 Marks standable holes nearby and whether they are blast resistant
 
