@@ -45,7 +45,7 @@ public class Parkour extends Module {
         double aheadZ = player.getZ() + motion.z / speed * lookahead;
         if (!wouldFall(aheadX, player.getY(), aheadZ)) return;
 
-        player.input.keyPresses = PlayerInputOverrides.withJump(player.input.keyPresses, true);
+        PlayerInputOverrides.request(false, false, true, false);
     }
 
     /** True when there is nothing to stand on just beyond the current position. */

@@ -37,6 +37,11 @@ class MixinTargetsTest {
             new Target("net.minecraft.client.multiplayer.ClientPacketListener", "handleSetTime",
                     "net.minecraft.network.protocol.game.ClientboundSetTimePacket"),
             new Target("net.minecraft.world.entity.player.Player", "isStayingOnGroundSurface"),
+            // Where the keyboard is turned into the movement record. Modules run a tick earlier, so
+            // this is the only point at which a requested key survives to be read.
+            new Target("net.minecraft.client.player.KeyboardInput", "tick"),
+            new Target("net.minecraft.client.player.KeyboardInput", "calculateImpulse",
+                    "boolean", "boolean"),
             new Target("net.minecraft.client.renderer.GameRenderer", "bobHurt",
                     "net.minecraft.client.renderer.state.level.CameraRenderState",
                     "com.mojang.blaze3d.vertex.PoseStack"),

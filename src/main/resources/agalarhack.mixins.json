@@ -8,6 +8,7 @@
     "ClientPacketListenerMixin",
     "ConnectionMixin",
     "GameRendererMixin",
+    "KeyboardInputMixin",
     "PlayerEdgeMixin"
   ],
   "injectors": {

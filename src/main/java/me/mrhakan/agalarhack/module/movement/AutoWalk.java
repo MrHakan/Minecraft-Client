@@ -19,7 +19,6 @@ public class AutoWalk extends Module {
 
     public AutoWalk() {
         super("AutoWalk", Category.MOVEMENT, "Keeps walking without holding the key, and stops when walking stops working");
-        markExperimental();
     }
 
     @Override
@@ -58,11 +57,8 @@ public class AutoWalk extends Module {
         }
 
         boolean backward = "backward".equals(getStringSetting("direction", "forward"));
-        var keys = backward
-                ? PlayerInputOverrides.withBackward(player.input.keyPresses, true)
-                : PlayerInputOverrides.withForward(player.input.keyPresses, true);
         // Sprinting backwards is not a thing in vanilla, so asking for it would only mislead.
-        if (!backward && getBooleanSetting("sprint", false)) keys = PlayerInputOverrides.withSprint(keys, true);
-        player.input.keyPresses = keys;
+        boolean sprint = !backward && getBooleanSetting("sprint", false);
+        PlayerInputOverrides.request(!backward, backward, false, sprint);
     }
 }

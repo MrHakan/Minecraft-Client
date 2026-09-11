@@ -4,14 +4,14 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.function.BiFunction;
-import java.util.function.Predicate;
 import net.minecraft.world.entity.player.Input;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * Guards the positional-argument hazard these helpers exist to remove: seven booleans in a row where
- * one transposed pair silently turns a jump into a strafe.
+ * Guards the positional-argument hazard this class exists to remove - seven booleans in a row where
+ * one transposed pair silently turns a jump into a strafe - and the consume-once contract the input
+ * mixin depends on.
  */
 class PlayerInputOverridesTest {
 
@@ -23,55 +23,88 @@ class PlayerInputOverridesTest {
         return new Input(true, true, true, true, true, true, true);
     }
 
-    private void changesOnlyItsOwnField(BiFunction<Input, Boolean, Input> override, Predicate<Input> field) {
-        Input result = override.apply(none(), true);
-        assertTrue(field.test(result), "the requested field was not set");
-        // Exactly one of the seven may differ from the all-false input.
-        int changed = 0;
-        for (boolean value : new boolean[] { result.forward(), result.backward(), result.left(),
-                result.right(), result.jump(), result.shift(), result.sprint() }) {
-            if (value) changed++;
+    /** Requests are static, so a leftover from one test would change the next one's result. */
+    @BeforeEach void discardAnyPendingRequest() {
+        PlayerInputOverrides.clear();
+    }
+
+    @Test void forwardReachesForwardAndNothingElse() {
+        PlayerInputOverrides.request(true, false, false, false);
+        Input result = PlayerInputOverrides.consume(none());
+        assertTrue(result.forward());
+        assertEquals(1, setFields(result), "exactly one field may change: " + result);
+    }
+
+    @Test void jumpReachesJumpAndNothingElse() {
+        PlayerInputOverrides.request(false, false, true, false);
+        Input result = PlayerInputOverrides.consume(none());
+        assertTrue(result.jump());
+        assertEquals(1, setFields(result), "exactly one field may change: " + result);
+    }
+
+    @Test void backwardAndSprintLandInTheirOwnFields() {
+        PlayerInputOverrides.request(false, true, false, true);
+        Input result = PlayerInputOverrides.consume(none());
+        assertTrue(result.backward());
+        assertTrue(result.sprint());
+        assertFalse(result.forward());
+        assertEquals(2, setFields(result));
+    }
+
+    @Test void keysTheModuleDidNotAskForAreLeftAlone() {
+        PlayerInputOverrides.request(true, false, false, false);
+        assertEquals(all(), PlayerInputOverrides.consume(all()));
+    }
+
+    @Test void neverTakesAKeyAwayFromThePlayer() {
+        PlayerInputOverrides.request(false, false, false, false);
+        Input result = PlayerInputOverrides.consume(all());
+        assertTrue(result.forward(), "releasing a key the player is holding would feel broken");
+        assertTrue(result.jump());
+    }
+
+    @Test void twoModulesRequestingDifferentKeysBothGetThem() {
+        PlayerInputOverrides.request(true, false, false, false);
+        PlayerInputOverrides.request(false, false, true, false);
+        Input result = PlayerInputOverrides.consume(none());
+        assertTrue(result.forward());
+        assertTrue(result.jump());
+    }
+
+    @Test void theOppositeRequestOrderReachesTheSamePlace() {
+        PlayerInputOverrides.request(false, false, true, false);
+        PlayerInputOverrides.request(true, false, false, false);
+        Input first = PlayerInputOverrides.consume(none());
+        PlayerInputOverrides.request(true, false, false, false);
+        PlayerInputOverrides.request(false, false, true, false);
+        assertEquals(first, PlayerInputOverrides.consume(none()));
+    }
+
+    /** The mixin runs every input tick; a request that survived one would hold the key forever. */
+    @Test void aRequestIsAppliedExactlyOnce() {
+        PlayerInputOverrides.request(true, false, false, false);
+        assertTrue(PlayerInputOverrides.consume(none()).forward());
+        assertFalse(PlayerInputOverrides.consume(none()).forward(),
+                "a module that stopped asking must stop holding the key on the very next tick");
+    }
+
+    @Test void consumingWithNoRequestReturnsTheKeysUntouched() {
+        assertEquals(none(), PlayerInputOverrides.consume(none()));
+        assertEquals(all(), PlayerInputOverrides.consume(all()));
+    }
+
+    @Test void clearDropsARequestThatWasNeverApplied() {
+        PlayerInputOverrides.request(true, false, false, false);
+        PlayerInputOverrides.clear();
+        assertFalse(PlayerInputOverrides.consume(none()).forward());
+    }
+
+    private static int setFields(Input input) {
+        int count = 0;
+        for (boolean value : new boolean[] { input.forward(), input.backward(), input.left(),
+                input.right(), input.jump(), input.shift(), input.sprint() }) {
+            if (value) count++;
         }
-        assertEquals(1, changed, "exactly one field may change: " + result);
-    }
-
-    @Test void forwardChangesOnlyForward() {
-        changesOnlyItsOwnField(PlayerInputOverrides::withForward, Input::forward);
-    }
-
-    @Test void backwardChangesOnlyBackward() {
-        changesOnlyItsOwnField(PlayerInputOverrides::withBackward, Input::backward);
-    }
-
-    @Test void jumpChangesOnlyJump() {
-        changesOnlyItsOwnField(PlayerInputOverrides::withJump, Input::jump);
-    }
-
-    @Test void sprintChangesOnlySprint() {
-        changesOnlyItsOwnField(PlayerInputOverrides::withSprint, Input::sprint);
-    }
-
-    @Test
-    void everyOtherFieldSurvivesUntouched() {
-        assertEquals(all(), PlayerInputOverrides.withForward(all(), true));
-        assertEquals(all(), PlayerInputOverrides.withJump(all(), false));
-    }
-
-    @Test
-    void neverTakesAKeyAwayFromThePlayer() {
-        assertTrue(PlayerInputOverrides.withForward(all(), false).forward(),
-                "releasing a key the player is holding would make the keyboard feel broken");
-        assertTrue(PlayerInputOverrides.withJump(all(), false).jump());
-        assertFalse(PlayerInputOverrides.withForward(none(), false).forward());
-    }
-
-    @Test
-    void twoModulesSharingTheRecordDoNotClobberEachOther() {
-        Input walking = PlayerInputOverrides.withForward(none(), true);
-        Input jumping = PlayerInputOverrides.withJump(walking, true);
-        assertTrue(jumping.forward());
-        assertTrue(jumping.jump());
-        // The opposite order has to reach the same place, which is the whole reason tick order is safe.
-        assertEquals(jumping, PlayerInputOverrides.withForward(PlayerInputOverrides.withJump(none(), true), true));
+        return count;
     }
 }

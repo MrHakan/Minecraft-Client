@@ -11,8 +11,14 @@ import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
 import net.minecraft.client.Minecraft;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.phys.Vec3;
 
 /**
  * Checks that individual modules do the thing they exist to do.
@@ -44,6 +50,9 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
 
             autoTotem(context);
             autoArmor(context);
+            cameraTweaks(context);
+            autoWalk(context, singleplayer);
+            safeWalk(context, singleplayer);
 
             LOGGER.info("Module behaviour scenarios passed");
         }
@@ -90,6 +99,134 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
                     + (SETTLE_TICKS * 2) + " ticks, with a full diamond set in the inventory");
         }
         LOGGER.info("  AutoArmor equipped a full set");
+    }
+
+    /**
+     * A borrowed vanilla option must come back. The restore path is the half that breaks quietly:
+     * nobody notices a field of view that was never restored until the next session looks wrong.
+     */
+    private void cameraTweaks(ClientGameTestContext context) {
+        int original = context.computeOnClient(client -> client.options.fov().get());
+        int forced = original == 45 ? 70 : 45;
+
+        configure(context, "CameraTweaks", module -> {
+            module.settings.setSetting("overrideFov", true);
+            module.settings.setSetting("fov", (double) forced);
+        });
+
+        toggle(context, "CameraTweaks", true);
+        boolean applied = settle(context, client -> client.options.fov().get() == forced);
+        toggle(context, "CameraTweaks", false);
+        if (!applied) {
+            throw new AssertionError("CameraTweaks did not force the field of view to " + forced);
+        }
+
+        context.waitTicks(4);
+        int after = context.computeOnClient(client -> client.options.fov().get());
+        if (after != original) {
+            throw new AssertionError("CameraTweaks left the field of view at " + after
+                    + " after being disabled; it was " + original + " before");
+        }
+        LOGGER.info("  CameraTweaks forced the field of view and gave it back");
+    }
+
+    /** The module holds the movement key; the assertion is that the player actually goes somewhere. */
+    private void autoWalk(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        settleOnGround(context, singleplayer);
+
+        Vec3 before = position(context);
+        context.waitTicks(20);
+        if (position(context).distanceTo(before) > 0.5) {
+            throw new AssertionError("the player was already moving before AutoWalk was enabled");
+        }
+
+        toggle(context, "AutoWalk", true);
+        Vec3 start = position(context);
+        boolean moved = settle(context, client -> client.player.position().distanceTo(start) > 2.0);
+        toggle(context, "AutoWalk", false);
+        if (!moved) {
+            throw new AssertionError("AutoWalk did not move the player more than 2 blocks in "
+                    + SETTLE_TICKS + " ticks");
+        }
+        LOGGER.info("  AutoWalk walked the player forward");
+    }
+
+    /**
+     * The one scenario here that proves a mixin rather than a module. It runs the same walk twice -
+     * once with the module off, once on - because "the player did not fall" means nothing unless the
+     * same walk without the module does.
+     */
+    private void safeWalk(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        BlockPos ledge = digPit(context, singleplayer);
+
+        toggle(context, "SafeWalk", false);
+        double fell = walkOffAndReport(context, singleplayer, ledge);
+        if (fell > -1.0) {
+            throw new AssertionError("the control walk did not fall off the ledge (dropped only "
+                    + fell + " blocks), so this scenario cannot tell SafeWalk apart from nothing");
+        }
+
+        toggle(context, "SafeWalk", true);
+        double held = walkOffAndReport(context, singleplayer, ledge);
+        toggle(context, "SafeWalk", false);
+        if (held < -0.5) {
+            throw new AssertionError("SafeWalk let the player drop " + held
+                    + " blocks off a ledge the control walk also fell from");
+        }
+        LOGGER.info("  SafeWalk held the edge the control walk fell off");
+    }
+
+    /** Clears a 5x5 pit two blocks away and returns the standing spot facing it. */
+    private static BlockPos digPit(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        return singleplayer.getServer().computeOnServer(server -> {
+            ServerPlayer player = singleplayer.getConnection().getServerPlayer();
+            ServerLevel level = player.level();
+            BlockPos stand = player.blockPosition();
+            for (int dx = 2; dx <= 6; dx++) {
+                for (int dz = -2; dz <= 2; dz++) {
+                    for (int dy = -1; dy >= -4; dy--) {
+                        level.setBlockAndUpdate(stand.offset(dx, dy, dz), Blocks.AIR.defaultBlockState());
+                    }
+                }
+            }
+            return stand;
+        });
+    }
+
+    /**
+     * Puts the player back on the ledge, walks into the pit, and returns how far they dropped.
+     * Negative means they fell.
+     */
+    private static double walkOffAndReport(ClientGameTestContext context, TestSingleplayerContext singleplayer,
+            BlockPos ledge) {
+        singleplayer.getServer().runOnServer(server -> {
+            ServerPlayer player = singleplayer.getConnection().getServerPlayer();
+            player.setGameMode(GameType.SURVIVAL);
+            player.teleportTo(ledge.getX() + 0.5, ledge.getY(), ledge.getZ() + 0.5);
+        });
+        context.waitTicks(20);
+        context.getInput().lookAt(ledge.offset(4, 0, 0));
+        context.waitTicks(5);
+
+        double startY = position(context).y;
+        context.getInput().holdKeyFor(options -> options.keyUp, 30);
+        context.waitTicks(20);
+        double drop = position(context).y - startY;
+
+        singleplayer.getServer().runOnServer(server ->
+                singleplayer.getConnection().getServerPlayer().setGameMode(GameType.CREATIVE));
+        return drop;
+    }
+
+    /** Creative flight leaves the player drifting; several modules only act with both feet down. */
+    private static void settleOnGround(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        singleplayer.getServer().runOnServer(server ->
+                singleplayer.getConnection().getServerPlayer().setGameMode(GameType.CREATIVE));
+        context.waitTicks(10);
+    }
+
+    private static Vec3 position(ClientGameTestContext context) {
+        return context.computeOnClient(client -> client.player.position());
     }
 
     private static void configure(ClientGameTestContext context, String name, java.util.function.Consumer<Module> change) {

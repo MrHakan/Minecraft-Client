@@ -99,7 +99,12 @@ public class AgalarHackClient implements ClientModInitializer {
                 new me.mrhakan.agalarhack.services.InputStateService(EVENTS));
         EVENTS.subscribe(ClientEvents.ClientTick.class, "server-context", 300, event -> context.tick(event.client()));
         EVENTS.subscribe(ClientEvents.ClientTick.class, "input", 200, event -> input.tick(event.client()));
-        EVENTS.subscribe(ClientEvents.WorldChanged.class, "world-services", 100, event -> { inventory.reset(); rotations.clear(); });
+        EVENTS.subscribe(ClientEvents.WorldChanged.class, "world-services", 100, event -> {
+            inventory.reset();
+            rotations.clear();
+            // A key request made in the world being left must not be applied in the one being entered.
+            me.mrhakan.agalarhack.services.PlayerInputOverrides.clear();
+        });
         EVENTS.subscribe(ClientEvents.WorldChanged.class, "module-lifecycle", 0, event -> moduleManager.onWorldChanged(event.ready()));
         EVENTS.subscribe(ClientEvents.Disconnected.class, "server-context", 110, event -> context.disconnected());
         services.register(me.mrhakan.agalarhack.services.RenderService.class, new me.mrhakan.agalarhack.services.RenderService());
@@ -186,6 +191,7 @@ public class AgalarHackClient implements ClientModInitializer {
         ClientSendMessageEvents.ALLOW_CHAT.register(message -> !CommandManager.handleChat(message));
 
         EVENTS.subscribe(ClientEvents.Disconnected.class, "disconnect", 0, event -> {
+            me.mrhakan.agalarhack.services.PlayerInputOverrides.clear();
             moduleManager.onDisconnect();
             PROFILES.onDisconnect();
             TARGET_TRACKER.clear();
