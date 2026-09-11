@@ -21,7 +21,6 @@ public class CameraTweaks extends Module {
 
     public CameraTweaks() {
         super("CameraTweaks", Category.RENDER, "Client-side camera adjustments: hurt shake, view bobbing, FOV and FOV effects");
-        markExperimental();
     }
 
     @Override

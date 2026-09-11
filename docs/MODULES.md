@@ -12,7 +12,7 @@ Every module here is enabled, ticked and disabled inside a real world on every p
 request, so an UNTESTED one is known not to crash; what is missing is a check that it
 does the thing it exists to do. The badge is cleared in the commit that adds that check.
 
-53 modules across 6 categories; 29 marked UNTESTED.
+53 modules across 6 categories; 26 marked UNTESTED.
 
 ## Combat
 
@@ -203,7 +203,7 @@ Ping history and an estimated server tick rate, both clearly labelled as client-
 
 ## Movement
 
-### AutoWalk — UNTESTED
+### AutoWalk
 
 Keeps walking without holding the key, and stops when walking stops working
 
@@ -251,7 +251,7 @@ Jumps at block edges instead of walking off them
 | `requireSprint` | `false` | `true/false or on/off` | Only jump while sprinting |
 | `ignoreSneaking` | `true` | `true/false or on/off` | Do not jump while sneaking |
 
-### SafeWalk — UNTESTED
+### SafeWalk
 
 Prevents walking off block edges using Minecraft's own sneak-edge check
 
@@ -428,7 +428,7 @@ Records and draws the path you have walked
 | `alpha` | `200` | `32..255` | Trail alpha channel |
 | `fade` | `true` | `true/false or on/off` | Fade older points |
 
-### CameraTweaks — UNTESTED
+### CameraTweaks
 
 Client-side camera adjustments: hurt shake, view bobbing, FOV and FOV effects
 
