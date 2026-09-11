@@ -56,6 +56,9 @@ public class Hud implements HudElement {
         textComponent("tps","TPS (estimate)",()->serverInfoLine());
         textComponent("crit","Attack Charge",Hud::critLine);
         textComponent("packets","Packet Rate",Hud::packetLine);
+        textComponent("time","Time (overworld)",Hud::timeLine);
+        textComponent("biome","Biome",Hud::biomeLine);
+        textComponent("light","Light Level",Hud::lightLine);
         registry.register(new me.mrhakan.agalarhack.ui.hud.HudRegistry.Component("ping_graph","Ping Graph",()->104,()->34,event->renderPingGraph(event.graphics())),
                 new me.mrhakan.agalarhack.managers.HudLayoutManager.WidgetState(me.mrhakan.agalarhack.managers.HudLayoutManager.Anchor.TOP_LEFT,8,150,false));
         textComponent("direction","Direction",()->Minecraft.getInstance().player==null?"Facing --":"Facing "+Minecraft.getInstance().player.getDirection());
@@ -111,6 +114,47 @@ public class Hud implements HudElement {
         if (item.isEmpty()) return;
         g.item(item, x, y);
         g.itemDecorations(client.font, item, x, y);
+    }
+
+    /**
+     * The overworld clock, even in another dimension.
+     *
+     * <p>26.2 has no {@code getDayTime()}: it is {@code getOverworldClockTime()} and
+     * {@code getDefaultClockTime()}. The overworld one is what a player actually wants - the local
+     * sky in the nether says nothing, while "is it night back home" decides when to go through.
+     */
+    private static String timeLine() {
+        var level=Minecraft.getInstance().level;
+        if(level==null) return "Time --";
+        long time=level.getOverworldClockTime();
+        return me.mrhakan.agalarhack.services.WorldClock.formatted(time)
+                + (me.mrhakan.agalarhack.services.WorldClock.isNight(time)?"  night":"");
+    }
+
+    /** The biome id the client already has for the block it is standing in. */
+    private static String biomeLine() {
+        var client=Minecraft.getInstance();
+        if(client.level==null||client.player==null) return "Biome --";
+        var biome=client.level.getBiome(client.player.blockPosition());
+        return "Biome "+biome.unwrapKey()
+                .map(key->key.identifier().getPath().replace('_',' '))
+                .orElse("unknown");
+    }
+
+    /**
+     * Block and sky light where the player is standing.
+     *
+     * <p>Block light is the half that matters for spawn-proofing, because it is the half a torch
+     * changes; sky light is shown beside it so an open-air reading is not mistaken for a lit room.
+     */
+    private static String lightLine() {
+        var client=Minecraft.getInstance();
+        if(client.level==null||client.player==null) return "Light --";
+        var pos=client.player.blockPosition();
+        var engine=client.level.getLightEngine();
+        int block=engine.getLayerListener(net.minecraft.world.level.LightLayer.BLOCK).getLightValue(pos);
+        int sky=engine.getLayerListener(net.minecraft.world.level.LightLayer.SKY).getLightValue(pos);
+        return "Light "+block+" block / "+sky+" sky";
     }
 
     /** Counted, not estimated: the client either received a packet or it did not. */
