@@ -267,7 +267,7 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 78 | Chunk result cache | Implemented for BlockESP: bounded LRU clean-chunk cache with block-update, unload, anchor and filter invalidation. Other scanners still sweep |
 | 79 | Render culling | Partial distance/target/label bounds shared through EntityDiscovery; frustum culling pending |
 | 80 | Performance HUD | Partial scanner diagnostics and memory; module tick/render timings and broader counters pending |
-| 81 | Unit tests | 330 tests; adds block-update batching, chunk cache eviction, cursor completion, id-list parsing, notification sinks, waypoint normalisation/persistence and compass bearings; trajectory and fade coverage pending |
+| 81 | Unit tests | 333 tests; adds block-update batching, chunk cache eviction, cursor completion, id-list parsing, notification sinks, waypoint normalisation/persistence and compass bearings; trajectory and fade coverage pending |
 | 82 | Integration smoke tests | Not performed in-game; automate where feasible and record exact environment/results |
 | 83 | Lifecycle audit | Partial code audit/restoration; all listed state-changing modules need in-game transition checks |
 | 84 | Error reporting | Partial logger/module/render/scanner isolation; guarded HUD measurements/renderers with notices and retry; remaining boundaries need review |
@@ -446,6 +446,20 @@ whenever a server heals, absorbs or cancels a hit.
 
 **AutoJump was skipped on purpose** — see requirement 45 above. Do not add it later without checking
 that reasoning.
+
+## Mixin targets are now verified in CI
+
+`MixinTargetsTest` checks all six injection targets against the real 26.2 classes, loading them with
+initialisation disabled so no Minecraft bootstrap is needed. This matters because `required: true`
+with `defaultRequire: 1` turns a missing target into a **failure to start**, and a normal build
+cannot catch it — the target is named in an annotation string, so the mixin compiles either way.
+The guard was verified by deliberately breaking a target name and confirming the test went red.
+
+**When you add or change a mixin, add its target to that list.** A test asserts one target owner per
+mixin class so a new mixin cannot slip past unnoticed.
+
+It proves the targets exist. It does **not** prove the injection points inside those methods resolve,
+or that anything works in game — that is still the first manual check.
 
 ## Lifecycle audit result
 
