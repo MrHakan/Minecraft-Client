@@ -29,6 +29,7 @@ import me.mrhakan.agalarhack.module.player.AutoWeapon;
 import me.mrhakan.agalarhack.module.player.InventoryCleaner;
 import me.mrhakan.agalarhack.module.movement.Jesus;
 import me.mrhakan.agalarhack.module.movement.NoFall;
+import me.mrhakan.agalarhack.module.movement.AutoWalk;
 import me.mrhakan.agalarhack.module.movement.Parkour;
 import me.mrhakan.agalarhack.module.movement.SafeWalk;
 import me.mrhakan.agalarhack.module.movement.Speed;
@@ -82,6 +83,7 @@ public class ModuleManager {
         register(new NoFall());
         register(new SafeWalk());
         register(new Parkour());
+        register(new AutoWalk());
 
         register(new me.mrhakan.agalarhack.module.render.Notifications());
         register(new me.mrhakan.agalarhack.module.render.ModuleList());

@@ -3,8 +3,8 @@ package me.mrhakan.agalarhack.module.movement;
 import me.mrhakan.agalarhack.AgalarHackClient;
 import me.mrhakan.agalarhack.module.Category;
 import me.mrhakan.agalarhack.module.Module;
+import me.mrhakan.agalarhack.services.PlayerInputOverrides;
 import net.minecraft.core.BlockPos;
-import net.minecraft.world.entity.player.Input;
 
 /**
  * Jumps at the edge of a block instead of walking off it.
@@ -45,9 +45,7 @@ public class Parkour extends Module {
         double aheadZ = player.getZ() + motion.z / speed * lookahead;
         if (!wouldFall(aheadX, player.getY(), aheadZ)) return;
 
-        Input keys = player.input.keyPresses;
-        player.input.keyPresses = new Input(keys.forward(), keys.backward(), keys.left(), keys.right(),
-                true, keys.shift(), keys.sprint());
+        player.input.keyPresses = PlayerInputOverrides.withJump(player.input.keyPresses, true);
     }
 
     /** True when there is nothing to stand on just beyond the current position. */
