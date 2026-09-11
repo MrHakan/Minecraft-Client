@@ -6,6 +6,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.BlockItem;
@@ -18,7 +19,10 @@ import net.minecraft.world.level.block.state.BlockState;
 public final class InventoryService {
     private final Minecraft mc;
     private LocalPlayer observedPlayer;
-    private final ItemStack[] observed = new ItemStack[36];
+    private static final EquipmentSlot[] EQUIPMENT = { EquipmentSlot.HEAD, EquipmentSlot.CHEST,
+            EquipmentSlot.LEGS, EquipmentSlot.FEET, EquipmentSlot.MAINHAND, EquipmentSlot.OFFHAND };
+    private final SlotSnapshots<ItemStack> observed = new SlotSnapshots<>(36, ItemStack::matches, ItemStack::copy);
+    private final SlotSnapshots<ItemStack> equipment = new SlotSnapshots<>(EQUIPMENT.length, ItemStack::matches, ItemStack::copy);
     private int observedSlot = -1;
     private final InventoryLeaseController<LocalPlayer> leases;
     public InventoryService(Minecraft mc, UtilityActionManager actions) {
@@ -50,9 +54,21 @@ public final class InventoryService {
         }
         return -1;
     }
-    public int findFood(boolean allowGolden) {
+    /** Defensive snapshots; inventory indices are 0..35, not container-menu slot IDs. */
+    public ItemStack stackAt(int slot) {
+        if (slot < 0 || slot >= 36) throw new IllegalArgumentException("Inventory slot must be 0..35");
+        return mc.player == null ? ItemStack.EMPTY : mc.player.getInventory().getItem(slot).copy();
+    }
+    public ItemStack equipped(EquipmentSlot slot) {
+        java.util.Objects.requireNonNull(slot);
+        return mc.player == null ? ItemStack.EMPTY : mc.player.getItemBySlot(slot).copy();
+    }
+    public int findHotbar(Predicate<ItemStack> predicate) { return find(predicate, true); }
+    public int findInventory(Predicate<ItemStack> predicate) { return find(predicate, false); }
+    public int findFood(boolean allowGolden) { return findFood(allowGolden, true); }
+    public int findFood(boolean allowGolden, boolean hotbar) {
         if (mc.player == null) return -1;
-        return InventorySelection.best(9, -1, slot -> {
+        return InventorySelection.best(hotbar ? 9 : 36, -1, slot -> {
             ItemStack stack = mc.player.getInventory().getItem(slot);
             if (stack.isEmpty() || (!allowGolden && (stack.is(Items.GOLDEN_APPLE) || stack.is(Items.ENCHANTED_GOLDEN_APPLE)))) return -1;
             var food = stack.get(DataComponents.FOOD);
@@ -71,18 +87,23 @@ public final class InventoryService {
     public void tick() {
         leases.tick(mc.player != null && mc.level != null && mc.player.isAlive() && mc.gui.screen() == null);
         if (observedPlayer != mc.player) {
-            observedPlayer = mc.player; java.util.Arrays.fill(observed, null); observedSlot = -1;
+            observedPlayer = mc.player; observed.clear(); equipment.clear(); observedSlot = -1;
         }
         if (observedPlayer == null) return;
         var events = ClientServices.require(me.mrhakan.agalarhack.events.EventBus.class);
-        for (int slot = 0; slot < observed.length; slot++) {
-            ItemStack current = observedPlayer.getInventory().getItem(slot);
-            ItemStack previous = observed[slot];
-            if (previous == null || !ItemStack.matches(previous, current)) {
-                observed[slot] = current.copy();
-                events.post(new me.mrhakan.agalarhack.events.ClientEvents.InventoryUpdated(observedPlayer, slot,
-                        previous == null ? ItemStack.EMPTY : previous.copy(), current.copy()));
-            }
+        LocalPlayer player = observedPlayer;
+        for (int slot = 0; slot < 36; slot++) {
+            var change = observed.update(slot, player.getInventory().getItem(slot));
+            if (change != null) events.post(new me.mrhakan.agalarhack.events.ClientEvents.InventoryUpdated(player, slot,
+                    change.previous() == null ? ItemStack.EMPTY : change.previous(), change.current()));
+            if (observedPlayer != player || mc.player != player) return;
+        }
+        for (int index = 0; index < EQUIPMENT.length; index++) {
+            var slot = EQUIPMENT[index];
+            var change = equipment.update(index, player.getItemBySlot(slot));
+            if (change != null) events.post(new me.mrhakan.agalarhack.events.ClientEvents.EquipmentUpdated(player, slot,
+                    change.previous() == null ? ItemStack.EMPTY : change.previous(), change.current()));
+            if (observedPlayer != player || mc.player != player) return;
         }
         int selected = selectedSlot();
         if (observedSlot != selected) {
@@ -95,5 +116,5 @@ public final class InventoryService {
         return leases.select(owner, priority, slot, use, restore);
     }
     public void release(String owner) { leases.release(owner); }
-    public void reset() { leases.clear(); observedPlayer = null; observedSlot = -1; java.util.Arrays.fill(observed, null); }
+    public void reset() { leases.clear(); observedPlayer = null; observedSlot = -1; observed.clear(); equipment.clear(); }
 }

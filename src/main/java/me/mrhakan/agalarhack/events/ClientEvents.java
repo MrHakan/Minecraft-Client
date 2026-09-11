@@ -19,6 +19,9 @@ public final class ClientEvents {
                                net.minecraft.client.player.LocalPlayer player, boolean ready) { }
     public record InventoryUpdated(net.minecraft.client.player.LocalPlayer player, int slot,
                                    net.minecraft.world.item.ItemStack previous, net.minecraft.world.item.ItemStack current) { }
+    /** Separate from main inventory indices; includes initial snapshots after player replacement. */
+    public record EquipmentUpdated(net.minecraft.client.player.LocalPlayer player, net.minecraft.world.entity.EquipmentSlot slot,
+                                   net.minecraft.world.item.ItemStack previous, net.minecraft.world.item.ItemStack current) { }
     public record SelectedSlotChanged(int previous, int current) { }
     public record KeyInput(int key, boolean pressed, boolean inScreen) { }
     public record MouseInput(int button, boolean pressed, boolean inScreen) { }
