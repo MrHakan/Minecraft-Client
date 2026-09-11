@@ -17,8 +17,8 @@ At the 2026-09-11 re-inspection, #9 was still the only open PR, at head `f3eb4ff
 open PRs again: this document is a checkpoint, not a substitute for live repository state.
 **Nothing in this work has been automatically merged into main.**
 
-Approximate progress against the complete requested roadmap: **50–56% implemented;
-44–50% remains**. This is a qualitative scope estimate, not measured work hours, a count
+Approximate progress against the complete requested roadmap: **54–60% implemented;
+40–46% remains**. This is a qualitative scope estimate, not measured work hours, a count
 of commits, or a release-readiness percentage. Earlier estimate was about 20%; this batch
 mainly deepens existing foundations. Do not extrapolate remaining duration from these numbers.
 No entire phase is accepted as complete; Minecraft in-game smoke testing remains outstanding.
@@ -30,7 +30,7 @@ No entire phase is accepted as complete; Minecraft in-game smoke testing remains
 | C: rendering | 65–70% | More ESP render modes, camera tweaks, per-block BlockESP colours |
 | D: player utility | 55–60% | AutoFish, AutoWalk, AutoAccept, FastPlace, inventory HUD depth |
 | E: movement/world | 10–15% | Parkour, AutoJump, Elytra utility, BaseFinder/HoleESP/light visualization |
-| F: information/social | 35–40% | BetterChat, chat mentions, macros, combat history |
+| F: information/social | 45–50% | BetterChat rendering (timestamps/highlighting), macros, combat history |
 | G: ecosystem | 0% | Stable external addon API/template, optional Baritone, localization |
 | H: hardening | 50–55% | In-game lifecycle testing, complete profiling/config migration audit |
 
@@ -244,8 +244,8 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 55 | Light/spawn visualization | Not started; verify 26.2 spawn rules and bounded scanning |
 | 56 | HoleESP | Not started |
 | 57 | Portal/gateway finder | Partial existing BlockESP portal filter; reuse this infrastructure |
-| 58 | BetterChat | Not started |
-| 59 | Chat mentions | Not started |
+| 58 | BetterChat | Partial: local-only phrase filtering via ChatFilter. Timestamps, highlighting and duplicate compaction need a chat-rendering mixin Fabric does not replace |
+| 59 | Chat mentions | Implemented: whole-word own-name/friend/keyword matching with notification and optional sound |
 | 60 | Translator architecture | Optional, not started; core operation must not depend on cloud API |
 | 61 | Macros | Not started |
 | 62 | Command aliases | Implemented: persistent, single-pass expansion, cannot shadow real commands or self-reference |
@@ -267,7 +267,7 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 78 | Chunk result cache | Implemented for BlockESP: bounded LRU clean-chunk cache with block-update, unload, anchor and filter invalidation. Other scanners still sweep |
 | 79 | Render culling | Partial distance/target/label bounds shared through EntityDiscovery; frustum culling pending |
 | 80 | Performance HUD | Partial scanner diagnostics and memory; module tick/render timings and broader counters pending |
-| 81 | Unit tests | 260 tests; adds block-update batching, chunk cache eviction, cursor completion, id-list parsing, notification sinks, waypoint normalisation/persistence and compass bearings; trajectory and fade coverage pending |
+| 81 | Unit tests | 271 tests; adds block-update batching, chunk cache eviction, cursor completion, id-list parsing, notification sinks, waypoint normalisation/persistence and compass bearings; trajectory and fade coverage pending |
 | 82 | Integration smoke tests | Not performed in-game; automate where feasible and record exact environment/results |
 | 83 | Lifecycle audit | Partial code audit/restoration; all listed state-changing modules need in-game transition checks |
 | 84 | Error reporting | Partial logger/module/render/scanner isolation; guarded HUD measurements/renderers with notices and retry; remaining boundaries need review |
@@ -404,6 +404,22 @@ overflowing it and is called out in the text; ping is omitted when unknown inste
 the eased bar resets on target change so it never slides between two players, and snaps once the gap
 is invisible. **Reduced motion and the theme animation switch both override the module's own
 animation toggle** — accessibility wins over a per-module preference.
+
+## Latest continuation: chat observation
+
+`ChatMatcher` holds whole-word, case-insensitive, regex-free matching, bounded in pattern count and
+length. **ChatMentions** notifies on own-name, friend or keyword; own messages are not mentions.
+**ChatFilter** hides lines locally only, with an empty default list so enabling it hides nothing.
+
+**Fabric 26.2 has `ALLOW_CHAT`/`CHAT` but no `MODIFY_CHAT`**, so chat timestamps, inline highlighting
+and duplicate compaction would need a mixin into chat rendering. That was left undone rather than
+done fragilely; the internal `ChatReceived` event is vetoable but not rewritable, matching what the
+API actually supports.
+
+Also fixed: local Gradle runs write to `logs/`, which was missing from `.gitignore`, so `git add -A`
+had swept eight log files into the branch. They are untracked now and `logs/` is ignored; the pushed
+history was left alone rather than rewritten over 40 KB of noise. **Prefer explicit paths over
+`git add -A` in this repo.**
 
 Still missing in Phase B: full widget/animation coverage, Module List row transitions, player faces
 on the target card, UI scale and blur controls, and the remaining legacy Info bounds.
