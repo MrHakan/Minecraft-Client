@@ -197,7 +197,7 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 8 | Animations | Partial: global controls and notification motion; screen/category/scroll/modal animation coverage missing |
 | 9 | Module browser | Substantially implemented: filters/favorites/recency/search/sort/actions; visual/manual QA remains |
 | 10 | Bind capture | Implemented keyboard/mouse/modifiers/ESC and conflict warnings; in-game duplicate/reserved-key tests remain |
-| 11 | Color picker | Partial: RGB/HSV/alpha/hex/recent/copy-paste; rainbow and richer visual control pending |
+| 11 | Color picker | Implemented: RGB/HSV/alpha/hex/recent/copy-paste plus `RainbowColors`, a per-module cycling flag on all seven overlays with colour sliders. Saturation and brightness come from the module's own colour, and phase offsets spread a trail or a screen of tracers along the cycle |
 | 12 | Themes | Partial: six presets, guarded import/export, high contrast/reduced motion; font scale/blur and full accessibility integration missing |
 | 13 | Dynamic HUD | Partial: registry plus useful components; full suggested catalogue missing |
 | 14 | HUD editor | Partial: groups/locks/z-order/grid/guides/snapping and guarded exact small bounds; duplication/undo and legacy Info/Target bounds pending |
@@ -234,8 +234,8 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 45 | AutoJump | **Deliberately skipped**: Minecraft already has `Options.autoJump()`, so a module would only forward to a vanilla switch — the brief rules that out |
 | 46 | Elytra utility | Implemented as ElytraInfo: durability and firework warnings plus glide speed, informational only; auto-equip/replace still pending |
 | 47 | Movement stats | Implemented: `MovementStats` measures from position deltas rather than the motion vector (which a collision zeroes), giving horizontal and vertical speed, windowed average and peak, peak fall speed, acceleration and a history buffer. Teleports clear the window instead of entering it |
-| 48 | Aura improvements | Partial shared targeting/rotation/policy; switch delay/lock/multiple-target behavior pending |
-| 49 | TriggerBot improvements | Partial shared filters and baseline cooldown behavior; full weapon/critical/reaction settings pending |
+| 48 | Aura improvements | Implemented: `TargetRotation` holds a chosen target through a configurable switch delay so nearly equal targets stop flipping and discarding attack charge, switches immediately when the target is genuinely lost, and spreads attacks round-robin across N targets advancing on landed hits |
+| 49 | TriggerBot improvements | Implemented: weapon requirement by item tag, an optional critical-hit wait using 26.2's own rule (`CriticalHits`), and a deterministic reaction delay (`DwellGate`) so sweeping the crosshair past something does not attack it |
 | 50 | AutoWeapon | Implemented on the hotbar lease above AutoTool, using scoring and the damage-family tags |
 | 51 | Critical information | Not started; no packet exploit chains |
 | 52 | Totem tracker | Implemented from observed EntityEvent.PROTECTED_FROM_DEATH; resets on death/timeout, labelled "(seen)" |
@@ -263,17 +263,17 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 74 | Baritone | **Deliberately deferred.** Baritone has no 26.2 build, so any bridge would be unverifiable, and the obvious shortcut - sending `#goto` through `sendChat` - leaks the command to public chat whenever Baritone is absent or its prefix is off. Revisit when a 26.2 Baritone exists and its API can actually be called |
 | 75 | Localization | Partial: `Translations` with English fallback, `en_us`/`tr_tr`, ClickGUI labels translated. Module names/descriptions and command output remain English |
 | 76 | Accessibility | Partial keyboard controls, paginated themes, high contrast/reduced motion; full legacy color migration, UI scale/text/colorblind/blur controls pending |
-| 77 | Unified scheduler | Partial implemented for BlockESP/StorageESP/EntityESP; further consumers/configurable budgets pending |
+| 77 | Unified scheduler | Implemented: all nine scanning modules go through it, and the shared per-tick ceiling is now tunable through `ScanBudgets` and the Performance module. Balanced reproduces the previous constants exactly |
 | 78 | Chunk result cache | Implemented for BlockESP: bounded LRU clean-chunk cache with block-update, unload, anchor and filter invalidation. Other scanners still sweep |
 | 79 | Render culling | Implemented: box overlays test the frustum the game already built, in world space. Tracers and breadcrumbs are deliberately exempt and a test enforces that. Safe because it is view-volume, not occlusion, culling - the overlays draw through walls on purpose |
 | 80 | Performance HUD | Implemented: `ModuleTimings` ranks per-module tick cost over a rolling window, in a hidden-by-default widget. Measurement is self-expiring rather than a setting, and a module that stops ticking is dropped rather than frozen on screen |
-| 81 | Unit tests | 438 tests; adds block-update batching, chunk cache eviction, cursor completion, id-list parsing, notification sinks, waypoint normalisation/persistence and compass bearings; trajectory and fade coverage pending |
+| 81 | Unit tests | 483 tests; adds block-update batching, chunk cache eviction, cursor completion, id-list parsing, notification sinks, waypoint normalisation/persistence and compass bearings; trajectory and fade coverage pending |
 | 82 | Integration smoke tests | Partial: the client now boots headless under xvfb/llvmpipe and all six mixin injections are verified applied in the transformed bytecode. No gameplay was exercised; behaviour checks remain manual |
 | 83 | Lifecycle audit | Partial code audit/restoration; all listed state-changing modules need in-game transition checks |
 | 84 | Error reporting | Partial logger/module/render/scanner isolation; guarded HUD measurements/renderers with notices and retry; remaining boundaries need review |
 | 85 | Structured logging | Implemented SLF4J replacement for raw stderr; logging quality audit remains |
 | 86 | Module documentation | Implemented: `docs/MODULES.md` is generated from the live settings registry and a test fails when it and the code disagree, rewriting the file as it fails |
-| 87 | Experimental flags | Implemented: `markExperimental()` plus an UNTESTED badge in the ClickGUI, applied to all 26 modules added here and surfaced in the generated module reference; a source-level test stops a new module shipping unmarked |
+| 87 | Experimental flags | Implemented: `markExperimental()` plus an UNTESTED badge in the ClickGUI, applied to all 27 modules added here and surfaced in the generated module reference; a source-level test stops a new module shipping unmarked |
 
 ## Recommended next development batch
 
@@ -595,6 +595,35 @@ purpose, and anything outside the view volume was never visible. Tracers and bre
 their far ends are meant to be off screen - and a source-level test enforces that, verified by adding
 the call and watching it go red.
 
+## Latest continuation: combat depth, scan budgets and rainbows
+
+Four topic commits.
+
+**Aura target holding.** `TargetRotation`. Priority ordering alone flips between two nearly equal
+targets as they circle, and every flip discards the attack charge that was building. A switch delay
+makes a better target prove itself first; losing a target is deliberately exempt, since there is
+nothing left to hold. Multi-target spreads attacks round-robin, advancing on landed hits rather than
+on ticks so the rotation cannot run ahead of the attack timing.
+
+**TriggerBot gates.** `CriticalHits` mirrors `Player.canCriticalAttack` in **26.2**, read from the
+deobfuscated jar — worth knowing that 26.2 has **no blindness term** and `fallDistance` is a
+`double`, so an older version's crit check would wait for a crit that never comes. Everything it
+reads is public, so no mixin. `DwellGate` requires the crosshair to rest on a target first; the count
+is deterministic rather than randomised, because randomising it would only serve to imitate human
+jitter, which is a different goal.
+
+**Configurable scan budgets.** `ScanBudgets` with low/balanced/high, owned by a new `Performance`
+module in the shape Notifications already set. New budgets apply from the next tick, never mid-tick.
+The scanner diagnostics HUD now prints the live ceiling instead of the old constants. Correcting a
+stale note: **all nine scanning modules already went through the scheduler**, so only the budget half
+of requirement 77 was outstanding.
+
+**Rainbow colours.** `RainbowColors` on the seven overlays with colour sliders. A flag rather than
+something packed into the colour integer, so turning it off restores exactly the previous colour.
+Saturation and brightness come from the module's own colour; grey and black are the exception since
+they have no hue to preserve. Phase offsets spread a breadcrumb trail and a screen of tracers along
+the cycle, which is the difference between a gradient and a flashing line.
+
 ## Validation and source references
 
 Canonical command: **`./gradlew build --stacktrace` with JDK 25**.
@@ -701,6 +730,21 @@ Fabric's 26.2 `ClientChunkCacheMixin`. Do not reintroduce 1.20/1.21 examples bli
   and closing the inventory mid-swap, during death/respawn and dimension changes, and while AutoEat/AutoTool are
   also active. Confirm no item is ever left on the cursor, that AutoTotem preempts AutoArmor, that a popped totem
   cancels the pending restore, and that a renamed armour piece is never auto-equipped by default.
+
+### Manual acceptance for the combat and colour batch
+
+- Aura switch delay: fight two mobs at almost the same distance and confirm it stays on one rather
+  than alternating; kill the held one and confirm it moves on immediately rather than after the delay.
+  Set maxTargets above 1 and confirm each target gets a real hit rather than a spray.
+- TriggerBot: with requireCritical on, confirm it holds until you are falling and not sprinting, and
+  that it never waits forever on the ground. With reactionTicks set, sweep the crosshair across a
+  passive mob and confirm nothing happens, then rest on it and confirm it fires. Confirm the weapon
+  requirement blocks an empty hand.
+- Performance: switch scanBudget to low in a dense area and confirm markers fill in more slowly but
+  frames improve; confirm the scanner diagnostics HUD shows the new ceiling, not the old one.
+- Rainbow: turn it on for Breadcrumbs and confirm the trail reads as a moving gradient rather than
+  flashing in unison; turn it off and confirm the exact previous colour returns. Try it with a muted
+  colour and confirm it stays muted, and with grey and confirm it is visible rather than staying grey.
 
 ### Manual acceptance for render culling
 
