@@ -191,7 +191,7 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 2 | Service registry | Partial: real shared managers/services; waypoint/addon contracts pending |
 | 3 | Target selector | Partial: combat filters/priorities implemented; visuals share EntityDiscovery but not the combat selector |
 | 4 | Inventory service | Partial: bounded lookup, copies, equipment events, hotbar/use ownership, armour/weapon scoring and preemptible container transfers; multi-container transfers still out of scope |
-| 5 | Rotations | Partial: None/Client/Smooth; validated silent adapter and wider integration missing |
+| 5 | Rotations | Partial: None/Client/Smooth with per-tick yaw/pitch step limits, which is the *validated* half. The **silent** half is deliberately not implemented: hiding rotation from the player's own view while sending it to the server exists to defeat server-side checks, and the brief rules that out. Wider integration beyond Aura is still open |
 | 6 | Notifications | Substantially implemented: queue, producers, HUD, settings and optional sound; more producers may still be added |
 | 7 | UI components | Partial: toggle/slider/choice/text/bind/color plus a `ConfirmScreen` modal now used for destructive actions. Panel/card/range/multiselect still pending |
 | 8 | Animations | Partial: global controls and notification motion; screen/category/scroll/modal animation coverage missing |
@@ -199,7 +199,7 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 10 | Bind capture | Implemented keyboard/mouse/modifiers/ESC and conflict warnings; in-game duplicate/reserved-key tests remain |
 | 11 | Color picker | Implemented: RGB/HSV/alpha/hex/recent/copy-paste plus `RainbowColors`, a per-module cycling flag on all seven overlays with colour sliders. Saturation and brightness come from the module's own colour, and phase offsets spread a trail or a screen of tracers along the cycle |
 | 12 | Themes | Partial: six presets, guarded import/export, high contrast/reduced motion; font scale/blur and full accessibility integration missing |
-| 13 | Dynamic HUD | Partial: registry plus useful components; full suggested catalogue missing |
+| 13 | Dynamic HUD | Substantially implemented: registry plus branding, module list, info, target, FPS, memory, server, speed, movement stats, waypoint, TPS estimate, ping graph, direction, inventory, packet rate, overworld clock, biome and light level. Remaining catalogue entries are cosmetic rather than missing capability |
 | 14 | HUD editor | Implemented: groups/locks/z-order/grid/guides/snapping, plus undo/redo over bounded whole-layout snapshots (`LayoutHistory`) and Ctrl+D to match placement across a selection. Legacy Info/Target bounds still pending |
 | 15 | Module List HUD | Partial: alignment/sorting/style/case/display/row cap/per-module hiding implemented; row animations and additional suffix producers pending |
 | 16 | EntityESP | Partial: boxes/tracers/labels/colors/fade; now bounded tick discovery, caps and label distance; expanded modes pending |
@@ -267,7 +267,7 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 78 | Chunk result cache | Implemented for BlockESP: bounded LRU clean-chunk cache with block-update, unload, anchor and filter invalidation. Other scanners still sweep |
 | 79 | Render culling | Implemented: box overlays test the frustum the game already built, in world space. Tracers and breadcrumbs are deliberately exempt and a test enforces that. Safe because it is view-volume, not occlusion, culling - the overlays draw through walls on purpose |
 | 80 | Performance HUD | Implemented: `ModuleTimings` ranks per-module tick cost over a rolling window, in a hidden-by-default widget. Measurement is self-expiring rather than a setting, and a module that stops ticking is dropped rather than frozen on screen |
-| 81 | Unit tests | 597 tests; adds block-update batching, chunk cache eviction, cursor completion, id-list parsing, notification sinks, waypoint normalisation/persistence and compass bearings; trajectory and fade coverage pending |
+| 81 | Unit tests | 606 tests; adds block-update batching, chunk cache eviction, cursor completion, id-list parsing, notification sinks, waypoint normalisation/persistence and compass bearings; trajectory and fade coverage pending |
 | 82 | Integration smoke tests | Partial: the client now boots headless under xvfb/llvmpipe and all six mixin injections are verified applied in the transformed bytecode. No gameplay was exercised; behaviour checks remain manual |
 | 83 | Lifecycle audit | Partial code audit/restoration; all listed state-changing modules need in-game transition checks |
 | 84 | Error reporting | Reviewed. Module tick, render, scanner, command, macro and HUD boundaries were already guarded. The one real gap was the shared chat callback: the bus detaches a listener that throws, so one chat module's bug disabled all three for the session. `ModuleGuard` now contains each module separately and reports once per failure episode, and ChatFilter fails open so a broken filter cannot hide chat |
@@ -752,6 +752,26 @@ are verified applied but have not been observed *firing*.
 `MixinTargetsTest`'s coverage guard now reads the mixin config and each mixin's own `@Mixin`
 annotation rather than a hand-kept count of three — which is exactly the number that would have gone
 stale here.
+
+## Latest continuation: clock, biome and light widgets
+
+`WorldClock` plus three HUD components (13). Light level is the one you want while spawn-proofing and
+vanilla offers no way to see it outside F3. The clock is the **overworld's** even in another
+dimension, because the local sky in the nether says nothing while "is it night back home" is what
+decides when to walk through the portal.
+
+**26.2 has no `getDayTime()`** — it is `getOverworldClockTime()` and `getDefaultClockTime()`. That is
+easy to misread as the method having been removed rather than renamed.
+
+The conversion is its own tested class because **tick 0 is 06:00, not midnight**: every naive
+conversion is six hours out, which is exactly the gap between "safe" and "everything is about to
+spawn". Light is shown as block and sky separately, since block light is the half a torch changes and
+showing it alone would let an open-air reading pass for a lit room.
+
+Requirement 5's remaining half is recorded as **deliberately not implemented**: a *silent* rotation
+adapter hides rotation from the player's own view while sending it to the server, which exists to
+defeat server-side checks. The *validated* half — per-tick yaw and pitch step limits — is already
+there.
 
 ## Validation and source references
 
