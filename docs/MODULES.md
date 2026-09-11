@@ -144,12 +144,13 @@ Reconnects to the last multiplayer server after an unexpected disconnect
 
 ### BetterChat — UNTESTED
 
-Adds a local timestamp to each chat line as it arrives
+Adds a local timestamp to each chat line, and marks mentions
 
 | Setting | Default | Values | Description |
 | --- | --- | --- | --- |
 | `timestamps` | `true` | `true/false or on/off` | Prefix each line with the time it reached this client |
 | `seconds` | `false` | `true/false or on/off` | Include seconds in the timestamp |
+| `markMentions` | `true` | `true/false or on/off` | Mark lines ChatMentions counts as a mention; needs that module on |
 
 ### ChatFilter — UNTESTED
 

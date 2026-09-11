@@ -26,6 +26,24 @@ public final class ChatHooks {
      * @param message the line about to be added
      * @return the line to add, unchanged when the feature is off or anything goes wrong
      */
+    /**
+     * Whether ChatMentions would consider this line a mention.
+     *
+     * <p>Asked rather than re-derived, so the marker and the notification can never disagree about
+     * what counts - two implementations of "is this about me" would drift the moment either changed.
+     * Returns false when that module is off, because a marker with no matching notification would be
+     * a cue the player never configured.
+     */
+    private static boolean mentions(Component message) {
+        var manager = AgalarHackClient.moduleManager;
+        if (manager == null) return false;
+        var module = manager.getModule("ChatMentions");
+        if (!(module instanceof me.mrhakan.agalarhack.module.misc.ChatMentions chat) || !chat.isToggled()) {
+            return false;
+        }
+        return chat.mentionReason(message.getString()) != null;
+    }
+
     public static Component decorate(Component message) {
         if (message == null) return null;
         try {
@@ -35,11 +53,17 @@ public final class ChatHooks {
             if (!(module instanceof me.mrhakan.agalarhack.module.misc.BetterChat chat) || !chat.isToggled()) {
                 return message;
             }
-            if (!chat.getBooleanSetting("timestamps", true)) return message;
-            String stamp = LocalTime.now().format(chat.getBooleanSetting("seconds", false) ? WITH_SECONDS : SHORT);
-            MutableComponent prefix = Component.literal("[" + stamp + "] ")
-                    .withStyle(style -> style.withColor(ChatFormatting.DARK_GRAY));
-            return prefix.append(message);
+            MutableComponent prefix = null;
+            if (chat.getBooleanSetting("markMentions", true) && mentions(message)) {
+                prefix = Component.literal("\u00bb ").withStyle(style -> style.withColor(ChatFormatting.GOLD));
+            }
+            if (chat.getBooleanSetting("timestamps", true)) {
+                String stamp = LocalTime.now().format(chat.getBooleanSetting("seconds", false) ? WITH_SECONDS : SHORT);
+                MutableComponent stampPart = Component.literal("[" + stamp + "] ")
+                        .withStyle(style -> style.withColor(ChatFormatting.DARK_GRAY));
+                prefix = prefix == null ? stampPart : stampPart.append(prefix);
+            }
+            return prefix == null ? message : prefix.append(message);
         } catch (RuntimeException failure) {
             // Chat that fails to draw is far worse than chat without a timestamp.
             AgalarHackClient.LOGGER.error("Chat decoration failed; showing the message unchanged", failure);

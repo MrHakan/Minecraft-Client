@@ -244,7 +244,7 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 55 | Light/spawn visualization | Implemented as SpawnESP over light levels only; deliberately does not model biome/mob/cap rules and says so |
 | 56 | HoleESP | Implemented: safe vs unsafe by real explosion resistance, bounded shared-cursor scan, block-update invalidation |
 | 57 | Portal/gateway finder | Implemented: BlockESP still highlights portal blocks, and `.portal` answers the part highlighting cannot - where to build on the other side so a pair links, with the linking search radius and an optional waypoint placed in the target dimension |
-| 58 | BetterChat | Substantially implemented: local timestamps through a `ChatComponent.addMessage` mixin, and repeat hiding through the existing veto (no mixin needed). Inline highlighting is the remaining gap - it needs per-line styling rather than a whole-line prefix |
+| 58 | BetterChat | Implemented as far as is safe: local timestamps and a mention marker through the `ChatComponent.addMessage` mixin, and repeat hiding through the existing veto (no mixin needed). **True inline word styling is deliberately not done**: recolouring a substring means rebuilding the component tree, and getting it wrong strips the server's own colours and breaks click events on links. A prefix cannot damage what it is prepended to |
 | 59 | Chat mentions | Implemented: whole-word own-name/friend/keyword matching with notification and optional sound |
 | 60 | Translator architecture | Optional, not started; core operation must not depend on cloud API |
 | 61 | Macros | Implemented: key to chat/command/toggle, persistent, revalidated on load; timed sequences deliberately excluded |

@@ -68,5 +68,5 @@
   "agalarhack.module.waypoints.description": "Mevcut boyuttaki kayıtlı yol işaretlerini, isteğe bağlı ışın ve etiketlerle gösterir",
   "agalarhack.module.autotool.description": "Kazarken en hızlı hotbar aracını otomatik olarak seçer",
   "agalarhack.module.basefinder.description": "StorageESP'nin zaten bulduğu depo kümelerinden olası üsleri bildirir; o modülü de aç",
-  "agalarhack.module.betterchat.description": "Her sohbet satırına geldiği andaki yerel saati ekler"
+  "agalarhack.module.betterchat.description": "Her sohbet satırına geldiği andaki yerel saati ekler ve bahsedilmeleri işaretler"
 }
