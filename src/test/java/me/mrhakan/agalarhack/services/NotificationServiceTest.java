@@ -3,6 +3,16 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 class NotificationServiceTest {
+    @Test void disabledNotificationsClearQueueAndDiscardNewMessages() {
+        var notices = new NotificationService(() -> 0);
+        notices.publish(NotificationService.Type.INFO, "old");
+        notices.setEnabled(false);
+        notices.publish(NotificationService.Type.INFO, "hidden");
+        notices.setEnabled(true);
+        assertTrue(notices.visible().isEmpty());
+        notices.publish(NotificationService.Type.INFO, "new");
+        assertEquals("new", notices.visible().getFirst().text());
+    }
     @Test void queueExpiresDeduplicatesAndEvictsOldest() {
         AtomicLong now = new AtomicLong();
         var notices = new NotificationService(now::get);

@@ -15,6 +15,13 @@ public final class Notifications extends Module {
         addBooleanSetting("animations", true, "Ease notifications into view");
         addBooleanSetting("moduleToggles", true, "Notify when a module is enabled or disabled");
     }
+    @Override public void onEnable() {
+        var notifications = service(NotificationService.class);
+        notifications.clear();
+        notifications.setEnabled(true);
+        onUpdate();
+    }
+    @Override public void onDisable() { service(NotificationService.class).setEnabled(false); }
     @Override public boolean runsWithoutWorld() { return true; }
     @Override public void onUpdate() {
         String position=getStringSetting("position","bottom_right");

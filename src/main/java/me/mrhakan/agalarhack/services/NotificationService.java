@@ -12,6 +12,7 @@ public final class NotificationService {
     private final ArrayDeque<Notice> queue = new ArrayDeque<>();
     private final LongSupplier clock;
     private int maximum = 5;
+    private boolean enabled = true;
     private long duration = 4000;
     public NotificationService() { this(() -> System.nanoTime() / 1_000_000); }
     public NotificationService(LongSupplier clock) { this.clock = Objects.requireNonNull(clock); }
@@ -20,8 +21,12 @@ public final class NotificationService {
         this.duration = Math.max(500, Math.min(30000, duration));
         trim();
     }
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
+        if (!enabled) clear();
+    }
     public void publish(Type type, String text) {
-        if (text == null || text.isBlank()) return;
+        if (!enabled || text == null || text.isBlank()) return;
         long now = clock.getAsLong();
         String bounded = text.length() > 180 ? text.substring(0, 177) + "..." : text;
         Notice last = queue.peekLast();

@@ -91,7 +91,7 @@ public class AgalarHackClient implements ClientModInitializer {
                 new me.mrhakan.agalarhack.services.NotificationService());
         var hudRegistry=services.register(me.mrhakan.agalarhack.ui.hud.HudRegistry.class,new me.mrhakan.agalarhack.ui.hud.HudRegistry(HUD_LAYOUT));
         var notificationHud = new me.mrhakan.agalarhack.ui.NotificationHud(notifications, moduleManager);
-        hudRegistry.register(new me.mrhakan.agalarhack.ui.hud.HudRegistry.Component("notifications","Notifications",()->220,()->90,notificationHud::render),
+        hudRegistry.register(new me.mrhakan.agalarhack.ui.hud.HudRegistry.Component("notifications","Notifications",notificationHud::width,notificationHud::height,notificationHud::render),
                 new HudLayoutManager.WidgetState(HudLayoutManager.Anchor.BOTTOM_RIGHT,8,8,true));
         var context = services.register(me.mrhakan.agalarhack.services.ServerContextService.class,
                 new me.mrhakan.agalarhack.services.ServerContextService(EVENTS));
