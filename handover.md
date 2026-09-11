@@ -17,8 +17,8 @@ At the 2026-09-11 re-inspection, #9 was still the only open PR, at head `f3eb4ff
 open PRs again: this document is a checkpoint, not a substitute for live repository state.
 **Nothing in this work has been automatically merged into main.**
 
-Approximate progress against the complete requested roadmap: **32–38% implemented;
-62–68% remains**. This is a qualitative scope estimate, not measured work hours, a count
+Approximate progress against the complete requested roadmap: **38–44% implemented;
+56–62% remains**. This is a qualitative scope estimate, not measured work hours, a count
 of commits, or a release-readiness percentage. Earlier estimate was about 20%; this batch
 mainly deepens existing foundations. Do not extrapolate remaining duration from these numbers.
 No entire phase is accepted as complete; Minecraft in-game smoke testing remains outstanding.
@@ -27,7 +27,7 @@ No entire phase is accepted as complete; Minecraft in-game smoke testing remains
 | --- | --- | --- |
 | A: foundation | 90–95% | Rotation adoption beyond Aura, shared selector adoption by visuals, integration tests |
 | B: UI/HUD | 55–60% | Full widget/animation/accessibility coverage, Module List transitions, richer TargetHUD, remaining legacy bounds |
-| C: rendering | 10–15% | More ESP modes, nametags/items/projectiles, waypoints, breadcrumbs, user block sets, trajectory extraction |
+| C: rendering | 35–40% | More ESP modes, projectiles, breadcrumbs, generalized tracers, user block sets, trajectory extraction |
 | D: player utility | 55–60% | AutoFish, AutoWalk, AutoAccept, FastPlace, inventory HUD depth |
 | E: movement/world | 0–5% | SafeWalk, Parkour, Elytra utility, BaseFinder/HoleESP/light visualization |
 | F: information/social | 0–5% | BetterChat, totems, TPS estimates/ping graph, macros and aliases |
@@ -189,7 +189,7 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | --- | --- | --- |
 | 1 | Internal events | Substantially implemented: tick/render/connection/entities/chunks/block entities/equipment/screens/input plus a verified block-update producer |
 | 2 | Service registry | Partial: real shared managers/services; waypoint/addon contracts pending |
-| 3 | Target selector | Partial: combat filters/priorities implemented; optional common selector adoption by visuals still pending |
+| 3 | Target selector | Partial: combat filters/priorities implemented; visuals share EntityDiscovery but not the combat selector |
 | 4 | Inventory service | Partial: bounded lookup, copies, equipment events, hotbar/use ownership, armour/weapon scoring and preemptible container transfers; multi-container transfers still out of scope |
 | 5 | Rotations | Partial: None/Client/Smooth; validated silent adapter and wider integration missing |
 | 6 | Notifications | Substantially implemented: queue, producers, HUD, settings and optional sound; more producers may still be added |
@@ -203,13 +203,13 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 14 | HUD editor | Partial: groups/locks/z-order/grid/guides/snapping and guarded exact small bounds; duplication/undo and legacy Info/Target bounds pending |
 | 15 | Module List HUD | Partial: alignment/sorting/style/case/display/row cap/per-module hiding implemented; row animations and additional suffix producers pending |
 | 16 | EntityESP | Partial: boxes/tracers/labels/colors/fade; now bounded tick discovery, caps and label distance; expanded modes pending |
-| 17 | Nametags | Not started as a dedicated rich module |
+| 17 | Nametags | Implemented: single-line opt-in fields, friend marker, bounded discovery; no per-field styling yet |
 | 18 | StorageESP | Partial: types, colors/labels, bounded incremental scans and live block-entity tracking; per-type controls/fill/tracers pending |
 | 19 | BlockESP search | Partial: existing category filters; custom registry IDs/colors and preset management pending |
-| 20 | Waypoints | Not started: persistence, commands, death marker, dimension-aware indicators |
+| 20 | Waypoints | Implemented: persistence, .waypoint commands, beams, labels, HUD arrow; death waypoint still pending |
 | 21 | Breadcrumbs | Not started |
 | 22 | Generalized tracers | Not started; existing ESP tracer mode remains |
-| 23 | ItemESP | Not started |
+| 23 | ItemESP | Implemented: bounded discovery, whitelist/blacklist, rarity colouring, count/distance labels |
 | 24 | ProjectileESP | Not started |
 | 25 | Projectile warning | Not started; informational only when implemented |
 | 26 | Freecam expansion | Partial existing camera/body/motion settings plus restoration changes; full requested controls/QA pending |
@@ -265,9 +265,9 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 76 | Accessibility | Partial keyboard controls, paginated themes, high contrast/reduced motion; full legacy color migration, UI scale/text/colorblind/blur controls pending |
 | 77 | Unified scheduler | Partial implemented for BlockESP/StorageESP/EntityESP; further consumers/configurable budgets pending |
 | 78 | Chunk result cache | Implemented for BlockESP: bounded LRU clean-chunk cache with block-update, unload, anchor and filter invalidation. Other scanners still sweep |
-| 79 | Render culling | Partial distance/target/label bounds; frustum and broader render cap coverage pending |
+| 79 | Render culling | Partial distance/target/label bounds shared through EntityDiscovery; frustum culling pending |
 | 80 | Performance HUD | Partial scanner diagnostics and memory; module tick/render timings and broader counters pending |
-| 81 | Unit tests | 136 tests; adds block-update batching, chunk cache eviction, cursor completion, id-list parsing and notification sinks; trajectory and fade coverage pending |
+| 81 | Unit tests | 172 tests; adds block-update batching, chunk cache eviction, cursor completion, id-list parsing, notification sinks, waypoint normalisation/persistence and compass bearings; trajectory and fade coverage pending |
 | 82 | Integration smoke tests | Not performed in-game; automate where feasible and record exact environment/results |
 | 83 | Lifecycle audit | Partial code audit/restoration; all listed state-changing modules need in-game transition checks |
 | 84 | Error reporting | Partial logger/module/render/scanner isolation; guarded HUD measurements/renderers with notices and retry; remaining boundaries need review |
@@ -325,10 +325,33 @@ Six further topic commits.
    authoritative so missed events self-heal.
 6. This handover and the foundation document.
 
-Not done here: no rotation adoption beyond Aura, visuals still do not consume the shared target
+Not done here: no rotation adoption beyond Aura, visuals still do not consume the shared combat target
 selector, AutoFish/AutoWalk/AutoAccept/FastPlace remain, and **nothing has been run inside Minecraft**.
 The mixin in particular is verified only by signature and by a passing build — its injection has never
 been observed to apply at runtime.
+
+## Latest continuation: waypoints and visual modules
+
+Five topic commits.
+
+1. **Waypoints.** `Waypoint` normalises in its constructor so a stored waypoint is always renderable;
+   identity is name-within-dimension, case-insensitively. `WaypointCodec` is strict about the envelope
+   and forgiving about entries (one bad waypoint is skipped, a future schema version is refused so the
+   file is preserved). `WaypointService` uses `BoundedJsonFile` with the usual preserve-on-failure rule
+   and **its own SLF4J logger**: `AgalarHackClient.LOGGER` drags in a static initialiser that needs a
+   Fabric runtime, which made the failure paths untestable. `.waypoint add|remove|list|clear|beam|
+   show|hide|color`; rendering reuses the existing line geometry and label path.
+   **26.2: a dimension id is `ResourceKey.identifier()`, not `location()`.**
+2. **ItemESP** with a whitelist/blacklist over `ItemIdList` and vanilla rarity colours.
+   **26.2 does not expose `ChatFormatting.getColor()`** — use `TextColor.fromLegacyFormat(...).getValue()`.
+3. **Waypoint HUD arrow** backed by `WaypointCompass`. Yaw convention is pinned by tests: yaw 0 faces
+   +Z, yaw increases turning left, a target to the player's right has a positive bearing. Registers hidden.
+4. **Nametags**, plus `EntityDiscovery` extracted first so the tick-scheduled nearest-first pattern is
+   not copied a third time; EntityESP and ItemESP were refactored onto it.
+5. This handover and the foundation document.
+
+Still missing in Phase C: ProjectileESP, projectile warning, breadcrumbs, generalized tracers, custom
+BlockESP block sets, camera tweaks and the trajectory simulator extraction.
 
 ## Validation and source references
 
@@ -388,6 +411,11 @@ Fabric's 26.2 `ClientChunkCacheMixin`. Do not reintroduce 1.20/1.21 examples bli
   `required: true` with `defaultRequire: 1` means a failed injection is a hard crash at load, so this is
   the first thing to check in-game. Place and break blocks, trigger a piston or explosion for the
   section path, and watch BlockESP markers update without a rescan.
+- Waypoints: add/remove/list from both dimensions, restart the client and confirm they persist, corrupt
+  the file deliberately and confirm it is preserved with saving disabled, check the HUD arrow points the
+  right way while turning, and confirm beams and labels respect render distance.
+- ItemESP/Nametags: verify the caps hold in a dense area, that filters behave as whitelist and blacklist,
+  and that labels stay readable rather than becoming a wall of text.
 - BlockESP chunk cache: mine a tracked ore inside a scanned chunk and confirm the marker disappears
   immediately; reload the chunk, move the anchor and change filters and confirm rescans still happen.
 - StorageESP: place a chest just after a sweep completes and confirm it appears before the next sweep;

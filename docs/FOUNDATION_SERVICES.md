@@ -168,6 +168,31 @@ budgets for other entity consumers remain pending. Storage scans may take multip
 omit block entities beyond their bounded per-chunk/result caps. The submit-node pipeline is
 unchanged; rendering uses bounded snapshots and skips unloaded storage/block positions.
 
+## Waypoints
+
+`Waypoint` is a record that normalises in its canonical constructor - trimmed bounded name,
+coordinates inside world limits, opaque colour - so anything holding one can render it without
+re-validating. Identity is the name within a dimension, case-insensitively.
+
+`WaypointCodec` rejects a damaged or future-versioned envelope so `BoundedJsonFile` preserves the file
+rather than overwriting it, but skips individual malformed entries so one bad waypoint does not cost
+the player the rest. `WaypointService` follows the same preserve-on-failure rule as the other stores
+and uses its own SLF4J logger rather than the client's shared field, which cannot be touched outside a
+Fabric runtime.
+
+`WaypointCompass` holds the bearing maths for the HUD arrow. Minecraft's yaw convention is pinned by
+tests: yaw 0 faces +Z, yaw increases turning left, and a target to the player's right has a positive
+relative bearing.
+
+A dimension id in 26.2 is `ResourceKey.identifier()`, not `location()`.
+
+## Shared entity discovery
+
+`EntityDiscovery` owns the tick-scheduled, nearest-first entity sweep used by EntityESP, ItemESP and
+Nametags: at most 4096 observations per tick, budget-aware, and it publishes an empty snapshot rather
+than a stale one if the world or player is replaced mid-pass. Visual modules must not walk the entity
+list during rendering.
+
 ## Chunk result caching
 
 `ChunkScanCache` is a bounded LRU of chunks a scanner has walked in full and that nothing has
