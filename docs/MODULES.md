@@ -10,7 +10,7 @@ Every module also has the shared settings `enabled`, `keybind`, `keyModifiers`,
 **UNTESTED** marks a module that has never been exercised in a running game. It compiles and
 its logic is unit tested; nobody has confirmed it behaves correctly in Minecraft.
 
-49 modules across 6 categories; 27 marked UNTESTED.
+50 modules across 6 categories; 28 marked UNTESTED.
 
 ## Combat
 
@@ -98,6 +98,18 @@ Attacks the valid entity under your crosshair when the hit is ready
 | `reactionTicks` | `0` | `0..20` | Ticks the crosshair must rest on a target first, so sweeping past something does not attack it |
 
 ## Misc
+
+### AutoFish — UNTESTED
+
+Reels in when the bobber is pulled under, then casts again
+
+| Setting | Default | Values | Description |
+| --- | --- | --- | --- |
+| `pullThreshold` | `8` | `1..40` | How hard the bobber must be pulled down to count, in hundredths of a block per tick |
+| `reelDelay` | `4` | `0..40` | Ticks to wait after the pull before reeling in |
+| `castDelay` | `12` | `2..100` | Ticks to wait after reeling in before casting again |
+| `autoCast` | `true` | `true/false or on/off` | Cast again on its own; with this off it only reels in |
+| `swapBack` | `true` | `true/false or on/off` | Return to the previous hotbar slot when it stops |
 
 ### AutoReconnect
 
