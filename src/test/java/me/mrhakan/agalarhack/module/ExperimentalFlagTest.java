@@ -29,15 +29,16 @@ class ExperimentalFlagTest {
      * the flag: it says a human or a running game confirmed the module works, and a list anyone can
      * append to says nothing.
      */
-    private static final java.util.Map<String, String> VERIFIED_IN_GAME = java.util.Map.of(
-            "AutoTotem.java", "autoTotem",
-            "AutoArmor.java", "autoArmor",
-            "CameraTweaks.java", "cameraTweaks",
-            "AutoWalk.java", "autoWalk",
-            "SafeWalk.java", "safeWalk",
-            "Parkour.java", "parkour",
-            "AutoRefill.java", "autoRefill",
-            "InventoryCleaner.java", "inventoryCleaner");
+    private static final java.util.Map<String, String> VERIFIED_IN_GAME = java.util.Map.ofEntries(
+            java.util.Map.entry("AutoTotem.java", "autoTotem"),
+            java.util.Map.entry("AutoArmor.java", "autoArmor"),
+            java.util.Map.entry("CameraTweaks.java", "cameraTweaks"),
+            java.util.Map.entry("AutoWalk.java", "autoWalk"),
+            java.util.Map.entry("SafeWalk.java", "safeWalk"),
+            java.util.Map.entry("Parkour.java", "parkour"),
+            java.util.Map.entry("AutoRefill.java", "autoRefill"),
+            java.util.Map.entry("InventoryCleaner.java", "inventoryCleaner"),
+            java.util.Map.entry("AutoWeapon.java", "autoWeapon"));
 
     private static final Path BEHAVIOUR_TEST =
             Path.of("src/gametest/java/me/mrhakan/agalarhack/gametest/ModuleBehaviourGameTest.java");

@@ -12,7 +12,7 @@ Every module here is enabled, ticked and disabled inside a real world on every p
 request, so an UNTESTED one is known not to crash; what is missing is a check that it
 does the thing it exists to do. The badge is cleared in the commit that adds that check.
 
-53 modules across 6 categories; 23 marked UNTESTED.
+53 modules across 6 categories; 22 marked UNTESTED.
 
 ## Combat
 
@@ -346,7 +346,7 @@ Keeps a totem of undying in the offhand and reports how many are left
 | `delay` | `2` | `0..40` | Ticks to wait between offhand swaps |
 | `warnWhenEmpty` | `true` | `true/false or on/off` | Notify once when no totem is left in the inventory |
 
-### AutoWeapon — UNTESTED
+### AutoWeapon
 
 Picks the strongest hotbar weapon for the current target
 

@@ -273,7 +273,7 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 84 | Error reporting | Reviewed. Module tick, render, scanner, command, macro and HUD boundaries were already guarded. The one real gap was the shared chat callback: the bus detaches a listener that throws, so one chat module's bug disabled all three for the session. `ModuleGuard` now contains each module separately and reports once per failure episode, and ChatFilter fails open so a broken filter cannot hide chat |
 | 85 | Structured logging | Implemented SLF4J replacement for raw stderr. One `System.out.println` survived in the profile auto-load path and has now been replaced; the rest of the audit remains |
 | 86 | Module documentation | Implemented: `docs/MODULES.md` is generated from the live settings registry and a test fails when it and the code disagree, rewriting the file as it fails |
-| 87 | Experimental flags | Implemented: `markExperimental()` plus an UNTESTED badge in the ClickGUI, surfaced in the generated module reference. 23 of the original 31 remain; a source-level test stops a new module shipping unmarked **and** refuses a cleared flag that does not name a game test scenario that still exists |
+| 87 | Experimental flags | Implemented: `markExperimental()` plus an UNTESTED badge in the ClickGUI, surfaced in the generated module reference. 22 of the original 31 remain; a source-level test stops a new module shipping unmarked **and** refuses a cleared flag that does not name a game test scenario that still exists |
 
 ## Recommended next development batch
 
@@ -500,7 +500,7 @@ pointing at that scenario. The test fails if the scenario does not exist, so a f
 by editing a list — which is the only thing that makes the badge worth anything.
 
 Cleared so far: AutoTotem, AutoArmor, AutoWalk, SafeWalk, Parkour, CameraTweaks, AutoRefill,
-InventoryCleaner.
+InventoryCleaner, AutoWeapon.
 
 Write the control half of every scenario first. Each one asserts the effect is *absent* before the
 module is switched on; without that, an assertion that passes because the game does it anyway looks
@@ -878,6 +878,16 @@ fails the lifecycle check by name; the same throw moved to `onDisable` slips pas
 the log scan. Do this for any new gate here. A check nobody has seen fail is a check nobody should
 trust, and this branch already lost several commits to exactly that.
 
+**A scenario that passes is not a scenario that works.** The bottomless SafeWalk pit passed four
+local runs and one CI run before failing one, and SafeWalk itself failed roughly one local run in
+eight for reasons unrelated to that. Both were found by running the thing repeatedly, not by reading
+it. When a scenario is new, run it half a dozen times before trusting it, and remember that six
+passes against a one-in-eight flake is roughly a coin toss - the argument has to come from the
+mechanism, with the runs as corroboration.
+
+Every walk in the ledge scenarios logs its start height, drop, rise and ground state for this reason:
+the next failure should arrive with its numbers attached rather than needing eight runs to reproduce.
+
 **A scenario whose result depends on machine speed has no result.** The SafeWalk pit was first dug
 straight through a superflat world into the void; it passed locally four times and failed on a slower
 CI runner where the player fell forty blocks and died, reporting it as a SafeWalk failure. The pit has
@@ -915,9 +925,8 @@ overwrites before reading.
 
 ### Where to go next
 
-The 23 remaining badges are the queue. AutoWeapon is the next tractable one: give the player a sword,
-aim at the zombie `TestScene` already spawns, and assert the selected hotbar slot holds it. Chat
-modules need a way to read
+The 22 remaining badges are the queue. The tractable ones are gone; what is left needs new technique.
+Chat modules need a way to read
 back what `ChatComponent` stored, which has no public accessor — reflection against the dev jar is
 the likely route. Pure render modules (ESPs, nametags, tracers) have no observable state at all;
 `assertScreenshotEquals` exists in the game test API and is the only honest option there.
