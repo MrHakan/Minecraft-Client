@@ -52,6 +52,8 @@ public class StorageESP extends Module {
         addBooleanSetting("shulkers", true, "Highlight shulker boxes");
         addBooleanSetting("utilities", true, "Highlight hoppers, furnaces, dispensers, droppers, brewing stands and crafters");
         addBooleanSetting("labels", false, "Show a short storage type label above highlighted blocks");
+        addBooleanSetting("tracers", false, "Draw a line from your view to each highlighted container");
+        addNumberSetting("tracerAlpha", 150.0, 32.0, 255.0, "Storage tracer alpha channel");
         addBooleanSetting("distanceFade", true, "Fade storage markers toward the configured range limit");
         addNumberSetting("alpha", 220.0, 32.0, 255.0, "Storage overlay alpha channel");
     }

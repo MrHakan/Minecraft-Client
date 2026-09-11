@@ -121,6 +121,9 @@ public final class WorldOverlayRenderer {
             if (mc.level != submittedLevel || mc.player != submittedPlayer || mc.player == null) return;
             if (espEnabled) renderService.guard(esp, () -> renderEspGeometry(mc, esp, espTargets, camera, pose, buffer));
             if (storageEnabled) renderService.guard(storage, () -> renderStorageEsp(mc, storage, camera, pose, buffer, culling));
+            if (storageEnabled && storage.getBooleanSetting("tracers", false)) {
+                renderService.guard(storage, () -> renderStorageTracers(mc, storage, camera, pose, buffer));
+            }
             if (blockEnabled) renderService.guard(blockEsp, () -> renderBlockEsp(mc, blockEsp, camera, pose, buffer, culling));
             if (trajectoriesEnabled) renderService.guard(trajectories, () -> renderTrajectory(mc, trajectories, camera, pose, buffer));
             if (spawnsEnabled) renderService.guard(spawns, () -> renderSpawns(spawns, camera, pose, buffer, culling));
@@ -226,6 +229,27 @@ public final class WorldOverlayRenderer {
             AABB block = new AABB(pos.getX(), pos.getY(), pos.getZ(), pos.getX() + 1.0, pos.getY() + 1.0, pos.getZ() + 1.0)
                     .inflate(0.02).move(-camera.x, -camera.y, -camera.z);
             box(buffer, pose, block, (alpha << 24) | storageRgb(id));
+        }
+    }
+
+    /**
+     * Lines from the view to each container, in that container's own colour.
+     *
+     * <p>Not culled, for the same reason the other tracers are not: the far end is usually off screen
+     * - that is what makes a tracer useful for finding a stash - while the line itself crosses the
+     * view.
+     */
+    private static void renderStorageTracers(Minecraft mc, StorageESP module, Vec3 camera,
+            PoseStack.Pose pose, VertexConsumer buffer) {
+        double range = module.getNumberSetting("range", 64.0);
+        int alpha = (int) Math.max(32, Math.min(255, module.getNumberSetting("tracerAlpha", 150.0))) << 24;
+        for (BlockPos pos : module.getCachedPositions()) {
+            if (blockDistance(mc, pos) > range || !mc.level.hasChunk(pos.getX() >> 4, pos.getZ() >> 4)) continue;
+            String id = blockId(mc, pos);
+            if (!module.matches(id)) continue;
+            line(buffer, pose, 0.0, -0.12, 0.0,
+                    pos.getX() + 0.5 - camera.x, pos.getY() + 0.5 - camera.y, pos.getZ() + 0.5 - camera.z,
+                    alpha | storageRgb(id));
         }
     }
 

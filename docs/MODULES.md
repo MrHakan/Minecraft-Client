@@ -643,6 +643,8 @@ Highlights loaded storage and utility block entities with bounded scans
 | `shulkers` | `true` | `true/false or on/off` | Highlight shulker boxes |
 | `utilities` | `true` | `true/false or on/off` | Highlight hoppers, furnaces, dispensers, droppers, brewing stands and crafters |
 | `labels` | `false` | `true/false or on/off` | Show a short storage type label above highlighted blocks |
+| `tracers` | `false` | `true/false or on/off` | Draw a line from your view to each highlighted container |
+| `tracerAlpha` | `150` | `32..255` | Storage tracer alpha channel |
 | `distanceFade` | `true` | `true/false or on/off` | Fade storage markers toward the configured range limit |
 | `alpha` | `220` | `32..255` | Storage overlay alpha channel |
 

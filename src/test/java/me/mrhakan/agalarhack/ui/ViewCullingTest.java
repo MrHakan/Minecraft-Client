@@ -21,7 +21,8 @@ class ViewCullingTest {
      * geometry that carries the information. This is easy to "fix" later by someone tidying up, so it
      * is written down as a test rather than only as a comment.
      */
-    private static final List<String> MUST_NOT_CULL = List.of("renderTracers", "renderBreadcrumbs");
+    private static final List<String> MUST_NOT_CULL =
+            List.of("renderTracers", "renderBreadcrumbs", "renderStorageTracers");
 
     @Test
     void withoutAFrustumNothingIsCulled() {
