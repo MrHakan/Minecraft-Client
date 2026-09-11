@@ -193,7 +193,7 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 4 | Inventory service | Partial: bounded lookup, copies, equipment events, hotbar/use ownership, armour/weapon scoring and preemptible container transfers; multi-container transfers still out of scope |
 | 5 | Rotations | Partial: None/Client/Smooth; validated silent adapter and wider integration missing |
 | 6 | Notifications | Substantially implemented: queue, producers, HUD, settings and optional sound; more producers may still be added |
-| 7 | UI components | Partial: toggle/slider/choice/text/bind/color; full panel/card/range/multiselect/modal toolkit pending |
+| 7 | UI components | Partial: toggle/slider/choice/text/bind/color plus a `ConfirmScreen` modal now used for destructive actions. Panel/card/range/multiselect still pending |
 | 8 | Animations | Partial: global controls and notification motion; screen/category/scroll/modal animation coverage missing |
 | 9 | Module browser | Substantially implemented: filters/favorites/recency/search/sort/actions; visual/manual QA remains |
 | 10 | Bind capture | Implemented keyboard/mouse/modifiers/ESC and conflict warnings; in-game duplicate/reserved-key tests remain |
@@ -216,7 +216,7 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 27 | Fullbright modes | Implemented: `nightVision` (brighter, but adds an effect the server never granted) and `gamma` (only moves the brightness slider, inside vanilla's own range, restored on disable and disconnect). The gamma mode is new and has not been used in game |
 | 28 | Camera tweaks | Implemented: no hurt shake (third mixin), bobbing, FOV override, steady FOV, all with guarded restoration |
 | 29 | Trajectory simulator | Implemented: ProjectilePhysics/ProjectileSimulator extracted and consumed by the renderer and the warning module |
-| 30 | Trajectory accuracy | Partial existing charge/collision/custom physics; full physics-family audit and markers/time details pending |
+| 30 | Trajectory accuracy | Audited against 26.2 and every constant was already correct. Gravity and drag are now re-checked on every build by reading the game's own bytecode, so a version bump that changes one fails the build. Flight-time markers still pending |
 | 31 | TargetHUD | Implemented: three layouts, absorption, ping, friend marker, hurt tint, eased bar and the target player's face (both skin layers). A mob card is byte-identical to before, which a test pins |
 | 32 | Combat history | Implemented: bounded recent-target log with engagement counts; deliberately reports no damage figure |
 | 33 | AutoArmor | Implemented via scoring plus the container channel; in-game swap/cursor testing outstanding |
@@ -256,7 +256,7 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 67 | Profile manager 2 | Implemented: optional descriptions and tags (`ProfileMetadata`), `.profile search` across name/description/tags, and per-dimension bindings that take precedence over server bindings. Metadata is an optional field, so no migration was needed |
 | 68 | Partial profiles | Implemented: `.profile load <name> [selection]` narrows to named modules, categories, `hud` or `targets`; an unknown token or a selection that would change nothing is refused rather than applied |
 | 69 | Profile diff | Implemented: `.profile diff <a> [b]` against another profile or the live config, with numeric-tolerant comparison so a Gson round trip is not reported as a change |
-| 70 | Config schemas | Partial module v1 and HUD editor v1; remaining store migrations pending |
+| 70 | Config schemas | Implemented: `SchemaVersions` states the policy once (missing means current, future is refused rather than overwritten, older is returned so a migration can read it) and the alias, macro and waypoint codecs share it. Profiles gained the version marker they lacked |
 | 71 | Addon API | Internal groundwork only; no external stable API or JAR loading |
 | 72 | Addon metadata | Not started |
 | 73 | Addon template repo | Not created; create MrHakan/AgalarHack-Addon-Template only after API stability |
@@ -267,7 +267,7 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 78 | Chunk result cache | Implemented for BlockESP: bounded LRU clean-chunk cache with block-update, unload, anchor and filter invalidation. Other scanners still sweep |
 | 79 | Render culling | Implemented: box overlays test the frustum the game already built, in world space. Tracers and breadcrumbs are deliberately exempt and a test enforces that. Safe because it is view-volume, not occlusion, culling - the overlays draw through walls on purpose |
 | 80 | Performance HUD | Implemented: `ModuleTimings` ranks per-module tick cost over a rolling window, in a hidden-by-default widget. Measurement is self-expiring rather than a setting, and a module that stops ticking is dropped rather than frozen on screen |
-| 81 | Unit tests | 572 tests; adds block-update batching, chunk cache eviction, cursor completion, id-list parsing, notification sinks, waypoint normalisation/persistence and compass bearings; trajectory and fade coverage pending |
+| 81 | Unit tests | 588 tests; adds block-update batching, chunk cache eviction, cursor completion, id-list parsing, notification sinks, waypoint normalisation/persistence and compass bearings; trajectory and fade coverage pending |
 | 82 | Integration smoke tests | Partial: the client now boots headless under xvfb/llvmpipe and all six mixin injections are verified applied in the transformed bytecode. No gameplay was exercised; behaviour checks remain manual |
 | 83 | Lifecycle audit | Partial code audit/restoration; all listed state-changing modules need in-game transition checks |
 | 84 | Error reporting | Reviewed. Module tick, render, scanner, command, macro and HUD boundaries were already guarded. The one real gap was the shared chat callback: the bus detaches a listener that throws, so one chat module's bug disabled all three for the session. `ModuleGuard` now contains each module separately and reports once per failure episode, and ChatFilter fails open so a broken filter cannot hide chat |
@@ -703,6 +703,32 @@ type. Same trap as the ClickGUI filter list, same answer. The generated docs rea
 `rawDescription()`, or regenerating on a Turkish client would produce a half-translated page that
 fails its own guard.
 
+## Latest continuation: schema policy, confirmations and the trajectory audit
+
+Three topic commits.
+
+**`SchemaVersions`** (70). Three codecs had grown their own version check and had already drifted:
+two used `getAsInt`, which truncates `1.9` to version 1 and accepts values outside the int range,
+while the third used `intValueExact` and rejected both. Now one reading, with the policy written
+where it can be argued with. **Profiles** were the only store with no version marker at all — a
+profile from a later client would have been loaded as current and re-saved in today's shape.
+
+**Confirmations** (7). `ConfirmScreen`, used for deleting a profile; `.waypoint clear all` requires
+the word `confirm`. Cancel is the default in all three senses (focused, Escape, left-hand button) and
+the destructive button names what it destroys, because "Are you sure?" trains people to click yes.
+Clearing one dimension's waypoints stays unconfirmed deliberately — asking every time trains the same
+reflex.
+
+**Trajectory audit** (30). Every constant checked against 26.2 and every one was already right.
+Gravity and drag are now re-checked on every build: `ProjectilePhysicsAuditTest` reads them out of the
+game's bytecode with ASM (already on the test classpath), verified by changing one and watching it go
+red. Launch speeds are checked by reading rather than by test, because they sit among other constants
+in long methods and automatic extraction would be guesswork dressed as verification.
+
+**Worth knowing for the next version bump:** 26.2 moved the projectile classes into subpackages —
+`projectile.arrow` and `projectile.throwableitemprojectile` — so looking them up by their old paths
+finds nothing and invites the assumption they were removed.
+
 ## Validation and source references
 
 Canonical command: **`./gradlew build --stacktrace` with JDK 25**.
@@ -809,6 +835,17 @@ Fabric's 26.2 `ClientChunkCacheMixin`. Do not reintroduce 1.20/1.21 examples bli
   and closing the inventory mid-swap, during death/respawn and dimension changes, and while AutoEat/AutoTool are
   also active. Confirm no item is ever left on the cursor, that AutoTotem preempts AutoArmor, that a popped totem
   cancels the pending restore, and that a renamed armour piece is never auto-equipped by default.
+
+### Manual acceptance for the schema, confirmation and audit batch
+
+- Confirmations: click Delete in the profile screen and confirm the dialog lists what is lost, that
+  Escape and Enter both cancel, and that confirming actually deletes. Run `.waypoint clear all`
+  without `confirm` and check nothing is removed.
+- Schema versions: hand-edit a waypoint or alias file to `"schemaVersion": 99` and confirm the file is
+  preserved with saving disabled rather than overwritten. Do the same to a profile.
+- Trajectories: compare the overlay against where arrows, potions and experience bottles actually
+  land, especially the potion families with their -20 degree offset. The constants are verified; the
+  rendering of the arc is not.
 
 ### Manual acceptance for the HUD history and localization batch
 
