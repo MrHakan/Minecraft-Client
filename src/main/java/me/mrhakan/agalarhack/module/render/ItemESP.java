@@ -5,7 +5,6 @@ import java.util.Set;
 import me.mrhakan.agalarhack.module.Category;
 import me.mrhakan.agalarhack.module.Module;
 import me.mrhakan.agalarhack.services.ItemIdList;
-import me.mrhakan.agalarhack.services.NearestCandidates;
 import me.mrhakan.agalarhack.services.ScannerService;
 import me.mrhakan.agalarhack.services.scanning.ScanScheduler;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -49,29 +48,14 @@ public class ItemESP extends Module {
 
     @Override
     public void onUpdate() {
-        var level = mc.level;
-        var player = mc.player;
-        if (level == null || player == null) { items = List.of(); return; }
-        var iterator = level.entitiesForRendering().iterator();
-        var nearest = new NearestCandidates<ItemEntity>((int) getNumberSetting("maximumItems", 128));
-        double rangeSquared = Math.pow(getNumberSetting("range", 64), 2);
         Set<String> ids = filterIds();
         String mode = getStringSetting("filterMode", "off");
-        int[] considered = { 0 };
-        service(ScannerService.class).offer(this, ScanScheduler.Priority.NEAR, 4097, budget -> {
-            if (mc.level != level || mc.player != player) { items = List.of(); return ScanScheduler.Result.DONE; }
-            if (considered[0] >= 4096 || !iterator.hasNext() || !budget.take(0, 0, 1)) {
-                items = nearest.snapshot();
-                return ScanScheduler.Result.DONE;
-            }
-            considered[0]++;
-            var entity = iterator.next();
-            if (entity instanceof ItemEntity drop && drop.isAlive() && !drop.getItem().isEmpty()) {
-                double distance = player.distanceToSqr(drop);
-                if (distance <= rangeSquared && allowed(drop, ids, mode)) nearest.add(drop, distance, drop.getId());
-            }
-            return ScanScheduler.Result.MORE;
-        });
+        me.mrhakan.agalarhack.services.EntityDiscovery.offer(this, service(ScannerService.class),
+                ScanScheduler.Priority.NEAR, mc, (int) getNumberSetting("maximumItems", 128),
+                getNumberSetting("range", 64),
+                entity -> entity instanceof ItemEntity drop && drop.isAlive()
+                        && !drop.getItem().isEmpty() && allowed(drop, ids, mode) ? drop : null,
+                result -> items = result);
     }
 
     private boolean allowed(ItemEntity drop, Set<String> ids, String mode) {

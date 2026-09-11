@@ -51,6 +51,9 @@ public final class WorldOverlayRenderer {
         Module freecamModule = AgalarHackClient.moduleManager.getModule("Freecam");
         Module storageModule = AgalarHackClient.moduleManager.getModule("StorageESP");
         Module blockModule = AgalarHackClient.moduleManager.getModule("BlockESP");
+        Module nametagModule = AgalarHackClient.moduleManager.getModule("Nametags");
+        me.mrhakan.agalarhack.module.render.Nametags nametags =
+                nametagModule instanceof me.mrhakan.agalarhack.module.render.Nametags n ? n : null;
         Module itemModule = AgalarHackClient.moduleManager.getModule("ItemESP");
         me.mrhakan.agalarhack.module.render.ItemESP itemEsp =
                 itemModule instanceof me.mrhakan.agalarhack.module.render.ItemESP i ? i : null;
@@ -67,14 +70,19 @@ public final class WorldOverlayRenderer {
         boolean bodyMarker = freecam != null && freecam.shouldRenderBodyMarker();
         boolean waypointsEnabled = waypoints != null && waypoints.isToggled();
         boolean itemsEnabled = itemEsp != null && itemEsp.isToggled();
+        boolean nametagsEnabled = nametags != null && nametags.isToggled();
         if (!espEnabled && !trajectoriesEnabled && !storageEnabled && !blockEnabled && !bodyMarker
-                && !waypointsEnabled && !itemsEnabled) return;
+                && !waypointsEnabled && !itemsEnabled && !nametagsEnabled) return;
 
         var renderService = me.mrhakan.agalarhack.services.ClientServices.require(me.mrhakan.agalarhack.services.RenderService.class);
         Vec3 camera = ctx.levelState().cameraRenderState.pos;
         List<LivingEntity> espTargets = espEnabled && esp instanceof EntityESP entityEsp ? entityEsp.targets() : List.of();
         if (espEnabled && esp.getBooleanSetting("labels", true)) renderService.guard(esp, () -> renderEspLabels(ctx, mc, esp, espTargets, camera));
         if (storageEnabled && storage.getBooleanSetting("labels", false)) renderService.guard(storage, () -> renderStorageLabels(ctx, mc, storage, camera));
+        if (nametagsEnabled) {
+            var tagged = nametags;
+            renderService.guard(tagged, () -> renderNametags(ctx, mc, tagged, camera));
+        }
         if (itemsEnabled && itemEsp.getBooleanSetting("labels", true)) {
             var labelledItems = itemEsp;
             renderService.guard(labelledItems, () -> renderItemLabels(ctx, mc, labelledItems, camera));
@@ -221,6 +229,29 @@ public final class WorldOverlayRenderer {
             AABB block = new AABB(pos.getX(), pos.getY(), pos.getZ(), pos.getX() + 1.0, pos.getY() + 1.0, pos.getZ() + 1.0)
                     .inflate(0.015).move(-camera.x, -camera.y, -camera.z);
             box(buffer, pose, block, (alpha << 24) | rgb);
+        }
+    }
+
+    private static void renderNametags(LevelRenderContext ctx, Minecraft mc,
+            me.mrhakan.agalarhack.module.render.Nametags module, Vec3 camera) {
+        PoseStack stack = ctx.poseStack();
+        var friends = AgalarHackClient.FRIEND_MANAGER;
+        for (LivingEntity entity : module.targets()) {
+            if (!entity.isAlive()) continue;
+            double distance = mc.player.distanceTo(entity);
+            boolean friend = entity instanceof net.minecraft.world.entity.player.Player
+                    && friends != null && friends.isFriend(entity.getName().getString());
+            String label = module.label(entity, distance, friend);
+            if (label.isBlank()) continue;
+            stack.pushPose();
+            try {
+                stack.translate(entity.getX() - camera.x,
+                        entity.getY() + entity.getBbHeight() - camera.y, entity.getZ() - camera.z);
+                ctx.submitNodeCollector().submitNameTag(stack, new Vec3(0.0, 0.5, 0.0), 0,
+                        Component.literal(label).withStyle(Style.EMPTY.withColor(
+                                TextColor.fromRgb(friend ? 0x55FF78 : 0xFFFFFF))),
+                        true, LightCoordsUtil.FULL_BRIGHT, ctx.levelState().cameraRenderState);
+            } finally { stack.popPose(); }
         }
     }
 

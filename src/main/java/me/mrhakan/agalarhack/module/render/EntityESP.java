@@ -4,7 +4,6 @@ import me.mrhakan.agalarhack.module.Category;
 import me.mrhakan.agalarhack.module.Module;
 import java.util.List;
 import me.mrhakan.agalarhack.managers.TargetPolicyManager;
-import me.mrhakan.agalarhack.services.NearestCandidates;
 import me.mrhakan.agalarhack.services.ScannerService;
 import me.mrhakan.agalarhack.services.scanning.ScanScheduler;
 import net.minecraft.world.entity.LivingEntity;
@@ -16,31 +15,20 @@ public class EntityESP extends Module {
     public List<LivingEntity> targets() { return targets; }
     @Override public void onDisable() { service(ScannerService.class).cancel(this); targets = List.of(); }
     @Override public void onUpdate() {
-        var level = mc.level;
         var player = mc.player;
-        if (level == null || player == null) { targets = List.of(); return; }
-        var iterator = level.entitiesForRendering().iterator();
-        var nearest = new NearestCandidates<LivingEntity>((int)getNumberSetting("maximumTargets", 256));
+        if (player == null) { targets = List.of(); return; }
         var policy = service(TargetPolicyManager.class);
-        double rangeSquared = Math.pow(getNumberSetting("range", 96), 2);
         boolean respectPolicy = getBooleanSetting("respectTargetPolicy", true);
-        int[] considered = {0};
-        service(ScannerService.class).offer(this, ScanScheduler.Priority.NEAR, 4097, budget -> {
-            if (mc.level != level || mc.player != player) { targets = List.of(); return ScanScheduler.Result.DONE; }
-            if (considered[0] >= 4096 || !iterator.hasNext() || !budget.take(0, 0, 1)) {
-                targets = nearest.snapshot();
-                return ScanScheduler.Result.DONE;
-            }
-            considered[0]++;
-            var entity = iterator.next();
-            if (entity instanceof LivingEntity living && living != player && living.isAlive()) {
-                double distance = player.distanceToSqr(living);
-                boolean allowed = respectPolicy ? policy.allows(living)
-                        : getBooleanSetting(living instanceof Player ? "players" : "mobs", true);
-                if (distance <= rangeSquared && allowed) nearest.add(living, distance, living.getId());
-            }
-            return ScanScheduler.Result.MORE;
-        });
+        me.mrhakan.agalarhack.services.EntityDiscovery.offer(this, service(ScannerService.class),
+                ScanScheduler.Priority.NEAR, mc, (int) getNumberSetting("maximumTargets", 256),
+                getNumberSetting("range", 96),
+                entity -> {
+                    if (!(entity instanceof LivingEntity living) || living == player || !living.isAlive()) return null;
+                    boolean allowed = respectPolicy ? policy.allows(living)
+                            : getBooleanSetting(living instanceof Player ? "players" : "mobs", true);
+                    return allowed ? living : null;
+                },
+                result -> targets = result);
     }
     public EntityESP() {
         super("ESP", Category.RENDER, "Draws configurable boxes, tracers and labels around valid living entities");
