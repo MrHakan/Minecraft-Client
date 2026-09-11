@@ -431,16 +431,21 @@ public final class WorldOverlayRenderer {
         LaunchSpec launch = launchSpec(mc, module, stack);
         if (launch == null) return;
 
-        Vec3 pos = mc.player.getEyePosition().add(0.0, -0.1, 0.0);
-        Vec3 velocity = launch.velocity;
+        Vec3 eye = mc.player.getEyePosition().add(0.0, -0.1, 0.0);
+        var physics = new me.mrhakan.agalarhack.services.projectile.ProjectilePhysics(
+                1.0, launch.gravity, launch.drag, 0.0, launch.gravityBeforeDrag);
+        var state = new me.mrhakan.agalarhack.services.projectile.ProjectileSimulator.State(
+                eye.x, eye.y, eye.z, launch.velocity.x, launch.velocity.y, launch.velocity.z);
         int steps = (int) Math.round(module.getNumberSetting("steps", 100.0));
         boolean collisionEnabled = module.getBooleanSetting("collision", true);
         boolean landingMarker = module.getBooleanSetting("landingMarker", true);
         int color = color(module.getNumberSetting("red", 255.0), module.getNumberSetting("green", 220.0), module.getNumberSetting("blue", 80.0), 240.0);
 
         for (int i = 0; i < steps; i++) {
-            if (launch.gravityBeforeDrag) velocity = new Vec3(velocity.x, velocity.y - launch.gravity, velocity.z).scale(launch.drag);
-            Vec3 next = pos.add(velocity);
+            // Stepping is the shared simulator; only collision stays here, because it needs the world.
+            var stepped = me.mrhakan.agalarhack.services.projectile.ProjectileSimulator.advance(state, physics);
+            Vec3 pos = new Vec3(state.x(), state.y(), state.z());
+            Vec3 next = new Vec3(stepped.x(), stepped.y(), stepped.z());
             Vec3 end = next;
             boolean collided = false;
             if (collisionEnabled) {
@@ -463,9 +468,8 @@ public final class WorldOverlayRenderer {
                 if (landingMarker) marker(buffer, pose, end.subtract(camera), module.getNumberSetting("markerSize", 0.22), color);
                 break;
             }
-            pos = next;
-            if (!launch.gravityBeforeDrag) velocity = new Vec3(velocity.x * launch.drag, velocity.y * launch.drag - launch.gravity, velocity.z * launch.drag);
-            if (pos.y < mc.level.getMinY() - 16) break;
+            state = stepped;
+            if (state.y() < mc.level.getMinY() - 16) break;
         }
     }
 
