@@ -268,7 +268,7 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 79 | Render culling | Partial distance/target/label bounds shared through EntityDiscovery; frustum culling pending |
 | 80 | Performance HUD | Partial scanner diagnostics and memory; module tick/render timings and broader counters pending |
 | 81 | Unit tests | 333 tests; adds block-update batching, chunk cache eviction, cursor completion, id-list parsing, notification sinks, waypoint normalisation/persistence and compass bearings; trajectory and fade coverage pending |
-| 82 | Integration smoke tests | Not performed in-game; automate where feasible and record exact environment/results |
+| 82 | Integration smoke tests | Partial: the client now boots headless under xvfb/llvmpipe and all six mixin injections are verified applied in the transformed bytecode. No gameplay was exercised; behaviour checks remain manual |
 | 83 | Lifecycle audit | Partial code audit/restoration; all listed state-changing modules need in-game transition checks |
 | 84 | Error reporting | Partial logger/module/render/scanner isolation; guarded HUD measurements/renderers with notices and retry; remaining boundaries need review |
 | 85 | Structured logging | Implemented SLF4J replacement for raw stderr; logging quality audit remains |
@@ -460,6 +460,23 @@ mixin class so a new mixin cannot slip past unnoticed.
 
 It proves the targets exist. It does **not** prove the injection points inside those methods resolve,
 or that anything works in game — that is still the first manual check.
+
+## Mixins verified applied at runtime
+
+`MixinTargetsTest` only proves the target methods exist in the jar; it cannot prove Mixin applies the
+injections. That second check was done by running the client headless with `-Dmixin.debug.export=true`
+and reading the transformed bytecode back with `javap`. All three target classes were transformed and
+all six injections were present **and invoked from the correct target method** on real 26.2, with zero
+mixin failures and `Compatibility level set to JAVA_25` accepted.
+
+`ClientPacketListener` is loaded during startup rather than on connect, so its four handlers were
+verified as applied without a server — but they were never observed firing. That still needs a
+connection.
+
+This changes nothing about the `UNTESTED` badge: it tracks in-game testing, not bytecode presence.
+Nobody walked off a ledge or took damage during this run.
+
+Exact procedure, environment variables and the result table: [docs/RUNTIME_MIXIN_VERIFICATION.md](docs/RUNTIME_MIXIN_VERIFICATION.md).
 
 ## Lifecycle audit result
 
