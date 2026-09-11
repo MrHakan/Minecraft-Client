@@ -51,7 +51,12 @@ public class Hud implements HudElement {
         textComponent("memory","Memory",()->"Memory "+(Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory())/(1024*1024)+" MiB");
         textComponent("server","Server",()->me.mrhakan.agalarhack.services.ClientServices.require(me.mrhakan.agalarhack.services.ServerContextService.class).address(Minecraft.getInstance()));
         textComponent("speed","Speed",Hud::speedLine);
-        register("movement","Movement Stats",()->132,()->48,this::renderMovementStats);
+        // Registered with its own hidden default rather than relying on one existing: this is the
+        // widget whose missing default crashed startup before get() was made total.
+        registry.register(new me.mrhakan.agalarhack.ui.hud.HudRegistry.Component("movement","Movement Stats",
+                        ()->132,()->48,event->renderMovementStats(event.graphics(),Minecraft.getInstance())),
+                new me.mrhakan.agalarhack.managers.HudLayoutManager.WidgetState(
+                        me.mrhakan.agalarhack.managers.HudLayoutManager.Anchor.TOP_LEFT,8,190,false));
         textComponent("waypoint","Waypoint",()->nearestWaypointLine());
         textComponent("tps","TPS (estimate)",()->serverInfoLine());
         textComponent("crit","Attack Charge",Hud::critLine);

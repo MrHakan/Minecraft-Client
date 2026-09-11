@@ -120,9 +120,20 @@ public class HudLayoutManager {
         return result;
     }
 
+    /**
+     * Never null.
+     *
+     * <p>A component registered without a declared default used to return null here, and the one
+     * caller that copied the result turned that into a crash during client startup - before any
+     * screen exists to report it. A widget nobody declared a placement for is a cosmetic problem;
+     * refusing to start is not, so it gets the generic placement instead.
+     *
+     * <p>The state is stored rather than returned fresh each call, because callers mutate what they
+     * are given - the HUD editor moves widgets by writing to it.
+     */
     public WidgetState get(String id) {
         ensureDefaults();
-        return widgets.get(id);
+        return widgets.computeIfAbsent(id, this::defaultFor);
     }
 
     public Map<String, WidgetState> snapshot() {
