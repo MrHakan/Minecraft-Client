@@ -1,5 +1,9 @@
 # Verifying the mixins at runtime
 
+> **CI does this automatically now.** `tools/smoke-client.sh` runs on every pull request and fails
+> the build if the client does not start or if any mixin in the config was not applied. Read this
+> page when you need to know *which* injection landed *where* — the script only answers pass or fail.
+
 `MixinTargetsTest` proves every injection target *exists* in the 26.2 jar, which is what CI can check
 without a display. It cannot prove the injections are actually **applied** by Mixin when the game
 runs. This document records how that second check was done, and how to repeat it.
