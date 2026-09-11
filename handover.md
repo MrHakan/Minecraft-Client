@@ -17,8 +17,8 @@ At the 2026-09-11 re-inspection, #9 was still the only open PR, at head `f3eb4ff
 open PRs again: this document is a checkpoint, not a substitute for live repository state.
 **Nothing in this work has been automatically merged into main.**
 
-Approximate progress against the complete requested roadmap: **66–72% implemented;
-28–34% remains**. This is a qualitative scope estimate, not measured work hours, a count
+Approximate progress against the complete requested roadmap: **68–74% implemented;
+26–32% remains**. This is a qualitative scope estimate, not measured work hours, a count
 of commits, or a release-readiness percentage. Earlier estimate was about 20%; this batch
 mainly deepens existing foundations. Do not extrapolate remaining duration from these numbers.
 No entire phase is accepted as complete; Minecraft in-game smoke testing remains outstanding.
@@ -29,7 +29,7 @@ No entire phase is accepted as complete; Minecraft in-game smoke testing remains
 | B: UI/HUD | 62–67% | Full widget/animation/accessibility coverage, Module List transitions, player faces, remaining legacy bounds |
 | C: rendering | 75–80% | More ESP render modes, per-block BlockESP colours |
 | D: player utility | 55–60% | AutoFish, AutoWalk, AutoAccept, FastPlace, inventory HUD depth |
-| E: movement/world | 55–60% | BaseFinder, NewChunks |
+| E: movement/world | 70–75% | NewChunks |
 | F: information/social | 75–80% | BetterChat rendering (timestamps/highlighting) |
 | G: ecosystem | 0% | Stable external addon API/template, optional Baritone, localization |
 | H: hardening | 50–55% | In-game lifecycle testing, complete profiling/config migration audit |
@@ -239,7 +239,7 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 50 | AutoWeapon | Implemented on the hotbar lease above AutoTool, using scoring and the damage-family tags |
 | 51 | Critical information | Not started; no packet exploit chains |
 | 52 | Totem tracker | Implemented from observed EntityEvent.PROTECTED_FROM_DEATH; resets on death/timeout, labelled "(seen)" |
-| 53 | BaseFinder | Not started; reuse scheduler and local evidence |
+| 53 | BaseFinder | Implemented over StorageESP's existing results with single-link clustering; opens no scan of its own and says "likely" |
 | 54 | NewChunks | Not started; conservative observable classification only |
 | 55 | Light/spawn visualization | Implemented as SpawnESP over light levels only; deliberately does not model biome/mob/cap rules and says so |
 | 56 | HoleESP | Implemented: safe vs unsafe by real explosion resistance, bounded shared-cursor scan, block-update invalidation |
@@ -267,7 +267,7 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 78 | Chunk result cache | Implemented for BlockESP: bounded LRU clean-chunk cache with block-update, unload, anchor and filter invalidation. Other scanners still sweep |
 | 79 | Render culling | Partial distance/target/label bounds shared through EntityDiscovery; frustum culling pending |
 | 80 | Performance HUD | Partial scanner diagnostics and memory; module tick/render timings and broader counters pending |
-| 81 | Unit tests | 310 tests; adds block-update batching, chunk cache eviction, cursor completion, id-list parsing, notification sinks, waypoint normalisation/persistence and compass bearings; trajectory and fade coverage pending |
+| 81 | Unit tests | 320 tests; adds block-update batching, chunk cache eviction, cursor completion, id-list parsing, notification sinks, waypoint normalisation/persistence and compass bearings; trajectory and fade coverage pending |
 | 82 | Integration smoke tests | Not performed in-game; automate where feasible and record exact environment/results |
 | 83 | Lifecycle audit | Partial code audit/restoration; all listed state-changing modules need in-game transition checks |
 | 84 | Error reporting | Partial logger/module/render/scanner isolation; guarded HUD measurements/renderers with notices and retry; remaining boundaries need review |
@@ -447,6 +447,11 @@ whenever a server heals, absorbs or cancels a hit.
 **AutoJump was skipped on purpose** — see requirement 45 above. Do not add it later without checking
 that reasoning.
 
+**Two modules deliberately consume another module's results instead of opening a second sweep**:
+ProjectileWarning reads ProjectileESP, BaseFinder reads StorageESP. Both state the dependency in
+their description and show it in the module list when the source module is off, so neither looks
+broken. Keep that pattern rather than adding parallel scanners.
+
 **Macros hold one action each, on purpose.** Timed multi-action sequences were left out: a macro
 firing several actions over time is indistinguishable from unattended automation, and the brief only
 asks for local sequences, which aliases already cover. Dispatch reuses the module keybind edge
@@ -524,6 +529,9 @@ Fabric's 26.2 `ClientChunkCacheMixin`. Do not reintroduce 1.20/1.21 examples bli
 - TargetHUD: switch between all three layouts while a target is live; check absorption on a target
   with golden apples; confirm the bar does not slide when the target changes; confirm reduced motion
   disables the easing; confirm ping disappears for mobs and for players whose latency is unknown.
+- BaseFinder: confirm it reports nothing with StorageESP off and says so in the module list; check a
+  village and a real base both cluster sensibly; confirm a stable base does not re-notify each
+  interval; confirm optional waypoint creation lands at the cluster centre.
 - Macros: bind each of the three kinds, confirm a held key fires once, confirm nothing fires while a
   screen is open, confirm a macro targeting a missing module reports instead of failing silently, and
   restart to confirm persistence.
