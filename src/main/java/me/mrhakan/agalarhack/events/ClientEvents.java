@@ -35,6 +35,8 @@ public final class ClientEvents {
     /** A server-sent block change, posted after the world already holds the new state. */
     public record BlockUpdated(ClientLevel level, net.minecraft.core.BlockPos pos,
                                net.minecraft.world.level.block.state.BlockState state) { }
+    /** A server-sent entity event such as a totem activation or an equipment break. */
+    public record EntityEventReceived(ClientLevel level, Entity entity, byte eventId) { }
     /** A block entity became available client-side; Fabric provides this hook directly. */
     public record BlockEntityLoaded(ClientLevel level, net.minecraft.world.level.block.entity.BlockEntity entity) { }
     public record BlockEntityUnloaded(ClientLevel level, net.minecraft.world.level.block.entity.BlockEntity entity) { }

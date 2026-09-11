@@ -3,6 +3,7 @@ package me.mrhakan.agalarhack.mixin;
 import me.mrhakan.agalarhack.events.BlockUpdateHooks;
 import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket;
+import net.minecraft.network.protocol.game.ClientboundEntityEventPacket;
 import net.minecraft.network.protocol.game.ClientboundSectionBlocksUpdatePacket;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -23,6 +24,18 @@ public abstract class ClientPacketListenerMixin {
     private void agalarhack$onBlockUpdate(ClientboundBlockUpdatePacket packet, CallbackInfo info) {
         ClientPacketListener self = (ClientPacketListener) (Object) this;
         BlockUpdateHooks.blockUpdated(self.getLevel(), packet.getPos(), packet.getBlockState());
+    }
+
+    /**
+     * Totem activations and equipment breaks arrive as entity events and have no Fabric hook either.
+     * TAIL again, so vanilla's own handling has already run.
+     */
+    @Inject(method = "handleEntityEvent", at = @At("TAIL"))
+    private void agalarhack$onEntityEvent(ClientboundEntityEventPacket packet, CallbackInfo info) {
+        ClientPacketListener self = (ClientPacketListener) (Object) this;
+        var level = self.getLevel();
+        if (level == null) return;
+        BlockUpdateHooks.entityEvent(level, packet.getEntity(level), packet.getEventId());
     }
 
     @Inject(method = "handleChunkBlocksUpdate", at = @At("TAIL"))

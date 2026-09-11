@@ -11,6 +11,7 @@ import me.mrhakan.agalarhack.AgalarHackClient;
 import me.mrhakan.agalarhack.module.Category;
 import me.mrhakan.agalarhack.module.Module;
 import me.mrhakan.agalarhack.module.combat.Aura;
+import me.mrhakan.agalarhack.module.combat.TotemTracker;
 import me.mrhakan.agalarhack.module.combat.TriggerBot;
 import me.mrhakan.agalarhack.module.misc.AutoEat;
 import me.mrhakan.agalarhack.module.misc.AutoReconnect;
@@ -54,6 +55,7 @@ public class ModuleManager {
     public ModuleManager() {
         register(new Aura());
         register(new TriggerBot());
+        register(new TotemTracker());
 
         register(new AutoEat());
         register(new AutoReconnect());

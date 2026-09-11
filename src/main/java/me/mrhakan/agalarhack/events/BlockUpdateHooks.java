@@ -37,6 +37,12 @@ public final class BlockUpdateHooks {
         post(bus -> bus.post(new ClientEvents.BlockUpdated(level, pos.immutable(), state)));
     }
 
+    /** Server-sent entity events; the same bridge rules apply as for block updates. */
+    public static void entityEvent(ClientLevel level, net.minecraft.world.entity.Entity entity, byte eventId) {
+        if (level == null || entity == null) return;
+        post(bus -> bus.post(new ClientEvents.EntityEventReceived(level, entity, eventId)));
+    }
+
     public static void sectionUpdated(ClientLevel level, SectionReplay replay) {
         if (level == null || replay == null) return;
         post(bus -> replaySection(bus, level, replay));
