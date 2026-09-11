@@ -6,6 +6,7 @@ import java.util.Locale;
 import me.mrhakan.agalarhack.AgalarHackClient;
 import me.mrhakan.agalarhack.commands.Command;
 import me.mrhakan.agalarhack.config.ProfileDiff;
+import me.mrhakan.agalarhack.config.ProfileMetadata;
 import me.mrhakan.agalarhack.config.ProfileSelection;
 import me.mrhakan.agalarhack.managers.MessageManager;
 import me.mrhakan.agalarhack.module.Category;
@@ -18,7 +19,7 @@ public class Profile extends Command {
 
     public Profile() {
         super("profile", "Manages named client profiles and per-server bindings",
-                "profile <save|load|delete|list|bind|unbind|duplicate|rename|export|import|diff> [name] [newName|selection]", "profiles");
+                "profile <save|load|delete|list|search|describe|bind|unbind|bind-dim|unbind-dim|duplicate|rename|export|import|diff> [name] [args]", "profiles");
     }
 
     @Override
@@ -39,6 +40,16 @@ public class Profile extends Command {
                 }
                 case "load" -> loadProfile(args);
                 case "diff" -> diffProfiles(args);
+                case "search", "find" -> searchProfiles(args);
+                case "describe", "desc" -> describeProfile(args);
+                case "bind-dim", "binddim" -> {
+                    requireName(args);
+                    AgalarHackClient.PROFILES.bindCurrentDimension(mc, args[2]);
+                    ok("Bound this dimension to profile " + args[2]);
+                }
+                case "unbind-dim", "unbinddim" -> ok(AgalarHackClient.PROFILES.unbindCurrentDimension(mc)
+                        ? "Removed this dimension's profile binding"
+                        : "This dimension has no profile binding");
                 case "delete" -> {
                     requireName(args);
                     ok(AgalarHackClient.PROFILES.delete(args[2])
@@ -124,14 +135,54 @@ public class Profile extends Command {
         }
     }
 
+    /** {@code search [query]}; a bare search lists everything rather than returning nothing. */
+    private void searchProfiles(String[] args) {
+        String query = args.length > 2 ? String.join(" ", java.util.Arrays.copyOfRange(args, 2, args.length)) : "";
+        List<String> matches = AgalarHackClient.PROFILES.search(query);
+        if (matches.isEmpty()) {
+            MessageManager.sendMessagePrefix(ChatFormatting.YELLOW + "No profile matches " + query);
+            return;
+        }
+        MessageManager.sendMessagePrefix(ChatFormatting.AQUA + String.valueOf(matches.size())
+                + (matches.size() == 1 ? " profile" : " profiles") + (query.isBlank() ? "" : " matching " + query));
+        for (String name : matches) {
+            String summary = ProfileMetadata.summary(AgalarHackClient.PROFILES.metadata(name));
+            MessageManager.sendRawMessage(ChatFormatting.WHITE + " " + name
+                    + (summary.isEmpty() ? "" : ChatFormatting.GRAY + " - " + summary));
+        }
+    }
+
+    /**
+     * {@code describe <name> <text...>}, with a trailing {@code #tag #tag} taken as tags.
+     *
+     * <p>Hash-prefixed words rather than a separate argument list, so one command can set both
+     * without the player having to quote a description containing spaces.
+     */
+    private void describeProfile(String[] args) {
+        requireName(args);
+        StringBuilder description = new StringBuilder();
+        StringBuilder tags = new StringBuilder();
+        for (int index = 3; index < args.length; index++) {
+            String word = args[index];
+            if (word.startsWith("#") && word.length() > 1) tags.append(word.substring(1)).append(' ');
+            else description.append(word).append(' ');
+        }
+        AgalarHackClient.PROFILES.describe(args[2], description.toString(), tags.toString());
+        var stored = AgalarHackClient.PROFILES.metadata(args[2]);
+        ok("Described " + args[2] + (stored == null || ProfileMetadata.summary(stored).isEmpty()
+                ? " (cleared)" : ": " + ProfileMetadata.summary(stored)));
+    }
+
     private void listProfiles() {
         List<String> profiles = AgalarHackClient.PROFILES.list();
         String active = AgalarHackClient.PROFILES.getActiveProfile();
         String bound = AgalarHackClient.PROFILES.getBoundProfile(Minecraft.getInstance());
+        String dimensionBound = AgalarHackClient.PROFILES.getDimensionProfile(Minecraft.getInstance());
         MessageManager.sendMessagePrefix(ChatFormatting.AQUA + "Profiles: "
                 + ChatFormatting.WHITE + (profiles.isEmpty() ? "none" : String.join(", ", profiles)));
         MessageManager.sendRawMessage(ChatFormatting.GRAY + " Active: " + (active.isBlank() ? "none" : active)
-                + " | Current server: " + (bound == null ? "none" : bound));
+                + " | Current server: " + (bound == null ? "none" : bound)
+                + " | This dimension: " + (dimensionBound == null ? "none" : dimensionBound));
     }
 
     private void requireName(String[] args) {

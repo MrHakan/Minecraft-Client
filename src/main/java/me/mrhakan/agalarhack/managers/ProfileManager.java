@@ -29,57 +29,94 @@ public class ProfileManager {
         public Map<String, Settings> modules = new LinkedHashMap<>();
         public Settings targetPolicy;
         public Map<String, HudLayoutManager.WidgetState> hud = new LinkedHashMap<>();
+        /**
+         * Optional, so a profile written before descriptions existed still loads, and one written
+         * now still loads in a client that does not know about them.
+         */
+        public me.mrhakan.agalarhack.config.ProfileMetadata meta;
     }
 
     private final Gson gson = new GsonBuilder().setPrettyPrinting().create();
     private final Path dir = FabricLoader.getInstance().getConfigDir().resolve("agalarhack-profiles");
     private final Path bindingsPath = FabricLoader.getInstance().getConfigDir().resolve("agalarhack-server-profiles.json");
     private final Map<String, String> serverBindings = new LinkedHashMap<>();
+    private final Map<String, String> dimensionBindings = new LinkedHashMap<>();
+    private final Path dimensionBindingsPath =
+            FabricLoader.getInstance().getConfigDir().resolve("agalarhack-dimension-profiles.json");
     private String activeProfile = "";
     private String observedServer = "";
+    private String observedDimension = "";
 
     public void loadBindings() {
-        serverBindings.clear();
-        if (!Files.isRegularFile(bindingsPath)) {
-            saveBindings();
+        loadBindingFile(bindingsPath, serverBindings, true);
+        loadBindingFile(dimensionBindingsPath, dimensionBindings, false);
+    }
+
+    /**
+     * @param normaliseKeys server addresses need normalising; dimension ids are already canonical
+     *                      and lower-casing an id would be wrong for a namespaced key
+     */
+    private void loadBindingFile(Path path, Map<String, String> into, boolean normaliseKeys) {
+        into.clear();
+        if (!Files.isRegularFile(path)) {
+            saveBindingFile(path, into);
             return;
         }
-        try (Reader reader = Files.newBufferedReader(bindingsPath, StandardCharsets.UTF_8)) {
+        try (Reader reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
             Map<String, String> loaded = gson.fromJson(reader, new TypeToken<Map<String, String>>(){}.getType());
             if (loaded != null) {
-                loaded.forEach((server, profile) -> {
-                    if (server != null && profile != null && isValidName(profile)) {
-                        serverBindings.put(normalizeServer(server), profile);
+                loaded.forEach((key, profile) -> {
+                    if (key != null && profile != null && isValidName(profile)) {
+                        into.put(normaliseKeys ? normalizeServer(key) : key, profile);
                     }
                 });
             }
-        } catch (Exception e) {
-            me.mrhakan.agalarhack.AgalarHackClient.LOGGER.warn("[Agalar Hack] Failed to load server profile bindings: " + e.getMessage());
+        } catch (Exception failure) {
+            AgalarHackClient.LOGGER.warn("Failed to load profile bindings from {}", path.getFileName(), failure);
         }
     }
 
+    /**
+     * Auto-switches on a new server, and then on a new dimension.
+     *
+     * <p>Dimension is checked second and so wins where both apply, because it is the more specific
+     * of the two: binding a profile to the nether is a statement about the nether on every server,
+     * and it would be useless if the server binding reapplied over it on arrival.
+     */
     public void tick(Minecraft mc) {
-        if (mc.level == null || mc.getCurrentServer() == null) {
+        if (mc.level == null) {
             return;
         }
-        String server = normalizeServer(mc.getCurrentServer().ip);
-        if (server.isBlank() || server.equals(observedServer)) {
-            return;
-        }
-        observedServer = server;
-        String profile = serverBindings.get(server);
-        if (profile != null && exists(profile)) {
-            try {
-                load(profile);
-                System.out.println("[Agalar Hack] Auto-loaded profile '" + profile + "' for " + server);
-            } catch (RuntimeException e) {
-                me.mrhakan.agalarhack.AgalarHackClient.LOGGER.warn("[Agalar Hack] Could not auto-load profile '" + profile + "': " + e.getMessage());
+        if (mc.getCurrentServer() != null) {
+            String server = normalizeServer(mc.getCurrentServer().ip);
+            if (!server.isBlank() && !server.equals(observedServer)) {
+                observedServer = server;
+                autoLoad(serverBindings.get(server), "server " + server);
             }
+        }
+        String dimension = mc.level.dimension().identifier().toString();
+        if (!dimension.equals(observedDimension)) {
+            observedDimension = dimension;
+            autoLoad(dimensionBindings.get(dimension), "dimension " + dimension);
+        }
+    }
+
+    /** Never throws at the caller: a bad binding must not break joining a world. */
+    private void autoLoad(String profile, String because) {
+        if (profile == null || !exists(profile)) {
+            return;
+        }
+        try {
+            load(profile);
+            AgalarHackClient.LOGGER.info("Auto-loaded profile '{}' for {}", profile, because);
+        } catch (RuntimeException failure) {
+            AgalarHackClient.LOGGER.warn("Could not auto-load profile '{}' for {}", profile, because, failure);
         }
     }
 
     public void onDisconnect() {
         observedServer = "";
+        observedDimension = "";
     }
 
     public void save(String name) {
@@ -283,6 +320,80 @@ public class ProfileManager {
         return serverBindings.get(normalizeServer(mc.getCurrentServer().ip));
     }
 
+    public void bindCurrentDimension(Minecraft mc, String profile) {
+        validateName(profile);
+        if (!exists(profile)) {
+            throw new IllegalArgumentException("Profile does not exist: " + profile);
+        }
+        String dimension = currentDimension(mc);
+        if (dimension == null) {
+            throw new IllegalArgumentException("Join a world first.");
+        }
+        dimensionBindings.put(dimension, profile);
+        saveBindingFile(dimensionBindingsPath, dimensionBindings);
+    }
+
+    public boolean unbindCurrentDimension(Minecraft mc) {
+        String dimension = currentDimension(mc);
+        if (dimension == null || dimensionBindings.remove(dimension) == null) {
+            return false;
+        }
+        saveBindingFile(dimensionBindingsPath, dimensionBindings);
+        return true;
+    }
+
+    public String getDimensionProfile(Minecraft mc) {
+        String dimension = currentDimension(mc);
+        return dimension == null ? null : dimensionBindings.get(dimension);
+    }
+
+    public Map<String, String> getDimensionBindings() {
+        return Map.copyOf(dimensionBindings);
+    }
+
+    private static String currentDimension(Minecraft mc) {
+        return mc == null || mc.level == null ? null : mc.level.dimension().identifier().toString();
+    }
+
+    /** Metadata for one profile, or null when it has none; never throws for a missing profile. */
+    public me.mrhakan.agalarhack.config.ProfileMetadata metadata(String name) {
+        if (!exists(name)) return null;
+        try {
+            var meta = readProfile(name).meta;
+            return meta == null ? null : meta.sanitised();
+        } catch (RuntimeException unreadable) {
+            return null;
+        }
+    }
+
+    /**
+     * Sets the description and tags, leaving the settings alone.
+     *
+     * <p>Reads and rewrites the whole profile rather than patching the file, so a description can
+     * never be written into a profile that would not have loaded.
+     */
+    public void describe(String name, String description, String tags) {
+        ProfileData data = readProfile(name);
+        long now = System.currentTimeMillis();
+        var existing = data.meta;
+        var updated = me.mrhakan.agalarhack.config.ProfileMetadata.of(description, tags, now);
+        // Keep the original creation time; only the edit is new.
+        if (existing != null && existing.createdAt > 0) updated.createdAt = existing.createdAt;
+        data.meta = updated;
+        writeProfile(name, data, true);
+    }
+
+    /** @return matching profile names in the same order {@link #list()} gives them */
+    public List<String> search(String query) {
+        List<String> matches = new ArrayList<>();
+        for (String name : list()) {
+            if (me.mrhakan.agalarhack.config.ProfileMetadata.matches(name, metadata(name), query)) {
+                matches.add(name);
+            }
+        }
+        return List.copyOf(matches);
+    }
+
     public String getActiveProfile() {
         return activeProfile;
     }
@@ -334,6 +445,11 @@ public class ProfileManager {
         if (data.hud == null) {
             data.hud = new LinkedHashMap<>();
         }
+        // A hand-edited or older file can hold anything; bring it back inside the documented bounds
+        // rather than letting an unbounded description reach a chat line.
+        if (data.meta != null) {
+            data.meta = data.meta.sanitised();
+        }
     }
 
     private void sanitizeImportedData(ProfileData data) {
@@ -356,15 +472,19 @@ public class ProfileManager {
         return normalizeServer(mc.getCurrentServer().ip);
     }
 
-    private void saveBindings() {
+    private void saveBindingFile(Path path, Map<String, String> bindings) {
         try {
-            Files.createDirectories(bindingsPath.getParent());
-            try (Writer writer = Files.newBufferedWriter(bindingsPath, StandardCharsets.UTF_8)) {
-                gson.toJson(serverBindings, writer);
+            Files.createDirectories(path.getParent());
+            try (Writer writer = Files.newBufferedWriter(path, StandardCharsets.UTF_8)) {
+                gson.toJson(bindings, writer);
             }
-        } catch (IOException e) {
-            me.mrhakan.agalarhack.AgalarHackClient.LOGGER.warn("[Agalar Hack] Failed to save server profile bindings: " + e.getMessage());
+        } catch (IOException failure) {
+            AgalarHackClient.LOGGER.warn("Could not save profile bindings to {}", path.getFileName(), failure);
         }
+    }
+
+    private void saveBindings() {
+        saveBindingFile(bindingsPath, serverBindings);
     }
 
     private Path profilePath(String name) {
