@@ -34,8 +34,29 @@ public final class InventoryService {
     private final SlotSnapshots<ItemStack> equipment = new SlotSnapshots<>(EQUIPMENT.length, ItemStack::matches, ItemStack::copy);
     private int observedSlot = -1;
     private final InventoryLeaseController<LocalPlayer> leases;
+    private final ContainerTransferController transfers;
     public InventoryService(Minecraft mc, UtilityActionManager actions) {
         this.mc = mc;
+        transfers = new ContainerTransferController(new ContainerTransferController.Controls() {
+            public boolean ready() {
+                return mc.player != null && mc.level != null && mc.player.isAlive()
+                        && mc.gui.screen() == null && mc.gameMode != null && mc.player.inventoryMenu != null;
+            }
+            public boolean cursorEmpty() {
+                return mc.player == null || mc.player.inventoryMenu.getCarried().isEmpty();
+            }
+            public int emptyStorageMenuSlot() {
+                if (mc.player == null) return -1;
+                int free = mc.player.getInventory().getFreeSlot();
+                return free < 0 || free >= InventoryTransfers.INVENTORY_SIZE ? -1 : InventoryTransfers.menuSlot(free);
+            }
+            public void pickup(int menuSlot) { click(menuSlot, 0, net.minecraft.world.inventory.ContainerInput.PICKUP); }
+            public void swap(int menuSlot, int hotbarIndex) { click(menuSlot, hotbarIndex, net.minecraft.world.inventory.ContainerInput.SWAP); }
+            private void click(int menuSlot, int button, net.minecraft.world.inventory.ContainerInput input) {
+                if (mc.gameMode == null || mc.player == null) return;
+                mc.gameMode.handleContainerInput(mc.player.inventoryMenu.containerId, menuSlot, button, input, mc.player);
+            }
+        }, actions);
         leases = new InventoryLeaseController<>(new InventoryLeaseController.Controls<LocalPlayer>() {
             public LocalPlayer currentPlayer() { return mc.player; }
             public int selected(LocalPlayer player) { return player.getInventory().getSelectedSlot(); }
@@ -93,7 +114,10 @@ public final class InventoryService {
         });
     }
     public boolean owns(String owner) { return leases.owns(owner); }
+    /** Inventory-menu click sequences for armour/offhand automation. */
+    public ContainerTransferController transfers() { return transfers; }
     public void tick() {
+        transfers.tick();
         leases.tick(mc.player != null && mc.level != null && mc.player.isAlive() && mc.gui.screen() == null);
         if (observedPlayer != mc.player) {
             observedPlayer = mc.player; observed.clear(); equipment.clear(); observedSlot = -1;
@@ -125,7 +149,7 @@ public final class InventoryService {
         return leases.select(owner, priority, slot, use, restore);
     }
     public void release(String owner) { leases.release(owner); }
-    public void reset() { leases.clear(); observedPlayer = null; observedSlot = -1; observed.clear(); equipment.clear(); }
+    public void reset() { transfers.clear(); leases.clear(); observedPlayer = null; observedSlot = -1; observed.clear(); equipment.clear(); }
 
     // --- Item scoring adapters -------------------------------------------------------------
     // These translate live 26.2 component data into the pure records in ItemScoring. Attribute
@@ -237,8 +261,8 @@ public final class InventoryService {
         if (mc.player == null || slot == null) return -1;
         double current = armorScore(mc.player.getItemBySlot(slot), slot);
         double baseline = Double.isFinite(current) ? current + Math.max(0, minimumImprovement) : Double.NEGATIVE_INFINITY;
-        return InventorySelection.best(36, baseline, index -> {
-            if (storageOnly && index < 9) return -1;
+        return InventorySelection.best(InventoryTransfers.INVENTORY_SIZE, baseline, index -> {
+            if (storageOnly && InventoryTransfers.isHotbarIndex(index)) return -1;
             ItemStack stack = mc.player.getInventory().getItem(index);
             if (stack.isEmpty() || equipmentSlotOf(stack) != slot) return -1;
             if (preserveNamed && stack.has(DataComponents.CUSTOM_NAME)) return -1;
