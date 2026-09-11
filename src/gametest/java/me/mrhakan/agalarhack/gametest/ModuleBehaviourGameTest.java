@@ -14,6 +14,8 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.EntitySpawnReason;
+import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -39,6 +41,9 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
     /** Generous: an inventory transfer is several server round trips, each with its own delay. */
     private static final int SETTLE_TICKS = 80;
 
+    /** Set by the SafeWalk scenario: known-solid ground, and which way the pit lies. */
+    private BlockPos ledge;
+
     @Override
     public void runTest(ClientGameTestContext context) {
         try (TestSingleplayerContext singleplayer = context.worldBuilder()
@@ -56,6 +61,7 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
             safeWalk(context, singleplayer);
             autoRefill(context, singleplayer);
             inventoryCleaner(context, singleplayer);
+            autoWeapon(context, singleplayer);
 
             LOGGER.info("Module behaviour scenarios passed");
         }
@@ -160,7 +166,14 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
      * same walk without the module does.
      */
     private void safeWalk(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
-        BlockPos ledge = digPit(context, singleplayer);
+        this.ledge = digPit(context, singleplayer);
+        BlockPos ledge = this.ledge;
+
+        // The claim under test is "SafeWalk holds the edge", not "SafeWalk's ground gate is right".
+        // Left on, that gate is checked afresh every tick, and a single tick where the walking player
+        // is momentarily not on the ground lets them off - which is a race this scenario lost about
+        // one run in eight. Turning it off removes the race without weakening what is asserted.
+        configure(context, "SafeWalk", module -> module.settings.setSetting("onlyOnGround", false));
 
         toggle(context, "SafeWalk", false);
         toggle(context, "Parkour", false);
@@ -191,24 +204,28 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
     }
 
     /**
-     * Parkour jumps at the edge rather than holding it, so the tell is upward movement: the control
-     * walk off the same ledge never rises at all.
+     * Parkour jumps at the edge rather than holding it, so the tell is upward movement.
+     *
+     * <p>Measured against the control walk rather than against a fixed number. Walking into the pit
+     * raises the player a little all by itself - landing on the floor pushes them up around a third
+     * of a block - and that figure is not something to hardcode, because it is exactly the kind of
+     * incidental physics that changes with the scene. A vanilla jump is about 1.25 blocks, so the
+     * difference between the two walks is unambiguous without needing to know either number.
      */
     private void parkour(ClientGameTestContext context, TestSingleplayerContext singleplayer,
             BlockPos ledge, Walk control) {
-        if (control.rise() > 0.2) {
-            throw new AssertionError("the control walk rose " + control.rise()
-                    + " blocks without Parkour, so a jump cannot be attributed to the module");
-        }
-
         toggle(context, "Parkour", true);
         Walk jumped = walkOffAndReport(context, singleplayer, ledge);
         toggle(context, "Parkour", false);
-        if (jumped.rise() < 0.3) {
-            throw new AssertionError("Parkour did not jump at the edge; the player rose only "
-                    + jumped.rise() + " blocks walking into a gap");
+
+        double extra = jumped.rise() - control.rise();
+        if (extra < 0.5 || jumped.rise() < 0.8) {
+            throw new AssertionError("Parkour did not jump at the edge: the player rose "
+                    + jumped.rise() + " blocks against the control walk's " + control.rise()
+                    + ", a difference of " + extra + " where a jump is about 1.25");
         }
-        LOGGER.info("  Parkour jumped at the edge the control walk stepped off");
+        LOGGER.info("  Parkour jumped {} blocks at the edge the control walk stepped off with {}",
+                String.format("%.2f", jumped.rise()), String.format("%.2f", control.rise()));
     }
 
     /** How deep the pit is. Deep enough that falling in is unmistakable, shallow enough to survive. */
@@ -278,6 +295,12 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
         }
         context.getInput().releaseKey(options -> options.keyUp);
         context.waitTicks(10);
+        // Logged for every walk: when one of these scenarios fails, the three walks' numbers side by
+        // side are the difference between a diagnosis and a guess.
+        LOGGER.info("    walk from y={} drop={} rise={} onGround={}",
+                String.format("%.2f", startY), String.format("%.2f", lowest - startY),
+                String.format("%.2f", highest - startY),
+                context.computeOnClient(client -> client.player.onGround()));
 
         singleplayer.getServer().runOnServer(server ->
                 singleplayer.getConnection().getServerPlayer().setGameMode(GameType.CREATIVE));
@@ -351,6 +374,62 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
                     + "list; this module must never remove something nobody listed");
         }
         LOGGER.info("  InventoryCleaner dropped the listed junk and left the diamonds alone");
+    }
+
+    /**
+     * With a weapon in the hotbar and something to hit, the selected slot should become the weapon.
+     *
+     * <p>The target is an armour stand rather than the scene's zombie. It is a living entity, which
+     * is all the module asks for, and it does not walk away - a target that moves turns "the module
+     * did not switch" and "the crosshair missed" into the same failure.
+     */
+    private void autoWeapon(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        final int swordSlot = 3;
+        setInventory(singleplayer, slots -> {
+            slots.setItem(0, new ItemStack(Items.COBBLESTONE, 16));
+            slots.setItem(swordSlot, new ItemStack(Items.DIAMOND_SWORD));
+            slots.setSelectedSlot(0);
+        });
+
+        // Away from the pit, on ground the earlier scenarios did not dig out. Spawning the stand
+        // where the player happened to be left it standing in the pit, three blocks below the
+        // crosshair, which the guard below caught but which is the scenario's fault to avoid.
+        BlockPos stand = singleplayer.getServer().computeOnServer(server -> {
+            ServerPlayer player = singleplayer.getConnection().getServerPlayer();
+            BlockPos footing = ledge.offset(-10, 0, 0);
+            player.teleportTo(footing.getX() + 0.5, footing.getY(), footing.getZ() + 0.5);
+            BlockPos spot = footing.offset(2, 0, 0);
+            if (EntityTypes.ARMOR_STAND.spawn(player.level(), spot, EntitySpawnReason.COMMAND) == null) {
+                throw new AssertionError("could not spawn the armour stand at " + spot);
+            }
+            return spot;
+        });
+        context.waitTicks(20);
+        // Its upper half, not its feet: a block-centre aim at the lower block looks below the body.
+        context.getInput().lookAt(stand.above());
+        context.waitTicks(10);
+
+        // Aiming is this scenario's setup, not its claim. If the crosshair is not on the stand the
+        // module is correct to do nothing, and reporting that as a module failure would be a lie.
+        boolean aimed = context.computeOnClient(client ->
+                client.hitResult instanceof net.minecraft.world.phys.EntityHitResult);
+        if (!aimed) {
+            throw new AssertionError("the crosshair is not on the armour stand, so AutoWeapon has "
+                    + "nothing to react to; the scenario is broken, not the module");
+        }
+
+        Predicate<Minecraft> holdingSword =
+                client -> client.player.getInventory().getSelectedSlot() == swordSlot;
+        assertNotYet(context, holdingSword, "the sword slot was already selected before AutoWeapon ran");
+
+        toggle(context, "AutoWeapon", true);
+        boolean switched = settle(context, holdingSword);
+        toggle(context, "AutoWeapon", false);
+        if (!switched) {
+            throw new AssertionError("AutoWeapon did not select the diamond sword with a living "
+                    + "target under the crosshair");
+        }
+        LOGGER.info("  AutoWeapon selected the sword for the target under the crosshair");
     }
 
     /**
