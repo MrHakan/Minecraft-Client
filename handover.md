@@ -17,8 +17,8 @@ At the 2026-09-11 re-inspection, #9 was still the only open PR, at head `f3eb4ff
 open PRs again: this document is a checkpoint, not a substitute for live repository state.
 **Nothing in this work has been automatically merged into main.**
 
-Approximate progress against the complete requested roadmap: **54–60% implemented;
-40–46% remains**. This is a qualitative scope estimate, not measured work hours, a count
+Approximate progress against the complete requested roadmap: **58–64% implemented;
+36–42% remains**. This is a qualitative scope estimate, not measured work hours, a count
 of commits, or a release-readiness percentage. Earlier estimate was about 20%; this batch
 mainly deepens existing foundations. Do not extrapolate remaining duration from these numbers.
 No entire phase is accepted as complete; Minecraft in-game smoke testing remains outstanding.
@@ -27,9 +27,9 @@ No entire phase is accepted as complete; Minecraft in-game smoke testing remains
 | --- | --- | --- |
 | A: foundation | 90–95% | Rotation adoption beyond Aura, shared selector adoption by visuals, integration tests |
 | B: UI/HUD | 62–67% | Full widget/animation/accessibility coverage, Module List transitions, player faces, remaining legacy bounds |
-| C: rendering | 65–70% | More ESP render modes, camera tweaks, per-block BlockESP colours |
+| C: rendering | 75–80% | More ESP render modes, per-block BlockESP colours |
 | D: player utility | 55–60% | AutoFish, AutoWalk, AutoAccept, FastPlace, inventory HUD depth |
-| E: movement/world | 10–15% | Parkour, AutoJump, Elytra utility, BaseFinder/HoleESP/light visualization |
+| E: movement/world | 25–30% | Parkour, AutoJump, Elytra utility, BaseFinder, light/spawn visualization |
 | F: information/social | 45–50% | BetterChat rendering (timestamps/highlighting), macros, combat history |
 | G: ecosystem | 0% | Stable external addon API/template, optional Baritone, localization |
 | H: hardening | 50–55% | In-game lifecycle testing, complete profiling/config migration audit |
@@ -214,7 +214,7 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 25 | Projectile warning | Implemented: closest-approach estimate through the shared simulator, labelled as an estimate, informational only |
 | 26 | Freecam expansion | Partial existing camera/body/motion settings plus restoration changes; full requested controls/QA pending |
 | 27 | Fullbright modes | Partial: existing effect-based mode and restoration; safe gamma-like mode pending |
-| 28 | Camera tweaks | Not started |
+| 28 | Camera tweaks | Implemented: no hurt shake (third mixin), bobbing, FOV override, steady FOV, all with guarded restoration |
 | 29 | Trajectory simulator | Implemented: ProjectilePhysics/ProjectileSimulator extracted and consumed by the renderer and the warning module |
 | 30 | Trajectory accuracy | Partial existing charge/collision/custom physics; full physics-family audit and markers/time details pending |
 | 31 | TargetHUD | Substantially implemented: three layouts, absorption, ping, friend marker, hurt tint, eased bar; player faces still pending |
@@ -242,7 +242,7 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 53 | BaseFinder | Not started; reuse scheduler and local evidence |
 | 54 | NewChunks | Not started; conservative observable classification only |
 | 55 | Light/spawn visualization | Not started; verify 26.2 spawn rules and bounded scanning |
-| 56 | HoleESP | Not started |
+| 56 | HoleESP | Implemented: safe vs unsafe by real explosion resistance, bounded shared-cursor scan, block-update invalidation |
 | 57 | Portal/gateway finder | Partial existing BlockESP portal filter; reuse this infrastructure |
 | 58 | BetterChat | Partial: local-only phrase filtering via ChatFilter. Timestamps, highlighting and duplicate compaction need a chat-rendering mixin Fabric does not replace |
 | 59 | Chat mentions | Implemented: whole-word own-name/friend/keyword matching with notification and optional sound |
@@ -267,7 +267,7 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 78 | Chunk result cache | Implemented for BlockESP: bounded LRU clean-chunk cache with block-update, unload, anchor and filter invalidation. Other scanners still sweep |
 | 79 | Render culling | Partial distance/target/label bounds shared through EntityDiscovery; frustum culling pending |
 | 80 | Performance HUD | Partial scanner diagnostics and memory; module tick/render timings and broader counters pending |
-| 81 | Unit tests | 271 tests; adds block-update batching, chunk cache eviction, cursor completion, id-list parsing, notification sinks, waypoint normalisation/persistence and compass bearings; trajectory and fade coverage pending |
+| 81 | Unit tests | 279 tests; adds block-update batching, chunk cache eviction, cursor completion, id-list parsing, notification sinks, waypoint normalisation/persistence and compass bearings; trajectory and fade coverage pending |
 | 82 | Integration smoke tests | Not performed in-game; automate where feasible and record exact environment/results |
 | 83 | Lifecycle audit | Partial code audit/restoration; all listed state-changing modules need in-game transition checks |
 | 84 | Error reporting | Partial logger/module/render/scanner isolation; guarded HUD measurements/renderers with notices and retry; remaining boundaries need review |
@@ -380,8 +380,10 @@ Three more topic commits.
    so the injection is restricted to the client's own player.
 
 There are now **two mixin classes** listed in `agalarhack.mixins.json` under `client`.
-`ClientPacketListenerMixin` carries four TAIL injections: block update, section blocks update,
-entity event and set time. The bridge class is `PacketHooks` (renamed from `BlockUpdateHooks`). Entity events feed **TotemTracker** (`EntityEvent.PROTECTED_FROM_DEATH`), which counts
+There are now **three mixin classes**. `ClientPacketListenerMixin` carries four TAIL injections
+(block update, section blocks update, entity event, set time) through `PacketHooks`;
+`PlayerEdgeMixin` backs SafeWalk; `GameRendererMixin` cancels the private `bobHurt` for CameraTweaks.
+Each injected method is a single predicate or hook call, with the decision left in module code. Entity events feed **TotemTracker** (`EntityEvent.PROTECTED_FROM_DEATH`), which counts
 only activations the client observed and says "(seen)" rather than implying a server-side tally.
 
 ## Latest continuation: server information and command aliases
@@ -420,6 +422,18 @@ Also fixed: local Gradle runs write to `logs/`, which was missing from `.gitigno
 had swept eight log files into the branch. They are untracked now and `logs/` is ignored; the pushed
 history was left alone rather than rewritten over 40 KB of noise. **Prefer explicit paths over
 `git add -A` in this repo.**
+
+## Latest continuation: holes and camera
+
+**HoleESP** classifies by the block's own `getExplosionResistance()` rather than a hardcoded list, so
+modded blast-resistant blocks work without maintenance. `HoleDetector` holds the rules free of
+Minecraft types. Each candidate costs five probes and reserves five, so the scheduler is not
+under-charged; a nearby block update invalidates the anchor.
+
+**CameraTweaks** borrows `bobView`, `fov` and `fovEffectScale` and restores each **only when the
+current value is still the one it applied** — a manual change by the player wins. It ticks without a
+world because those options are client-wide. No hurt shake needed the third mixin, since vanilla has
+no option and the shake lives in a private renderer method.
 
 Still missing in Phase B: full widget/animation coverage, Module List row transitions, player faces
 on the target card, UI scale and blur controls, and the remaining legacy Info bounds.
