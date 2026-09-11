@@ -17,8 +17,8 @@ At the 2026-09-11 re-inspection, #9 was still the only open PR, at head `f3eb4ff
 open PRs again: this document is a checkpoint, not a substitute for live repository state.
 **Nothing in this work has been automatically merged into main.**
 
-Approximate progress against the complete requested roadmap: **46–52% implemented;
-48–54% remains**. This is a qualitative scope estimate, not measured work hours, a count
+Approximate progress against the complete requested roadmap: **50–56% implemented;
+44–50% remains**. This is a qualitative scope estimate, not measured work hours, a count
 of commits, or a release-readiness percentage. Earlier estimate was about 20%; this batch
 mainly deepens existing foundations. Do not extrapolate remaining duration from these numbers.
 No entire phase is accepted as complete; Minecraft in-game smoke testing remains outstanding.
@@ -30,7 +30,7 @@ No entire phase is accepted as complete; Minecraft in-game smoke testing remains
 | C: rendering | 65–70% | More ESP render modes, camera tweaks, per-block BlockESP colours |
 | D: player utility | 55–60% | AutoFish, AutoWalk, AutoAccept, FastPlace, inventory HUD depth |
 | E: movement/world | 10–15% | Parkour, AutoJump, Elytra utility, BaseFinder/HoleESP/light visualization |
-| F: information/social | 10–15% | BetterChat, TPS estimates/ping graph, macros and aliases |
+| F: information/social | 35–40% | BetterChat, chat mentions, macros, combat history |
 | G: ecosystem | 0% | Stable external addon API/template, optional Baritone, localization |
 | H: hardening | 50–55% | In-game lifecycle testing, complete profiling/config migration audit |
 
@@ -248,11 +248,11 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 59 | Chat mentions | Not started |
 | 60 | Translator architecture | Optional, not started; core operation must not depend on cloud API |
 | 61 | Macros | Not started |
-| 62 | Command aliases | Not started |
-| 63 | Server info HUD | Partial address/dimension baseline info; protocol/ping/rates/estimates expansion pending |
-| 64 | Ping graph | Not started |
-| 65 | TPS monitor | Not started; must label estimates |
-| 66 | Lag detector | Not started |
+| 62 | Command aliases | Implemented: persistent, single-pass expansion, cannot shadow real commands or self-reference |
+| 63 | Server info HUD | Partial: address/dimension plus ping history and a labelled tick estimate; protocol/packet rates pending |
+| 64 | Ping graph | Implemented as a hidden-by-default HUD component over a bounded rolling window |
+| 65 | TPS monitor | Implemented as an estimate from world-time update spacing, labelled "(est)" everywhere and capped at 20 |
+| 66 | Lag detector | Partial: optional one-shot warning when the tick estimate drops, re-armed on recovery; ping-spike and frozen-world detection pending |
 | 67 | Profile manager 2 | Partial existing rename/duplicate/import/export/bindings; metadata/search/dimension overrides pending |
 | 68 | Partial profiles | Not started |
 | 69 | Profile diff | Not started |
@@ -267,7 +267,7 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 78 | Chunk result cache | Implemented for BlockESP: bounded LRU clean-chunk cache with block-update, unload, anchor and filter invalidation. Other scanners still sweep |
 | 79 | Render culling | Partial distance/target/label bounds shared through EntityDiscovery; frustum culling pending |
 | 80 | Performance HUD | Partial scanner diagnostics and memory; module tick/render timings and broader counters pending |
-| 81 | Unit tests | 213 tests; adds block-update batching, chunk cache eviction, cursor completion, id-list parsing, notification sinks, waypoint normalisation/persistence and compass bearings; trajectory and fade coverage pending |
+| 81 | Unit tests | 245 tests; adds block-update batching, chunk cache eviction, cursor completion, id-list parsing, notification sinks, waypoint normalisation/persistence and compass bearings; trajectory and fade coverage pending |
 | 82 | Integration smoke tests | Not performed in-game; automate where feasible and record exact environment/results |
 | 83 | Lifecycle audit | Partial code audit/restoration; all listed state-changing modules need in-game transition checks |
 | 84 | Error reporting | Partial logger/module/render/scanner isolation; guarded HUD measurements/renderers with notices and retry; remaining boundaries need review |
@@ -380,11 +380,24 @@ Three more topic commits.
    so the injection is restricted to the client's own player.
 
 There are now **two mixin classes** listed in `agalarhack.mixins.json` under `client`.
-`ClientPacketListenerMixin` carries three TAIL injections: block update, section blocks update and
-entity event. Entity events feed **TotemTracker** (`EntityEvent.PROTECTED_FROM_DEATH`), which counts
+`ClientPacketListenerMixin` carries four TAIL injections: block update, section blocks update,
+entity event and set time. The bridge class is `PacketHooks` (renamed from `BlockUpdateHooks`). Entity events feed **TotemTracker** (`EntityEvent.PROTECTED_FROM_DEATH`), which counts
 only activations the client observed and says "(seen)" rather than implying a server-side tally.
 
+## Latest continuation: server information and command aliases
+
+Two more topic commits.
+
+1. **ServerInfo**, `ServerTickEstimate` and `RollingSamples`. The tick figure is an **estimate** from
+   the spacing of world-time updates and is labelled as one in the module suffix, the HUD line and the
+   warning. Implausible intervals (non-positive, multi-minute, or implying above 20 tps) are discarded
+   rather than reported as lag, and samples reset on world change. Ping graph and TPS HUD both register
+   hidden. This added the fourth packet injection, on `handleSetTime`.
+2. **Command aliases**, persistent and single-pass. An alias cannot loop, cannot name itself, and
+   cannot shadow a real command; loading re-validates hand-edited entries through the same rules.
+
 Still missing in Phase C: camera tweaks, per-block BlockESP colours and richer ESP render modes.
+Still missing in Phase F: BetterChat, chat mentions, macros and combat history.
 
 ## Validation and source references
 
@@ -444,6 +457,12 @@ Fabric's 26.2 `ClientChunkCacheMixin`. Do not reintroduce 1.20/1.21 examples bli
   `required: true` with `defaultRequire: 1` means a failed injection is a hard crash at load, so this is
   the first thing to check in-game. Place and break blocks, trigger a piston or explosion for the
   section path, and watch BlockESP markers update without a rescan.
+- ServerInfo: compare the estimate against a server whose real tick rate you know, confirm it never
+  reads above 20, that it resets on dimension change, and that the lag warning fires once rather than
+  repeatedly while the rate hovers at the threshold.
+- Aliases: define, use with and without extra arguments, restart the client to confirm persistence,
+  try to shadow a real command and to define a self-referencing alias, and hand-edit the file with
+  nonsense to confirm only valid entries load.
 - SafeWalk: walk off ledges with each mode, in singleplayer as well as multiplayer, and confirm the
   integrated server's own players are unaffected. Check it does not fight with Sprint or Speed.
 - Projectile modules: have someone shoot at you and confirm the warning fires once, reads as an
