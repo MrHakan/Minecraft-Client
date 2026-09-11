@@ -34,7 +34,8 @@ class ExperimentalFlagTest {
             "AutoArmor.java", "autoArmor",
             "CameraTweaks.java", "cameraTweaks",
             "AutoWalk.java", "autoWalk",
-            "SafeWalk.java", "safeWalk");
+            "SafeWalk.java", "safeWalk",
+            "Parkour.java", "parkour");
 
     private static final Path BEHAVIOUR_TEST =
             Path.of("src/gametest/java/me/mrhakan/agalarhack/gametest/ModuleBehaviourGameTest.java");

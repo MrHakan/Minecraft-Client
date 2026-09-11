@@ -16,7 +16,6 @@ import net.minecraft.core.BlockPos;
 public class Parkour extends Module {
     public Parkour() {
         super("Parkour", Category.MOVEMENT, "Jumps at block edges instead of walking off them");
-        markExperimental();
     }
 
     @Override

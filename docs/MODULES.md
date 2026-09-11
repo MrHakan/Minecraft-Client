@@ -12,7 +12,7 @@ Every module here is enabled, ticked and disabled inside a real world on every p
 request, so an UNTESTED one is known not to crash; what is missing is a check that it
 does the thing it exists to do. The badge is cleared in the commit that adds that check.
 
-53 modules across 6 categories; 26 marked UNTESTED.
+53 modules across 6 categories; 25 marked UNTESTED.
 
 ## Combat
 
@@ -241,7 +241,7 @@ Reports a grounded state once per fall after a configurable distance
 | --- | --- | --- | --- |
 | `threshold` | `3` | `2..20` | Fall distance before the grounded packet is sent |
 
-### Parkour — UNTESTED
+### Parkour
 
 Jumps at block edges instead of walking off them
 

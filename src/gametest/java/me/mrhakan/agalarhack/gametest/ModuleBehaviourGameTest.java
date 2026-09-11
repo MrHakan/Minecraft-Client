@@ -160,20 +160,45 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
         BlockPos ledge = digPit(context, singleplayer);
 
         toggle(context, "SafeWalk", false);
-        double fell = walkOffAndReport(context, singleplayer, ledge);
-        if (fell > -1.0) {
+        toggle(context, "Parkour", false);
+        Walk control = walkOffAndReport(context, singleplayer, ledge);
+        if (control.drop() > -1.0) {
             throw new AssertionError("the control walk did not fall off the ledge (dropped only "
-                    + fell + " blocks), so this scenario cannot tell SafeWalk apart from nothing");
+                    + control.drop() + " blocks), so neither scenario below can tell a module apart "
+                    + "from nothing");
         }
 
         toggle(context, "SafeWalk", true);
-        double held = walkOffAndReport(context, singleplayer, ledge);
+        Walk held = walkOffAndReport(context, singleplayer, ledge);
         toggle(context, "SafeWalk", false);
-        if (held < -0.5) {
-            throw new AssertionError("SafeWalk let the player drop " + held
+        if (held.drop() < -0.5) {
+            throw new AssertionError("SafeWalk let the player drop " + held.drop()
                     + " blocks off a ledge the control walk also fell from");
         }
         LOGGER.info("  SafeWalk held the edge the control walk fell off");
+
+        parkour(context, singleplayer, ledge, control);
+    }
+
+    /**
+     * Parkour jumps at the edge rather than holding it, so the tell is upward movement: the control
+     * walk off the same ledge never rises at all.
+     */
+    private void parkour(ClientGameTestContext context, TestSingleplayerContext singleplayer,
+            BlockPos ledge, Walk control) {
+        if (control.rise() > 0.2) {
+            throw new AssertionError("the control walk rose " + control.rise()
+                    + " blocks without Parkour, so a jump cannot be attributed to the module");
+        }
+
+        toggle(context, "Parkour", true);
+        Walk jumped = walkOffAndReport(context, singleplayer, ledge);
+        toggle(context, "Parkour", false);
+        if (jumped.rise() < 0.3) {
+            throw new AssertionError("Parkour did not jump at the edge; the player rose only "
+                    + jumped.rise() + " blocks walking into a gap");
+        }
+        LOGGER.info("  Parkour jumped at the edge the control walk stepped off");
     }
 
     /** Clears a 5x5 pit two blocks away and returns the standing spot facing it. */
@@ -193,11 +218,17 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
         });
     }
 
+    /** How the player's height changed during one walk at the pit, relative to where they started. */
+    private record Walk(double drop, double rise) { }
+
     /**
-     * Puts the player back on the ledge, walks into the pit, and returns how far they dropped.
-     * Negative means they fell.
+     * Puts the player back on the ledge and walks them into the pit.
+     *
+     * <p>The height is sampled throughout rather than only at the end, because a jump and a fall are
+     * told apart by what happened in between: a player who jumps the gap and one who never moved
+     * both finish level with where they started.
      */
-    private static double walkOffAndReport(ClientGameTestContext context, TestSingleplayerContext singleplayer,
+    private static Walk walkOffAndReport(ClientGameTestContext context, TestSingleplayerContext singleplayer,
             BlockPos ledge) {
         singleplayer.getServer().runOnServer(server -> {
             ServerPlayer player = singleplayer.getConnection().getServerPlayer();
@@ -209,13 +240,21 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
         context.waitTicks(5);
 
         double startY = position(context).y;
-        context.getInput().holdKeyFor(options -> options.keyUp, 30);
-        context.waitTicks(20);
-        double drop = position(context).y - startY;
+        double lowest = startY;
+        double highest = startY;
+        context.getInput().holdKey(options -> options.keyUp);
+        for (int tick = 0; tick < 50; tick += 2) {
+            context.waitTicks(2);
+            double y = position(context).y;
+            lowest = Math.min(lowest, y);
+            highest = Math.max(highest, y);
+        }
+        context.getInput().releaseKey(options -> options.keyUp);
+        context.waitTicks(10);
 
         singleplayer.getServer().runOnServer(server ->
                 singleplayer.getConnection().getServerPlayer().setGameMode(GameType.CREATIVE));
-        return drop;
+        return new Walk(lowest - startY, highest - startY);
     }
 
     /** Creative flight leaves the player drifting; several modules only act with both feet down. */
