@@ -5,6 +5,7 @@ import me.mrhakan.agalarhack.events.ClientEvents;
 import me.mrhakan.agalarhack.events.EventBus;
 import me.mrhakan.agalarhack.services.ScannerService;
 import me.mrhakan.agalarhack.services.scanning.BlockScanCursor;
+import me.mrhakan.agalarhack.services.scanning.ChunkScanCache;
 import me.mrhakan.agalarhack.services.scanning.ScanScheduler;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -28,6 +29,9 @@ public class BlockESP extends Module {
     private boolean snapshotDirty;
     private long scanCycle;
     private EventBus.Subscription chunkUnload;
+    private EventBus.Subscription blockUpdate;
+    private EventBus.Subscription chunkInvalidated;
+    private final ChunkScanCache scanned = new ChunkScanCache();
     private boolean anchorSet;
     private String targetSignature = "";
 
@@ -56,12 +60,51 @@ public class BlockESP extends Module {
     @Override
     public void onEnable() {
         resetScanner();
-        if (chunkUnload != null) chunkUnload.close();
-        chunkUnload = service(EventBus.class).subscribe(ClientEvents.ChunkUnloaded.class, "block-esp-cache", 0, event -> {
+        closeSubscriptions();
+        EventBus events = service(EventBus.class);
+        chunkUnload = events.subscribe(ClientEvents.ChunkUnloaded.class, "block-esp-cache", 0, event -> {
             if (event.level() != mc.level) return;
             var chunk = event.chunk().getPos();
-            if (matches.removeIf(pos -> (pos.getX() >> 4) == chunk.x() && (pos.getZ() >> 4) == chunk.z())) snapshotDirty = true;
+            forgetChunk(chunk.x(), chunk.z());
         });
+        // A server block change updates the affected marker directly. That keeps the chunk clean,
+        // so a single placed block no longer forces a full rescan of everything around it.
+        blockUpdate = events.subscribe(ClientEvents.BlockUpdated.class, "block-esp-update", 0, event -> {
+            if (event.level() != mc.level || !anchorSet) return;
+            BlockPos pos = event.pos();
+            if (!withinScanBox(pos)) return;
+            String id = BuiltInRegistries.BLOCK.getKey(event.state().getBlock()).toString();
+            if (matches(id)) {
+                if (matches.add(pos)) { snapshotDirty = true; trimResults(); }
+            } else if (matches.remove(pos)) {
+                snapshotDirty = true;
+            }
+        });
+        // Too many changes to track individually: the chunk has to be walked again.
+        chunkInvalidated = events.subscribe(ClientEvents.ChunkBlocksInvalidated.class, "block-esp-invalidate", 0, event -> {
+            if (event.level() != mc.level) return;
+            forgetChunk(event.chunkX(), event.chunkZ());
+        });
+    }
+
+    private void forgetChunk(int chunkX, int chunkZ) {
+        scanned.invalidate(chunkX, chunkZ);
+        if (matches.removeIf(pos -> (pos.getX() >> 4) == chunkX && (pos.getZ() >> 4) == chunkZ)) snapshotDirty = true;
+    }
+
+    /** The scan box is anchored to the player and only refreshed when they move far enough. */
+    private boolean withinScanBox(BlockPos pos) {
+        int horizontal = (int) Math.round(getNumberSetting("horizontalRange", 24.0));
+        int vertical = (int) Math.round(getNumberSetting("verticalRange", 16.0));
+        return Math.abs(pos.getX() - anchorX) <= horizontal
+                && Math.abs(pos.getY() - anchorY) <= vertical
+                && Math.abs(pos.getZ() - anchorZ) <= horizontal;
+    }
+
+    private void closeSubscriptions() {
+        if (chunkUnload != null) { chunkUnload.close(); chunkUnload = null; }
+        if (blockUpdate != null) { blockUpdate.close(); blockUpdate = null; }
+        if (chunkInvalidated != null) { chunkInvalidated.close(); chunkInvalidated = null; }
     }
 
     @Override
@@ -85,6 +128,8 @@ public class BlockESP extends Module {
             anchorSet = true;
             cursor.reset(anchorX, anchorY, anchorZ, horizontal, vertical);
             matches.clear();
+            // A new box or a changed filter makes every previous result meaningless.
+            scanned.clear();
             snapshotDirty = true;
         }
 
@@ -96,10 +141,16 @@ public class BlockESP extends Module {
 
     private ScanScheduler.Result scanStep(ScanScheduler.Budget budget) {
         if (cursor.cycle() != scanCycle) return ScanScheduler.Result.DONE;
+        // Already walked in full and untouched since: skip without probing a single block.
+        if (scanned.isClean(cursor.chunkX(), cursor.chunkZ())) {
+            if (!budget.take(1, 0, 0)) return ScanScheduler.Result.BLOCKED;
+            cursor.skipChunk();
+            return ScanScheduler.Result.MORE;
+        }
         int x = cursor.x(), y = cursor.y(), z = cursor.z();
         if (!mc.level.isInsideBuildHeight(y)) {
             if (!budget.take(1, 0, 0)) return ScanScheduler.Result.BLOCKED;
-            cursor.advance();
+            completeStep();
             return ScanScheduler.Result.MORE;
         }
         ScannerService scanner = service(ScannerService.class);
@@ -119,14 +170,29 @@ public class BlockESP extends Module {
                 trimResults();
             }
         } else if (matches.remove(probe)) snapshotDirty = true;
-        cursor.advance();
+        completeStep();
         return ScanScheduler.Result.MORE;
+    }
+
+    /**
+     * Records a chunk as clean only once the cursor has genuinely walked all of it.
+     *
+     * <p>At the result cap the oldest markers are being dropped, so a chunk's findings are not
+     * fully represented. Marking it clean there would make those drops permanent instead of letting
+     * the next cycle rediscover them, so cleanliness is simply not recorded while the cache is full.
+     */
+    private void completeStep() {
+        int chunkX = cursor.chunkX(), chunkZ = cursor.chunkZ();
+        boolean complete = cursor.advance();
+        if (complete && matches.size() < (int) Math.round(getNumberSetting("maxResults", 1024.0))) {
+            scanned.markClean(chunkX, chunkZ);
+        }
     }
 
     @Override
     public void onDisable() {
         service(ScannerService.class).cancel(this);
-        if (chunkUnload != null) { chunkUnload.close(); chunkUnload = null; }
+        closeSubscriptions();
         resetScanner();
     }
 
@@ -185,6 +251,7 @@ public class BlockESP extends Module {
 
     private void resetScanner() {
         matches.clear();
+        scanned.clear();
         anchorSet = false;
         snapshot = List.of();
         snapshotDirty = false;

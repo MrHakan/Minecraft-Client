@@ -25,16 +25,26 @@ public final class BlockScanCursor {
         x = startX; z = startZ; y = minimumY;
     }
     public long cycle() { return cycle; }
+    /** Chunk the cursor is currently walking; valid immediately after reset. */
+    public int chunkX() { return chunks.get(chunkIndex).x(); }
+    public int chunkZ() { return chunks.get(chunkIndex).z(); }
     public int x() { return x; }
     public int y() { return y; }
     public int z() { return z; }
-    public void advance() {
-        if (x < endX) { x++; return; }
+    /**
+     * Steps to the next position.
+     *
+     * @return true when the current chunk was exhausted and the cursor moved to the next one, so a
+     *         caller can record that the chunk was scanned in full rather than abandoned part-way
+     */
+    public boolean advance() {
+        if (x < endX) { x++; return false; }
         x = startX;
-        if (z < endZ) { z++; return; }
+        if (z < endZ) { z++; return false; }
         z = startZ;
-        if (y < maximumY) { y++; return; }
+        if (y < maximumY) { y++; return false; }
         skipChunk();
+        return true;
     }
     public void skipChunk() {
         chunkIndex = (chunkIndex + 1) % chunks.size();
