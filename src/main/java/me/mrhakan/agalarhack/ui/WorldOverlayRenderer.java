@@ -51,6 +51,9 @@ public final class WorldOverlayRenderer {
         Module freecamModule = AgalarHackClient.moduleManager.getModule("Freecam");
         Module storageModule = AgalarHackClient.moduleManager.getModule("StorageESP");
         Module blockModule = AgalarHackClient.moduleManager.getModule("BlockESP");
+        Module projectileModule = AgalarHackClient.moduleManager.getModule("ProjectileESP");
+        me.mrhakan.agalarhack.module.render.ProjectileESP projectiles =
+                projectileModule instanceof me.mrhakan.agalarhack.module.render.ProjectileESP p ? p : null;
         Module tracerModule = AgalarHackClient.moduleManager.getModule("Tracers");
         me.mrhakan.agalarhack.module.render.Tracers tracers =
                 tracerModule instanceof me.mrhakan.agalarhack.module.render.Tracers t ? t : null;
@@ -79,7 +82,8 @@ public final class WorldOverlayRenderer {
         boolean nametagsEnabled = nametags != null && nametags.isToggled();
         boolean breadcrumbsEnabled = breadcrumbs != null && breadcrumbs.isToggled();
         boolean tracersEnabled = tracers != null && tracers.isToggled();
-        if (!tracersEnabled && !breadcrumbsEnabled && !espEnabled && !trajectoriesEnabled && !storageEnabled && !blockEnabled && !bodyMarker
+        boolean projectilesEnabled = projectiles != null && projectiles.isToggled();
+        if (!projectilesEnabled && !tracersEnabled && !breadcrumbsEnabled && !espEnabled && !trajectoriesEnabled && !storageEnabled && !blockEnabled && !bodyMarker
                 && !waypointsEnabled && !itemsEnabled && !nametagsEnabled) return;
 
         var renderService = me.mrhakan.agalarhack.services.ClientServices.require(me.mrhakan.agalarhack.services.RenderService.class);
@@ -108,6 +112,7 @@ public final class WorldOverlayRenderer {
             if (storageEnabled) renderService.guard(storage, () -> renderStorageEsp(mc, storage, camera, pose, buffer));
             if (blockEnabled) renderService.guard(blockEsp, () -> renderBlockEsp(mc, blockEsp, camera, pose, buffer));
             if (trajectoriesEnabled) renderService.guard(trajectories, () -> renderTrajectory(mc, trajectories, camera, pose, buffer));
+            if (projectilesEnabled) renderService.guard(projectiles, () -> renderProjectiles(projectiles, camera, pose, buffer));
             if (tracersEnabled) renderService.guard(tracers, () -> renderTracers(tracers, camera, pose, buffer));
             if (breadcrumbsEnabled) renderService.guard(breadcrumbs, () -> renderBreadcrumbs(breadcrumbs, camera, pose, buffer));
             if (itemsEnabled && itemEsp.getBooleanSetting("boxes", true)) {
@@ -239,6 +244,27 @@ public final class WorldOverlayRenderer {
             AABB block = new AABB(pos.getX(), pos.getY(), pos.getZ(), pos.getX() + 1.0, pos.getY() + 1.0, pos.getZ() + 1.0)
                     .inflate(0.015).move(-camera.x, -camera.y, -camera.z);
             box(buffer, pose, block, (alpha << 24) | rgb);
+        }
+    }
+
+    private static void renderProjectiles(me.mrhakan.agalarhack.module.render.ProjectileESP module,
+            Vec3 camera, PoseStack.Pose pose, VertexConsumer buffer) {
+        int color = color(module.getNumberSetting("red", 255.0), module.getNumberSetting("green", 90.0),
+                module.getNumberSetting("blue", 90.0), module.getNumberSetting("alpha", 220.0));
+        boolean boxes = module.getBooleanSetting("boxes", true);
+        boolean velocity = module.getBooleanSetting("velocity", true);
+        double scale = module.getNumberSetting("velocityScale", 8.0);
+        for (var projectile : module.projectiles()) {
+            if (!projectile.isAlive()) continue;
+            if (boxes) box(buffer, pose, projectile.getBoundingBox().inflate(0.08).move(-camera.x, -camera.y, -camera.z), color);
+            if (!velocity) continue;
+            Vec3 motion = projectile.getDeltaMovement();
+            if (motion.lengthSqr() < 1.0E-4) continue;
+            Vec3 from = projectile.getBoundingBox().getCenter();
+            // Direction of travel over the next few ticks, ignoring gravity: a heading, not a path.
+            Vec3 to = from.add(motion.scale(scale));
+            line(buffer, pose, from.x - camera.x, from.y - camera.y, from.z - camera.z,
+                    to.x - camera.x, to.y - camera.y, to.z - camera.z, color);
         }
     }
 

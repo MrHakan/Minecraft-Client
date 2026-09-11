@@ -35,6 +35,8 @@ import me.mrhakan.agalarhack.module.render.Freecam;
 import me.mrhakan.agalarhack.module.render.ItemESP;
 import me.mrhakan.agalarhack.module.render.Nametags;
 import me.mrhakan.agalarhack.module.render.Fullbright;
+import me.mrhakan.agalarhack.module.render.ProjectileESP;
+import me.mrhakan.agalarhack.module.render.ProjectileWarning;
 import me.mrhakan.agalarhack.module.render.StorageESP;
 import me.mrhakan.agalarhack.module.render.TargetHUD;
 import me.mrhakan.agalarhack.module.render.Waypoints;
@@ -78,6 +80,8 @@ public class ModuleManager {
         register(new Nametags());
         register(new Breadcrumbs());
         register(new Tracers());
+        register(new ProjectileESP());
+        register(new ProjectileWarning());
 
         register(new AutoTotem());
         register(new AutoArmor());
