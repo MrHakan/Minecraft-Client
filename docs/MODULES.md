@@ -640,6 +640,7 @@ Shows the active combat target with health, gear and status effects
 | `animateHealth` | `true` | `true/false or on/off` | Ease the health bar instead of snapping; reduced motion overrides this |
 | `animationSpeed` | `0.25` | `0.05..1` | Fraction of the remaining health-bar gap closed per frame |
 | `friendMarker` | `true` | `true/false or on/off` | Mark friends on the card |
+| `showFace` | `true` | `true/false or on/off` | Show the target player's face on the card |
 | `hurtIndicator` | `true` | `true/false or on/off` | Tint the bar while the target is taking damage |
 | `timeout` | `3` | `0.5..10` | How long a stale target remains visible in seconds |
 

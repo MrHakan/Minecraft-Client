@@ -22,6 +22,7 @@ public class TargetHUD extends Module {
         addBooleanSetting("animateHealth", true, "Ease the health bar instead of snapping; reduced motion overrides this");
         addNumberSetting("animationSpeed", 0.25, 0.05, 1.0, "Fraction of the remaining health-bar gap closed per frame");
         addBooleanSetting("friendMarker", true, "Mark friends on the card");
+        addBooleanSetting("showFace", true, "Show the target player's face on the card");
         addBooleanSetting("hurtIndicator", true, "Tint the bar while the target is taking damage");
         addNumberSetting("timeout", 3.0, 0.5, 10.0, "How long a stale target remains visible in seconds");
     }

@@ -225,6 +225,30 @@ public class Hud implements HudElement {
     private double displayedHealth;
     private String barTargetName;
 
+    /**
+     * Face plus hat layer, from the skin the client already has for that player.
+     *
+     * <p>The hat layer is not optional in practice: skipping it leaves a bald head for anyone whose
+     * skin puts hair, a hood or glasses on it, which is most of them.
+     */
+    private void renderFace(GuiGraphicsExtractor graphics, net.minecraft.client.player.AbstractClientPlayer player, int x, int y) {
+        var skin = player.getSkin();
+        if (skin == null || skin.body() == null) return;
+        var texture = skin.body().texturePath();
+        int size = me.mrhakan.agalarhack.ui.hud.PlayerFace.DRAWN_SIZE;
+        int patch = me.mrhakan.agalarhack.ui.hud.PlayerFace.PATCH;
+        graphics.blit(RenderPipelines.GUI_TEXTURED, texture, x, y,
+                me.mrhakan.agalarhack.ui.hud.PlayerFace.FACE_U, me.mrhakan.agalarhack.ui.hud.PlayerFace.FACE_V,
+                size, size, patch, patch,
+                me.mrhakan.agalarhack.ui.hud.PlayerFace.SKIN_WIDTH, me.mrhakan.agalarhack.ui.hud.PlayerFace.SKIN_HEIGHT,
+                ARGB.white(1.0f));
+        graphics.blit(RenderPipelines.GUI_TEXTURED, texture, x, y,
+                me.mrhakan.agalarhack.ui.hud.PlayerFace.HAT_U, me.mrhakan.agalarhack.ui.hud.PlayerFace.HAT_V,
+                size, size, patch, patch,
+                me.mrhakan.agalarhack.ui.hud.PlayerFace.SKIN_WIDTH, me.mrhakan.agalarhack.ui.hud.PlayerFace.SKIN_HEIGHT,
+                ARGB.white(1.0f));
+    }
+
     private void renderTarget(GuiGraphicsExtractor graphics, Minecraft mc) {
         Module targetHud = AgalarHackClient.moduleManager.getModule("TargetHUD");
         if (targetHud == null || !targetHud.isToggled() || !AgalarHackClient.HUD_LAYOUT.get("target").visible) {
@@ -284,10 +308,16 @@ public class Hud implements HudElement {
             }
         }
 
-        int contentWidth = lines.stream().mapToInt(font::width).max().orElse(80);
+        // Only players have a skin, so a mob card keeps exactly its previous layout.
+        boolean showFace = targetHud.getBooleanSetting("showFace", true)
+                && target instanceof net.minecraft.client.player.AbstractClientPlayer;
+        int indent = me.mrhakan.agalarhack.ui.hud.PlayerFace.textIndent(showFace);
+
+        int contentWidth = lines.stream().mapToInt(font::width).max().orElse(80) + indent;
         int iconWidth = Math.max(equipment.size(), effects.size()) * 18;
         int boxWidth = Math.max(132, Math.max(contentWidth + 12, iconWidth + 12));
-        int textHeight = lines.size() * font.lineHeight;
+        int textHeight = Math.max(lines.size() * font.lineHeight,
+                me.mrhakan.agalarhack.ui.hud.PlayerFace.minimumContentHeight(showFace));
         int boxHeight = textHeight + 10;
         if (healthBar) {
             boxHeight += 7;
@@ -305,10 +335,13 @@ public class Hud implements HudElement {
         graphics.fill(x, y, x + 3, y + boxHeight, 0xFF55AAFF);
 
         int cursorY = y + 5;
+        if (showFace) renderFace(graphics, (net.minecraft.client.player.AbstractClientPlayer) target, x + 7, cursorY);
         for (int i = 0; i < lines.size(); i++) {
-            graphics.text(font, lines.get(i), x + 7, cursorY, i == 0 ? 0xFFFFFFFF : 0xFFDDDDDD, true);
+            graphics.text(font, lines.get(i), x + 7 + indent, cursorY, i == 0 ? 0xFFFFFFFF : 0xFFDDDDDD, true);
             cursorY += font.lineHeight;
         }
+        // The bar and icons below start under whichever is taller, the text or the face.
+        cursorY = Math.max(cursorY, y + 5 + me.mrhakan.agalarhack.ui.hud.PlayerFace.minimumContentHeight(showFace));
 
         if (healthBar) {
             double actual = me.mrhakan.agalarhack.ui.hud.TargetHudModel.healthFraction(model);
