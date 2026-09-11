@@ -37,6 +37,16 @@ public final class EventBus {
         };
     }
 
+    /**
+     * Posts a vetoable event.
+     *
+     * @return true when no listener vetoed it, which is the shape Fabric's ALLOW_* events expect
+     */
+    public boolean postAllowed(ClientEvents.ChatReceived event) {
+        post(event);
+        return !event.vetoed();
+    }
+
     public <T> void post(T event) {
         Objects.requireNonNull(event);
         for (Listener<?> raw : listeners.getOrDefault(event.getClass(), List.of())) {

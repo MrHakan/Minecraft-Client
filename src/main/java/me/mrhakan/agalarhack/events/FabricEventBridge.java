@@ -26,6 +26,12 @@ public final class FabricEventBridge {
                 (entity, level) -> bus.post(new ClientEvents.BlockEntityLoaded(level, entity)));
         net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientBlockEntityEvents.BLOCK_ENTITY_UNLOAD.register(
                 (entity, level) -> bus.post(new ClientEvents.BlockEntityUnloaded(level, entity)));
+        // Chat observation and local-only filtering; Fabric has no hook for rewriting a chat line,
+        // so nothing here modifies a message.
+        net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents.ALLOW_CHAT.register(
+                (message, signed, sender, params, timestamp) -> bus.postAllowed(new ClientEvents.ChatReceived(message.getString(), false)));
+        net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents.ALLOW_GAME.register(
+                (message, overlay) -> overlay || bus.postAllowed(new ClientEvents.ChatReceived(message.getString(), true)));
         ClientEntityEvents.ENTITY_LOAD.register((entity, level) -> bus.post(new ClientEvents.EntityAdded(entity, level)));
         ClientEntityEvents.ENTITY_UNLOAD.register((entity, level) -> bus.post(new ClientEvents.EntityRemoved(entity, level)));
         LevelRenderEvents.COLLECT_SUBMITS.register(context -> bus.post(new ClientEvents.RenderSubmit(context)));

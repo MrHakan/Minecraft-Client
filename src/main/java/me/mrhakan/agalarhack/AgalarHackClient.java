@@ -121,6 +121,18 @@ public class AgalarHackClient implements ClientModInitializer {
         var notificationModule = moduleManager.getModule("Notifications");
         notifications.setEnabled(notificationModule != null && notificationModule.isToggled());
         CommandManager.init();
+        EVENTS.subscribe(ClientEvents.ChatReceived.class, "chat-modules", 0, event -> {
+            var mentions = moduleManager.getModule("ChatMentions");
+            if (mentions instanceof me.mrhakan.agalarhack.module.misc.ChatMentions chat && chat.isToggled()
+                    && !event.gameMessage()) {
+                chat.onChatMessage(event.message());
+            }
+            var filter = moduleManager.getModule("ChatFilter");
+            if (filter instanceof me.mrhakan.agalarhack.module.misc.ChatFilter chatFilter && chatFilter.isToggled()
+                    && chatFilter.shouldHide(event.message(), event.gameMessage())) {
+                event.veto();
+            }
+        });
 
         clickGuiKey = KeyMappingHelper.registerKeyMapping(new KeyMapping(
                 "key.agalarhack.open_gui",

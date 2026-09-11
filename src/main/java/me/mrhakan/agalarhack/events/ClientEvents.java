@@ -35,6 +35,25 @@ public final class ClientEvents {
     /** A server-sent block change, posted after the world already holds the new state. */
     public record BlockUpdated(ClientLevel level, net.minecraft.core.BlockPos pos,
                                net.minecraft.world.level.block.state.BlockState state) { }
+    /**
+     * A received chat or game message, as plain text.
+     *
+     * <p>Listeners may veto display by calling {@code veto()}; nothing can rewrite the message,
+     * because Fabric 26.2 exposes no hook for that.
+     */
+    public static final class ChatReceived {
+        private final String message;
+        private final boolean gameMessage;
+        private boolean vetoed;
+        public ChatReceived(String message, boolean gameMessage) {
+            this.message = message == null ? "" : message;
+            this.gameMessage = gameMessage;
+        }
+        public String message() { return message; }
+        public boolean gameMessage() { return gameMessage; }
+        public void veto() { vetoed = true; }
+        public boolean vetoed() { return vetoed; }
+    }
     /** A server world-time update; its cadence is the only basis the client has for a tick estimate. */
     public record ServerTimeUpdated(long gameTime) { }
     /** A server-sent entity event such as a totem activation or an equipment break. */
