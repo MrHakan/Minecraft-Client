@@ -233,7 +233,7 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 44 | Parkour | Implemented conservatively; stands down while SafeWalk is on |
 | 45 | AutoJump | **Deliberately skipped**: Minecraft already has `Options.autoJump()`, so a module would only forward to a vanilla switch — the brief rules that out |
 | 46 | Elytra utility | Implemented as ElytraInfo: durability and firework warnings plus glide speed, informational only; auto-equip/replace still pending |
-| 47 | Movement stats | Partial simple horizontal speed HUD; vertical/acceleration/history pending |
+| 47 | Movement stats | Implemented: `MovementStats` measures from position deltas rather than the motion vector (which a collision zeroes), giving horizontal and vertical speed, windowed average and peak, peak fall speed, acceleration and a history buffer. Teleports clear the window instead of entering it |
 | 48 | Aura improvements | Partial shared targeting/rotation/policy; switch delay/lock/multiple-target behavior pending |
 | 49 | TriggerBot improvements | Partial shared filters and baseline cooldown behavior; full weapon/critical/reaction settings pending |
 | 50 | AutoWeapon | Implemented on the hotbar lease above AutoTool, using scoring and the damage-family tags |
@@ -252,7 +252,7 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 63 | Server info HUD | Partial: address/dimension plus ping history and a labelled tick estimate; protocol/packet rates pending |
 | 64 | Ping graph | Implemented as a hidden-by-default HUD component over a bounded rolling window |
 | 65 | TPS monitor | Implemented as an estimate from world-time update spacing, labelled "(est)" everywhere and capped at 20 |
-| 66 | Lag detector | Partial: optional one-shot warning when the tick estimate drops, re-armed on recovery; ping-spike and frozen-world detection pending |
+| 66 | Lag detector | Implemented: tick drop, ping spike against a median baseline, and server silence, all on the shared `LatchingThreshold`. Silence is reported as silence, since a stalled server, a dropped connection and a suspended laptop are indistinguishable from the client |
 | 67 | Profile manager 2 | Partial existing rename/duplicate/import/export/bindings; metadata/search/dimension overrides pending |
 | 68 | Partial profiles | Implemented: `.profile load <name> [selection]` narrows to named modules, categories, `hud` or `targets`; an unknown token or a selection that would change nothing is refused rather than applied |
 | 69 | Profile diff | Implemented: `.profile diff <a> [b]` against another profile or the live config, with numeric-tolerant comparison so a Gson round trip is not reported as a change |
@@ -265,9 +265,9 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 76 | Accessibility | Partial keyboard controls, paginated themes, high contrast/reduced motion; full legacy color migration, UI scale/text/colorblind/blur controls pending |
 | 77 | Unified scheduler | Partial implemented for BlockESP/StorageESP/EntityESP; further consumers/configurable budgets pending |
 | 78 | Chunk result cache | Implemented for BlockESP: bounded LRU clean-chunk cache with block-update, unload, anchor and filter invalidation. Other scanners still sweep |
-| 79 | Render culling | Partial distance/target/label bounds shared through EntityDiscovery; frustum culling pending |
-| 80 | Performance HUD | Partial scanner diagnostics and memory; module tick/render timings and broader counters pending |
-| 81 | Unit tests | 390 tests; adds block-update batching, chunk cache eviction, cursor completion, id-list parsing, notification sinks, waypoint normalisation/persistence and compass bearings; trajectory and fade coverage pending |
+| 79 | Render culling | Implemented: box overlays test the frustum the game already built, in world space. Tracers and breadcrumbs are deliberately exempt and a test enforces that. Safe because it is view-volume, not occlusion, culling - the overlays draw through walls on purpose |
+| 80 | Performance HUD | Implemented: `ModuleTimings` ranks per-module tick cost over a rolling window, in a hidden-by-default widget. Measurement is self-expiring rather than a setting, and a module that stops ticking is dropped rather than frozen on screen |
+| 81 | Unit tests | 438 tests; adds block-update batching, chunk cache eviction, cursor completion, id-list parsing, notification sinks, waypoint normalisation/persistence and compass bearings; trajectory and fade coverage pending |
 | 82 | Integration smoke tests | Partial: the client now boots headless under xvfb/llvmpipe and all six mixin injections are verified applied in the transformed bytecode. No gameplay was exercised; behaviour checks remain manual |
 | 83 | Lifecycle audit | Partial code audit/restoration; all listed state-changing modules need in-game transition checks |
 | 84 | Error reporting | Partial logger/module/render/scanner isolation; guarded HUD measurements/renderers with notices and retry; remaining boundaries need review |
@@ -563,6 +563,38 @@ Useful finding: **constructing a Module in a test works.** `ExperimentalFlagTest
 and reads source text; `Minecraft.getInstance()` returns null and no module touches it during
 construction, so future guards can use the real settings registry instead of grepping sources.
 
+## Latest continuation: performance, lag signals and culling
+
+Five topic commits.
+
+**Module timings.** Per-module tick cost over a forty-tick window, ranked. Measurement is
+self-expiring - a consumer asks each time it wants figures and recording stops three seconds later -
+so the `nanoTime` pairs stay off the normal path without a setting anyone can leave on. A module that
+did not tick last tick is dropped entirely, because leaving its last average on screen would name an
+innocent module as the expensive one.
+
+**Movement stats.** Measured from position deltas, not `getDeltaMovement`: the motion vector is what
+the client intends, and a collision zeroes it the moment you scrape a wall, so the old readout
+flickered exactly when someone was watching it. Teleports (over twenty blocks in a tick) clear the
+window rather than entering it.
+
+**Lag signals on a shared latch.** `LatchingThreshold` is the hysteresis ServerInfo had hand-rolled,
+written once and reused by three detectors. The release margin is the point: without it a value
+drifting either side of the line by a rounding error produces a wall of warnings. Ping spikes compare
+against the *median* of previous samples, and compare before the sample joins them, so a spike cannot
+raise its own threshold. Silence is reported as silence, never as a frozen server.
+
+**Fullbright gamma mode.** Raises the brightness slider inside vanilla's own range instead of granting
+an effect the server never gave. Dimmer, but it adds nothing to the player. Restores on disable and on
+disconnect, and only undoes a change still recognisable as ours. Untested in game - it is on the
+manual checklist rather than badged, because the module itself is not new.
+
+**Frustum culling.** Box overlays use the frustum the game already prepared, tested in world space.
+Safe because it is view-volume rather than occlusion culling: the overlays draw through walls on
+purpose, and anything outside the view volume was never visible. Tracers and breadcrumbs are exempt -
+their far ends are meant to be off screen - and a source-level test enforces that, verified by adding
+the call and watching it go red.
+
 ## Validation and source references
 
 Canonical command: **`./gradlew build --stacktrace` with JDK 25**.
@@ -669,6 +701,14 @@ Fabric's 26.2 `ClientChunkCacheMixin`. Do not reintroduce 1.20/1.21 examples bli
   and closing the inventory mid-swap, during death/respawn and dimension changes, and while AutoEat/AutoTool are
   also active. Confirm no item is ever left on the cursor, that AutoTotem preempts AutoArmor, that a popped totem
   cancels the pending restore, and that a renamed armour piece is never auto-equipped by default.
+
+### Manual acceptance for render culling
+
+- Frustum culling: with BlockESP and StorageESP running in a dense area, turn on the spot and confirm
+  markers appear and disappear at the screen edge without popping inside the view, and that nothing
+  vanishes while still visible. Check a waypoint beam whose base is below the horizon still draws.
+  Confirm tracers and breadcrumbs still reach targets behind you - they are exempt on purpose.
+- Compare frame time in that dense area before and after; this is the change that should show up.
 
 ### Manual acceptance for the performance and lag batch
 
