@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "agalarhack-gametest",
+  "version": "1.0.0",
+  "name": "Agalar Hack Game Tests",
+  "description": "Drives the mod inside a running client. Never shipped.",
+  "environment": "client",
+  "entrypoints": {
+    "fabric-client-gametest": [
+      "me.mrhakan.agalarhack.gametest.ClientScreensGameTest",
+      "me.mrhakan.agalarhack.gametest.ModuleLifecycleGameTest",
+      "me.mrhakan.agalarhack.gametest.SwallowedFailureGameTest"
+    ]
+  },
+  "depends": {
+    "agalarhack": "*",
+    "fabric-client-gametest-api-v1": "*"
+  }
+}

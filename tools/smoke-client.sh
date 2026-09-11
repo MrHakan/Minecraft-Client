@@ -1,24 +1,25 @@
 #!/usr/bin/env bash
 #
-# Starts the client headless and checks two things a normal build cannot:
-#   1. it starts at all, and
-#   2. every mixin injection is actually applied to the running bytecode.
+# Runs the client game tests and checks the mixins they loaded.
 #
-# Both matter because `./gradlew build` passes either way. A mixin target is named
-# in an annotation string, so a missing one compiles fine and fails at launch; and a
-# null dereference during client initialisation is a crash no unit test reaches.
+# `./gradlew build` passes whether or not the client can start. A mixin target is
+# named in an annotation string, so a missing one compiles fine and fails at launch;
+# a null dereference during client initialisation is a crash no unit test reaches;
+# and a module that throws on its first tick in a real world does neither. This is
+# the check for all three.
 #
-# The client is killed by a timeout once it has done enough to prove those two
-# things. It never reaches a playable state here: there is no audio device and no
-# narrator library, and that is fine.
+# The client drives itself here: it creates a world, opens every screen, toggles
+# every module and shuts itself down. Gradle's exit code is therefore the verdict
+# on the game tests, and the timeout below is a genuine failure rather than the
+# normal way the run ends.
 set -uo pipefail
 
 cd "$(dirname "$0")/.."
 
 LOG="${SMOKE_LOG:-build/smoke-client.log}"
-TIMEOUT="${SMOKE_TIMEOUT:-420}"
+TIMEOUT="${SMOKE_TIMEOUT:-900}"
+RUN_DIR=build/run/clientGameTest
 mkdir -p "$(dirname "$LOG")"
-rm -rf run/.mixin.out
 
 # Minecraft 26.2 needs an OpenGL 3.3 core context. Asking llvmpipe for 3.2 makes
 # window creation fail with a misleading error, so these are not optional.
@@ -33,7 +34,7 @@ cat > "$INIT_SCRIPT" <<'GRADLE'
 gradle.projectsLoaded {
     rootProject {
         afterEvaluate {
-            tasks.matching { it.name == 'runClient' }.configureEach {
+            tasks.matching { it.name == 'runClientGameTest' }.configureEach {
                 jvmArgs '-Dmixin.debug.export=true'
             }
         }
@@ -41,25 +42,20 @@ gradle.projectsLoaded {
 }
 GRADLE
 
-echo "Starting the client headless (timeout ${TIMEOUT}s); log: $LOG"
+echo "Running the client game tests headless (timeout ${TIMEOUT}s); log: $LOG"
 timeout "$TIMEOUT" xvfb-run -a --server-args="-screen 0 1280x720x24" \
-    ./gradlew runClient --init-script "$INIT_SCRIPT" > "$LOG" 2>&1
-echo "gradle exited with $? (a timeout kill is expected and fine)"
+    ./gradlew runClientGameTest --init-script "$INIT_SCRIPT" > "$LOG" 2>&1
+status=$?
 
 failed=0
 note() { echo "FAIL: $*"; failed=1; }
 
-# A crash report is fatal however far the run got.
-if [ "$(grep -c 'Game crashed' "$LOG")" -ne 0 ]; then
-    note "the client crashed"
-    sed -n '/Caused by/,/^$/p' "$LOG" | head -20
-fi
-
-# Transformation happens at class load, long before most startup work, so a
-# complete .mixin.out says nothing on its own about whether the run was healthy.
-# This is the check whose absence once hid a startup crash for several commits.
-if ! grep -q 'blocks.png-atlas' "$LOG"; then
-    note "startup did not reach texture atlas stitching (crash, or SMOKE_TIMEOUT too short for this runner)"
+if [ "$status" -eq 124 ]; then
+    note "the client game tests did not finish within ${TIMEOUT}s"
+elif [ "$status" -ne 0 ]; then
+    note "the client game tests failed (gradle exit $status)"
+    # The assertion, not the 40 lines of loader plumbing wrapped around it.
+    grep -A6 -m2 -E 'AssertionError|Game crashed' "$LOG" | head -30
 fi
 
 if grep -qiE 'mixin.*(error applying|failed to apply)' "$LOG"; then
@@ -70,14 +66,14 @@ fi
 # Every mixin listed in the config must have produced a transformed class. A class
 # that is never loaded produces no export, which is why the config is the source of
 # truth here rather than a hand-kept list.
-OUT=run/.mixin.out/class
+OUT="$RUN_DIR/.mixin.out/class"
 while read -r target; do
     [ -z "$target" ] && continue
     if [ ! -f "$OUT/$target.class" ]; then
         note "$target was never transformed"
         continue
     fi
-    if ! javap -p -c "$OUT/$target.class" | grep -q 'agalarhack'; then
+    if ! javap -p -c "$OUT/$target.class" 2>/dev/null | grep -q 'agalarhack'; then
         note "$target was transformed but carries no agalarhack injection"
     else
         echo "ok: $target"
@@ -93,8 +89,12 @@ for name in config["client"]:
 PY
 )
 
+# What the game tests themselves reported, so a passing CI log says what was covered
+# rather than only that nothing blew up.
+grep -F '(agalarhack-gametest)' "$LOG" | grep -vE ' ok$' | sed 's/.*(agalarhack-gametest) /  /'
+
 if [ "$failed" -ne 0 ]; then
     echo "Smoke check FAILED; see $LOG"
     exit 1
 fi
-echo "Smoke check passed: the client starts and every mixin is applied."
+echo "Smoke check passed: the client runs, every module survives a world, and every mixin is applied."

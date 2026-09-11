@@ -21,6 +21,20 @@ dependencies {
     testRuntimeOnly "org.junit.platform:junit-platform-launcher:6.1.2"
 }
 
+// Client game tests start the real client, create a world and drive the mod inside it. Unit tests
+// reach none of that: a mixin target that does not exist, a null dereference during client init or a
+// module that throws on its first tick all compile and all pass `test`. This branch shipped exactly
+// such a crash once. Server-side game tests stay off because there are none, and enabling them would
+// wire a Minecraft launch into `check` for every `./gradlew build`.
+fabricApi {
+    configureTests {
+        createSourceSet = true
+        modId = "agalarhack-gametest"
+        enableGameTests = false
+        enableClientGameTests = true
+    }
+}
+
 processResources {
     inputs.property "version", project.version
 
@@ -31,6 +45,12 @@ processResources {
 
 tasks.withType(JavaCompile).configureEach {
     it.options.release = 25
+}
+
+// Compiling the game tests costs a second. Finding out they no longer compile only when a
+// pull request launches a client does not.
+tasks.named('check') {
+    dependsOn 'gametestClasses'
 }
 
 tasks.withType(Test).configureEach {
