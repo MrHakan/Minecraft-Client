@@ -20,7 +20,7 @@ public final class ThemeScreen extends Screen implements me.mrhakan.agalarhack.u
         List<java.util.function.IntConsumer> rows=List.of(
             y->button("Preset: "+editing.name,x,y,w,()->minecraft.gui.setScreen(new ChoiceScreen(this,"Theme preset",ThemeService.PRESETS,name->{
                 // Palette changes preserve accessibility choices.
-                var next=service.preset(name);next.reducedMotion=editing.reducedMotion;next.highContrast=editing.highContrast;
+                var next=service.preset(name);next.reducedMotion=editing.reducedMotion;next.highContrast=editing.highContrast;next.enforceContrast=editing.enforceContrast;
                 next.uiAnimations=editing.uiAnimations;editing=next;service.preview(editing);
             }))),
             y->button("Edit color",x,y,w,()->minecraft.gui.setScreen(new ChoiceScreen(this,"Theme colors",List.of("Accent","Background","Panel","Text","Muted","Module ON","Module OFF"),this::chooseColor))),
@@ -31,6 +31,7 @@ public final class ThemeScreen extends Screen implements me.mrhakan.agalarhack.u
             y->button("Animations: "+editing.uiAnimations,x,y,w,()->{editing.uiAnimations=!editing.uiAnimations;refresh();}),
             y->button("Reduced motion: "+editing.reducedMotion,x,y,w,()->{editing.reducedMotion=!editing.reducedMotion;refresh();}),
             y->button("High contrast: "+editing.highContrast,x,y,w,()->{editing.highContrast=!editing.highContrast;refresh();}),
+            y->button("Keep text readable: "+editing.enforceContrast,x,y,w,()->{editing.enforceContrast=!editing.enforceContrast;refresh();}),
             y->button("Export theme",x,y,w,()->minecraft.keyboardHandler.setClipboard(service.export(editing))),
             y->button("Import theme",x,y,w,()->{try{editing=service.parse(minecraft.keyboardHandler.getClipboard());refresh();}catch(RuntimeException e){feedback="Invalid theme: "+e.getMessage();}})
         );

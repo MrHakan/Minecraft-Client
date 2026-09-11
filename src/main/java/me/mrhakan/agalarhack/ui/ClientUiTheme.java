@@ -26,7 +26,34 @@ public final class ClientUiTheme {
             TEXT=MUTED=BORDER=0xffffffff;
             ACCENT=0xffffff00; SUCCESS=0xff64c8ff; DANGER=0xffffa64d;
             shadows=false;
-        } else DANGER=0xffff6b78;
+        } else {
+            DANGER=0xffff6b78;
+            if (theme.enforceContrast) enforceContrast();
+        }
+    }
+
+    /**
+     * Raises text that would be unreadable against the surface it sits on.
+     *
+     * <p>The high-contrast switch is all-or-nothing and nobody turns it on for this; the case that
+     * actually happens is a picked or imported theme whose muted text disappears into its panel.
+     * Text is measured against the panel, since that is what it is drawn on almost everywhere.
+     *
+     * <p>The accent is held to the gentler large-text ratio because it is used for headings, stripes
+     * and borders rather than body copy, and forcing it to 4.5 would flatten every theme's identity.
+     */
+    private static void enforceContrast() {
+        int surface = 0xFF000000 | (PANEL & 0x00FFFFFF);
+        TEXT = me.mrhakan.agalarhack.services.ContrastRules.ensureReadable(TEXT, surface,
+                me.mrhakan.agalarhack.services.ContrastRules.MINIMUM_RATIO);
+        MUTED = me.mrhakan.agalarhack.services.ContrastRules.ensureReadable(MUTED, surface,
+                me.mrhakan.agalarhack.services.ContrastRules.MINIMUM_RATIO);
+        ACCENT = me.mrhakan.agalarhack.services.ContrastRules.ensureReadable(ACCENT, surface,
+                me.mrhakan.agalarhack.services.ContrastRules.LARGE_TEXT_RATIO);
+        SUCCESS = me.mrhakan.agalarhack.services.ContrastRules.ensureReadable(SUCCESS, surface,
+                me.mrhakan.agalarhack.services.ContrastRules.LARGE_TEXT_RATIO);
+        DANGER = me.mrhakan.agalarhack.services.ContrastRules.ensureReadable(DANGER, surface,
+                me.mrhakan.agalarhack.services.ContrastRules.LARGE_TEXT_RATIO);
     }
     private ClientUiTheme() {
     }

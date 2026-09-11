@@ -7,7 +7,8 @@ import net.fabricmc.loader.api.FabricLoader;
 
 /** Visual preferences are stored separately from gameplay profiles. */
 public final class ThemeService {
-    public static final List<String> PRESETS=List.of("Default Dark","AMOLED","Light","Ocean","Crimson","Purple");
+    public static final List<String> PRESETS=List.of("Default Dark","AMOLED","Light","Ocean","Crimson","Purple",
+            "Colorblind Warm","Colorblind Cool");
     public static final class Theme {
         public int schemaVersion=1;
         public String name="Default Dark";
@@ -16,6 +17,13 @@ public final class ThemeService {
         public int cornerRadius=4;
         public boolean shadows=true,uiAnimations=true;
         public boolean reducedMotion=false,highContrast=false;
+        /**
+         * Raise text colours that do not meet WCAG AA against the surface behind them.
+         *
+         * <p>Defaults on, and absent from an older theme file means on, which is deliberate: the
+         * only themes it changes are ones whose text was already too faint to read.
+         */
+        public boolean enforceContrast=true;
         public boolean motionEnabled() { return uiAnimations && !reducedMotion; }
     }
     private final me.mrhakan.agalarhack.config.BoundedJsonFile<Theme> file =
@@ -56,6 +64,16 @@ public final class ThemeService {
             case "Ocean"->{theme.background=0xff061a24;theme.panel=0xff102d3b;theme.accent=0xff38d3d9;}
             case "Crimson"->{theme.background=0xff1b0c13;theme.panel=0xff301620;theme.accent=0xffff5277;}
             case "Purple"->{theme.background=0xff140e24;theme.panel=0xff24183d;theme.accent=0xffb391ff;}
+            // Red and green are the pair most often confused, so the on/off and accent colours are
+            // separated by lightness and by blue/orange rather than by hue alone.
+            case "Colorblind Warm"->{
+                theme.background=0xff12100d;theme.panel=0xff1f1c17;theme.accent=0xffe69f00;
+                theme.on=0xff56b4e9;theme.off=0xff8c8579;theme.text=0xfff5f1ea;theme.muted=0xffb9b0a1;
+            }
+            case "Colorblind Cool"->{
+                theme.background=0xff0b1014;theme.panel=0xff16202a;theme.accent=0xff56b4e9;
+                theme.on=0xfff0e442;theme.off=0xff7a8894;theme.text=0xffeef4f8;theme.muted=0xffa8b6c2;
+            }
         }
         return theme;
     }
