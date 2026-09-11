@@ -181,6 +181,10 @@ public class Hud implements HudElement {
         }
     }
 
+    /** Eased bar state; reset when the target changes so the bar never slides between players. */
+    private double displayedHealth;
+    private String barTargetName;
+
     private void renderTarget(GuiGraphicsExtractor graphics, Minecraft mc) {
         Module targetHud = AgalarHackClient.moduleManager.getModule("TargetHUD");
         if (targetHud == null || !targetHud.isToggled() || !AgalarHackClient.HUD_LAYOUT.get("target").visible) {
@@ -193,24 +197,31 @@ public class Hud implements HudElement {
         }
 
         Font font = mc.font;
-        boolean showHealth = targetHud.getBooleanSetting("showHealth", true);
+        var layout = me.mrhakan.agalarhack.ui.hud.TargetHudModel.Layout.parse(targetHud.getStringSetting("layout", "compact"));
         boolean healthBar = targetHud.getBooleanSetting("healthBar", true);
-        boolean showDistance = targetHud.getBooleanSetting("showDistance", true);
-        boolean showArmor = targetHud.getBooleanSetting("showArmor", true) && target instanceof Player;
-        boolean showEquipment = targetHud.getBooleanSetting("showEquipment", true);
-        boolean showEffects = targetHud.getBooleanSetting("showEffects", true);
+        boolean showEquipment = targetHud.getBooleanSetting("showEquipment", true)
+                && me.mrhakan.agalarhack.ui.hud.TargetHudModel.showsIcons(layout);
+        boolean showEffects = targetHud.getBooleanSetting("showEffects", true)
+                && me.mrhakan.agalarhack.ui.hud.TargetHudModel.showsIcons(layout);
 
-        List<String> lines = new ArrayList<>();
-        lines.add(target.getName().getString());
-        if (showHealth) {
-            lines.add(String.format(Locale.ROOT, "HP %.1f / %.1f", target.getHealth(), target.getMaxHealth()));
+        boolean friend = targetHud.getBooleanSetting("friendMarker", true) && target instanceof Player
+                && AgalarHackClient.FRIEND_MANAGER != null
+                && AgalarHackClient.FRIEND_MANAGER.isFriend(target.getName().getString());
+        int ping = -1;
+        if (target instanceof Player && mc.getConnection() != null) {
+            var info = mc.getConnection().getPlayerInfo(target.getUUID());
+            if (info != null) ping = info.getLatency();
         }
-        if (showDistance) {
-            lines.add(String.format(Locale.ROOT, "Distance %.1fm", mc.player.distanceTo(target)));
-        }
-        if (showArmor) {
-            lines.add("Armor " + target.getArmorValue());
-        }
+        var model = new me.mrhakan.agalarhack.ui.hud.TargetHudModel.Target(
+                target.getName().getString(), target.getHealth(), target.getMaxHealth(),
+                target.getAbsorptionAmount(), mc.player.distanceTo(target), target.getArmorValue(),
+                ping, target instanceof Player, friend,
+                targetHud.getBooleanSetting("hurtIndicator", true) && target.hurtTime > 0);
+
+        List<String> lines = me.mrhakan.agalarhack.ui.hud.TargetHudModel.lines(layout, model,
+                targetHud.getBooleanSetting("showHealth", true),
+                targetHud.getBooleanSetting("showDistance", true),
+                targetHud.getBooleanSetting("showArmor", true));
 
         List<ItemStack> equipment = new ArrayList<>();
         if (showEquipment) {
@@ -260,13 +271,24 @@ public class Hud implements HudElement {
         }
 
         if (healthBar) {
-            double ratio = target.getMaxHealth() <= 0 ? 0 : target.getHealth() / target.getMaxHealth();
-            ratio = Math.max(0.0, Math.min(1.0, ratio));
+            double actual = me.mrhakan.agalarhack.ui.hud.TargetHudModel.healthFraction(model);
+            // Reduced motion and the theme's animation switch both override the module's own toggle.
+            boolean animate = targetHud.getBooleanSetting("animateHealth", true)
+                    && me.mrhakan.agalarhack.services.ClientServices.registry()
+                        .find(me.mrhakan.agalarhack.services.ThemeService.class)
+                        .map(themes -> themes.current().motionEnabled()).orElse(true);
+            if (!target.getName().getString().equals(barTargetName)) {
+                // A new target starts from its true value rather than sliding up from the old one.
+                barTargetName = target.getName().getString();
+                displayedHealth = actual;
+            }
+            displayedHealth = me.mrhakan.agalarhack.ui.hud.TargetHudModel.easeToward(displayedHealth, actual,
+                    targetHud.getNumberSetting("animationSpeed", 0.25), animate);
             int barX = x + 7;
             int barWidth = boxWidth - 14;
             graphics.fill(barX, cursorY + 1, barX + barWidth, cursorY + 5, 0xFF333333);
-            int filled = (int) Math.round(barWidth * ratio);
-            int barColor = ratio > 0.6 ? 0xFF55DD55 : ratio > 0.3 ? 0xFFFFCC44 : 0xFFFF5555;
+            int filled = (int) Math.round(barWidth * displayedHealth);
+            int barColor = me.mrhakan.agalarhack.ui.hud.TargetHudModel.barColor(actual, model.hurt());
             if (filled > 0) {
                 graphics.fill(barX, cursorY + 1, barX + filled, cursorY + 5, barColor);
             }
