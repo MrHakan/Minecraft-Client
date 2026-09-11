@@ -54,7 +54,8 @@ Then read the transformed bytecode back and look for the injected members:
 for c in net/minecraft/client/multiplayer/ClientPacketListener \
          net/minecraft/client/renderer/GameRenderer \
          net/minecraft/world/entity/player/Player \
-         net/minecraft/network/Connection; do
+         net/minecraft/network/Connection \
+         net/minecraft/client/gui/components/ChatComponent; do
     javap -p -c "run/.mixin.out/class/$c.class" | grep -o 'agalarhack[A-Za-z0-9_$./]*' | sort -u
 done
 ```
@@ -68,7 +69,7 @@ which is what proves the `@At` resolved where it was meant to.
 
 Mixin 0.8.7 (sponge-mixin 0.17.3) accepted `Compatibility level set to JAVA_25`. The run reached
 `Minecraft.runTick`, past the resource reload and texture atlas stitching, with **zero mixin
-failures**. All four target classes were transformed, and all eight injections were present and
+failures**. All five target classes were transformed, and all nine injections were present and
 invoked from the correct target method:
 
 | Target | Method | Injected call |
@@ -81,6 +82,7 @@ invoked from the correct target method:
 | `Player` | `isStayingOnGroundSurface` | `agalarhack$holdEdge` (two call sites) |
 | `Connection` | `channelRead0` | `handler$…$agalarhack$countInbound` |
 | `Connection` | `send` (three-argument) | `handler$…$agalarhack$countOutbound` |
+| `ChatComponent` | `addMessage` | `localvar$…$agalarhack$decorate` |
 
 `ClientPacketListener` and `Connection` were transformed even though the run never connected to a
 server, because both classes are loaded during startup rather than on connect. Their handlers were
@@ -89,6 +91,21 @@ therefore verified as applied, but never observed *firing* — that still needs 
 `Connection`'s two injections run on the **netty thread**, which is why they do nothing but increment
 a thread-safe counter. Anything that reached for a service or touched client state from there would
 be a race, not a feature.
+
+## Check that the run itself succeeded
+
+Transformation happens at class load, long before most startup work, so a client that **crashed after
+that point still produces a complete `.mixin.out`**. Reading only the exported classes therefore says
+nothing about whether the client started. That mistake was made here once and hid a startup crash for
+several commits, so check both:
+
+```bash
+grep -c "Game crashed" runclient.log          # must be 0
+grep "Created: .*blocks.png-atlas" runclient.log   # reached texture stitching
+```
+
+`ChatComponent` is only loaded once the game builds its GUI, so it appears in `.mixin.out` **only if
+startup got that far** — which makes its presence a useful second signal that the run was healthy.
 
 ## What this does and does not establish
 
