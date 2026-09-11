@@ -4,7 +4,8 @@
   "package": "me.mrhakan.agalarhack.mixin",
   "compatibilityLevel": "JAVA_25",
   "client": [
-    "ClientPacketListenerMixin"
+    "ClientPacketListenerMixin",
+    "PlayerEdgeMixin"
   ],
   "injectors": {
     "defaultRequire": 1
