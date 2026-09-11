@@ -57,12 +57,60 @@ public class Hud implements HudElement {
         registry.register(new me.mrhakan.agalarhack.ui.hud.HudRegistry.Component("ping_graph","Ping Graph",()->104,()->34,event->renderPingGraph(event.graphics())),
                 new me.mrhakan.agalarhack.managers.HudLayoutManager.WidgetState(me.mrhakan.agalarhack.managers.HudLayoutManager.Anchor.TOP_LEFT,8,150,false));
         textComponent("direction","Direction",()->Minecraft.getInstance().player==null?"Facing --":"Facing "+Minecraft.getInstance().player.getDirection());
-        registry.register(new me.mrhakan.agalarhack.ui.hud.HudRegistry.Component("inventory","Inventory",()->170,()->62,event->{
-            var g=event.graphics();var mc=Minecraft.getInstance();int x=AgalarHackClient.HUD_LAYOUT.resolveX("inventory",g.guiWidth(),170),y=AgalarHackClient.HUD_LAYOUT.resolveY("inventory",g.guiHeight(),62);
-            g.fill(x,y,x+170,y+62,0xc8101620);
-            for(int i=9;i<36;i++){var item=mc.player.getInventory().getItem(i);int px=x+4+(i-9)%9*18,py=y+4+(i-9)/9*18;g.item(item,px,py);if(item.getCount()>1)g.text(mc.font,String.valueOf(item.getCount()),px+8,py+9,0xffffffff,true);}
-        }),new me.mrhakan.agalarhack.managers.HudLayoutManager.WidgetState(me.mrhakan.agalarhack.managers.HudLayoutManager.Anchor.BOTTOM_RIGHT,8,110,false));
+        registry.register(new me.mrhakan.agalarhack.ui.hud.HudRegistry.Component(
+                        "inventory", "Inventory", () -> INVENTORY_WIDTH, () -> INVENTORY_HEIGHT,
+                        event -> renderInventory(event.graphics(), Minecraft.getInstance())),
+                new me.mrhakan.agalarhack.managers.HudLayoutManager.WidgetState(
+                        me.mrhakan.agalarhack.managers.HudLayoutManager.Anchor.BOTTOM_RIGHT, 8, 110, false));
     }
+    private static final int SLOT = 18;
+    private static final int INVENTORY_WIDTH = 9 * SLOT + 8;
+    /** Equipment row, a separator, then the three storage rows. */
+    private static final int INVENTORY_HEIGHT = 4 * SLOT + 14;
+    /** Armour top to bottom, then the offhand, which is how the inventory screen reads. */
+    private static final EquipmentSlot[] WORN = {
+            EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET, EquipmentSlot.OFFHAND
+    };
+
+    /**
+     * The 27 storage slots, with worn equipment above them.
+     *
+     * <p>The hotbar is deliberately absent: vanilla already draws it, and repeating it would waste a
+     * row of a widget whose whole point is showing what vanilla does not.
+     *
+     * <p>Decorations come from vanilla's own {@code itemDecorations}, so stack counts, durability
+     * bars and cooldown sweeps all match the real inventory screen instead of being approximated.
+     */
+    private void renderInventory(GuiGraphicsExtractor g, Minecraft client) {
+        // The HUD can be asked to measure or draw before a world exists.
+        if (client.player == null) return;
+        int x = AgalarHackClient.HUD_LAYOUT.resolveX("inventory", g.guiWidth(), INVENTORY_WIDTH);
+        int y = AgalarHackClient.HUD_LAYOUT.resolveY("inventory", g.guiHeight(), INVENTORY_HEIGHT);
+        g.fill(x, y, x + INVENTORY_WIDTH, y + INVENTORY_HEIGHT, 0xC8101620);
+
+        int wornY = y + 4;
+        for (int index = 0; index < WORN.length; index++) {
+            slot(g, client, client.player.getItemBySlot(WORN[index]), x + 4 + index * SLOT, wornY);
+        }
+        // Separator rather than a gap: without it the equipment row reads as part of the storage grid.
+        int ruleY = wornY + SLOT + 2;
+        g.fill(x + 4, ruleY, x + INVENTORY_WIDTH - 4, ruleY + 1, 0x40FFFFFF);
+
+        int storageY = ruleY + 4;
+        for (int index = 9; index < 36; index++) {
+            slot(g, client, client.player.getInventory().getItem(index),
+                    x + 4 + (index - 9) % 9 * SLOT, storageY + (index - 9) / 9 * SLOT);
+        }
+    }
+
+    /** An empty slot still gets its outline, so the grid stays readable when the pack is half full. */
+    private void slot(GuiGraphicsExtractor g, Minecraft client, ItemStack item, int x, int y) {
+        g.fill(x, y, x + SLOT - 2, y + SLOT - 2, 0x30FFFFFF);
+        if (item.isEmpty()) return;
+        g.item(item, x, y);
+        g.itemDecorations(client.font, item, x, y);
+    }
+
     private static me.mrhakan.agalarhack.services.MovementStats movementStats() {
         return me.mrhakan.agalarhack.services.ClientServices.require(me.mrhakan.agalarhack.services.MovementStats.class);
     }
