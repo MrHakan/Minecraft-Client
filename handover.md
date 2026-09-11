@@ -217,18 +217,18 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 28 | Camera tweaks | Implemented: no hurt shake (third mixin), bobbing, FOV override, steady FOV, all with guarded restoration |
 | 29 | Trajectory simulator | Implemented: ProjectilePhysics/ProjectileSimulator extracted and consumed by the renderer and the warning module |
 | 30 | Trajectory accuracy | Partial existing charge/collision/custom physics; full physics-family audit and markers/time details pending |
-| 31 | TargetHUD | Substantially implemented: three layouts, absorption, ping, friend marker, hurt tint, eased bar; player faces still pending |
+| 31 | TargetHUD | Implemented: three layouts, absorption, ping, friend marker, hurt tint, eased bar and the target player's face (both skin layers). A mob card is byte-identical to before, which a test pins |
 | 32 | Combat history | Implemented: bounded recent-target log with engagement counts; deliberately reports no damage figure |
 | 33 | AutoArmor | Implemented via scoring plus the container channel; in-game swap/cursor testing outstanding |
 | 34 | AutoTotem | Implemented with hysteresis-guarded offhand restore and totem counting; explosion/falling triggers and in-game testing outstanding |
 | 35 | AutoRefill | Implemented: threshold refills that prefer the smallest source stack |
 | 36 | InventoryCleaner | Implemented whitelist-driven with enchanted/named/hotbar protection |
-| 37 | AutoFish | Not started; legitimate local bite cues only |
+| 37 | AutoFish | Implemented over `BobberBite`, which infers a bite from the bobber's **visible downward motion** - the nibble counter is server-side and private. Use is pulsed for one tick through the hotbar lease, and a pending action is cancelled when the world stops agreeing with it |
 | 38 | AutoWalk | Implemented over a shared input-override helper: adds a key press without ever taking one away, pauses on a screen and stands itself down after sustained collision |
 | 39 | AutoRespawn | Implemented with a configurable delay. The death waypoint deliberately lives on the Waypoints module instead, since it is useful whether or not you respawn automatically |
 | 40 | AutoAccept | Not started; explicitly opt-in local requests only |
 | 41 | Use tweaks | Not started; bounded, no packet spam |
-| 42 | Inventory HUD | Partial implemented main-inventory viewer; richer item overlays/layouts pending |
+| 42 | Inventory HUD | Implemented: worn equipment row plus the 27 storage slots, with vanilla's own `itemDecorations` so counts, durability bars and cooldowns match the real screen. The hotbar stays absent because vanilla already draws it |
 | 43 | SafeWalk | Implemented by reusing vanilla's sneak-edge check through a client-only mixin |
 | 44 | Parkour | Implemented conservatively; stands down while SafeWalk is on |
 | 45 | AutoJump | **Deliberately skipped**: Minecraft already has `Options.autoJump()`, so a module would only forward to a vanilla switch — the brief rules that out |
@@ -253,7 +253,7 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 64 | Ping graph | Implemented as a hidden-by-default HUD component over a bounded rolling window |
 | 65 | TPS monitor | Implemented as an estimate from world-time update spacing, labelled "(est)" everywhere and capped at 20 |
 | 66 | Lag detector | Implemented: tick drop, ping spike against a median baseline, and server silence, all on the shared `LatchingThreshold`. Silence is reported as silence, since a stalled server, a dropped connection and a suspended laptop are indistinguishable from the client |
-| 67 | Profile manager 2 | Partial existing rename/duplicate/import/export/bindings; metadata/search/dimension overrides pending |
+| 67 | Profile manager 2 | Implemented: optional descriptions and tags (`ProfileMetadata`), `.profile search` across name/description/tags, and per-dimension bindings that take precedence over server bindings. Metadata is an optional field, so no migration was needed |
 | 68 | Partial profiles | Implemented: `.profile load <name> [selection]` narrows to named modules, categories, `hud` or `targets`; an unknown token or a selection that would change nothing is refused rather than applied |
 | 69 | Profile diff | Implemented: `.profile diff <a> [b]` against another profile or the live config, with numeric-tolerant comparison so a Gson round trip is not reported as a change |
 | 70 | Config schemas | Partial module v1 and HUD editor v1; remaining store migrations pending |
@@ -267,13 +267,13 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 78 | Chunk result cache | Implemented for BlockESP: bounded LRU clean-chunk cache with block-update, unload, anchor and filter invalidation. Other scanners still sweep |
 | 79 | Render culling | Implemented: box overlays test the frustum the game already built, in world space. Tracers and breadcrumbs are deliberately exempt and a test enforces that. Safe because it is view-volume, not occlusion, culling - the overlays draw through walls on purpose |
 | 80 | Performance HUD | Implemented: `ModuleTimings` ranks per-module tick cost over a rolling window, in a hidden-by-default widget. Measurement is self-expiring rather than a setting, and a module that stops ticking is dropped rather than frozen on screen |
-| 81 | Unit tests | 483 tests; adds block-update batching, chunk cache eviction, cursor completion, id-list parsing, notification sinks, waypoint normalisation/persistence and compass bearings; trajectory and fade coverage pending |
+| 81 | Unit tests | 514 tests; adds block-update batching, chunk cache eviction, cursor completion, id-list parsing, notification sinks, waypoint normalisation/persistence and compass bearings; trajectory and fade coverage pending |
 | 82 | Integration smoke tests | Partial: the client now boots headless under xvfb/llvmpipe and all six mixin injections are verified applied in the transformed bytecode. No gameplay was exercised; behaviour checks remain manual |
 | 83 | Lifecycle audit | Partial code audit/restoration; all listed state-changing modules need in-game transition checks |
 | 84 | Error reporting | Partial logger/module/render/scanner isolation; guarded HUD measurements/renderers with notices and retry; remaining boundaries need review |
-| 85 | Structured logging | Implemented SLF4J replacement for raw stderr; logging quality audit remains |
+| 85 | Structured logging | Implemented SLF4J replacement for raw stderr. One `System.out.println` survived in the profile auto-load path and has now been replaced; the rest of the audit remains |
 | 86 | Module documentation | Implemented: `docs/MODULES.md` is generated from the live settings registry and a test fails when it and the code disagree, rewriting the file as it fails |
-| 87 | Experimental flags | Implemented: `markExperimental()` plus an UNTESTED badge in the ClickGUI, applied to all 27 modules added here and surfaced in the generated module reference; a source-level test stops a new module shipping unmarked |
+| 87 | Experimental flags | Implemented: `markExperimental()` plus an UNTESTED badge in the ClickGUI, applied to all 28 modules added here and surfaced in the generated module reference; a source-level test stops a new module shipping unmarked |
 
 ## Recommended next development batch
 
@@ -624,6 +624,33 @@ Saturation and brightness come from the module's own colour; grey and black are 
 they have no hue to preserve. Phase offsets spread a breadcrumb trail and a screen of tracers along
 the cycle, which is the difference between a gradient and a flashing line.
 
+## Latest continuation: fishing, faces, inventory and profile metadata
+
+Five topic commits.
+
+**AutoFish.** `BobberBite` infers a bite from the bobber's **visible downward motion**, because
+`FishingHook`'s nibble counter and state machine are server-side and private and the client's copy of
+the entity carries neither. A bobber still falling through the air is excluded: gravity is not a fish.
+One plunge lasts several ticks, so a minimum gap stops a single bite being recognised repeatedly.
+Use is pulsed for one tick through the existing hotbar lease; at most one action is pending, and the
+world disagreeing cancels it — a hook appearing cancels a pending cast, a hook vanishing cancels a
+pending reel. The first draft of that state machine had two real bugs (a reel scheduled and never
+pulsed, and two casts for one bite on a slow server); both are why the cancellation exists.
+
+**TargetHUD faces.** Both skin layers, since skipping the hat leaves a bald head for most skins. Mob
+cards keep their exact previous layout — the indent is zero, pinned by a test. The `blit` parameter
+order is taken from vanilla's own call and has **not been seen on screen**; it is on the checklist.
+
+**Inventory widget.** Worn equipment row plus storage, using vanilla's `itemDecorations` so
+durability bars and counts match the real screen rather than being approximated. It also now checks
+for a player before dereferencing one.
+
+**Profile metadata, search and dimension bindings.** Metadata is an optional field, so no migration:
+old profiles load without it, new ones load in a client that does not know about it. Dimension
+bindings are checked after server bindings so the more specific one wins. Two fixes found on the way:
+a `System.out.println` in the auto-load path, and an auto-load failure that could propagate out of
+`tick()` and break joining a world.
+
 ## Validation and source references
 
 Canonical command: **`./gradlew build --stacktrace` with JDK 25**.
@@ -730,6 +757,20 @@ Fabric's 26.2 `ClientChunkCacheMixin`. Do not reintroduce 1.20/1.21 examples bli
   and closing the inventory mid-swap, during death/respawn and dimension changes, and while AutoEat/AutoTool are
   also active. Confirm no item is ever left on the cursor, that AutoTotem preempts AutoArmor, that a popped totem
   cancels the pending restore, and that a renamed armour piece is never auto-equipped by default.
+
+### Manual acceptance for the fishing, face and profile batch
+
+- **TargetHUD face** (unverified rendering): confirm the face draws at the right size and is not
+  stretched, garbled or offset — the blit argument order is inferred from vanilla's own call, not
+  observed. Confirm a skin with a hood or hair shows it, and that a mob card looks exactly as before.
+- AutoFish: confirm one bite produces one reel and one recast, not two; confirm it does nothing while
+  a screen is open or with no rod in the hotbar; confirm a missed bite does not leave it stuck. Try a
+  laggy server, which is where the pending-action cancellation matters.
+- Inventory widget: confirm durability bars and stack counts match the real inventory screen, that
+  armour and the offhand appear above the rule, and that empty slots still outline.
+- Profiles: describe one with a description and `#tags`, search for each, confirm an empty search
+  lists everything, and confirm an old profile without metadata still loads. Bind a profile to the
+  nether, confirm it applies on arrival and that the server binding does not reapply over it.
 
 ### Manual acceptance for the combat and colour batch
 
