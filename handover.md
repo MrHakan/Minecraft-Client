@@ -187,7 +187,7 @@ increase reflects deeper existing controls, not completion of the whole phase.
 
 | # | Requirement | Current status / next work |
 | --- | --- | --- |
-| 1 | Internal events | Substantially implemented: tick/render/connection/entities/chunks/block entities/equipment/screens/input plus a verified block-update producer |
+| 1 | Internal events | Substantially implemented: tick/render/connection/entities/chunks/block entities/equipment/screens/input plus verified block-update and packet-count producers |
 | 2 | Service registry | Partial: real shared managers/services; waypoint/addon contracts pending |
 | 3 | Target selector | Partial: combat filters/priorities implemented; visuals share EntityDiscovery but not the combat selector |
 | 4 | Inventory service | Partial: bounded lookup, copies, equipment events, hotbar/use ownership, armour/weapon scoring and preemptible container transfers; multi-container transfers still out of scope |
@@ -249,7 +249,7 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 60 | Translator architecture | Optional, not started; core operation must not depend on cloud API |
 | 61 | Macros | Implemented: key to chat/command/toggle, persistent, revalidated on load; timed sequences deliberately excluded |
 | 62 | Command aliases | Implemented: persistent, single-pass expansion, cannot shadow real commands or self-reference |
-| 63 | Server info HUD | Partial: address/dimension plus ping history and a labelled tick estimate; protocol/packet rates pending |
+| 63 | Server info HUD | Implemented: address/dimension, ping history, a labelled tick estimate, and **counted** packets per second in and out via a fourth mixin on `Connection`. The packet figure is the only network number here that is not an estimate |
 | 64 | Ping graph | Implemented as a hidden-by-default HUD component over a bounded rolling window |
 | 65 | TPS monitor | Implemented as an estimate from world-time update spacing, labelled "(est)" everywhere and capped at 20 |
 | 66 | Lag detector | Implemented: tick drop, ping spike against a median baseline, and server silence, all on the shared `LatchingThreshold`. Silence is reported as silence, since a stalled server, a dropped connection and a suspended laptop are indistinguishable from the client |
@@ -267,7 +267,7 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 78 | Chunk result cache | Implemented for BlockESP: bounded LRU clean-chunk cache with block-update, unload, anchor and filter invalidation. Other scanners still sweep |
 | 79 | Render culling | Implemented: box overlays test the frustum the game already built, in world space. Tracers and breadcrumbs are deliberately exempt and a test enforces that. Safe because it is view-volume, not occlusion, culling - the overlays draw through walls on purpose |
 | 80 | Performance HUD | Implemented: `ModuleTimings` ranks per-module tick cost over a rolling window, in a hidden-by-default widget. Measurement is self-expiring rather than a setting, and a module that stops ticking is dropped rather than frozen on screen |
-| 81 | Unit tests | 588 tests; adds block-update batching, chunk cache eviction, cursor completion, id-list parsing, notification sinks, waypoint normalisation/persistence and compass bearings; trajectory and fade coverage pending |
+| 81 | Unit tests | 597 tests; adds block-update batching, chunk cache eviction, cursor completion, id-list parsing, notification sinks, waypoint normalisation/persistence and compass bearings; trajectory and fade coverage pending |
 | 82 | Integration smoke tests | Partial: the client now boots headless under xvfb/llvmpipe and all six mixin injections are verified applied in the transformed bytecode. No gameplay was exercised; behaviour checks remain manual |
 | 83 | Lifecycle audit | Partial code audit/restoration; all listed state-changing modules need in-game transition checks |
 | 84 | Error reporting | Reviewed. Module tick, render, scanner, command, macro and HUD boundaries were already guarded. The one real gap was the shared chat callback: the bus detaches a listener that throws, so one chat module's bug disabled all three for the session. `ModuleGuard` now contains each module separately and reports once per failure episode, and ChatFilter fails open so a broken filter cannot hide chat |
@@ -729,6 +729,30 @@ in long methods and automatic extraction would be guesswork dressed as verificat
 `projectile.arrow` and `projectile.throwableitemprojectile` — so looking them up by their old paths
 finds nothing and invites the assumption they were removed.
 
+## Latest continuation: counted packet rates and a fourth mixin
+
+**`PacketRates`** (63). Fabric 26.2 reports nothing about packet volume, so this needs a fourth mixin,
+on `Connection`: HEAD injections on `channelRead0` and the **three-argument** `send`, which is where
+both other `send` overloads end up in 26.2 — counting on the one-argument version would miss
+everything routed through the others, and counting on two would double it.
+
+Both injections run on the **netty thread**, which shapes the whole service: `LongAdder` counts,
+sampling as a separate client-thread step, and no reach back into the service registry. Anything that
+touched client state from there would be a race. `channelRead0` runs for every packet received, so the
+cost while nobody is watching is two volatile reads — counting is self-expiring like module timing.
+
+Rates divide by real elapsed time rather than assuming a second has passed, so a stalled client tick
+reports what arrived instead of a figure several times too high.
+
+**Verified applied at runtime**, by the procedure in `docs/RUNTIME_MIXIN_VERIFICATION.md`: four target
+classes transformed, eight injections invoked from the correct methods, zero mixin failures. Like
+`ClientPacketListener`, `Connection` is loaded during startup rather than on connect, so its handlers
+are verified applied but have not been observed *firing*.
+
+`MixinTargetsTest`'s coverage guard now reads the mixin config and each mixin's own `@Mixin`
+annotation rather than a hand-kept count of three — which is exactly the number that would have gone
+stale here.
+
 ## Validation and source references
 
 Canonical command: **`./gradlew build --stacktrace` with JDK 25**.
@@ -835,6 +859,15 @@ Fabric's 26.2 `ClientChunkCacheMixin`. Do not reintroduce 1.20/1.21 examples bli
   and closing the inventory mid-swap, during death/respawn and dimension changes, and while AutoEat/AutoTool are
   also active. Confirm no item is ever left on the cursor, that AutoTotem preempts AutoArmor, that a popped totem
   cancels the pending restore, and that a renamed armour piece is never auto-equipped by default.
+
+### Manual acceptance for packet rates
+
+- Turn on ServerInfo's `packetRates` and place the Packet Rate widget. Confirm the figure is plausible
+  (tens per second while walking around, far more while loading chunks), that it reads "Packets off"
+  with the setting disabled, and that it resets on reconnect rather than carrying the old server's
+  rate across.
+- Watch the frame time with the widget hidden versus shown; the counting path should be invisible
+  either way, and this is the one change on a genuinely hot code path.
 
 ### Manual acceptance for the schema, confirmation and audit batch
 
