@@ -18,5 +18,8 @@ public final class ModuleList extends Module {
         addBooleanSetting("sideBar", false, "Draw an accent strip on the aligned edge");
         addBooleanSetting("textShadow", true, "Draw a shadow behind module names");
         addNumberSetting("maximumRows", 32, 1, 64, "Maximum rows, further limited by the screen height");
+        addBooleanSetting("rowAnimations", true, "Slide and fade rows in and out instead of jumping");
+        addNumberSetting("animationSpeed", 0.25, 0.05, 1.0, "How quickly rows settle; 1 is instant");
+        addNumberSetting("slideDistance", 14, 0, 60, "How far a row slides in from, in pixels");
     }
 }

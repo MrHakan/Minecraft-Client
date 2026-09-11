@@ -550,6 +550,9 @@ Style, sort and align the enabled-module HUD
 | `sideBar` | `false` | `true/false or on/off` | Draw an accent strip on the aligned edge |
 | `textShadow` | `true` | `true/false or on/off` | Draw a shadow behind module names |
 | `maximumRows` | `32` | `1..64` | Maximum rows, further limited by the screen height |
+| `rowAnimations` | `true` | `true/false or on/off` | Slide and fade rows in and out instead of jumping |
+| `animationSpeed` | `0.25` | `0.05..1` | How quickly rows settle; 1 is instant |
+| `slideDistance` | `14` | `0..60` | How far a row slides in from, in pixels |
 
 ### Nametags — UNTESTED
 
