@@ -40,12 +40,31 @@ public class ServerInfo extends Module {
         addBooleanSetting("lagWarning", false, "Notify when the estimate drops below the threshold");
         addBooleanSetting("pingSpikeWarning", false, "Notify when your ping jumps well above its recent normal");
         addNumberSetting("pingSpikeFactor", 3.0, 1.5, 10.0, "How many times the recent median counts as a spike");
+        addBooleanSetting("packetRates", false, "Count packets in and out per second while shown");
         addBooleanSetting("frozenWarning", false, "Notify when the server stops sending world time updates");
         addNumberSetting("frozenSeconds", 5.0, 2.0, 60.0, "Seconds without an update before saying so");
     }
 
     public ServerTickEstimate tickEstimate() { return ticks; }
     public RollingSamples pingSamples() { return pings; }
+
+    /**
+     * Packets per second, in and out.
+     *
+     * <p>The only network figure here that is not an estimate: the client either received a packet or
+     * it did not. Counting is asked for on each call and stops on its own, so it costs nothing while
+     * nobody is looking at it.
+     *
+     * @return a formatted line, or null when the setting is off or no second has elapsed yet
+     */
+    public String packetRateLine() {
+        if (!getBooleanSetting("packetRates", false)) return null;
+        var rates = service(me.mrhakan.agalarhack.services.PacketRates.class);
+        rates.requestCounting();
+        if (!rates.hasSamples()) return "Packets ...";
+        return String.format(java.util.Locale.ROOT, "Packets %.0f in / %.0f out per s",
+                rates.inboundPerSecond(), rates.outboundPerSecond());
+    }
 
     /** Client-observable only: how long since the last world-time packet, not a claim about the server. */
     public double secondsSinceServerUpdate() {

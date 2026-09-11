@@ -112,6 +112,14 @@ public class AgalarHackClient implements ClientModInitializer {
                 new me.mrhakan.agalarhack.services.ModuleTimings());
         var movement = services.register(me.mrhakan.agalarhack.services.MovementStats.class,
                 new me.mrhakan.agalarhack.services.MovementStats());
+        var packets = services.register(me.mrhakan.agalarhack.services.PacketRates.class,
+                new me.mrhakan.agalarhack.services.PacketRates());
+        // Published to the network thread, which counts into it without touching the registry.
+        packets.install();
+        EVENTS.subscribe(ClientEvents.ClientTick.class, "packet-rates", 58,
+                event -> packets.tick(System.nanoTime() / 1_000_000L));
+        // A new connection counts from zero; the previous server's rate says nothing about this one.
+        EVENTS.subscribe(ClientEvents.Disconnected.class, "packet-rates-disconnect", 100, event -> packets.reset());
         EVENTS.subscribe(ClientEvents.ClientTick.class, "movement-stats", 55, event -> {
             var player = Minecraft.getInstance().player;
             if (player == null) movement.reset();

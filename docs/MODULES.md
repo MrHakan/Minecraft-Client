@@ -183,6 +183,7 @@ Ping history and an estimated server tick rate, both clearly labelled as client-
 | `lagWarning` | `false` | `true/false or on/off` | Notify when the estimate drops below the threshold |
 | `pingSpikeWarning` | `false` | `true/false or on/off` | Notify when your ping jumps well above its recent normal |
 | `pingSpikeFactor` | `3` | `1.5..10` | How many times the recent median counts as a spike |
+| `packetRates` | `false` | `true/false or on/off` | Count packets in and out per second while shown |
 | `frozenWarning` | `false` | `true/false or on/off` | Notify when the server stops sending world time updates |
 | `frozenSeconds` | `5` | `2..60` | Seconds without an update before saying so |
 

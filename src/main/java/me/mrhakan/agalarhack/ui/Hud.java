@@ -55,6 +55,7 @@ public class Hud implements HudElement {
         textComponent("waypoint","Waypoint",()->nearestWaypointLine());
         textComponent("tps","TPS (estimate)",()->serverInfoLine());
         textComponent("crit","Attack Charge",Hud::critLine);
+        textComponent("packets","Packet Rate",Hud::packetLine);
         registry.register(new me.mrhakan.agalarhack.ui.hud.HudRegistry.Component("ping_graph","Ping Graph",()->104,()->34,event->renderPingGraph(event.graphics())),
                 new me.mrhakan.agalarhack.managers.HudLayoutManager.WidgetState(me.mrhakan.agalarhack.managers.HudLayoutManager.Anchor.TOP_LEFT,8,150,false));
         textComponent("direction","Direction",()->Minecraft.getInstance().player==null?"Facing --":"Facing "+Minecraft.getInstance().player.getDirection());
@@ -110,6 +111,14 @@ public class Hud implements HudElement {
         if (item.isEmpty()) return;
         g.item(item, x, y);
         g.itemDecorations(client.font, item, x, y);
+    }
+
+    /** Counted, not estimated: the client either received a packet or it did not. */
+    private static String packetLine() {
+        var info=serverInfo();
+        if(info==null) return "Packets --";
+        String line=info.packetRateLine();
+        return line==null?"Packets off":line;
     }
 
     /** Reads only the client's own player state; it changes nothing and sends nothing. */

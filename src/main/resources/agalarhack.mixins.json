@@ -5,6 +5,7 @@
   "compatibilityLevel": "JAVA_25",
   "client": [
     "ClientPacketListenerMixin",
+    "ConnectionMixin",
     "GameRendererMixin",
     "PlayerEdgeMixin"
   ],

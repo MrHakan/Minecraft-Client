@@ -53,7 +53,8 @@ Then read the transformed bytecode back and look for the injected members:
 ```bash
 for c in net/minecraft/client/multiplayer/ClientPacketListener \
          net/minecraft/client/renderer/GameRenderer \
-         net/minecraft/world/entity/player/Player; do
+         net/minecraft/world/entity/player/Player \
+         net/minecraft/network/Connection; do
     javap -p -c "run/.mixin.out/class/$c.class" | grep -o 'agalarhack[A-Za-z0-9_$./]*' | sort -u
 done
 ```
@@ -67,7 +68,7 @@ which is what proves the `@At` resolved where it was meant to.
 
 Mixin 0.8.7 (sponge-mixin 0.17.3) accepted `Compatibility level set to JAVA_25`. The run reached
 `Minecraft.runTick`, past the resource reload and texture atlas stitching, with **zero mixin
-failures**. All three target classes were transformed, and all six injections were present and
+failures**. All four target classes were transformed, and all eight injections were present and
 invoked from the correct target method:
 
 | Target | Method | Injected call |
@@ -78,10 +79,16 @@ invoked from the correct target method:
 | `ClientPacketListener` | `handleSetTime` | `handler$…$agalarhack$onSetTime` |
 | `GameRenderer` | `bobHurt` | `agalarhack$skipHurtBob` |
 | `Player` | `isStayingOnGroundSurface` | `agalarhack$holdEdge` (two call sites) |
+| `Connection` | `channelRead0` | `handler$…$agalarhack$countInbound` |
+| `Connection` | `send` (three-argument) | `handler$…$agalarhack$countOutbound` |
 
-`ClientPacketListener` was transformed even though the run never connected to a server, because the
-class is loaded during startup rather than on connect. Its handlers were therefore verified as
-applied, but never observed *firing* — that still needs a real connection.
+`ClientPacketListener` and `Connection` were transformed even though the run never connected to a
+server, because both classes are loaded during startup rather than on connect. Their handlers were
+therefore verified as applied, but never observed *firing* — that still needs a real connection.
+
+`Connection`'s two injections run on the **netty thread**, which is why they do nothing but increment
+a thread-safe counter. Anything that reached for a service or touched client state from there would
+be a race, not a feature.
 
 ## What this does and does not establish
 

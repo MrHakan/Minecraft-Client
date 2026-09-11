@@ -39,11 +39,28 @@ class MixinTargetsTest {
             new Target("net.minecraft.world.entity.player.Player", "isStayingOnGroundSurface"),
             new Target("net.minecraft.client.renderer.GameRenderer", "bobHurt",
                     "net.minecraft.client.renderer.state.level.CameraRenderState",
-                    "com.mojang.blaze3d.vertex.PoseStack"));
+                    "com.mojang.blaze3d.vertex.PoseStack"),
+            new Target("net.minecraft.network.Connection", "channelRead0",
+                    "io.netty.channel.ChannelHandlerContext",
+                    "net.minecraft.network.protocol.Packet"),
+            // The three-argument send, which is where both other overloads end up in 26.2. Counting
+            // on a different one would either miss packets or count them twice.
+            new Target("net.minecraft.network.Connection", "send",
+                    "net.minecraft.network.protocol.Packet",
+                    "io.netty.channel.ChannelFutureListener",
+                    "boolean"));
 
     /** Loads without running static initialisers, so no Minecraft bootstrap is needed. */
     private static Class<?> load(String name) throws ClassNotFoundException {
-        return Class.forName(name, false, MixinTargetsTest.class.getClassLoader());
+        // Primitives have no class to load by name, and one target takes a boolean.
+        return switch (name) {
+            case "boolean" -> boolean.class;
+            case "int" -> int.class;
+            case "long" -> long.class;
+            case "float" -> float.class;
+            case "double" -> double.class;
+            default -> Class.forName(name, false, MixinTargetsTest.class.getClassLoader());
+        };
     }
 
     @Test void everyInjectionTargetExists() {
@@ -64,12 +81,33 @@ class MixinTargetsTest {
                 "Mixin targets are missing; the client would fail to start:\n" + String.join("\n", missing));
     }
 
-    @Test void theTargetListCoversEveryMixinClass() {
-        // A mixin added without a target entry here would slip past the guard above.
-        assertEquals(3, java.util.Set.of(
-                "ClientPacketListenerMixin", "PlayerEdgeMixin", "GameRendererMixin").size());
-        long owners = TARGETS.stream().map(Target::owner).distinct().count();
-        assertEquals(3, owners, "one target owner per mixin class; update this test when a mixin is added");
+    @Test void theTargetListCoversEveryMixinClass() throws Exception {
+        // A mixin added without a target entry here would slip past the guard above. Read from the
+        // config and the sources rather than a hand-kept number, which is the thing that goes stale.
+        var config = com.google.gson.JsonParser
+                .parseString(java.nio.file.Files.readString(
+                        java.nio.file.Path.of("src/main/resources/agalarhack.mixins.json")))
+                .getAsJsonObject();
+        List<String> declared = new ArrayList<>();
+        config.getAsJsonArray("client").forEach(element -> declared.add(element.getAsString()));
+        assertFalse(declared.isEmpty(), "the mixin config lists no client mixins");
+
+        var owners = TARGETS.stream().map(Target::owner).collect(java.util.stream.Collectors.toSet());
+        List<String> uncovered = new ArrayList<>();
+        for (String simple : declared) {
+            java.nio.file.Path source =
+                    java.nio.file.Path.of("src/main/java/me/mrhakan/agalarhack/mixin", simple + ".java");
+            assertTrue(java.nio.file.Files.isRegularFile(source), "listed but missing: " + simple);
+            String text = java.nio.file.Files.readString(source);
+            var annotation = java.util.regex.Pattern.compile("@Mixin\\(\\s*(\\w+)\\.class").matcher(text);
+            assertTrue(annotation.find(), simple + " has no @Mixin target");
+            String target = annotation.group(1);
+            var imported = java.util.regex.Pattern
+                    .compile("import ([\\w.]+\\." + target + ");").matcher(text);
+            assertTrue(imported.find(), simple + " does not import " + target);
+            if (!owners.contains(imported.group(1))) uncovered.add(simple + " -> " + imported.group(1));
+        }
+        assertTrue(uncovered.isEmpty(), "these mixins have no entry in TARGETS: " + uncovered);
     }
 
     @Test void theLookupItselfWorks() throws Exception {
