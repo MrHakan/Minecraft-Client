@@ -129,6 +129,19 @@ and duplicate aliases, validates every scalar before mutation, and bounds payloa
 Applying/resetting settings to an active module restores its old state before re-enabling with
 the new settings. This boundary is covered by pure parsing tests.
 
+## Block updates
+
+Fabric API 26.2 provides chunk, block-entity and player-break events but no general server-sent block
+update, so `ClientPacketListenerMixin` is the producer: TAIL injections on `handleBlockUpdate` and
+`handleChunkBlocksUpdate`, which never alter or cancel vanilla handling and run on the client thread.
+This is the mod's only mixin. `agalarhack.mixins.json` is client-only and its `compatibilityLevel` must
+remain **JAVA_25**: the mod compiles to class version 69, and a lower level is rejected at load time
+even though the build succeeds.
+
+Section packets can carry up to 4096 changes. `BlockUpdateBatch` reports the first 512 individually and
+then posts one `ChunkBlocksInvalidated` for the chunk instead. `ClientBlockEntityEvents` supplies block
+entity load/unload directly, with no mixin.
+
 ## Shared scanner execution
 
 BlockESP, StorageESP and EntityESP offer work to one cooperative scheduler after module updates.
@@ -154,6 +167,18 @@ scheduler tick; discovery still refreshes periodically. Block-update invalidatio
 budgets for other entity consumers remain pending. Storage scans may take multiple ticks and
 omit block entities beyond their bounded per-chunk/result caps. The submit-node pipeline is
 unchanged; rendering uses bounded snapshots and skips unloaded storage/block positions.
+
+## Chunk result caching
+
+`ChunkScanCache` is a bounded LRU of chunks a scanner has walked in full and that nothing has
+invalidated since. BlockESP skips those chunks without probing a block, and applies single block
+updates to its markers directly so one placed block no longer forces a rescan. Cleanliness is recorded
+only when the cursor genuinely exhausts a chunk — never when it skips an unloaded one — and never while
+the result set is at its cap, since markers are being dropped there and caching would make that
+permanent. Eviction is the safe direction: a forgotten chunk is rescanned, never assumed clean.
+
+StorageESP does not use this cache; it keeps its published set live from block-entity events, with a
+completed sweep remaining authoritative so missed events self-heal.
 
 ## Verification
 

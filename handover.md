@@ -17,22 +17,22 @@ At the 2026-09-11 re-inspection, #9 was still the only open PR, at head `f3eb4ff
 open PRs again: this document is a checkpoint, not a substitute for live repository state.
 **Nothing in this work has been automatically merged into main.**
 
-Approximate progress against the complete requested roadmap: **25–30% implemented;
-70–75% remains**. This is a qualitative scope estimate, not measured work hours, a count
+Approximate progress against the complete requested roadmap: **32–38% implemented;
+62–68% remains**. This is a qualitative scope estimate, not measured work hours, a count
 of commits, or a release-readiness percentage. Earlier estimate was about 20%; this batch
 mainly deepens existing foundations. Do not extrapolate remaining duration from these numbers.
 No entire phase is accepted as complete; Minecraft in-game smoke testing remains outstanding.
 
 | Phase | Approximate implementation | Main remaining work |
 | --- | --- | --- |
-| A: foundation | 80–85% | Block-update producer, rotation integration, notification sound, integration tests |
+| A: foundation | 90–95% | Rotation adoption beyond Aura, shared selector adoption by visuals, integration tests |
 | B: UI/HUD | 55–60% | Full widget/animation/accessibility coverage, Module List transitions, richer TargetHUD, remaining legacy bounds |
 | C: rendering | 10–15% | More ESP modes, nametags/items/projectiles, waypoints, breadcrumbs, user block sets, trajectory extraction |
-| D: player utility | 25–30% | AutoRefill/Cleaner/Fish/Respawn/Walk/Accept, inventory HUD depth |
+| D: player utility | 55–60% | AutoFish, AutoWalk, AutoAccept, FastPlace, inventory HUD depth |
 | E: movement/world | 0–5% | SafeWalk, Parkour, Elytra utility, BaseFinder/HoleESP/light visualization |
 | F: information/social | 0–5% | BetterChat, totems, TPS estimates/ping graph, macros and aliases |
 | G: ecosystem | 0% | Stable external addon API/template, optional Baritone, localization |
-| H: hardening | 40–45% | In-game lifecycle testing, persistent chunk cache, complete profiling/config migration audit |
+| H: hardening | 50–55% | In-game lifecycle testing, complete profiling/config migration audit |
 
 The pre-existing client was substantial. Many baseline features below existed before PR #9;
 do not delete/reimplement them just because their requested expansion is incomplete.
@@ -187,12 +187,12 @@ increase reflects deeper existing controls, not completion of the whole phase.
 
 | # | Requirement | Current status / next work |
 | --- | --- | --- |
-| 1 | Internal events | Partial: tick/render/connection/entities/chunks/equipment/screens/input; real block-update hook missing |
+| 1 | Internal events | Substantially implemented: tick/render/connection/entities/chunks/block entities/equipment/screens/input plus a verified block-update producer |
 | 2 | Service registry | Partial: real shared managers/services; waypoint/addon contracts pending |
 | 3 | Target selector | Partial: combat filters/priorities implemented; optional common selector adoption by visuals still pending |
 | 4 | Inventory service | Partial: bounded lookup, copies, equipment events, hotbar/use ownership, armour/weapon scoring and preemptible container transfers; multi-container transfers still out of scope |
 | 5 | Rotations | Partial: None/Client/Smooth; validated silent adapter and wider integration missing |
-| 6 | Notifications | Partial: queue, producers, HUD and settings; sound and further producers missing |
+| 6 | Notifications | Substantially implemented: queue, producers, HUD, settings and optional sound; more producers may still be added |
 | 7 | UI components | Partial: toggle/slider/choice/text/bind/color; full panel/card/range/multiselect/modal toolkit pending |
 | 8 | Animations | Partial: global controls and notification motion; screen/category/scroll/modal animation coverage missing |
 | 9 | Module browser | Substantially implemented: filters/favorites/recency/search/sort/actions; visual/manual QA remains |
@@ -204,7 +204,7 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 15 | Module List HUD | Partial: alignment/sorting/style/case/display/row cap/per-module hiding implemented; row animations and additional suffix producers pending |
 | 16 | EntityESP | Partial: boxes/tracers/labels/colors/fade; now bounded tick discovery, caps and label distance; expanded modes pending |
 | 17 | Nametags | Not started as a dedicated rich module |
-| 18 | StorageESP | Partial: types, colors/labels and bounded incremental scans; per-type controls/fill/tracers pending |
+| 18 | StorageESP | Partial: types, colors/labels, bounded incremental scans and live block-entity tracking; per-type controls/fill/tracers pending |
 | 19 | BlockESP search | Partial: existing category filters; custom registry IDs/colors and preset management pending |
 | 20 | Waypoints | Not started: persistence, commands, death marker, dimension-aware indicators |
 | 21 | Breadcrumbs | Not started |
@@ -221,11 +221,11 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 32 | Combat history | Not started |
 | 33 | AutoArmor | Implemented via scoring plus the container channel; in-game swap/cursor testing outstanding |
 | 34 | AutoTotem | Implemented with hysteresis-guarded offhand restore and totem counting; explosion/falling triggers and in-game testing outstanding |
-| 35 | AutoRefill | Not started |
-| 36 | InventoryCleaner | Not started; conservative whitelist/custom-item defaults required |
+| 35 | AutoRefill | Implemented: threshold refills that prefer the smallest source stack |
+| 36 | InventoryCleaner | Implemented whitelist-driven with enchanted/named/hotbar protection |
 | 37 | AutoFish | Not started; legitimate local bite cues only |
 | 38 | AutoWalk | Not started |
-| 39 | AutoRespawn | Not started; optional death waypoint depends on WaypointService |
+| 39 | AutoRespawn | Implemented with a configurable delay; optional death waypoint still depends on WaypointService |
 | 40 | AutoAccept | Not started; explicitly opt-in local requests only |
 | 41 | Use tweaks | Not started; bounded, no packet spam |
 | 42 | Inventory HUD | Partial implemented main-inventory viewer; richer item overlays/layouts pending |
@@ -264,10 +264,10 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 75 | Localization | Not started; English/Turkish resources required |
 | 76 | Accessibility | Partial keyboard controls, paginated themes, high contrast/reduced motion; full legacy color migration, UI scale/text/colorblind/blur controls pending |
 | 77 | Unified scheduler | Partial implemented for BlockESP/StorageESP/EntityESP; further consumers/configurable budgets pending |
-| 78 | Chunk result cache | Partial unload invalidation and tick-only lookup cache; persistent chunk cache/block-update invalidation missing |
+| 78 | Chunk result cache | Implemented for BlockESP: bounded LRU clean-chunk cache with block-update, unload, anchor and filter invalidation. Other scanners still sweep |
 | 79 | Render culling | Partial distance/target/label bounds; frustum and broader render cap coverage pending |
 | 80 | Performance HUD | Partial scanner diagnostics and memory; module tick/render timings and broader counters pending |
-| 81 | Unit tests | 98 tests; now covers item scoring, menu slot arithmetic and transfer sequencing/preemption/recovery; trajectory and fade coverage pending |
+| 81 | Unit tests | 136 tests; adds block-update batching, chunk cache eviction, cursor completion, id-list parsing and notification sinks; trajectory and fade coverage pending |
 | 82 | Integration smoke tests | Not performed in-game; automate where feasible and record exact environment/results |
 | 83 | Lifecycle audit | Partial code audit/restoration; all listed state-changing modules need in-game transition checks |
 | 84 | Error reporting | Partial logger/module/render/scanner isolation; guarded HUD measurements/renderers with notices and retry; remaining boundaries need review |
@@ -292,27 +292,43 @@ follow their latest instruction. Keep this file updated whenever a system's stat
 
 ## Latest continuation: inventory scoring, container transfers and Phase D automation
 
-Main and every open PR were re-inspected first; main remained `19f83ab` with only draft PR #9 open.
-Six topic commits:
+Six topic commits. `ItemScoring` plus `InventoryService` adapters; `InventoryTransfers` and
+`ContainerTransferController`; `AutoArmor` with a new `PLAYER` category and a bounded ClickGUI sidebar;
+`AutoTotem` with hysteresis-guarded offhand restore; `AutoWeapon` with `AutoEat` regrouped; and a review
+fix making container priority actually preempt instead of depending on registration order.
 
-1. `ItemScoring` plus `InventoryService` adapters. Armour/weapon ranking lives in pure records so the vanilla
-   enchantment curves and durability penalty are asserted without a client. Attributes are read with
-   `ItemStack.forEachModifier` for the destination slot, summing only `ADD_VALUE`; damage families use the
-   `SENSITIVE_TO_SMITE`/`SENSITIVE_TO_BANE_OF_ARTHROPODS` tags.
-2. `InventoryTransfers` and `ContainerTransferController`. **26.2 renamed the click call**: it is
-   `MultiPlayerGameMode.handleContainerInput(containerId, slotId, button, ContainerInput, player)`;
-   `handleInventoryMouseClick`/`ClickType` no longer exist. One click per tick, safe-state and empty-cursor
-   entry, dropped clicks instead of guesses when the channel is lost, and stack recovery before release.
-3. `AutoArmor` plus a new `PLAYER` category. The ClickGUI sidebar now shrinks its row pitch instead of
-   overlapping the Themes button, which also fixed a pre-existing overlap at small sizes.
-4. `AutoTotem` with hotbar SWAP fast path, hysteresis-guarded restore that only undoes its own swap, and
-   remaining-totem reporting.
-5. `AutoWeapon` on the hotbar lease above AutoTool; `AutoEat` moved to `PLAYER`, `AutoTool` stays in `WORLD`.
-6. Review fix: container priority was decorative and AutoTotem only beat AutoArmor through registration order.
-   Preemption is now explicit and only permitted while the cursor is empty.
+**26.2 renamed the inventory click call**: it is
+`MultiPlayerGameMode.handleContainerInput(containerId, slotId, button, ContainerInput, player)`.
+`handleInventoryMouseClick`/`ClickType` no longer exist.
 
-Not done here: AutoTotem has no explosion/falling trigger, transfers cover only the player's own inventory
-menu, and **nothing in this batch has been run inside Minecraft**.
+## Latest continuation: block updates, chunk caching and more Phase D
+
+Six further topic commits.
+
+1. **Block-update producer.** Fabric API 26.2 has no client block-update event, so
+   `ClientPacketListenerMixin` injects at TAIL on `handleBlockUpdate` and `handleChunkBlocksUpdate`.
+   This is the mod's **first mixin**; `agalarhack.mixins.json` is client-only and its
+   `compatibilityLevel` must stay **JAVA_25**, because the mod compiles to class version 69 and a lower
+   level is rejected at load time — something a passing build does not catch. Section packets report
+   individually up to `BlockUpdateBatch` cap 512, then post one `ChunkBlocksInvalidated` instead.
+2. **Chunk-result cache.** `ChunkScanCache` is a bounded LRU of fully scanned, untouched chunks;
+   BlockESP skips them entirely and applies single block changes to its markers directly. Cleanliness is
+   recorded only on genuine chunk exhaustion, and never while the result set is at its cap.
+3. **AutoRefill, AutoRespawn, InventoryCleaner.** AutoRespawn must set `runsWithoutWorld()` because the
+   module manager stops ticking once the player is not alive. InventoryCleaner is whitelist-driven and
+   protects enchanted/named items and the hotbar by default; `ItemIdList` bounds and validates the
+   user-entered list.
+4. **Notification sound.** `NotificationService` gained a sink so it stays free of Minecraft types;
+   `NotificationSounds` holds the only Minecraft call. `SoundEvents.NOTE_BLOCK_PLING` is a `Holder` in
+   26.2 and must be unwrapped with `.value()` for the volume overload.
+5. **StorageESP live tracking** through Fabric's `ClientBlockEntityEvents`; a completed pass stays
+   authoritative so missed events self-heal.
+6. This handover and the foundation document.
+
+Not done here: no rotation adoption beyond Aura, visuals still do not consume the shared target
+selector, AutoFish/AutoWalk/AutoAccept/FastPlace remain, and **nothing has been run inside Minecraft**.
+The mixin in particular is verified only by signature and by a passing build — its injection has never
+been observed to apply at runtime.
 
 ## Validation and source references
 
@@ -368,7 +384,18 @@ Fabric's 26.2 `ClientChunkCacheMixin`. Do not reintroduce 1.20/1.21 examples bli
   block/entity removal, changing filters/ranges and world replacement. Visual latency/partial observations are expected
   under limits, not a promise that every entity in a dense world is considered.
 - Render isolation: failed overlay must not suppress peers; queued geometry from an old world must be skipped.
-- AutoArmor/AutoTotem/AutoWeapon: swap with a full inventory, with a stack already on the cursor, while opening
+- **Mixin**: confirm the client actually starts with the mixin applied and that both injections fire.
+  `required: true` with `defaultRequire: 1` means a failed injection is a hard crash at load, so this is
+  the first thing to check in-game. Place and break blocks, trigger a piston or explosion for the
+  section path, and watch BlockESP markers update without a rescan.
+- BlockESP chunk cache: mine a tracked ore inside a scanned chunk and confirm the marker disappears
+  immediately; reload the chunk, move the anchor and change filters and confirm rescans still happen.
+- StorageESP: place a chest just after a sweep completes and confirm it appears before the next sweep;
+  break it and confirm the marker goes.
+- AutoRefill/InventoryCleaner/AutoRespawn: refill with a full inventory and with partial stacks;
+  confirm InventoryCleaner drops nothing with an empty or garbage junk list, never drops enchanted or
+  renamed items, and leaves the hotbar alone by default; confirm AutoRespawn does not fire on other screens.
+- AutoArmor/AutoTotem/AutoWeapon/AutoRefill: swap with a full inventory, with a stack already on the cursor, while opening
   and closing the inventory mid-swap, during death/respawn and dimension changes, and while AutoEat/AutoTool are
   also active. Confirm no item is ever left on the cursor, that AutoTotem preempts AutoArmor, that a popped totem
   cancels the pending restore, and that a renamed armour piece is never auto-equipped by default.
