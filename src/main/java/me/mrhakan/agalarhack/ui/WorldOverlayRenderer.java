@@ -253,7 +253,7 @@ public final class WorldOverlayRenderer {
             int alpha = fadedAlpha(module.getNumberSetting("alpha", 220.0), blockDistance(mc, pos), range, module.getBooleanSetting("distanceFade", true));
             AABB block = new AABB(pos.getX(), pos.getY(), pos.getZ(), pos.getX() + 1.0, pos.getY() + 1.0, pos.getZ() + 1.0)
                     .inflate(0.015).move(-camera.x, -camera.y, -camera.z);
-            box(buffer, pose, block, (alpha << 24) | rgb);
+            box(buffer, pose, block, (alpha << 24) | module.colorFor(id, rgb));
         }
     }
 

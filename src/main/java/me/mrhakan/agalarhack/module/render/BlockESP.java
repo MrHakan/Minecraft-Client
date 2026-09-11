@@ -34,6 +34,8 @@ public class BlockESP extends Module {
     private final ChunkScanCache scanned = new ChunkScanCache();
     private String parsedCustom;
     private java.util.Set<String> customIds = java.util.Set.of();
+    private String parsedColors;
+    private java.util.Map<String, Integer> blockColors = java.util.Map.of();
     private boolean anchorSet;
     private String targetSignature = "";
 
@@ -56,6 +58,8 @@ public class BlockESP extends Module {
         addChoiceSetting("preset", "none", "Load a starting block set into customBlocks on the next toggle",
                 "none", "ores", "ancient_debris", "spawners", "portals", "beacons", "containers", "redstone", "valuables");
         addBooleanSetting("distanceFade", true, "Fade highlighted blocks toward the horizontal range limit");
+        addBooleanSetting("perBlockColors", true, "Colour ores, spawners, portals and containers by what they are instead of one flat colour");
+        settings.addSetting("blockColors", "");
         addNumberSetting("red", 255.0, 0.0, 255.0, "Block overlay red channel");
         addNumberSetting("green", 100.0, 0.0, 255.0, "Block overlay green channel");
         addNumberSetting("blue", 220.0, 0.0, 255.0, "Block overlay blue channel");
@@ -257,6 +261,23 @@ public class BlockESP extends Module {
     }
 
     /**
+     * Resolves the overlay colour for one matched block.
+     *
+     * <p>Lives here rather than in the renderer so the parsed override map is cached alongside the
+     * other settings-derived state and re-parsed only when the text changes, instead of once per
+     * block per frame.
+     */
+    public int colorFor(String id, int fallback) {
+        String raw = getStringSetting("blockColors", "");
+        if (!raw.equals(parsedColors)) {
+            blockColors = me.mrhakan.agalarhack.services.BlockColorRules.parse(raw);
+            parsedColors = raw;
+        }
+        return me.mrhakan.agalarhack.services.BlockColorRules.resolve(
+                blockColors, id, getBooleanSetting("perBlockColors", true), fallback);
+    }
+
+    /**
      * Built-in starting points for the custom list. Applying a preset fills the editable setting
      * rather than acting as a hidden filter, so the player can see and adjust exactly what it added.
      */
@@ -311,5 +332,7 @@ public class BlockESP extends Module {
         snapshot = List.of();
         snapshotDirty = false;
         targetSignature = "";
+        parsedColors = null;
+        blockColors = java.util.Map.of();
     }
 }
