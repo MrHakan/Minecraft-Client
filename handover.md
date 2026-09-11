@@ -17,8 +17,8 @@ At the 2026-09-11 re-inspection, #9 was still the only open PR, at head `f3eb4ff
 open PRs again: this document is a checkpoint, not a substitute for live repository state.
 **Nothing in this work has been automatically merged into main.**
 
-Approximate progress against the complete requested roadmap: **58–64% implemented;
-36–42% remains**. This is a qualitative scope estimate, not measured work hours, a count
+Approximate progress against the complete requested roadmap: **62–68% implemented;
+32–38% remains**. This is a qualitative scope estimate, not measured work hours, a count
 of commits, or a release-readiness percentage. Earlier estimate was about 20%; this batch
 mainly deepens existing foundations. Do not extrapolate remaining duration from these numbers.
 No entire phase is accepted as complete; Minecraft in-game smoke testing remains outstanding.
@@ -29,8 +29,8 @@ No entire phase is accepted as complete; Minecraft in-game smoke testing remains
 | B: UI/HUD | 62–67% | Full widget/animation/accessibility coverage, Module List transitions, player faces, remaining legacy bounds |
 | C: rendering | 75–80% | More ESP render modes, per-block BlockESP colours |
 | D: player utility | 55–60% | AutoFish, AutoWalk, AutoAccept, FastPlace, inventory HUD depth |
-| E: movement/world | 25–30% | Parkour, AutoJump, Elytra utility, BaseFinder, light/spawn visualization |
-| F: information/social | 45–50% | BetterChat rendering (timestamps/highlighting), macros, combat history |
+| E: movement/world | 45–50% | BaseFinder, light/spawn visualization, NewChunks |
+| F: information/social | 60–65% | BetterChat rendering (timestamps/highlighting), macros |
 | G: ecosystem | 0% | Stable external addon API/template, optional Baritone, localization |
 | H: hardening | 50–55% | In-game lifecycle testing, complete profiling/config migration audit |
 
@@ -218,7 +218,7 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 29 | Trajectory simulator | Implemented: ProjectilePhysics/ProjectileSimulator extracted and consumed by the renderer and the warning module |
 | 30 | Trajectory accuracy | Partial existing charge/collision/custom physics; full physics-family audit and markers/time details pending |
 | 31 | TargetHUD | Substantially implemented: three layouts, absorption, ping, friend marker, hurt tint, eased bar; player faces still pending |
-| 32 | Combat history | Not started |
+| 32 | Combat history | Implemented: bounded recent-target log with engagement counts; deliberately reports no damage figure |
 | 33 | AutoArmor | Implemented via scoring plus the container channel; in-game swap/cursor testing outstanding |
 | 34 | AutoTotem | Implemented with hysteresis-guarded offhand restore and totem counting; explosion/falling triggers and in-game testing outstanding |
 | 35 | AutoRefill | Implemented: threshold refills that prefer the smallest source stack |
@@ -230,9 +230,9 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 41 | Use tweaks | Not started; bounded, no packet spam |
 | 42 | Inventory HUD | Partial implemented main-inventory viewer; richer item overlays/layouts pending |
 | 43 | SafeWalk | Implemented by reusing vanilla's sneak-edge check through a client-only mixin |
-| 44 | Parkour | Not started |
-| 45 | AutoJump | Not started |
-| 46 | Elytra utility | Not started; warnings/counters/equipment assistance first |
+| 44 | Parkour | Implemented conservatively; stands down while SafeWalk is on |
+| 45 | AutoJump | **Deliberately skipped**: Minecraft already has `Options.autoJump()`, so a module would only forward to a vanilla switch — the brief rules that out |
+| 46 | Elytra utility | Implemented as ElytraInfo: durability and firework warnings plus glide speed, informational only; auto-equip/replace still pending |
 | 47 | Movement stats | Partial simple horizontal speed HUD; vertical/acceleration/history pending |
 | 48 | Aura improvements | Partial shared targeting/rotation/policy; switch delay/lock/multiple-target behavior pending |
 | 49 | TriggerBot improvements | Partial shared filters and baseline cooldown behavior; full weapon/critical/reaction settings pending |
@@ -267,7 +267,7 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 78 | Chunk result cache | Implemented for BlockESP: bounded LRU clean-chunk cache with block-update, unload, anchor and filter invalidation. Other scanners still sweep |
 | 79 | Render culling | Partial distance/target/label bounds shared through EntityDiscovery; frustum culling pending |
 | 80 | Performance HUD | Partial scanner diagnostics and memory; module tick/render timings and broader counters pending |
-| 81 | Unit tests | 279 tests; adds block-update batching, chunk cache eviction, cursor completion, id-list parsing, notification sinks, waypoint normalisation/persistence and compass bearings; trajectory and fade coverage pending |
+| 81 | Unit tests | 288 tests; adds block-update batching, chunk cache eviction, cursor completion, id-list parsing, notification sinks, waypoint normalisation/persistence and compass bearings; trajectory and fade coverage pending |
 | 82 | Integration smoke tests | Not performed in-game; automate where feasible and record exact environment/results |
 | 83 | Lifecycle audit | Partial code audit/restoration; all listed state-changing modules need in-game transition checks |
 | 84 | Error reporting | Partial logger/module/render/scanner isolation; guarded HUD measurements/renderers with notices and retry; remaining boundaries need review |
@@ -435,6 +435,18 @@ current value is still the one it applied** — a manual change by the player wi
 world because those options are client-wide. No hurt shake needed the third mixin, since vanilla has
 no option and the shake lives in a private renderer method.
 
+## Latest continuation: movement, elytra and combat history
+
+**Parkour** stands down entirely while SafeWalk is on — one module holding you at an edge and
+another jumping off it would make both useless. **ElytraInfo** warns and counts but never touches
+movement; warnings fire once per episode and re-arm only after a real recovery.
+**CombatHistory** records what this client observed and **deliberately reports no damage figure**:
+the client is not told damage dealt, and deriving it from health differences would be quietly wrong
+whenever a server heals, absorbs or cancels a hit.
+
+**AutoJump was skipped on purpose** — see requirement 45 above. Do not add it later without checking
+that reasoning.
+
 Still missing in Phase B: full widget/animation coverage, Module List row transitions, player faces
 on the target card, UI scale and blur controls, and the remaining legacy Info bounds.
 Still missing in Phase C: camera tweaks, per-block BlockESP colours and richer ESP render modes.
@@ -501,6 +513,10 @@ Fabric's 26.2 `ClientChunkCacheMixin`. Do not reintroduce 1.20/1.21 examples bli
 - TargetHUD: switch between all three layouts while a target is live; check absorption on a target
   with golden apples; confirm the bar does not slide when the target changes; confirm reduced motion
   disables the easing; confirm ping disappears for mobs and for players whose latency is unknown.
+- Parkour with SafeWalk both on: confirm Parkour stands down rather than fighting the edge hold.
+  Test at speed, while sprinting, in water and on stairs/slabs.
+- ElytraInfo: confirm warnings fire once rather than repeatedly at the threshold, and that firework
+  warnings stay quiet on the ground.
 - ServerInfo: compare the estimate against a server whose real tick rate you know, confirm it never
   reads above 20, that it resets on dimension change, and that the lag warning fires once rather than
   repeatedly while the rate hovers at the threshold.
