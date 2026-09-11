@@ -131,12 +131,23 @@ public class ModuleManager {
     public void tick(Minecraft client) {
         boolean worldReady = client.player != null && client.level != null && client.player.isAlive();
         boolean stateChanged = false;
+        // Looked up once per tick rather than per module, and absent before startup finishes.
+        var timings = me.mrhakan.agalarhack.services.ClientServices.registry() == null ? null
+                : me.mrhakan.agalarhack.services.ClientServices.registry()
+                        .find(me.mrhakan.agalarhack.services.ModuleTimings.class).orElse(null);
+        boolean measure = timings != null && timings.isRecording();
         for (Module module : modules) {
             if (!module.isToggled() || (!worldReady && !module.runsWithoutWorld())) {
                 continue;
             }
             try {
-                module.onUpdate();
+                if (measure) {
+                    long started = System.nanoTime();
+                    module.onUpdate();
+                    timings.record(module.getName(), System.nanoTime() - started);
+                } else {
+                    module.onUpdate();
+                }
             } catch (RuntimeException e) {
                 AgalarHackClient.LOGGER.error("Disabling module after tick failure: {}", module.getName(), e);
                 me.mrhakan.agalarhack.services.ClientServices.require(me.mrhakan.agalarhack.services.NotificationService.class).publish(

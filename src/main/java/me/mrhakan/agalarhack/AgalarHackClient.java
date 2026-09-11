@@ -108,6 +108,11 @@ public class AgalarHackClient implements ClientModInitializer {
                 new me.mrhakan.agalarhack.services.WaypointService());
         var scanners = services.register(me.mrhakan.agalarhack.services.ScannerService.class,
                 new me.mrhakan.agalarhack.services.ScannerService(Minecraft.getInstance()));
+        var timings = services.register(me.mrhakan.agalarhack.services.ModuleTimings.class,
+                new me.mrhakan.agalarhack.services.ModuleTimings());
+        // Ahead of the module tick (priority 30 below) so a tick is counted from its own beginning.
+        EVENTS.subscribe(ClientEvents.ClientTick.class, "module-timings", 60, event -> timings.beginTick());
+        EVENTS.subscribe(ClientEvents.Disconnected.class, "module-timings-disconnect", 100, event -> timings.clear());
         EVENTS.subscribe(ClientEvents.ClientTick.class, "scanners", 30, event -> scanners.tick());
         EVENTS.subscribe(ClientEvents.WorldChanged.class, "scanner-world", 100, event -> scanners.reset());
         EVENTS.subscribe(ClientEvents.Disconnected.class, "scanner-disconnect", 100, event -> scanners.reset());

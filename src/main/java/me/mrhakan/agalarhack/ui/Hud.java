@@ -39,6 +39,9 @@ public class Hud implements HudElement {
         new me.mrhakan.agalarhack.ui.hud.ScannerDebugHud(
                 me.mrhakan.agalarhack.services.ClientServices.require(me.mrhakan.agalarhack.services.ScannerService.class),
                 AgalarHackClient.HUD_LAYOUT, AgalarHackClient.moduleManager).register(registry);
+        new me.mrhakan.agalarhack.ui.hud.ModuleTimingsHud(
+                me.mrhakan.agalarhack.services.ClientServices.require(me.mrhakan.agalarhack.services.ModuleTimings.class),
+                AgalarHackClient.HUD_LAYOUT).register(registry);
         register("branding","Branding",()->Minecraft.getInstance().font.width(AgalarHackClient.NAME+" "+AgalarHackClient.VERSION)+5,()->Minecraft.getInstance().font.lineHeight,this::renderBranding);
         var moduleList = new me.mrhakan.agalarhack.ui.hud.ModuleListHud();
         register("modules", "Module List", moduleList::width, moduleList::height, moduleList::render);
