@@ -10,7 +10,7 @@ public class AutoEat extends Module {
     private static final int PRIORITY = 60;
 
     public AutoEat() {
-        super("AutoEat", Category.MISC, "Automatically eats food from the hotbar when hunger is low");
+        super("AutoEat", Category.PLAYER, "Automatically eats food from the hotbar when hunger is low");
     }
 
     @Override
