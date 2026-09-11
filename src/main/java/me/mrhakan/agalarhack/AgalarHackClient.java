@@ -136,22 +136,36 @@ public class AgalarHackClient implements ClientModInitializer {
         var notificationModule = moduleManager.getModule("Notifications");
         notifications.setEnabled(notificationModule != null && notificationModule.isToggled());
         CommandManager.init();
+        // The bus detaches a listener that throws, which would disable chat handling for every chat
+        // module for the rest of the session because they share one callback. Each module runs inside
+        // the guard instead, so a failure costs only the module that caused it.
+        var moduleGuard = services.register(me.mrhakan.agalarhack.services.ModuleGuard.class,
+                new me.mrhakan.agalarhack.services.ModuleGuard((module, failure) -> {
+                    LOGGER.error("Disabling module after a callback failure: {}", module.getName(), failure);
+                    moduleManager.forceDisable(module);
+                    SETTINGS_MANAGER.updateSettings();
+                    notifications.publish(me.mrhakan.agalarhack.services.NotificationService.Type.ERROR,
+                            module.getName() + " disabled after an error");
+                }));
         EVENTS.subscribe(ClientEvents.ChatReceived.class, "chat-modules", 0, event -> {
             var mentions = moduleManager.getModule("ChatMentions");
             if (mentions instanceof me.mrhakan.agalarhack.module.misc.ChatMentions chat && chat.isToggled()
                     && !event.gameMessage()) {
-                chat.onChatMessage(event.message());
+                moduleGuard.run(chat, () -> chat.onChatMessage(event.message()));
             }
             var accept = moduleManager.getModule("AutoAccept");
             if (accept instanceof me.mrhakan.agalarhack.module.misc.AutoAccept auto && auto.isToggled()) {
                 // Game messages carry plugin request lines on most servers, so both kinds are offered;
                 // the module's own rules decide, not the message kind.
-                auto.onChatMessage(event.message());
+                moduleGuard.run(auto, () -> auto.onChatMessage(event.message()));
             }
             var filter = moduleManager.getModule("ChatFilter");
-            if (filter instanceof me.mrhakan.agalarhack.module.misc.ChatFilter chatFilter && chatFilter.isToggled()
-                    && chatFilter.shouldHide(event.message(), event.gameMessage())) {
-                event.veto();
+            if (filter instanceof me.mrhakan.agalarhack.module.misc.ChatFilter chatFilter && chatFilter.isToggled()) {
+                // A filter that throws must not hide the message: failing open keeps chat readable,
+                // which is the safer of the two outcomes for something that decides what you see.
+                boolean[] hide = { false };
+                moduleGuard.run(chatFilter, () -> hide[0] = chatFilter.shouldHide(event.message(), event.gameMessage()));
+                if (hide[0]) event.veto();
             }
         });
 

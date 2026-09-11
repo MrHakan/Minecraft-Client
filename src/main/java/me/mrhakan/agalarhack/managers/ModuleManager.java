@@ -267,7 +267,8 @@ public class ModuleManager {
         }
     }
 
-    private void forceDisable(Module module) {
+    /** Public because the shared module guard disables from callbacks outside this class. */
+    public void forceDisable(Module module) {
         try {
             if (module.isToggled()) {
                 module.setToggled(false, false);
