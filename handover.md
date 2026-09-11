@@ -17,8 +17,8 @@ At the 2026-09-11 re-inspection, #9 was still the only open PR, at head `f3eb4ff
 open PRs again: this document is a checkpoint, not a substitute for live repository state.
 **Nothing in this work has been automatically merged into main.**
 
-Approximate progress against the complete requested roadmap: **68–74% implemented;
-26–32% remains**. This is a qualitative scope estimate, not measured work hours, a count
+Approximate progress against the complete requested roadmap: **70–75% implemented;
+25–30% remains**. This is a qualitative scope estimate, not measured work hours, a count
 of commits, or a release-readiness percentage. Earlier estimate was about 20%; this batch
 mainly deepens existing foundations. Do not extrapolate remaining duration from these numbers.
 No entire phase is accepted as complete; Minecraft in-game smoke testing remains outstanding.
@@ -31,7 +31,7 @@ No entire phase is accepted as complete; Minecraft in-game smoke testing remains
 | D: player utility | 55–60% | AutoFish, AutoWalk, AutoAccept, FastPlace, inventory HUD depth |
 | E: movement/world | 70–75% | NewChunks |
 | F: information/social | 75–80% | BetterChat rendering (timestamps/highlighting) |
-| G: ecosystem | 0% | Stable external addon API/template, optional Baritone, localization |
+| G: ecosystem | 15–20% | Stable external addon API/template, optional Baritone; localization coverage beyond the ClickGUI |
 | H: hardening | 50–55% | In-game lifecycle testing, complete profiling/config migration audit |
 
 The pre-existing client was substantial. Many baseline features below existed before PR #9;
@@ -261,13 +261,13 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 72 | Addon metadata | Not started |
 | 73 | Addon template repo | Not created; create MrHakan/AgalarHack-Addon-Template only after API stability |
 | 74 | Baritone | Not started; optional detection/integration, no mandatory dependency |
-| 75 | Localization | Not started; English/Turkish resources required |
+| 75 | Localization | Partial: `Translations` with English fallback, `en_us`/`tr_tr`, ClickGUI labels translated. Module names/descriptions and command output remain English |
 | 76 | Accessibility | Partial keyboard controls, paginated themes, high contrast/reduced motion; full legacy color migration, UI scale/text/colorblind/blur controls pending |
 | 77 | Unified scheduler | Partial implemented for BlockESP/StorageESP/EntityESP; further consumers/configurable budgets pending |
 | 78 | Chunk result cache | Implemented for BlockESP: bounded LRU clean-chunk cache with block-update, unload, anchor and filter invalidation. Other scanners still sweep |
 | 79 | Render culling | Partial distance/target/label bounds shared through EntityDiscovery; frustum culling pending |
 | 80 | Performance HUD | Partial scanner diagnostics and memory; module tick/render timings and broader counters pending |
-| 81 | Unit tests | 320 tests; adds block-update batching, chunk cache eviction, cursor completion, id-list parsing, notification sinks, waypoint normalisation/persistence and compass bearings; trajectory and fade coverage pending |
+| 81 | Unit tests | 323 tests; adds block-update batching, chunk cache eviction, cursor completion, id-list parsing, notification sinks, waypoint normalisation/persistence and compass bearings; trajectory and fade coverage pending |
 | 82 | Integration smoke tests | Not performed in-game; automate where feasible and record exact environment/results |
 | 83 | Lifecycle audit | Partial code audit/restoration; all listed state-changing modules need in-game transition checks |
 | 84 | Error reporting | Partial logger/module/render/scanner isolation; guarded HUD measurements/renderers with notices and retry; remaining boundaries need review |
@@ -447,6 +447,12 @@ whenever a server heals, absorbs or cancels a hit.
 **AutoJump was skipped on purpose** — see requirement 45 above. Do not add it later without checking
 that reasoning.
 
+**Localisation uses a fallback at every call site.** `Translations.text(key, english)` renders the
+English text when a key is missing, so partial coverage never shows raw keys. **Do not translate the
+ClickGUI filter/sort lists**: the chosen string is also the stored value the switches compare
+against, so translating it silently breaks filtering. That needs a display/value split in
+`ChoiceScreen` first — there is a comment at the call site saying so.
+
 **Two modules deliberately consume another module's results instead of opening a second sweep**:
 ProjectileWarning reads ProjectileESP, BaseFinder reads StorageESP. Both state the dependency in
 their description and show it in the module list when the source module is off, so neither looks
@@ -529,6 +535,9 @@ Fabric's 26.2 `ClientChunkCacheMixin`. Do not reintroduce 1.20/1.21 examples bli
 - TargetHUD: switch between all three layouts while a target is live; check absorption on a target
   with golden apples; confirm the bar does not slide when the target changes; confirm reduced motion
   disables the easing; confirm ping disappears for mobs and for players whose latency is unknown.
+- Localization: run the client in Turkish and in a language with no file at all; confirm the ClickGUI
+  reads correctly in Turkish and falls back to English elsewhere, with no raw `agalarhack.*` keys
+  anywhere. Confirm filtering and sorting still work in Turkish.
 - BaseFinder: confirm it reports nothing with StorageESP off and says so in the module list; check a
   village and a real base both cluster sensibly; confirm a stable base does not re-notify each
   interval; confirm optional waypoint creation lands at the cluster centre.
