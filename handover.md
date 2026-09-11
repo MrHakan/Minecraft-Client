@@ -32,7 +32,7 @@ No entire phase is accepted as complete; Minecraft in-game smoke testing remains
 | E: movement/world | 70–75% | NewChunks |
 | F: information/social | 75–80% | BetterChat rendering (timestamps/highlighting) |
 | G: ecosystem | 15–20% | Stable external addon API/template, optional Baritone; localization coverage beyond the ClickGUI |
-| H: hardening | 50–55% | In-game lifecycle testing, complete profiling/config migration audit |
+| H: hardening | 60–65% | In-game lifecycle testing, complete profiling/config migration audit |
 
 The pre-existing client was substantial. Many baseline features below existed before PR #9;
 do not delete/reimplement them just because their requested expansion is incomplete.
@@ -267,7 +267,7 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 78 | Chunk result cache | Implemented for BlockESP: bounded LRU clean-chunk cache with block-update, unload, anchor and filter invalidation. Other scanners still sweep |
 | 79 | Render culling | Partial distance/target/label bounds shared through EntityDiscovery; frustum culling pending |
 | 80 | Performance HUD | Partial scanner diagnostics and memory; module tick/render timings and broader counters pending |
-| 81 | Unit tests | 326 tests; adds block-update batching, chunk cache eviction, cursor completion, id-list parsing, notification sinks, waypoint normalisation/persistence and compass bearings; trajectory and fade coverage pending |
+| 81 | Unit tests | 330 tests; adds block-update batching, chunk cache eviction, cursor completion, id-list parsing, notification sinks, waypoint normalisation/persistence and compass bearings; trajectory and fade coverage pending |
 | 82 | Integration smoke tests | Not performed in-game; automate where feasible and record exact environment/results |
 | 83 | Lifecycle audit | Partial code audit/restoration; all listed state-changing modules need in-game transition checks |
 | 84 | Error reporting | Partial logger/module/render/scanner isolation; guarded HUD measurements/renderers with notices and retry; remaining boundaries need review |
@@ -446,6 +446,16 @@ whenever a server heals, absorbs or cancels a hit.
 
 **AutoJump was skipped on purpose** — see requirement 45 above. Do not add it later without checking
 that reasoning.
+
+## Lifecycle audit result
+
+Requirement 83 was carried out by hand and found nothing wrong. Recorded so it is not redone blindly:
+Flight and Step capture and restore with player-replacement handling; Freecam mutates only the camera
+entity it creates, never the real player; Speed, Jesus and Parkour touch per-tick velocity and input,
+which physics recomputes, so they need no restoration; every subscriber closes and every inventory
+owner releases. `ModuleLifecycleTest` now enforces those three properties plus a non-vacuity check.
+Source-level and coarse: it cannot prove release on every path. **In-game transition testing is still
+outstanding.**
 
 ## Untested badge
 
