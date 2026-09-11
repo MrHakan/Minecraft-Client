@@ -13,6 +13,7 @@ import net.minecraft.world.level.chunk.status.ChunkStatus;
 public final class ScannerService {
     public static final int BLOCK_BUDGET = 12000, CHUNK_BUDGET = 64, ENTITY_BUDGET = 4096;
     private final Minecraft mc;
+    private long lastElapsedNanos;
     private final Map<Long, LevelChunk> chunks = new HashMap<>();
     private final ScanScheduler<Module> scheduler = new ScanScheduler<>((module, error) -> {
         AgalarHackClient.LOGGER.error("Scanner failed for {}", module.getName(), error);
@@ -25,13 +26,15 @@ public final class ScannerService {
         if (owner.isToggled()) scheduler.offer(owner, priority, steps, task);
     }
     public void cancel(Module owner) { scheduler.cancel(owner); }
-    public void reset() { scheduler.clear(); chunks.clear(); }
+    public void reset() { scheduler.clear(); chunks.clear(); lastElapsedNanos = 0; }
     public void tick() {
         chunks.clear();
         if (mc.level == null || mc.player == null || !mc.player.isAlive()) { reset(); return; }
+        long started = System.nanoTime();
         try { scheduler.run(BLOCK_BUDGET, CHUNK_BUDGET, ENTITY_BUDGET); }
-        finally { chunks.clear(); }
+        finally { lastElapsedNanos = Math.max(0, System.nanoTime() - started); chunks.clear(); }
     }
+    public long lastElapsedNanos() { return lastElapsedNanos; }
     public ScanScheduler.Usage lastUsage() { return scheduler.lastUsage(); }
     private static long key(int x, int z) { return ((long)x << 32) ^ (z & 0xffffffffL); }
     /** Reserve a lookup before calling loadedChunk; false means the cursor must pause unchanged. */
