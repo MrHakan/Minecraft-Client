@@ -33,6 +33,7 @@ import me.mrhakan.agalarhack.module.movement.Sprint;
 import me.mrhakan.agalarhack.module.movement.Step;
 import me.mrhakan.agalarhack.module.render.BlockESP;
 import me.mrhakan.agalarhack.module.render.Breadcrumbs;
+import me.mrhakan.agalarhack.module.render.CameraTweaks;
 import me.mrhakan.agalarhack.module.render.Coordinates;
 import me.mrhakan.agalarhack.module.render.Durability;
 import me.mrhakan.agalarhack.module.render.EntityESP;
@@ -91,6 +92,7 @@ public class ModuleManager {
         register(new Nametags());
         register(new Breadcrumbs());
         register(new HoleESP());
+        register(new CameraTweaks());
         register(new Tracers());
         register(new ProjectileESP());
         register(new ProjectileWarning());
