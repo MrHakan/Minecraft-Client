@@ -30,6 +30,7 @@ public class Module {
 		settings.addSetting("enabled", false);
 		settings.addSetting("keybind", String.valueOf(InputConstants.UNKNOWN.getValue()));
 		settings.addNumberSetting("keyModifiers", 0, 0, 15, "Keyboard modifier mask for the captured binding");
+        settings.addBooleanSetting("showInHud", true, "Include this module in the enabled-module HUD");
         settings.addBooleanSetting("favorite", false, "Pin in the module browser");
         settings.addNumberSetting("lastUsed", 0, 0, 9007199254740991d, "Last module toggle time");
 		selfSettings();

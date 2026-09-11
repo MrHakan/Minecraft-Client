@@ -52,6 +52,7 @@ public class ModuleManager {
         register(new NoFall());
 
         register(new me.mrhakan.agalarhack.module.render.Notifications());
+        register(new me.mrhakan.agalarhack.module.render.ModuleList());
         register(new Fullbright());
         register(new Coordinates());
         register(new Durability());

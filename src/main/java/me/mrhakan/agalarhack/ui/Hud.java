@@ -40,8 +40,8 @@ public class Hud implements HudElement {
                 me.mrhakan.agalarhack.services.ClientServices.require(me.mrhakan.agalarhack.services.ScannerService.class),
                 AgalarHackClient.HUD_LAYOUT, AgalarHackClient.moduleManager).register(registry);
         register("branding","Branding",()->Minecraft.getInstance().font.width(AgalarHackClient.NAME+" "+AgalarHackClient.VERSION)+5,()->Minecraft.getInstance().font.lineHeight,this::renderBranding);
-        register("modules","Module List",()->AgalarHackClient.moduleManager.getModuleList().stream().filter(Module::isToggled).mapToInt(m->Minecraft.getInstance().font.width(m.getDisplayName())).max().orElse(100),
-                ()->Math.max(1,(int)AgalarHackClient.moduleManager.getModuleList().stream().filter(Module::isToggled).count())*Minecraft.getInstance().font.lineHeight,this::renderModuleList);
+        var moduleList = new me.mrhakan.agalarhack.ui.hud.ModuleListHud();
+        register("modules", "Module List", moduleList::width, moduleList::height, moduleList::render);
         register("info","Info",()->150,()->48,this::renderInfo);
         register("target","Target HUD",()->155,()->120,this::renderTarget);
         textComponent("fps","FPS",()->"FPS "+Minecraft.getInstance().getFps());
@@ -92,36 +92,6 @@ public class Hud implements HudElement {
         int y = AgalarHackClient.HUD_LAYOUT.resolveY("branding", graphics.guiHeight(), font.lineHeight);
         graphics.text(font, AgalarHackClient.NAME, x, y, rainbow(0), true);
         graphics.text(font, AgalarHackClient.VERSION, x + font.width(AgalarHackClient.NAME) + 5, y, 0xFFFFFACD, true);
-    }
-
-    private void renderModuleList(GuiGraphicsExtractor graphics, Minecraft mc) {
-        if (!AgalarHackClient.HUD_LAYOUT.get("modules").visible) {
-            return;
-        }
-        Font font = mc.font;
-        List<Module> enabled = new ArrayList<>();
-        for (Module mod : AgalarHackClient.moduleManager.getModuleList()) {
-            if (mod.isToggled()) {
-                enabled.add(mod);
-            }
-        }
-        enabled.sort(new ModuleComparator());
-        if (enabled.isEmpty()) {
-            return;
-        }
-
-        int width = enabled.stream().mapToInt(mod -> font.width(mod.getDisplayName())).max().orElse(0);
-        int height = enabled.size() * font.lineHeight;
-        int x = AgalarHackClient.HUD_LAYOUT.resolveX("modules", graphics.guiWidth(), width);
-        int y = AgalarHackClient.HUD_LAYOUT.resolveY("modules", graphics.guiHeight(), height);
-
-        int counter = 1;
-        for (Module mod : enabled) {
-            String name = mod.getDisplayName();
-            graphics.text(font, name, x + width - font.width(name), y, rainbow(counter * 300), true);
-            y += font.lineHeight;
-            counter++;
-        }
     }
 
     private void renderInfo(GuiGraphicsExtractor graphics, Minecraft mc) {
