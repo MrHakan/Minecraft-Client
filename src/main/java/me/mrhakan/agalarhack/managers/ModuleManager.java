@@ -22,11 +22,13 @@ import me.mrhakan.agalarhack.module.movement.Flight;
 import me.mrhakan.agalarhack.module.player.AutoArmor;
 import me.mrhakan.agalarhack.module.player.AutoTotem;
 import me.mrhakan.agalarhack.module.player.AutoRefill;
+import me.mrhakan.agalarhack.module.player.ElytraInfo;
 import me.mrhakan.agalarhack.module.player.AutoRespawn;
 import me.mrhakan.agalarhack.module.player.AutoWeapon;
 import me.mrhakan.agalarhack.module.player.InventoryCleaner;
 import me.mrhakan.agalarhack.module.movement.Jesus;
 import me.mrhakan.agalarhack.module.movement.NoFall;
+import me.mrhakan.agalarhack.module.movement.Parkour;
 import me.mrhakan.agalarhack.module.movement.SafeWalk;
 import me.mrhakan.agalarhack.module.movement.Speed;
 import me.mrhakan.agalarhack.module.movement.Sprint;
@@ -75,6 +77,7 @@ public class ModuleManager {
         register(new Step());
         register(new NoFall());
         register(new SafeWalk());
+        register(new Parkour());
 
         register(new me.mrhakan.agalarhack.module.render.Notifications());
         register(new me.mrhakan.agalarhack.module.render.ModuleList());
@@ -103,6 +106,7 @@ public class ModuleManager {
         register(new AutoRefill());
         register(new AutoRespawn());
         register(new InventoryCleaner());
+        register(new ElytraInfo());
 
         register(new AutoTool());
     }
