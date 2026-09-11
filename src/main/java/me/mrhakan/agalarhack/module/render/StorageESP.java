@@ -31,6 +31,11 @@ public class StorageESP extends Module {
     private Iterator<BlockEntity> iterator;
     private boolean scanning;
     private EventBus.Subscription chunkUnload;
+    private EventBus.Subscription blockEntityLoad;
+    private EventBus.Subscription blockEntityUnload;
+    /** Published set; kept live between passes so a newly loaded chest shows up without a rescan. */
+    private final Set<BlockPos> live = new LinkedHashSet<>();
+    private boolean snapshotDirty;
 
     public StorageESP() {
         super("StorageESP", Category.RENDER, "Highlights loaded storage and utility block entities with bounded scans");
@@ -54,14 +59,41 @@ public class StorageESP extends Module {
     @Override
     public void onEnable() {
         reset();
-        if (chunkUnload != null) chunkUnload.close();
-        chunkUnload = service(EventBus.class).subscribe(ClientEvents.ChunkUnloaded.class, "storage-esp-cache", 0, event -> {
+        closeSubscriptions();
+        EventBus events = service(EventBus.class);
+        chunkUnload = events.subscribe(ClientEvents.ChunkUnloaded.class, "storage-esp-cache", 0, event -> {
             if (event.level() != mc.level) return;
             var chunk = event.chunk().getPos();
             passMatches.removeIf(pos -> inChunk(pos, chunk.x(), chunk.z()));
-            cachedPositions = cachedPositions.stream().filter(pos -> !inChunk(pos, chunk.x(), chunk.z())).toList();
+            if (live.removeIf(pos -> inChunk(pos, chunk.x(), chunk.z()))) snapshotDirty = true;
             if (activeChunk == event.chunk()) finishChunk();
         });
+        // Fabric reports block entities directly, so storage that appears or disappears between
+        // passes is tracked as it happens instead of waiting for the next full sweep.
+        blockEntityLoad = events.subscribe(ClientEvents.BlockEntityLoaded.class, "storage-esp-load", 0, event -> {
+            if (event.level() != mc.level || mc.player == null || signature.isEmpty()) return;
+            BlockPos pos = event.entity().getBlockPos();
+            if (!withinRange(pos) || live.size() >= maximumResults) return;
+            if (!matches(BuiltInRegistries.BLOCK.getKey(event.entity().getBlockState().getBlock()).toString())) return;
+            if (live.add(pos.immutable())) snapshotDirty = true;
+        });
+        blockEntityUnload = events.subscribe(ClientEvents.BlockEntityUnloaded.class, "storage-esp-unload", 0, event -> {
+            if (event.level() != mc.level) return;
+            if (live.remove(event.entity().getBlockPos())) snapshotDirty = true;
+        });
+    }
+
+    private boolean withinRange(BlockPos pos) {
+        double dx = pos.getX() + 0.5 - mc.player.getX();
+        double dy = pos.getY() + 0.5 - mc.player.getY();
+        double dz = pos.getZ() + 0.5 - mc.player.getZ();
+        return dx * dx + dy * dy + dz * dz <= range * (double) range;
+    }
+
+    private void closeSubscriptions() {
+        if (chunkUnload != null) { chunkUnload.close(); chunkUnload = null; }
+        if (blockEntityLoad != null) { blockEntityLoad.close(); blockEntityLoad = null; }
+        if (blockEntityUnload != null) { blockEntityUnload.close(); blockEntityUnload = null; }
     }
 
     @Override
@@ -92,7 +124,8 @@ public class StorageESP extends Module {
 
     private ScanScheduler.Result scanStep(ScanScheduler.Budget budget) {
         if (chunkIndex >= scanChunks.size() || passMatches.size() >= maximumResults) {
-            cachedPositions = List.copyOf(passMatches);
+            // A completed pass is authoritative and replaces whatever the live updates accumulated.
+            live.clear(); live.addAll(passMatches); snapshotDirty = true;
             passMatches.clear(); scanChunks = List.of();
             iterator = null; activeChunk = null; scanning = false;
             ticksUntilScan = Math.max(1, (int)Math.round(getNumberSetting("scanInterval", 10.0))) - 1;
@@ -138,16 +171,20 @@ public class StorageESP extends Module {
     private void finishChunk() { chunkIndex++; visitedInChunk = 0; iterator = null; activeChunk = null; }
     private void reset() {
         cachedPositions = List.of(); passMatches.clear(); scanChunks = List.of();
+        live.clear(); snapshotDirty = false;
         iterator = null; activeChunk = null; scanning = false;
         ticksUntilScan = 0; chunkIndex = 0; visitedInChunk = 0; signature = "";
     }
     @Override
     public void onDisable() {
         service(ScannerService.class).cancel(this);
-        if (chunkUnload != null) { chunkUnload.close(); chunkUnload = null; }
+        closeSubscriptions();
         reset();
     }
-    public List<BlockPos> getCachedPositions() { return cachedPositions; }
+    public List<BlockPos> getCachedPositions() {
+        if (snapshotDirty) { cachedPositions = List.copyOf(live); snapshotDirty = false; }
+        return cachedPositions;
+    }
     public boolean matches(String id) {
         return switch (StorageKind.of(id)) {
             case CHEST -> getBooleanSetting("chests", true);

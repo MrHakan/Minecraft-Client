@@ -22,6 +22,10 @@ public final class FabricEventBridge {
                 (level, chunk) -> bus.post(new ClientEvents.ChunkLoaded(level, chunk)));
         net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientChunkEvents.CHUNK_UNLOAD.register(
                 (level, chunk) -> bus.post(new ClientEvents.ChunkUnloaded(level, chunk)));
+        net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientBlockEntityEvents.BLOCK_ENTITY_LOAD.register(
+                (entity, level) -> bus.post(new ClientEvents.BlockEntityLoaded(level, entity)));
+        net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientBlockEntityEvents.BLOCK_ENTITY_UNLOAD.register(
+                (entity, level) -> bus.post(new ClientEvents.BlockEntityUnloaded(level, entity)));
         ClientEntityEvents.ENTITY_LOAD.register((entity, level) -> bus.post(new ClientEvents.EntityAdded(entity, level)));
         ClientEntityEvents.ENTITY_UNLOAD.register((entity, level) -> bus.post(new ClientEvents.EntityRemoved(entity, level)));
         LevelRenderEvents.COLLECT_SUBMITS.register(context -> bus.post(new ClientEvents.RenderSubmit(context)));

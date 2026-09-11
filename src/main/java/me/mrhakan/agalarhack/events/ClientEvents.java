@@ -35,6 +35,9 @@ public final class ClientEvents {
     /** A server-sent block change, posted after the world already holds the new state. */
     public record BlockUpdated(ClientLevel level, net.minecraft.core.BlockPos pos,
                                net.minecraft.world.level.block.state.BlockState state) { }
+    /** A block entity became available client-side; Fabric provides this hook directly. */
+    public record BlockEntityLoaded(ClientLevel level, net.minecraft.world.level.block.entity.BlockEntity entity) { }
+    public record BlockEntityUnloaded(ClientLevel level, net.minecraft.world.level.block.entity.BlockEntity entity) { }
     /** Too many changes arrived at once to report individually; treat the whole chunk as stale. */
     public record ChunkBlocksInvalidated(ClientLevel level, int chunkX, int chunkZ) { }
     public record EntityAdded(Entity entity, ClientLevel level) { }
