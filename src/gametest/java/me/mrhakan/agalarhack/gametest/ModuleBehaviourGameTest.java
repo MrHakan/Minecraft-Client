@@ -257,18 +257,29 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
      * to die. A test whose meaning depends on how fast the machine is has no meaning.
      */
     private BlockPos digPit(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        // Clean ground a fixed distance from the scene, not wherever the player happens to be.
+        // AutoWalk runs immediately before this and stops somewhere different every time, so the pit
+        // used to be dug on top of whatever TestScene had built there - and a chest or an ore block
+        // at the ledge gives the player a 0.6 step up and a completely different walk. That is the
+        // whole of the intermittent SafeWalk failure: roughly one run in ten the scenario was not
+        // testing the thing it describes.
+        BlockPos stand = sceneBase.offset(0, 0, -30);
+
+        // Moved and dug in two steps, with a wait between. Doing both in one server call wrote the
+        // pit into a chunk that was not loaded yet - fine on this machine, where the chunk was
+        // already there, and not on a runner, where it was not.
+        singleplayer.getServer().runOnServer(server -> {
+            ServerPlayer player = singleplayer.getConnection().getServerPlayer();
+            player.teleportTo(stand.getX() + 0.5, stand.getY(), stand.getZ() + 0.5);
+            player.setDeltaMovement(Vec3.ZERO);
+            player.fallDistance = 0;
+        });
+        singleplayer.getConnection().waitForChunksRender();
+        context.waitTicks(40);
+
         BlockPos dug = singleplayer.getServer().computeOnServer(server -> {
             ServerPlayer player = singleplayer.getConnection().getServerPlayer();
             ServerLevel level = player.level();
-            // Clean ground a fixed distance from the scene, not wherever the player happens to be.
-            // AutoWalk runs immediately before this and stops somewhere different every time, so the
-            // pit used to be dug on top of whatever TestScene had built there - and a chest or an
-            // ore block at the ledge gives the player a 0.6 step up and a completely different walk.
-            // That is the whole of the intermittent SafeWalk failure: roughly one run in ten the
-            // scenario was not testing the thing it describes.
-            BlockPos stand = sceneBase.offset(0, 0, -30);
-            player.teleportTo(stand.getX() + 0.5, stand.getY(), stand.getZ() + 0.5);
-            player.setDeltaMovement(Vec3.ZERO);
             for (int dx = 2; dx <= 6; dx++) {
                 for (int dz = -2; dz <= 2; dz++) {
                     level.setBlockAndUpdate(stand.offset(dx, -PIT_DEPTH - 1, dz), Blocks.STONE.defaultBlockState());
