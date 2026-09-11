@@ -33,7 +33,7 @@ public class ProfileScreen extends Screen implements me.mrhakan.agalarhack.ui.Cl
         int buttonWidth = 68, gap = 4, rowWidth = buttonWidth * 4 + gap * 3, x = center - rowWidth / 2;
         addRenderableWidget(Button.builder(Component.literal("Save"), b -> action("save")).bounds(x, 102, buttonWidth, 20).build());
         addRenderableWidget(Button.builder(Component.literal("Load"), b -> action("load")).bounds(x + 72, 102, buttonWidth, 20).build());
-        addRenderableWidget(Button.builder(Component.literal("Delete"), b -> action("delete")).bounds(x + 144, 102, buttonWidth, 20).build());
+        addRenderableWidget(Button.builder(Component.literal("Delete"), b -> confirmDelete()).bounds(x + 144, 102, buttonWidth, 20).build());
         addRenderableWidget(Button.builder(Component.literal("Bind"), b -> action("bind")).bounds(x + 216, 102, buttonWidth, 20).build());
         addRenderableWidget(Button.builder(Component.literal("Duplicate"), b -> action("duplicate")).bounds(x, 126, buttonWidth, 20).build());
         addRenderableWidget(Button.builder(Component.literal("Rename"), b -> action("rename")).bounds(x + 72, 126, buttonWidth, 20).build());
@@ -48,6 +48,26 @@ public class ProfileScreen extends Screen implements me.mrhakan.agalarhack.ui.Cl
         ClientUiTheme.backdrop(graphics, width, height);
         int panelWidth = Math.min(350, width - 24);
         ClientUiTheme.panel(graphics, (width - panelWidth) / 2, 30, panelWidth, Math.min(220, height - 68), false);
+    }
+
+    /**
+     * Delete sits between Load and Bind, both harmless, and removes the only copy of a profile.
+     * One misclick there is unrecoverable, so it asks first.
+     */
+    private void confirmDelete() {
+        String name = nameBox.getValue().trim();
+        if (name.isEmpty()) { feedback = "Enter a profile name first."; feedbackColor = ClientUiTheme.MUTED; return; }
+        if (!AgalarHackClient.PROFILES.exists(name)) {
+            feedback = "Profile not found: " + name;
+            feedbackColor = ClientUiTheme.MUTED;
+            return;
+        }
+        minecraft.gui.setScreen(new me.mrhakan.agalarhack.ui.components.ConfirmScreen(this,
+                "Delete profile " + name + "?",
+                List.of("Its settings, HUD layout and target policy are removed.",
+                        "Any server or dimension bound to it loses the binding.",
+                        "This cannot be undone."),
+                "Delete " + name, () -> action("delete")));
     }
 
     private void action(String action) {

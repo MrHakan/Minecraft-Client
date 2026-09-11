@@ -15,7 +15,7 @@ import net.minecraft.client.Minecraft;
 public class WaypointCommand extends Command {
     public WaypointCommand() {
         super("waypoint", "Saves and manages named positions",
-                "waypoint add <name> [x y z] | remove <name> | list | clear [all] | beam <name> | show <name> | hide <name> | color <name> <rrggbb>",
+                "waypoint add <name> [x y z] | remove <name> | list | clear [all confirm] | beam <name> | show <name> | hide <name> | color <name> <rrggbb>",
                 "wp");
     }
 
@@ -100,9 +100,27 @@ public class WaypointCommand extends Command {
         }
     }
 
+    /**
+     * Clearing every waypoint in every dimension is the one irreversible thing this command does, and
+     * the store is the only copy of positions someone spent real time collecting. It therefore needs
+     * the word {@code confirm} typed out — a chat command has no dialog to put a Cancel button in,
+     * and an extra word is the cheapest thing that cannot be done by reflex.
+     *
+     * <p>Clearing the current dimension only is left unconfirmed: it is the common, recoverable case,
+     * and asking every time would train people to type confirm without reading.
+     */
     private void clear(Minecraft client, WaypointService service, String[] args) {
-        boolean everywhere = args.length == 3 && args[2].equalsIgnoreCase("all");
-        if (args.length > 3 || (args.length == 3 && !everywhere)) { sendUsage(); return; }
+        boolean everywhere = args.length >= 3 && args[2].equalsIgnoreCase("all");
+        if (args.length > 4 || (args.length >= 3 && !everywhere)) { sendUsage(); return; }
+        if (everywhere) {
+            boolean confirmed = args.length == 4 && args[3].equalsIgnoreCase("confirm");
+            if (!confirmed) {
+                error("This removes every waypoint in every dimension and cannot be undone. "
+                        + "Type " + me.mrhakan.agalarhack.AgalarHackClient.prefix
+                        + "waypoint clear all confirm if you mean it.");
+                return;
+            }
+        }
         int removed = service.clear(everywhere ? null : Waypoints.currentDimension(client));
         ok("Removed " + removed + (everywhere ? " waypoints." : " waypoints in this dimension."));
     }
