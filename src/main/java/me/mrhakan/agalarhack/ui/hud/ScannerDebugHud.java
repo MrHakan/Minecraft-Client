@@ -26,14 +26,17 @@ public final class ScannerDebugHud {
     }
     private List<String> lines() {
         var usage = scanners.lastUsage();
+        // The live ceiling, not a constant: after the budget profile changed, a constant would print
+        // a limit nobody is enforcing.
+        var budgets = scanners.budgets();
         var block = modules.getModule("BlockESP");
         var storage = modules.getModule("StorageESP");
         int blockCount = block instanceof BlockESP esp ? esp.getMatches().size() : 0;
         int storageCount = storage instanceof StorageESP esp ? esp.getCachedPositions().size() : 0;
         return List.of("SCANNER DEBUG / last client tick",
-                "Block probes: " + usage.blocks() + " / " + ScannerService.BLOCK_BUDGET,
-                "Chunk lookups: " + usage.chunkLookups() + " / " + ScannerService.CHUNK_BUDGET,
-                "Entity checks: " + usage.entities() + " / " + ScannerService.ENTITY_BUDGET,
+                "Block probes: " + usage.blocks() + " / " + budgets.blocks(),
+                "Chunk lookups: " + usage.chunkLookups() + " / " + budgets.chunkLookups(),
+                "Entity checks: " + usage.entities() + " / " + budgets.entities(),
                 "Task steps: " + usage.steps() + " / 16384",
                 "Markers: block " + blockCount + " / storage " + storageCount,
                 String.format(Locale.ROOT, "Discovery elapsed: %.3f ms", scanners.lastElapsedNanos() / 1_000_000.0));

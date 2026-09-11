@@ -14,6 +14,7 @@ import me.mrhakan.agalarhack.module.combat.Aura;
 import me.mrhakan.agalarhack.module.combat.CombatHistory;
 import me.mrhakan.agalarhack.module.combat.TotemTracker;
 import me.mrhakan.agalarhack.module.combat.TriggerBot;
+import me.mrhakan.agalarhack.module.misc.Performance;
 import me.mrhakan.agalarhack.module.misc.AutoEat;
 import me.mrhakan.agalarhack.module.misc.AutoReconnect;
 import me.mrhakan.agalarhack.module.misc.ChatFilter;
@@ -72,6 +73,7 @@ public class ModuleManager {
         register(new AutoEat());
         register(new AutoReconnect());
         register(new ServerInfo());
+        register(new Performance());
         register(new ChatMentions());
         register(new ChatFilter());
 

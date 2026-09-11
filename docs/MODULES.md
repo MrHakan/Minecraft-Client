@@ -10,7 +10,7 @@ Every module also has the shared settings `enabled`, `keybind`, `keyModifiers`,
 **UNTESTED** marks a module that has never been exercised in a running game. It compiles and
 its logic is unit tested; nobody has confirmed it behaves correctly in Minecraft.
 
-48 modules across 6 categories; 26 marked UNTESTED.
+49 modules across 6 categories; 27 marked UNTESTED.
 
 ## Combat
 
@@ -129,6 +129,14 @@ Notifies when your name, a friend, or a keyword appears in chat
 | `sound` | `true` | `true/false or on/off` | Play the notification cue for mentions |
 | `soundVolume` | `0.6` | `0.05..1` | Mention cue volume |
 | `cooldown` | `1000` | `0..10000` | Milliseconds between mention notifications |
+
+### Performance — UNTESTED
+
+Sets the shared per-tick scanning ceiling every ESP scanner draws from
+
+| Setting | Default | Values | Description |
+| --- | --- | --- | --- |
+| `scanBudget` | `balanced` | `low\|balanced\|high` | Total scanning work allowed per client tick; balanced is what the client used before this was tunable |
 
 ### ServerInfo — UNTESTED
 
