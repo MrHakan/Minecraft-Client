@@ -32,6 +32,7 @@ public class ProjectileESP extends Module {
         addNumberSetting("red", 255.0, 0.0, 255.0, "Overlay red channel");
         addNumberSetting("green", 90.0, 0.0, 255.0, "Overlay green channel");
         addNumberSetting("blue", 90.0, 0.0, 255.0, "Overlay blue channel");
+        me.mrhakan.agalarhack.services.RainbowColors.registerSettings(this);
         addNumberSetting("alpha", 220.0, 32.0, 255.0, "Overlay alpha channel");
     }
 

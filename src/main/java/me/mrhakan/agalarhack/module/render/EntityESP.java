@@ -58,6 +58,7 @@ public class EntityESP extends Module {
         addNumberSetting("red", 85.0, 0.0, 255.0, "Default overlay red channel");
         addNumberSetting("green", 170.0, 0.0, 255.0, "Default overlay green channel");
         addNumberSetting("blue", 255.0, 0.0, 255.0, "Default overlay blue channel");
+        me.mrhakan.agalarhack.services.RainbowColors.registerSettings(this);
         addNumberSetting("alpha", 230.0, 32.0, 255.0, "Default overlay alpha channel");
     }
 }

@@ -177,7 +177,7 @@ public final class WorldOverlayRenderer {
     }
 
     private static int entityEspColor(Minecraft mc, Module esp, LivingEntity living) {
-        int rgb = rgb(esp.getNumberSetting("red", 85.0), esp.getNumberSetting("green", 170.0), esp.getNumberSetting("blue", 255.0));
+        int rgb = moduleRgb(esp, esp.getNumberSetting("red", 85.0), esp.getNumberSetting("green", 170.0), esp.getNumberSetting("blue", 255.0), 0.0);
         if (living instanceof Player) {
             boolean friend = AgalarHackClient.FRIEND_MANAGER.isFriend(living.getName().getString());
             if (friend && esp.getBooleanSetting("friendColors", true)) {
@@ -249,7 +249,7 @@ public final class WorldOverlayRenderer {
 
     private static void renderBlockEsp(Minecraft mc, BlockESP module, Vec3 camera, PoseStack.Pose pose, VertexConsumer buffer, ViewCulling culling) {
         double range = module.getNumberSetting("horizontalRange", 24.0);
-        int rgb = rgb(module.getNumberSetting("red", 255.0), module.getNumberSetting("green", 100.0), module.getNumberSetting("blue", 220.0));
+        int rgb = moduleRgb(module, module.getNumberSetting("red", 255.0), module.getNumberSetting("green", 100.0), module.getNumberSetting("blue", 220.0), 0.0);
         for (BlockPos pos : module.getMatches()) {
             if (!culling.isVisible(pos)) continue;
             if (!mc.level.hasChunk(pos.getX() >> 4, pos.getZ() >> 4)) continue;
@@ -297,8 +297,9 @@ public final class WorldOverlayRenderer {
 
     private static void renderProjectiles(me.mrhakan.agalarhack.module.render.ProjectileESP module,
             Vec3 camera, PoseStack.Pose pose, VertexConsumer buffer) {
-        int color = color(module.getNumberSetting("red", 255.0), module.getNumberSetting("green", 90.0),
-                module.getNumberSetting("blue", 90.0), module.getNumberSetting("alpha", 220.0));
+        int color = (clampChannel(module.getNumberSetting("alpha", 220.0)) << 24)
+                | moduleRgb(module, module.getNumberSetting("red", 255.0), module.getNumberSetting("green", 90.0),
+                        module.getNumberSetting("blue", 90.0), 0.0);
         boolean boxes = module.getBooleanSetting("boxes", true);
         boolean velocity = module.getBooleanSetting("velocity", true);
         double scale = module.getNumberSetting("velocityScale", 8.0);
@@ -325,14 +326,16 @@ public final class WorldOverlayRenderer {
             default -> 0.0;
         };
         int alpha = (int) Math.max(32, Math.min(255, module.getNumberSetting("alpha", 180.0))) << 24;
-        for (var entity : module.targets()) {
+        var drawn = module.targets();
+        for (int index = 0; index < drawn.size(); index++) {
+            var entity = drawn.get(index);
             if (!entity.isAlive()) continue;
             var group = me.mrhakan.agalarhack.module.render.Tracers.group(entity);
             if (!module.enabled(group)) continue;
             Vec3 center = entity.getBoundingBox().getCenter();
             line(buffer, pose, 0.0, originY, 0.0,
                     center.x - camera.x, center.y - camera.y, center.z - camera.z,
-                    alpha | module.colorFor(group));
+                    alpha | module.colorFor(group, index / (double) Math.max(1, drawn.size())));
         }
     }
 
@@ -340,13 +343,15 @@ public final class WorldOverlayRenderer {
             Vec3 camera, PoseStack.Pose pose, VertexConsumer buffer) {
         var points = module.points();
         if (points.size() < 2) return;
-        int rgb = rgb(module.getNumberSetting("red", 120.0), module.getNumberSetting("green", 220.0),
-                module.getNumberSetting("blue", 255.0));
         int maxAlpha = (int) Math.max(32, Math.min(255, module.getNumberSetting("alpha", 200.0)));
         boolean fade = module.getBooleanSetting("fade", true);
         for (int index = 1; index < points.size(); index++) {
             var from = points.get(index - 1);
             var to = points.get(index);
+            // Spread along the cycle by position in the trail: without the offset every segment is
+            // the same colour at the same moment and the rainbow reads as a flashing line.
+            int rgb = moduleRgb(module, module.getNumberSetting("red", 120.0), module.getNumberSetting("green", 220.0),
+                    module.getNumberSetting("blue", 255.0), index / (double) points.size());
             // Older segments sit nearer the start of the list, so fade by position in the trail.
             int alpha = fade ? Math.max(16, (int) (maxAlpha * (index / (double) points.size()))) : maxAlpha;
             line(buffer, pose,
@@ -383,8 +388,8 @@ public final class WorldOverlayRenderer {
             net.minecraft.world.entity.item.ItemEntity drop) {
         return module.getBooleanSetting("rarityColors", true)
                 ? me.mrhakan.agalarhack.module.render.ItemESP.rarityRgb(drop.getItem().getRarity())
-                : rgb(module.getNumberSetting("red", 255.0), module.getNumberSetting("green", 220.0),
-                        module.getNumberSetting("blue", 60.0));
+                : moduleRgb(module, module.getNumberSetting("red", 255.0), module.getNumberSetting("green", 220.0),
+                        module.getNumberSetting("blue", 60.0), 0.0);
     }
 
     private static void renderItemEsp(Minecraft mc, me.mrhakan.agalarhack.module.render.ItemESP module,
@@ -518,7 +523,8 @@ public final class WorldOverlayRenderer {
         int steps = (int) Math.round(module.getNumberSetting("steps", 100.0));
         boolean collisionEnabled = module.getBooleanSetting("collision", true);
         boolean landingMarker = module.getBooleanSetting("landingMarker", true);
-        int color = color(module.getNumberSetting("red", 255.0), module.getNumberSetting("green", 220.0), module.getNumberSetting("blue", 80.0), 240.0);
+        int color = (clampChannel(240.0) << 24) | moduleRgb(module, module.getNumberSetting("red", 255.0),
+                module.getNumberSetting("green", 220.0), module.getNumberSetting("blue", 80.0), 0.0);
 
         for (int i = 0; i < steps; i++) {
             // Stepping is the shared simulator; only collision stays here, because it needs the world.
@@ -686,6 +692,19 @@ public final class WorldOverlayRenderer {
         if (len > 0.0001f) { nx /= len; ny /= len; nz /= len; }
         buffer.addVertex(pose, (float) ax, (float) ay, (float) az).setColor(r, g, b, a).setNormal(pose, nx, ny, nz).setLineWidth(1.0f);
         buffer.addVertex(pose, (float) bx, (float) by, (float) bz).setColor(r, g, b, a).setNormal(pose, nx, ny, nz).setLineWidth(1.0f);
+    }
+
+    /**
+     * The module's configured colour, cycling through the hues when it asked to.
+     *
+     * <p>{@code nanoTime} rather than wall-clock time: a clock adjustment mid-session would make the
+     * cycle jump, and nothing here needs to agree with any other machine. The phase lets one trail
+     * or one set of tracers spread along the cycle instead of every segment flashing together.
+     */
+    private static int moduleRgb(Module module, double red, double green, double blue, double phase) {
+        int base = rgb(red, green, blue);
+        if (!me.mrhakan.agalarhack.services.RainbowColors.enabled(module)) return base;
+        return me.mrhakan.agalarhack.services.RainbowColors.cycle(module, System.nanoTime() / 1_000_000L, base, phase);
     }
 
     private static int rgb(double red, double green, double blue) {

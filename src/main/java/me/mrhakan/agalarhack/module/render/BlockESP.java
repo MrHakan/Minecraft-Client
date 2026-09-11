@@ -63,6 +63,7 @@ public class BlockESP extends Module {
         addNumberSetting("red", 255.0, 0.0, 255.0, "Block overlay red channel");
         addNumberSetting("green", 100.0, 0.0, 255.0, "Block overlay green channel");
         addNumberSetting("blue", 220.0, 0.0, 255.0, "Block overlay blue channel");
+        me.mrhakan.agalarhack.services.RainbowColors.registerSettings(this);
         addNumberSetting("alpha", 220.0, 32.0, 255.0, "Block overlay alpha channel");
     }
 

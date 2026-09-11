@@ -43,6 +43,7 @@ public class Tracers extends Module {
         addNumberSetting("red", 255.0, 0.0, 255.0, "Fixed tracer red channel");
         addNumberSetting("green", 255.0, 0.0, 255.0, "Fixed tracer green channel");
         addNumberSetting("blue", 255.0, 0.0, 255.0, "Fixed tracer blue channel");
+        me.mrhakan.agalarhack.services.RainbowColors.registerSettings(this);
         addNumberSetting("alpha", 180.0, 32.0, 255.0, "Tracer alpha channel");
     }
 
@@ -92,6 +93,16 @@ public class Tracers extends Module {
     }
 
     /** Group colours reuse familiar conventions: friends green, hostiles red, items yellow. */
+    /**
+     * @param phase where along the rainbow cycle this line sits, so a screen of tracers spreads
+     *              across the hues instead of flashing in unison; ignored unless rainbow is on
+     */
+    public int colorFor(Group group, double phase) {
+        int base = colorFor(group);
+        if (!me.mrhakan.agalarhack.services.RainbowColors.enabled(this)) return base;
+        return me.mrhakan.agalarhack.services.RainbowColors.cycle(this, System.nanoTime() / 1_000_000L, base, phase);
+    }
+
     public int colorFor(Group group) {
         if (!getBooleanSetting("perGroupColors", true)) {
             return ((int) getNumberSetting("red", 255) << 16)

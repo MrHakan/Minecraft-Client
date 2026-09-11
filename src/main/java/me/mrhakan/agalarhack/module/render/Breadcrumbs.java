@@ -24,6 +24,7 @@ public class Breadcrumbs extends Module {
         addNumberSetting("red", 120.0, 0.0, 255.0, "Trail red channel");
         addNumberSetting("green", 220.0, 0.0, 255.0, "Trail green channel");
         addNumberSetting("blue", 255.0, 0.0, 255.0, "Trail blue channel");
+        me.mrhakan.agalarhack.services.RainbowColors.registerSettings(this);
         addNumberSetting("alpha", 200.0, 32.0, 255.0, "Trail alpha channel");
         addBooleanSetting("fade", true, "Fade older points");
     }

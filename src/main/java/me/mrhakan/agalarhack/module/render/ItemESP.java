@@ -36,6 +36,7 @@ public class ItemESP extends Module {
         addNumberSetting("red", 255.0, 0.0, 255.0, "Fixed overlay red channel");
         addNumberSetting("green", 220.0, 0.0, 255.0, "Fixed overlay green channel");
         addNumberSetting("blue", 60.0, 0.0, 255.0, "Fixed overlay blue channel");
+        me.mrhakan.agalarhack.services.RainbowColors.registerSettings(this);
         addNumberSetting("alpha", 220.0, 32.0, 255.0, "Overlay alpha channel");
     }
 

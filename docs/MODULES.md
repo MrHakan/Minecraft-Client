@@ -358,6 +358,8 @@ Incrementally highlights selected loaded block categories without frame-time bru
 | `red` | `255` | `0..255` | Block overlay red channel |
 | `green` | `100` | `0..255` | Block overlay green channel |
 | `blue` | `220` | `0..255` | Block overlay blue channel |
+| `rainbow` | `false` | `true/false or on/off` | Cycle this module's colour through the hues |
+| `rainbowSeconds` | `4` | `0.5..60` | Seconds for one full colour cycle |
 | `alpha` | `220` | `32..255` | Block overlay alpha channel |
 
 ### Breadcrumbs — UNTESTED
@@ -372,6 +374,8 @@ Records and draws the path you have walked
 | `red` | `120` | `0..255` | Trail red channel |
 | `green` | `220` | `0..255` | Trail green channel |
 | `blue` | `255` | `0..255` | Trail blue channel |
+| `rainbow` | `false` | `true/false or on/off` | Cycle this module's colour through the hues |
+| `rainbowSeconds` | `4` | `0.5..60` | Seconds for one full colour cycle |
 | `alpha` | `200` | `32..255` | Trail alpha channel |
 | `fade` | `true` | `true/false or on/off` | Fade older points |
 
@@ -434,6 +438,8 @@ Draws configurable boxes, tracers and labels around valid living entities
 | `red` | `85` | `0..255` | Default overlay red channel |
 | `green` | `170` | `0..255` | Default overlay green channel |
 | `blue` | `255` | `0..255` | Default overlay blue channel |
+| `rainbow` | `false` | `true/false or on/off` | Cycle this module's colour through the hues |
+| `rainbowSeconds` | `4` | `0.5..60` | Seconds for one full colour cycle |
 | `alpha` | `230` | `32..255` | Default overlay alpha channel |
 
 ### Freecam
@@ -490,6 +496,8 @@ Highlights dropped items with optional name, count and rarity colouring
 | `red` | `255` | `0..255` | Fixed overlay red channel |
 | `green` | `220` | `0..255` | Fixed overlay green channel |
 | `blue` | `60` | `0..255` | Fixed overlay blue channel |
+| `rainbow` | `false` | `true/false or on/off` | Cycle this module's colour through the hues |
+| `rainbowSeconds` | `4` | `0.5..60` | Seconds for one full colour cycle |
 | `alpha` | `220` | `32..255` | Overlay alpha channel |
 
 ### ModuleList
@@ -557,6 +565,8 @@ Highlights projectiles in flight with their direction of travel
 | `red` | `255` | `0..255` | Overlay red channel |
 | `green` | `90` | `0..255` | Overlay green channel |
 | `blue` | `90` | `0..255` | Overlay blue channel |
+| `rainbow` | `false` | `true/false or on/off` | Cycle this module's colour through the hues |
+| `rainbowSeconds` | `4` | `0.5..60` | Seconds for one full colour cycle |
 | `alpha` | `220` | `32..255` | Overlay alpha channel |
 
 ### ProjectileWarning — UNTESTED
@@ -639,6 +649,8 @@ Draws lines toward chosen entity groups, independent of ESP filters
 | `red` | `255` | `0..255` | Fixed tracer red channel |
 | `green` | `255` | `0..255` | Fixed tracer green channel |
 | `blue` | `255` | `0..255` | Fixed tracer blue channel |
+| `rainbow` | `false` | `true/false or on/off` | Cycle this module's colour through the hues |
+| `rainbowSeconds` | `4` | `0.5..60` | Seconds for one full colour cycle |
 | `alpha` | `180` | `32..255` | Tracer alpha channel |
 
 ### Trajectories
@@ -660,6 +672,8 @@ Predicts held projectile flight paths using vanilla-aware launch physics
 | `red` | `255` | `0..255` | Path red channel |
 | `green` | `220` | `0..255` | Path green channel |
 | `blue` | `80` | `0..255` | Path blue channel |
+| `rainbow` | `false` | `true/false or on/off` | Cycle this module's colour through the hues |
+| `rainbowSeconds` | `4` | `0.5..60` | Seconds for one full colour cycle |
 
 ### Waypoints — UNTESTED
 
