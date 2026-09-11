@@ -226,8 +226,8 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 37 | AutoFish | Implemented over `BobberBite`, which infers a bite from the bobber's **visible downward motion** - the nibble counter is server-side and private. Use is pulsed for one tick through the hotbar lease, and a pending action is cancelled when the world stops agreeing with it |
 | 38 | AutoWalk | Implemented over a shared input-override helper: adds a key press without ever taking one away, pauses on a screen and stands itself down after sustained collision |
 | 39 | AutoRespawn | Implemented with a configurable delay. The death waypoint deliberately lives on the Waypoints module instead, since it is useful whether or not you respawn automatically |
-| 40 | AutoAccept | Not started; explicitly opt-in local requests only |
-| 41 | Use tweaks | Not started; bounded, no packet spam |
+| 40 | AutoAccept | Implemented over `RequestMatcher`, built to be hard to abuse: **every** configured phrase must appear (one phrase is a trap), the requester must be a listed name matched whole-word, the reply must be a command the player typed, a crafted name cannot turn one reply into two, and everything is empty by default |
+| 41 | Use tweaks | **Deliberately skipped.** The additive half - hold use for a chosen item category - is what holding the key already does and duplicates AutoEat, which is the meaningless-variant case the brief rules out. The valuable half - release at full bow charge, stop eating at full hunger - requires taking a key away from the player, which this client has an explicit rule against (see `PlayerInputOverrides`); AutoEat's own `fillToFull` already covers the eating case from inside its lease. Revisit only with a tweak that is additive and not already covered |
 | 42 | Inventory HUD | Implemented: worn equipment row plus the 27 storage slots, with vanilla's own `itemDecorations` so counts, durability bars and cooldowns match the real screen. The hotbar stays absent because vanilla already draws it |
 | 43 | SafeWalk | Implemented by reusing vanilla's sneak-edge check through a client-only mixin |
 | 44 | Parkour | Implemented conservatively; stands down while SafeWalk is on |
@@ -237,13 +237,13 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 48 | Aura improvements | Implemented: `TargetRotation` holds a chosen target through a configurable switch delay so nearly equal targets stop flipping and discarding attack charge, switches immediately when the target is genuinely lost, and spreads attacks round-robin across N targets advancing on landed hits |
 | 49 | TriggerBot improvements | Implemented: weapon requirement by item tag, an optional critical-hit wait using 26.2's own rule (`CriticalHits`), and a deterministic reaction delay (`DwellGate`) so sweeping the crosshair past something does not attack it |
 | 50 | AutoWeapon | Implemented on the hotbar lease above AutoTool, using scoring and the damage-family tags |
-| 51 | Critical information | Not started; no packet exploit chains |
+| 51 | Critical information | Implemented as `CritInfo`: attack charge and crit readiness from the client's own player state, reusing `CriticalHits`. Informational only - it changes nothing, sends nothing and touches no input |
 | 52 | Totem tracker | Implemented from observed EntityEvent.PROTECTED_FROM_DEATH; resets on death/timeout, labelled "(seen)" |
 | 53 | BaseFinder | Implemented over StorageESP's existing results with single-link clustering; opens no scan of its own and says "likely" |
 | 54 | NewChunks | **Deliberately not implemented.** The usual detection infers server-side chunk generation from packet artefacts, which is exactly the server-hidden inference this client refuses elsewhere (TPS, totems, BaseFinder). No honest client-side signal was found that is also version-safe, and none could be verified without running the game. Revisit only with a signal that can be stated truthfully |
 | 55 | Light/spawn visualization | Implemented as SpawnESP over light levels only; deliberately does not model biome/mob/cap rules and says so |
 | 56 | HoleESP | Implemented: safe vs unsafe by real explosion resistance, bounded shared-cursor scan, block-update invalidation |
-| 57 | Portal/gateway finder | Partial existing BlockESP portal filter; reuse this infrastructure |
+| 57 | Portal/gateway finder | Implemented: BlockESP still highlights portal blocks, and `.portal` answers the part highlighting cannot - where to build on the other side so a pair links, with the linking search radius and an optional waypoint placed in the target dimension |
 | 58 | BetterChat | Partial: local-only phrase filtering via ChatFilter. Timestamps, highlighting and duplicate compaction need a chat-rendering mixin Fabric does not replace |
 | 59 | Chat mentions | Implemented: whole-word own-name/friend/keyword matching with notification and optional sound |
 | 60 | Translator architecture | Optional, not started; core operation must not depend on cloud API |
@@ -262,18 +262,18 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 73 | Addon template repo | Not created; create MrHakan/AgalarHack-Addon-Template only after API stability |
 | 74 | Baritone | **Deliberately deferred.** Baritone has no 26.2 build, so any bridge would be unverifiable, and the obvious shortcut - sending `#goto` through `sendChat` - leaks the command to public chat whenever Baritone is absent or its prefix is off. Revisit when a 26.2 Baritone exists and its API can actually be called |
 | 75 | Localization | Partial: `Translations` with English fallback, `en_us`/`tr_tr`, ClickGUI labels translated. Module names/descriptions and command output remain English |
-| 76 | Accessibility | Partial keyboard controls, paginated themes, high contrast/reduced motion; full legacy color migration, UI scale/text/colorblind/blur controls pending |
+| 76 | Accessibility | Partial: keyboard controls, paginated themes, high contrast/reduced motion, two colourblind presets, and a WCAG contrast guard that raises text a picked or imported theme made unreadable. UI scale, text size and blur controls still pending |
 | 77 | Unified scheduler | Implemented: all nine scanning modules go through it, and the shared per-tick ceiling is now tunable through `ScanBudgets` and the Performance module. Balanced reproduces the previous constants exactly |
 | 78 | Chunk result cache | Implemented for BlockESP: bounded LRU clean-chunk cache with block-update, unload, anchor and filter invalidation. Other scanners still sweep |
 | 79 | Render culling | Implemented: box overlays test the frustum the game already built, in world space. Tracers and breadcrumbs are deliberately exempt and a test enforces that. Safe because it is view-volume, not occlusion, culling - the overlays draw through walls on purpose |
 | 80 | Performance HUD | Implemented: `ModuleTimings` ranks per-module tick cost over a rolling window, in a hidden-by-default widget. Measurement is self-expiring rather than a setting, and a module that stops ticking is dropped rather than frozen on screen |
-| 81 | Unit tests | 514 tests; adds block-update batching, chunk cache eviction, cursor completion, id-list parsing, notification sinks, waypoint normalisation/persistence and compass bearings; trajectory and fade coverage pending |
+| 81 | Unit tests | 548 tests; adds block-update batching, chunk cache eviction, cursor completion, id-list parsing, notification sinks, waypoint normalisation/persistence and compass bearings; trajectory and fade coverage pending |
 | 82 | Integration smoke tests | Partial: the client now boots headless under xvfb/llvmpipe and all six mixin injections are verified applied in the transformed bytecode. No gameplay was exercised; behaviour checks remain manual |
 | 83 | Lifecycle audit | Partial code audit/restoration; all listed state-changing modules need in-game transition checks |
 | 84 | Error reporting | Partial logger/module/render/scanner isolation; guarded HUD measurements/renderers with notices and retry; remaining boundaries need review |
 | 85 | Structured logging | Implemented SLF4J replacement for raw stderr. One `System.out.println` survived in the profile auto-load path and has now been replaced; the rest of the audit remains |
 | 86 | Module documentation | Implemented: `docs/MODULES.md` is generated from the live settings registry and a test fails when it and the code disagree, rewriting the file as it fails |
-| 87 | Experimental flags | Implemented: `markExperimental()` plus an UNTESTED badge in the ClickGUI, applied to all 28 modules added here and surfaced in the generated module reference; a source-level test stops a new module shipping unmarked |
+| 87 | Experimental flags | Implemented: `markExperimental()` plus an UNTESTED badge in the ClickGUI, applied to all 31 modules added here and surfaced in the generated module reference; a source-level test stops a new module shipping unmarked |
 
 ## Recommended next development batch
 
@@ -651,6 +651,32 @@ bindings are checked after server bindings so the more specific one wins. Two fi
 a `System.out.println` in the auto-load path, and an auto-load failure that could propagate out of
 `tick()` and break joining a world.
 
+## Latest continuation: crits, portals, requests and contrast
+
+Five topic commits.
+
+**CritInfo** (51). Attack charge and crit readiness from the client's own player state, reusing
+`CriticalHits` rather than restating the rule — one place that has to stay correct against the game,
+not two. Informational only: no input, no packets.
+
+**`.portal`** (57). BlockESP already highlighted portal blocks; this answers the question
+highlighting cannot. Division rounds toward zero because that is what the game does, and being one
+block off near an axis is worse than saying nothing. The end returns nothing rather than a 1:1 ratio,
+because end portals do not pair by coordinate and a ratio would imply they do.
+
+**AutoAccept** (40). Built to be hard to abuse rather than convenient, because an automatic reply is
+a decision taken from text an arbitrary player can influence. Every phrase must match, not any;
+friends only by default; replies must be commands; a newline in a crafted name cannot turn one
+command into two; everything empty by default.
+
+**Contrast guard** (76). `ContrastRules` with the WCAG formula. Body text to AA, accent and status
+colours to the large-text ratio so themes keep their identity. Default on, including for older theme
+files, because the only themes it changes are ones that were already too faint.
+
+**Use tweaks (41) deliberately skipped**, with the reasoning recorded in the roadmap table: the
+additive half duplicates AutoEat and the valuable half requires taking a key away from the player,
+which `PlayerInputOverrides` establishes as something this client does not do.
+
 ## Validation and source references
 
 Canonical command: **`./gradlew build --stacktrace` with JDK 25**.
@@ -757,6 +783,19 @@ Fabric's 26.2 `ClientChunkCacheMixin`. Do not reintroduce 1.20/1.21 examples bli
   and closing the inventory mid-swap, during death/respawn and dimension changes, and while AutoEat/AutoTool are
   also active. Confirm no item is ever left on the cursor, that AutoTotem preempts AutoArmor, that a popped totem
   cancels the pending restore, and that a renamed armour piece is never auto-equipped by default.
+
+### Manual acceptance for the crit, portal, request and contrast batch
+
+- CritInfo: jump and confirm it reads CRIT only while falling and not sprinting; confirm the charge
+  percentage tracks the vanilla crosshair indicator.
+- `.portal`: stand in the overworld and check the nether figure against actually building there;
+  repeat from the nether. Confirm the waypoint lands in the other dimension and is visible on arrival.
+- AutoAccept: configure phrases and a reply, have a friend send a request and confirm one command is
+  sent; have a non-friend send the same line and confirm nothing happens; say the phrase yourself and
+  confirm nothing happens; repeat quickly and confirm the cooldown holds.
+- Contrast guard: pick a deliberately bad theme (dark grey text on a dark panel) and confirm the text
+  becomes readable without losing the theme's colour; turn the guard off and confirm the original
+  returns. Check both colourblind presets for on/off states being distinguishable.
 
 ### Manual acceptance for the fishing, face and profile batch
 
