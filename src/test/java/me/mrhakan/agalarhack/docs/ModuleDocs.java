@@ -78,7 +78,7 @@ public final class ModuleDocs {
         page.append("\n### ").append(module.getName());
         if (module.isExperimental()) page.append(" — UNTESTED");
         page.append("\n\n");
-        String description = module.getDescription();
+        String description = module.rawDescription();
         page.append(description == null || description.isBlank() ? "_No description._" : description).append("\n");
 
         List<Settings.SettingSpec> specs = module.settings.getSpecs().stream()

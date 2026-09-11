@@ -203,7 +203,25 @@ public class Module {
 		this.name = name;
 	}
 
+	/**
+	 * The description a player reads, translated when a translation exists.
+	 *
+	 * <p>Keyed by the module's name, which is stable because the name is also the identifier used by
+	 * commands and the config. A missing translation renders the English text passed to the
+	 * constructor, so this is safe to translate one module at a time.
+	 */
 	public String getDescription() {
+		return me.mrhakan.agalarhack.services.Translations.string(
+				"module." + name.toLowerCase(java.util.Locale.ROOT) + ".description", description);
+	}
+
+	/**
+	 * The untranslated English text.
+	 *
+	 * <p>Used by the generated module reference, which must read the same on every machine: a page
+	 * regenerated on a Turkish client would otherwise come out half-translated and fail its guard.
+	 */
+	public String rawDescription() {
 		return description;
 	}
 
