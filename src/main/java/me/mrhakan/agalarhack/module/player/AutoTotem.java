@@ -65,7 +65,9 @@ public class AutoTotem extends Module {
         setDisplayName("AutoTotem [" + (available + (holding ? 1 : 0)) + "]");
         warnIfEmpty(available, holding);
 
-        if (transfers.busy()) return;
+        // Deliberately not gated on transfers.busy(): AutoTotem outranks AutoArmor and is allowed to
+        // take the channel from it. The controller rejects self-preemption, so an in-flight totem
+        // swap still completes untouched.
         if (cooldown > 0) { cooldown--; return; }
 
         boolean wanted = wantsTotem();

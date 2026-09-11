@@ -51,6 +51,19 @@ public final class ContainerTransferController {
         this.actions = Objects.requireNonNull(actions);
     }
 
+    /**
+     * Whether {@code owner} may take the channel now.
+     *
+     * <p>Callers reach this only with an empty cursor, which is what makes handing the channel over
+     * safe: every click boundary with nothing carried leaves the inventory in a consistent state, so
+     * an abandoned plan cannot strand a stack. A plan that is still holding a carried item therefore
+     * never reports an empty cursor and cannot be preempted, and an owner can never preempt itself.
+     */
+    private boolean canPreempt(String owner, int priority) {
+        if (busy() && !(priority > this.priority && !recovering)) return false;
+        return actions.claimContainer(owner, priority);
+    }
+
     /** Ticks between clicks. One tick is already slower than a player's hand. */
     public void setDelay(int ticks) { this.delay = Math.max(0, Math.min(20, ticks)); }
 
@@ -63,9 +76,8 @@ public final class ContainerTransferController {
      */
     public boolean begin(String owner, int priority, int[] menuSlots) {
         if (owner == null || owner.isBlank() || menuSlots == null || menuSlots.length == 0 || menuSlots.length > MAX_PLAN) return false;
-        if (busy()) return false;
         if (!controls.ready() || !controls.cursorEmpty()) return false;
-        if (!actions.claimContainer(owner, priority)) return false;
+        if (!canPreempt(owner, priority)) return false;
         this.owner = owner;
         this.priority = priority;
         this.plan = menuSlots.clone();
@@ -81,8 +93,9 @@ public final class ContainerTransferController {
      */
     public boolean swapHotbar(String owner, int priority, int menuSlot, int hotbarIndex) {
         if (owner == null || owner.isBlank() || hotbarIndex < 0 || hotbarIndex >= InventoryTransfers.HOTBAR_SIZE) return false;
-        if (busy() || !controls.ready() || !controls.cursorEmpty()) return false;
-        if (!actions.claimContainer(owner, priority)) return false;
+        if (!controls.ready() || !controls.cursorEmpty()) return false;
+        if (!canPreempt(owner, priority)) return false;
+        finish();
         controls.swap(menuSlot, hotbarIndex);
         return true;
     }

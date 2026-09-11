@@ -45,7 +45,8 @@ public class AutoArmor extends Module {
         InventoryService inventory = service(InventoryService.class);
         var transfers = inventory.transfers();
         if (mc.player == null || mc.level == null || mc.gui.screen() != null) return;
-        // A plan already in flight, or a stack still being put back, owns the rest of this tick.
+        // AutoArmor holds the lowest container priority, so it never tries to take the channel from
+        // another module; it simply waits. This also keeps its per-slot candidate scan off the hot path.
         if (transfers.busy()) return;
         if (cooldown > 0) { cooldown--; return; }
 

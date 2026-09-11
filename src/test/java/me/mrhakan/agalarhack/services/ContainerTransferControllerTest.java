@@ -66,10 +66,55 @@ class ContainerTransferControllerTest {
         assertFalse(controller.begin("autoarmor", 50, new int[] { 10, 6 }));
     }
 
-    @Test void onlyOneOwnerHoldsTheChannel() {
+    @Test void anEqualOrLowerPriorityOwnerCannotTakeTheChannel() {
         var controls = new FakeControls();
         var controller = controller(controls);
-        assertTrue(controller.begin("autoarmor", 50, new int[] { 10, 6 }));
+        assertTrue(controller.begin("autototem", 90, new int[] { 11, 45 }));
+        assertFalse(controller.begin("autoarmor", 50, new int[] { 10, 6 }));
+        assertFalse(controller.begin("other", 90, new int[] { 10, 6 }));
+    }
+
+    @Test void aHigherPriorityOwnerPreemptsAnIdleCursorPlan() {
+        var controls = new FakeControls();
+        var controller = controller(controls);
+        assertTrue(controller.begin("autoarmor", 50, InventoryTransfers.equipPlan(10, 6)));
+        assertTrue(controller.begin("autototem", 90, new int[] { 11, 45 }));
+        assertTrue(controller.owns("autototem"));
+        controller.tick(); controller.tick();
+        assertEquals(List.of("pickup:11", "pickup:45"), controls.clicks);
+    }
+
+    @Test void preemptionNeverStrandsACarriedStack() {
+        var controls = new FakeControls();
+        var controller = controller(controls);
+        assertTrue(controller.begin("autoarmor", 50, InventoryTransfers.equipPlan(10, 6)));
+        controller.tick();
+        controls.cursorEmpty = false;
+        assertFalse(controller.begin("autototem", 90, new int[] { 11, 45 }));
+        assertFalse(controller.swapHotbar("autototem", 90, InventoryTransfers.MENU_OFFHAND, 2));
+        assertTrue(controller.owns("autoarmor"));
+    }
+
+    @Test void aModuleCannotPreemptItself() {
+        var controls = new FakeControls();
+        var controller = controller(controls);
+        assertTrue(controller.begin("autototem", 90, InventoryTransfers.equipPlan(11, 45)));
+        controller.tick();
+        assertFalse(controller.begin("autototem", 90, InventoryTransfers.equipPlan(12, 45)));
+        controller.tick(); controller.tick();
+        assertEquals(List.of("pickup:11", "pickup:45", "pickup:11"), controls.clicks);
+    }
+
+    @Test void recoveringOwnershipIsNeverPreempted() {
+        var controls = new FakeControls();
+        controls.freeSlot = -1;
+        var controller = controller(controls);
+        assertTrue(controller.begin("autoarmor", 50, new int[] { 10 }));
+        controller.tick();
+        controls.cursorEmpty = false;
+        controller.tick();
+        assertTrue(controller.recovering());
+        controls.cursorEmpty = true;
         assertFalse(controller.begin("autototem", 90, new int[] { 11, 45 }));
     }
 
