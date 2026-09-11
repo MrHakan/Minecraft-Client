@@ -948,6 +948,38 @@ would move the picture on its own, so `stillSceneWithHole` discards every non-pl
 honest limit before clearing anything on this basis - it shows a module *draws something*, not that it
 draws the right thing.
 
+**Build scenery only after the player is standing there and the chunks have loaded.** Writing blocks
+or spawning entities into a chunk the server has not loaded does nothing at all, silently, and the
+scenario then measures an empty field and blames the module. This was made four separate times: the
+SafeWalk pit (which is what turned CI red twice), the tracer target, the hole, and AutoWeapon's
+armour stand. Teleport, `waitForChunksRender()`, wait ~40 ticks, *then* build. It is worth a helper.
+
+### Tracers and Nametags: what is known, for whoever picks them up
+
+Both were built and then taken back out, because they were not passing and should never have been
+committed in that state. The scenario is recoverable from commit `e1c0b74`. What it cost to learn:
+
+* An **armour stand does qualify** as a Tracers target - `group()` files any `LivingEntity` that is
+  not a player or item as `PASSIVE`. My first reading said otherwise and was wrong.
+* An **invisible entity is never offered** to these overlays, so `setInvisible(true)` to stop a
+  model animating takes the target count to zero instead.
+* A pig with `setNoAi(true)` still animates, and close up that animation is the largest thing in the
+  frame - noise floor 0.34 on one run and 1.10 on the next. At 30 blocks it is a few pixels and the
+  floor is 0.000, which is the framing to use.
+* Tracers' `origin` defaults to **center**. Aim at the target with that default and the line runs
+  from the middle of the screen to the middle of the screen: no length, no signal. Set `origin` to
+  `bottom`.
+* `lookAt(pos.above())` on an armour stand sends the ray **over its head** - it is just under two
+  blocks tall - and the hit comes back a miss, which reads like a module ignoring the target.
+
+With all of that right, the measurements were: HoleESP mean 1.334 / 1528 changed pixels, Tracers
+0.102 / 108, Nametags 0.013 / 27, each against a noise floor of exactly zero. So all three do draw.
+The open question is the threshold. A mean floor of 0.5 was picked from HoleESP's box and wrongly
+rejects a one-pixel tracer line; counting changed pixels is the better metric, but 27 pixels for a
+distant nametag is thin enough that any floor clearing it looks chosen to clear it. Frame the tag
+larger - closer target, aimed so the animating body falls outside the measured crop - rather than
+lowering the bar to fit.
+
 Three rules the HoleESP scenario paid for, all of them ways to read a number that means nothing:
 
 * **Measure noise and signal over the same number of ticks.** Anything drifting with time scales with
