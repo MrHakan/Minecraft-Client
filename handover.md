@@ -835,6 +835,14 @@ The script checks four things, in the order they can fail:
 The manual procedure in `docs/RUNTIME_MIXIN_VERIFICATION.md` is still the way to inspect *which*
 injection landed where; the script is the pass/fail gate.
 
+**Confirmed working on a real GitHub runner**: the smoke step took **7m11s** (whole job 7m52s),
+including installing xvfb and downloading Minecraft's assets. Each gate was also proven to fail — a
+doctored crash line, a log with the stitching line removed, and a deleted export all turned it red.
+
+One interaction to know about: the workflow uses `cancel-in-progress`, so pushing again while the
+smoke job is running **cancels it**. A run whose conclusion is `cancelled` was superseded, not broken.
+Wait for it if you actually want to see the result.
+
 ## Validation and source references
 
 Canonical command: **`./gradlew build --stacktrace` with JDK 25**.
