@@ -10,7 +10,7 @@ Every module also has the shared settings `enabled`, `keybind`, `keyModifiers`,
 **UNTESTED** marks a module that has never been exercised in a running game. It compiles and
 its logic is unit tested; nobody has confirmed it behaves correctly in Minecraft.
 
-50 modules across 6 categories; 28 marked UNTESTED.
+51 modules across 6 categories; 29 marked UNTESTED.
 
 ## Combat
 
@@ -58,6 +58,15 @@ Remembers who you recently fought, from what this client observed
 | `entries` | `8` | `1..32` | Maximum remembered targets |
 | `forgetAfter` | `120` | `10..900` | Seconds before an idle target is forgotten |
 | `showTimeSince` | `true` | `true/false or on/off` | Show seconds since the last combat in the module list |
+
+### CritInfo — UNTESTED
+
+Shows attack charge and whether the next hit would be a critical; informational only
+
+| Setting | Default | Values | Description |
+| --- | --- | --- | --- |
+| `showCharge` | `true` | `true/false or on/off` | Show the attack charge as a percentage |
+| `readyAt` | `100` | `50..100` | Charge percentage counted as ready |
 
 ### TotemTracker — UNTESTED
 

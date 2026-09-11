@@ -10,6 +10,7 @@ import java.util.Map;
 import me.mrhakan.agalarhack.AgalarHackClient;
 import me.mrhakan.agalarhack.module.Category;
 import me.mrhakan.agalarhack.module.Module;
+import me.mrhakan.agalarhack.module.combat.CritInfo;
 import me.mrhakan.agalarhack.module.combat.Aura;
 import me.mrhakan.agalarhack.module.combat.CombatHistory;
 import me.mrhakan.agalarhack.module.combat.TotemTracker;
@@ -68,6 +69,7 @@ public class ModuleManager {
     public ModuleManager() {
         register(new Aura());
         register(new TriggerBot());
+        register(new CritInfo());
         register(new TotemTracker());
         register(new CombatHistory());
 

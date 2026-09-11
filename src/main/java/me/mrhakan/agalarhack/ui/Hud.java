@@ -54,6 +54,7 @@ public class Hud implements HudElement {
         register("movement","Movement Stats",()->132,()->48,this::renderMovementStats);
         textComponent("waypoint","Waypoint",()->nearestWaypointLine());
         textComponent("tps","TPS (estimate)",()->serverInfoLine());
+        textComponent("crit","Attack Charge",Hud::critLine);
         registry.register(new me.mrhakan.agalarhack.ui.hud.HudRegistry.Component("ping_graph","Ping Graph",()->104,()->34,event->renderPingGraph(event.graphics())),
                 new me.mrhakan.agalarhack.managers.HudLayoutManager.WidgetState(me.mrhakan.agalarhack.managers.HudLayoutManager.Anchor.TOP_LEFT,8,150,false));
         textComponent("direction","Direction",()->Minecraft.getInstance().player==null?"Facing --":"Facing "+Minecraft.getInstance().player.getDirection());
@@ -109,6 +110,13 @@ public class Hud implements HudElement {
         if (item.isEmpty()) return;
         g.item(item, x, y);
         g.itemDecorations(client.font, item, x, y);
+    }
+
+    /** Reads only the client's own player state; it changes nothing and sends nothing. */
+    private static String critLine() {
+        var module=AgalarHackClient.moduleManager.getModule("CritInfo");
+        return module instanceof me.mrhakan.agalarhack.module.combat.CritInfo info && info.isToggled()
+                ? info.line() : "Crit --";
     }
 
     private static me.mrhakan.agalarhack.services.MovementStats movementStats() {
