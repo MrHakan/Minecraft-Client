@@ -268,12 +268,12 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 79 | Render culling | Implemented: box overlays test the frustum the game already built, in world space. Tracers and breadcrumbs are deliberately exempt and a test enforces that. Safe because it is view-volume, not occlusion, culling - the overlays draw through walls on purpose |
 | 80 | Performance HUD | Implemented: `ModuleTimings` ranks per-module tick cost over a rolling window, in a hidden-by-default widget. Measurement is self-expiring rather than a setting, and a module that stops ticking is dropped rather than frozen on screen |
 | 81 | Unit tests | 631 tests; adds block-update batching, chunk cache eviction, cursor completion, id-list parsing, notification sinks, waypoint normalisation/persistence and compass bearings; trajectory and fade coverage pending |
-| 82 | Integration smoke tests | Implemented as `tools/smoke-client.sh`, **run by CI on every pull request**: it starts the client headless, fails on a crash report, fails if startup did not reach texture stitching, and fails if any mixin in the config was not applied to the running bytecode. It reads the mixin config rather than a hand-kept list, so a new mixin is covered automatically. No gameplay is exercised; behaviour checks remain manual |
+| 82 | Integration smoke tests | Implemented as `tools/smoke-client.sh`, **run by CI on every pull request**: it drives Fabric's client game tests, which open all 165 mod screens, create a world and enable/tick/disable all 53 modules in it, assert six per-module behaviours, and scan the run's log for failures the mod swallowed; the script then fails if any mixin in the config was not applied to the running bytecode. It reads the mixin config rather than a hand-kept list, so a new mixin is covered automatically. See [docs/CLIENT_GAME_TESTS.md](docs/CLIENT_GAME_TESTS.md) |
 | 83 | Lifecycle audit | Partial code audit/restoration; all listed state-changing modules need in-game transition checks |
 | 84 | Error reporting | Reviewed. Module tick, render, scanner, command, macro and HUD boundaries were already guarded. The one real gap was the shared chat callback: the bus detaches a listener that throws, so one chat module's bug disabled all three for the session. `ModuleGuard` now contains each module separately and reports once per failure episode, and ChatFilter fails open so a broken filter cannot hide chat |
 | 85 | Structured logging | Implemented SLF4J replacement for raw stderr. One `System.out.println` survived in the profile auto-load path and has now been replaced; the rest of the audit remains |
 | 86 | Module documentation | Implemented: `docs/MODULES.md` is generated from the live settings registry and a test fails when it and the code disagree, rewriting the file as it fails |
-| 87 | Experimental flags | Implemented: `markExperimental()` plus an UNTESTED badge in the ClickGUI, applied to all 31 modules added here and surfaced in the generated module reference; a source-level test stops a new module shipping unmarked |
+| 87 | Experimental flags | Implemented: `markExperimental()` plus an UNTESTED badge in the ClickGUI, surfaced in the generated module reference. 25 of the original 31 remain; a source-level test stops a new module shipping unmarked **and** refuses a cleared flag that does not name a game test scenario that still exists |
 
 ## Recommended next development batch
 
@@ -490,11 +490,20 @@ outstanding.**
 
 ## Untested badge
 
-Every module added in this work is marked with `markExperimental()` and shows **UNTESTED** in the
-ClickGUI. The criterion: inventory manipulation, a mixin dependency, or simply never having been run
-in Minecraft. **Compiling and passing unit tests does not clear it.** Clear a flag only after
-actually using that module in game, and remove the module's name from the exempt list in
-`ExperimentalFlagTest` only if it genuinely predates this work.
+25 modules still show **UNTESTED** in the ClickGUI. What the badge means changed once CI started
+running every module in a real world: it no longer says "never been run in Minecraft", because all of
+them now are, on every pull request. It says **nobody has checked this module does its job**.
+
+Clearing one is a two-part commit: a scenario in `ModuleBehaviourGameTest` asserting the effect a
+player would notice, and the module's name added to `VERIFIED_IN_GAME` in `ExperimentalFlagTest`
+pointing at that scenario. The test fails if the scenario does not exist, so a flag cannot be cleared
+by editing a list — which is the only thing that makes the badge worth anything.
+
+Cleared so far: AutoTotem, AutoArmor, AutoWalk, SafeWalk, Parkour, CameraTweaks.
+
+Write the control half of every scenario first. Each one asserts the effect is *absent* before the
+module is switched on; without that, an assertion that passes because the game does it anyway looks
+exactly like one the module earned.
 
 **Localisation uses a fallback at every call site.** `Translations.text(key, english)` renders the
 English text when a key is missing, so partial coverage never shows raw keys. **Do not translate the
@@ -812,9 +821,10 @@ exports and the mixin failure count and never checked that the run itself succee
 doc now says to grep for `Game crashed` and for texture stitching, and notes that `ChatComponent`
 only loads once the GUI is built — so its presence in the export doubles as a health signal.
 
-## Latest continuation: the startup check is CI's job now
+## Continuation: the startup check became CI's job
 
-`tools/smoke-client.sh`, wired into CI on every pull request.
+`tools/smoke-client.sh`, wired into CI on every pull request. Superseded by the game tests below, but
+the reasoning is why the script exists at all.
 
 `./gradlew build` passes whether or not the client can start. A mixin target is named in an annotation
 string, so a missing one compiles cleanly and fails at launch; and a null dereference during client
@@ -842,6 +852,65 @@ doctored crash line, a log with the stitching line removed, and a deleted export
 One interaction to know about: the workflow uses `cancel-in-progress`, so pushing again while the
 smoke job is running **cancels it**. A run whose conclusion is `cancelled` was superseded, not broken.
 Wait for it if you actually want to see the result.
+
+## Latest continuation: the client drives itself
+
+`tools/smoke-client.sh` now runs `runClientGameTest` instead of `runClient`. Same launch, far more
+checked, and **faster**: under two minutes against the old 7m11s, because the client shuts itself
+down when the tests finish rather than being killed by a timeout. A slow exit is now a real failure.
+
+Four entry points in `src/gametest`, in order: screens, module lifecycle, module behaviour, log scan.
+Full description in [docs/CLIENT_GAME_TESTS.md](docs/CLIENT_GAME_TESTS.md). Three things about it are
+worth carrying forward.
+
+**Failures are read off the mod's own behaviour, not caught.** The mod already catches them:
+`ModuleManager.tick` force-disables a module whose tick throws, `Module.setToggled` reverts one whose
+`onEnable` throws. So a module still enabled after twenty ticks is one that ticked twenty times
+without throwing. A module whose `onDisable` throws is invisible to that — `setToggled` swallows it —
+which is why `SwallowedFailureGameTest` greps the run's log for every `LOGGER.error` that sits inside
+a catch block. By literal prefix, not by level: the game logs errors this run has no opinion about.
+
+**Both arms were watched failing before being trusted.** A throw injected into `Fullbright.onUpdate`
+fails the lifecycle check by name; the same throw moved to `onDisable` slips past it and is caught by
+the log scan. Do this for any new gate here. A check nobody has seen fail is a check nobody should
+trust, and this branch already lost several commits to exactly that.
+
+**An empty world is a weak test.** `TestScene` places a chest, trapped chest, ender chest, barrel,
+shulker box, diamond ore, a two-deep obsidian hole, a zombie, a dropped item and a full inventory,
+because a scanner that throws the moment it finds a chest passes happily in a world with no chests.
+Build it with the game's own types, not chat commands: `runCommand` logs a parse error and returns,
+so the first draft ran a full minute against a world where none of its setup had applied. That is
+also how the 26.2 gamerule rename surfaced — `setUseConsistentSettings(true)` already freezes time,
+weather and mob spawning, so no gamerule commands are needed at all.
+
+### What it found immediately: AutoWalk and Parkour never worked
+
+Both wrote `player.input.keyPresses` from `onUpdate`, which runs at `END_CLIENT_TICK`. Vanilla
+rebuilds that field from the keyboard in `KeyboardInput.tick` during `aiStep` on the next tick, and
+reads it for movement a few lines later, so every override was overwritten before it was read.
+Neither module had ever moved a player. They ticked without throwing, passed their unit tests, and
+the lifecycle check was perfectly happy with them; the behaviour scenario asking *did the player
+move* failed on its first run.
+
+Modules now call `PlayerInputOverrides.request(...)` and `KeyboardInputMixin` applies it at `TAIL` of
+`KeyboardInput.tick`. The movement vector has to be rebuilt too, since it was derived from the keys a
+moment earlier — done through vanilla's own `calculateImpulse` via an `@Invoker`, matching how
+`PlayerEdgeMixin` reuses vanilla's edge check rather than reimplementing it. Requests merge and are
+consumed once per input tick, and are cleared on world change and disconnect. The four `with*`
+helpers this replaced had no callers left and are gone.
+
+**If you add a module that holds a key, request it — do not write `keyPresses`.** There is now a
+mixin whose whole job is that field, and writing it from a module tick is writing to a field vanilla
+overwrites before reading.
+
+### Where to go next
+
+The 25 remaining badges are the queue, and the inventory and movement ones are the tractable half:
+AutoRefill (a depleted hotbar stack gets topped up), InventoryCleaner (junk leaves the inventory),
+AutoWeapon (the selected slot holds a weapon once there is a target). Chat modules need a way to read
+back what `ChatComponent` stored, which has no public accessor — reflection against the dev jar is
+the likely route. Pure render modules (ESPs, nametags, tracers) have no observable state at all;
+`assertScreenshotEquals` exists in the game test API and is the only honest option there.
 
 ## Validation and source references
 
