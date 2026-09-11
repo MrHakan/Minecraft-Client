@@ -24,7 +24,7 @@
   "agalarhack.module.autoaccept.description": "Listelediğin oyunculardan gelen ışınlanma veya parti isteklerini seçtiğin komutla yanıtlar",
   "agalarhack.module.autofish.description": "Şamandıra suya çekildiğinde oltayı toplar ve tekrar atar",
   "agalarhack.module.autoreconnect.description": "Beklenmedik bir kopmadan sonra son çok oyunculu sunucuya yeniden bağlanır",
-  "agalarhack.module.chatfilter.description": "Listelediğin ifadeleri içeren sohbet satırlarını gizler; yalnızca yerel görüntüde",
+  "agalarhack.module.chatfilter.description": "Listelediğin ifadeleri içeren ve isteğe bağlı olarak tekrarlanan sohbet satırlarını gizler; yalnızca yerel görüntüde",
   "agalarhack.module.chatmentions.description": "Sohbette adın, bir arkadaşın adı veya bir anahtar kelime geçtiğinde bildirir",
   "agalarhack.module.performance.description": "Tüm ESP tarayıcılarının paylaştığı tik başına tarama üst sınırını belirler",
   "agalarhack.module.serverinfo.description": "Ping geçmişi ve tahmini sunucu tik hızı; her ikisi de açıkça istemci taraflı olarak etiketlenir",
@@ -67,5 +67,6 @@
   "agalarhack.module.trajectories.description": "Tutulan merminin uçuş yolunu vanilya fiziğine uygun olarak tahmin eder",
   "agalarhack.module.waypoints.description": "Mevcut boyuttaki kayıtlı yol işaretlerini, isteğe bağlı ışın ve etiketlerle gösterir",
   "agalarhack.module.autotool.description": "Kazarken en hızlı hotbar aracını otomatik olarak seçer",
-  "agalarhack.module.basefinder.description": "StorageESP'nin zaten bulduğu depo kümelerinden olası üsleri bildirir; o modülü de aç"
+  "agalarhack.module.basefinder.description": "StorageESP'nin zaten bulduğu depo kümelerinden olası üsleri bildirir; o modülü de aç",
+  "agalarhack.module.betterchat.description": "Her sohbet satırına geldiği andaki yerel saati ekler"
 }

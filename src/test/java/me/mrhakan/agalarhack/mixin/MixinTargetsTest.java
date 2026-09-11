@@ -48,7 +48,13 @@ class MixinTargetsTest {
             new Target("net.minecraft.network.Connection", "send",
                     "net.minecraft.network.protocol.Packet",
                     "io.netty.channel.ChannelFutureListener",
-                    "boolean"));
+                    "boolean"),
+            // The private choke point all three public add* methods delegate to.
+            new Target("net.minecraft.client.gui.components.ChatComponent", "addMessage",
+                    "net.minecraft.network.chat.Component",
+                    "net.minecraft.network.chat.MessageSignature",
+                    "net.minecraft.client.multiplayer.chat.GuiMessageSource",
+                    "net.minecraft.client.multiplayer.chat.GuiMessageTag"));
 
     /** Loads without running static initialisers, so no Minecraft bootstrap is needed. */
     private static Class<?> load(String name) throws ClassNotFoundException {

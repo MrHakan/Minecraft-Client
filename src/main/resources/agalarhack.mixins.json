@@ -4,6 +4,7 @@
   "package": "me.mrhakan.agalarhack.mixin",
   "compatibilityLevel": "JAVA_25",
   "client": [
+    "ChatComponentMixin",
     "ClientPacketListenerMixin",
     "ConnectionMixin",
     "GameRendererMixin",

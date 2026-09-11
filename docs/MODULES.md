@@ -10,7 +10,7 @@ Every module also has the shared settings `enabled`, `keybind`, `keyModifiers`,
 **UNTESTED** marks a module that has never been exercised in a running game. It compiles and
 its logic is unit tested; nobody has confirmed it behaves correctly in Minecraft.
 
-52 modules across 6 categories; 30 marked UNTESTED.
+53 modules across 6 categories; 31 marked UNTESTED.
 
 ## Combat
 
@@ -142,14 +142,25 @@ Reconnects to the last multiplayer server after an unexpected disconnect
 | `delaySeconds` | `5` | `1..60` | Delay before each reconnect attempt |
 | `maxAttempts` | `5` | `1..50` | Maximum reconnect attempts before giving up |
 
+### BetterChat — UNTESTED
+
+Adds a local timestamp to each chat line as it arrives
+
+| Setting | Default | Values | Description |
+| --- | --- | --- | --- |
+| `timestamps` | `true` | `true/false or on/off` | Prefix each line with the time it reached this client |
+| `seconds` | `false` | `true/false or on/off` | Include seconds in the timestamp |
+
 ### ChatFilter — UNTESTED
 
-Hides chat lines containing phrases you list; local display only
+Hides chat lines containing phrases you list, and optionally repeated lines; local display only
 
 | Setting | Default | Values | Description |
 | --- | --- | --- | --- |
 | `hide` | — | `text` | — |
 | `gameMessages` | `false` | `true/false or on/off` | Also filter system and game messages, not just player chat |
+| `hideRepeats` | `false` | `true/false or on/off` | Hide a line that repeats one of the last few |
+| `repeatWindow` | `4` | `1..32` | How many recent lines a repeat is compared against |
 
 ### ChatMentions — UNTESTED
 
