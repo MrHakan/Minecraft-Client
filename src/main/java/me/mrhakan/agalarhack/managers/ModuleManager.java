@@ -31,6 +31,7 @@ import me.mrhakan.agalarhack.module.render.Coordinates;
 import me.mrhakan.agalarhack.module.render.Durability;
 import me.mrhakan.agalarhack.module.render.EntityESP;
 import me.mrhakan.agalarhack.module.render.Freecam;
+import me.mrhakan.agalarhack.module.render.ItemESP;
 import me.mrhakan.agalarhack.module.render.Fullbright;
 import me.mrhakan.agalarhack.module.render.StorageESP;
 import me.mrhakan.agalarhack.module.render.TargetHUD;
@@ -70,6 +71,7 @@ public class ModuleManager {
         register(new TargetHUD());
         register(new Freecam());
         register(new Waypoints());
+        register(new ItemESP());
 
         register(new AutoTotem());
         register(new AutoArmor());

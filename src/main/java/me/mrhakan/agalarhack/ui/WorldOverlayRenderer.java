@@ -51,6 +51,9 @@ public final class WorldOverlayRenderer {
         Module freecamModule = AgalarHackClient.moduleManager.getModule("Freecam");
         Module storageModule = AgalarHackClient.moduleManager.getModule("StorageESP");
         Module blockModule = AgalarHackClient.moduleManager.getModule("BlockESP");
+        Module itemModule = AgalarHackClient.moduleManager.getModule("ItemESP");
+        me.mrhakan.agalarhack.module.render.ItemESP itemEsp =
+                itemModule instanceof me.mrhakan.agalarhack.module.render.ItemESP i ? i : null;
         Module waypointModule = AgalarHackClient.moduleManager.getModule("Waypoints");
         me.mrhakan.agalarhack.module.render.Waypoints waypoints =
                 waypointModule instanceof me.mrhakan.agalarhack.module.render.Waypoints w ? w : null;
@@ -63,13 +66,19 @@ public final class WorldOverlayRenderer {
         boolean blockEnabled = blockEsp != null && blockEsp.isToggled();
         boolean bodyMarker = freecam != null && freecam.shouldRenderBodyMarker();
         boolean waypointsEnabled = waypoints != null && waypoints.isToggled();
-        if (!espEnabled && !trajectoriesEnabled && !storageEnabled && !blockEnabled && !bodyMarker && !waypointsEnabled) return;
+        boolean itemsEnabled = itemEsp != null && itemEsp.isToggled();
+        if (!espEnabled && !trajectoriesEnabled && !storageEnabled && !blockEnabled && !bodyMarker
+                && !waypointsEnabled && !itemsEnabled) return;
 
         var renderService = me.mrhakan.agalarhack.services.ClientServices.require(me.mrhakan.agalarhack.services.RenderService.class);
         Vec3 camera = ctx.levelState().cameraRenderState.pos;
         List<LivingEntity> espTargets = espEnabled && esp instanceof EntityESP entityEsp ? entityEsp.targets() : List.of();
         if (espEnabled && esp.getBooleanSetting("labels", true)) renderService.guard(esp, () -> renderEspLabels(ctx, mc, esp, espTargets, camera));
         if (storageEnabled && storage.getBooleanSetting("labels", false)) renderService.guard(storage, () -> renderStorageLabels(ctx, mc, storage, camera));
+        if (itemsEnabled && itemEsp.getBooleanSetting("labels", true)) {
+            var labelledItems = itemEsp;
+            renderService.guard(labelledItems, () -> renderItemLabels(ctx, mc, labelledItems, camera));
+        }
         if (waypointsEnabled && waypoints.getBooleanSetting("labels", true)) {
             var labelled = waypoints;
             renderService.guard(labelled, () -> renderWaypointLabels(ctx, mc, labelled, camera));
@@ -83,6 +92,9 @@ public final class WorldOverlayRenderer {
             if (storageEnabled) renderService.guard(storage, () -> renderStorageEsp(mc, storage, camera, pose, buffer));
             if (blockEnabled) renderService.guard(blockEsp, () -> renderBlockEsp(mc, blockEsp, camera, pose, buffer));
             if (trajectoriesEnabled) renderService.guard(trajectories, () -> renderTrajectory(mc, trajectories, camera, pose, buffer));
+            if (itemsEnabled && itemEsp.getBooleanSetting("boxes", true)) {
+                renderService.guard(itemEsp, () -> renderItemEsp(mc, itemEsp, camera, pose, buffer));
+            }
             if (waypointsEnabled) renderService.guard(waypoints, () -> renderWaypoints(mc, waypoints, camera, pose, buffer));
             if (bodyMarker) renderService.guard(freecam, () -> renderFreecamBodyMarker(mc, freecam, camera, pose, buffer));
         });
@@ -209,6 +221,45 @@ public final class WorldOverlayRenderer {
             AABB block = new AABB(pos.getX(), pos.getY(), pos.getZ(), pos.getX() + 1.0, pos.getY() + 1.0, pos.getZ() + 1.0)
                     .inflate(0.015).move(-camera.x, -camera.y, -camera.z);
             box(buffer, pose, block, (alpha << 24) | rgb);
+        }
+    }
+
+    private static int itemColor(me.mrhakan.agalarhack.module.render.ItemESP module,
+            net.minecraft.world.entity.item.ItemEntity drop) {
+        return module.getBooleanSetting("rarityColors", true)
+                ? me.mrhakan.agalarhack.module.render.ItemESP.rarityRgb(drop.getItem().getRarity())
+                : rgb(module.getNumberSetting("red", 255.0), module.getNumberSetting("green", 220.0),
+                        module.getNumberSetting("blue", 60.0));
+    }
+
+    private static void renderItemEsp(Minecraft mc, me.mrhakan.agalarhack.module.render.ItemESP module,
+            Vec3 camera, PoseStack.Pose pose, VertexConsumer buffer) {
+        int alpha = (int) module.getNumberSetting("alpha", 220.0);
+        for (var drop : module.items()) {
+            if (!drop.isAlive()) continue;
+            AABB box = drop.getBoundingBox().inflate(0.08).move(-camera.x, -camera.y, -camera.z);
+            box(buffer, pose, box, (Math.max(32, Math.min(255, alpha)) << 24) | itemColor(module, drop));
+        }
+    }
+
+    private static void renderItemLabels(LevelRenderContext ctx, Minecraft mc,
+            me.mrhakan.agalarhack.module.render.ItemESP module, Vec3 camera) {
+        boolean count = module.getBooleanSetting("showCount", true);
+        boolean distance = module.getBooleanSetting("showDistance", false);
+        PoseStack stack = ctx.poseStack();
+        for (var drop : module.items()) {
+            if (!drop.isAlive()) continue;
+            var item = drop.getItem();
+            StringBuilder label = new StringBuilder(item.getHoverName().getString());
+            if (count && item.getCount() > 1) label.append(" x").append(item.getCount());
+            if (distance) label.append(' ').append(Math.round(mc.player.distanceTo(drop))).append('m');
+            stack.pushPose();
+            try {
+                stack.translate(drop.getX() - camera.x, drop.getY() + 0.6 - camera.y, drop.getZ() - camera.z);
+                ctx.submitNodeCollector().submitNameTag(stack, new Vec3(0.0, 0.0, 0.0), 0,
+                        Component.literal(label.toString()).withStyle(Style.EMPTY.withColor(TextColor.fromRgb(itemColor(module, drop)))),
+                        true, LightCoordsUtil.FULL_BRIGHT, ctx.levelState().cameraRenderState);
+            } finally { stack.popPose(); }
         }
     }
 
