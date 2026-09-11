@@ -11,6 +11,7 @@ import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
 import net.minecraft.client.Minecraft;
+import net.minecraft.network.chat.Component;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -62,6 +63,8 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
             autoRefill(context, singleplayer);
             inventoryCleaner(context, singleplayer);
             autoWeapon(context, singleplayer);
+            betterChat(context, singleplayer);
+            chatFilter(context, singleplayer);
 
             LOGGER.info("Module behaviour scenarios passed");
         }
@@ -430,6 +433,87 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
                     + "target under the crosshair");
         }
         LOGGER.info("  AutoWeapon selected the sword for the target under the crosshair");
+    }
+
+    /** Sends a line from the server so it arrives the way a real one does, and waits for it. */
+    private static void say(ClientGameTestContext context, TestSingleplayerContext singleplayer, String text) {
+        singleplayer.getServer().runOnServer(server ->
+                server.getPlayerList().broadcastSystemMessage(Component.literal(text), false));
+        context.waitTicks(10);
+    }
+
+    /** A timestamp is a prefix on the line, so the line has to be read back to see it. */
+    private void betterChat(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        configure(context, "BetterChat", module -> {
+            module.settings.setSetting("timestamps", true);
+            module.settings.setSetting("seconds", true);
+        });
+
+        String plain = "betterchat control line";
+        say(context, singleplayer, plain);
+        boolean stampedWhileOff = context.computeOnClient(client ->
+                ChatView.lines(client).stream().anyMatch(line -> line.contains(plain) && line.matches("^\\[\\d\\d:.*")));
+        if (stampedWhileOff) {
+            throw new AssertionError("a chat line was already timestamped before BetterChat was on");
+        }
+
+        toggle(context, "BetterChat", true);
+        String stamped = "betterchat stamped line";
+        say(context, singleplayer, stamped);
+        toggle(context, "BetterChat", false);
+
+        String line = context.computeOnClient(client -> ChatView.lines(client).stream()
+                .filter(text -> text.contains(stamped)).findFirst().orElse(""));
+        // HH:mm:ss in brackets, ahead of the server's own text.
+        if (!line.matches("^\\[\\d\\d:\\d\\d:\\d\\d\\] .*" + java.util.regex.Pattern.quote(stamped) + ".*")) {
+            throw new AssertionError("BetterChat did not timestamp the line; chat shows: " + line);
+        }
+        LOGGER.info("  BetterChat timestamped an arriving line");
+    }
+
+    /**
+     * The filter hides a listed phrase and nothing else. The second half is the half that matters:
+     * a filter that swallows everything would pass an assertion that only checks the listed line.
+     */
+    private void chatFilter(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        // Deliberately disjoint: none of these three is a substring of another. The first draft used
+        // a control line that contained the hidden one, so the leak check found the control and
+        // reported the module had failed to hide anything.
+        String listed = "quidnunc";
+        String control = "chatfilter control carries quidnunc while off";
+        String hidden = "chatfilter later message also carrying quidnunc";
+        String kept = "chatfilter innocent line";
+        configure(context, "ChatFilter", module -> {
+            module.settings.setSetting("hide", listed);
+            // The scenario speaks through the server console, which arrives as a game message; the
+            // module leaves those alone by default.
+            module.settings.setSetting("gameMessages", true);
+        });
+
+        // Absence is only evidence if presence was possible. Without this, a broadcast that never
+        // arrived at all would read exactly like a line the filter hid.
+        say(context, singleplayer, control);
+        boolean arrives = context.computeOnClient(client -> ChatView.contains(client, control));
+        if (!arrives) {
+            throw new AssertionError("a server line does not reach chat at all, so hiding one proves "
+                    + "nothing; the scenario is broken, not the module");
+        }
+
+        toggle(context, "ChatFilter", true);
+        say(context, singleplayer, hidden);
+        say(context, singleplayer, kept);
+        toggle(context, "ChatFilter", false);
+
+        boolean leaked = context.computeOnClient(client -> ChatView.contains(client, hidden));
+        if (leaked) {
+            throw new AssertionError("ChatFilter did not hide a line matching a listed phrase");
+        }
+        boolean survived = context.computeOnClient(client -> ChatView.contains(client, kept));
+        if (!survived) {
+            throw new AssertionError("ChatFilter hid a line that matches nothing in its list; a "
+                    + "filter that swallows everything is worse than no filter");
+        }
+        LOGGER.info("  ChatFilter hid the listed line and left the other alone");
     }
 
     /**

@@ -21,7 +21,6 @@ import me.mrhakan.agalarhack.module.Module;
 public class BetterChat extends Module {
     public BetterChat() {
         super("BetterChat", Category.MISC, "Adds a local timestamp to each chat line, and marks mentions");
-        markExperimental();
     }
 
     @Override

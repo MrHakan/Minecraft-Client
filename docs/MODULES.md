@@ -12,7 +12,7 @@ Every module here is enabled, ticked and disabled inside a real world on every p
 request, so an UNTESTED one is known not to crash; what is missing is a check that it
 does the thing it exists to do. The badge is cleared in the commit that adds that check.
 
-53 modules across 6 categories; 22 marked UNTESTED.
+53 modules across 6 categories; 20 marked UNTESTED.
 
 ## Combat
 
@@ -144,7 +144,7 @@ Reconnects to the last multiplayer server after an unexpected disconnect
 | `delaySeconds` | `5` | `1..60` | Delay before each reconnect attempt |
 | `maxAttempts` | `5` | `1..50` | Maximum reconnect attempts before giving up |
 
-### BetterChat — UNTESTED
+### BetterChat
 
 Adds a local timestamp to each chat line, and marks mentions
 
@@ -154,7 +154,7 @@ Adds a local timestamp to each chat line, and marks mentions
 | `seconds` | `false` | `true/false or on/off` | Include seconds in the timestamp |
 | `markMentions` | `true` | `true/false or on/off` | Mark lines ChatMentions counts as a mention; needs that module on |
 
-### ChatFilter — UNTESTED
+### ChatFilter
 
 Hides chat lines containing phrases you list, and optionally repeated lines; local display only
 

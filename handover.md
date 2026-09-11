@@ -273,7 +273,7 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 84 | Error reporting | Reviewed. Module tick, render, scanner, command, macro and HUD boundaries were already guarded. The one real gap was the shared chat callback: the bus detaches a listener that throws, so one chat module's bug disabled all three for the session. `ModuleGuard` now contains each module separately and reports once per failure episode, and ChatFilter fails open so a broken filter cannot hide chat |
 | 85 | Structured logging | Implemented SLF4J replacement for raw stderr. One `System.out.println` survived in the profile auto-load path and has now been replaced; the rest of the audit remains |
 | 86 | Module documentation | Implemented: `docs/MODULES.md` is generated from the live settings registry and a test fails when it and the code disagree, rewriting the file as it fails |
-| 87 | Experimental flags | Implemented: `markExperimental()` plus an UNTESTED badge in the ClickGUI, surfaced in the generated module reference. 22 of the original 31 remain; a source-level test stops a new module shipping unmarked **and** refuses a cleared flag that does not name a game test scenario that still exists |
+| 87 | Experimental flags | Implemented: `markExperimental()` plus an UNTESTED badge in the ClickGUI, surfaced in the generated module reference. 20 of the original 31 remain; a source-level test stops a new module shipping unmarked **and** refuses a cleared flag that does not name a game test scenario that still exists |
 
 ## Recommended next development batch
 
@@ -500,7 +500,7 @@ pointing at that scenario. The test fails if the scenario does not exist, so a f
 by editing a list — which is the only thing that makes the badge worth anything.
 
 Cleared so far: AutoTotem, AutoArmor, AutoWalk, SafeWalk, Parkour, CameraTweaks, AutoRefill,
-InventoryCleaner, AutoWeapon.
+InventoryCleaner, AutoWeapon, BetterChat, ChatFilter.
 
 Write the control half of every scenario first. Each one asserts the effect is *absent* before the
 module is switched on; without that, an assertion that passes because the game does it anyway looks
@@ -925,8 +925,14 @@ overwrites before reading.
 
 ### Where to go next
 
-The 22 remaining badges are the queue. The tractable ones are gone; what is left needs new technique.
-Chat modules need a way to read
+The 20 remaining badges are the queue. Chat is now reachable: `ChatView` in the game test source set
+reads `ChatComponent.allMessages` by reflection - the field is private with no accessor, and the
+helper throws rather than returning an empty list if it ever moves, so a rename cannot quietly turn
+every chat scenario into one that checks nothing. ChatMentions and AutoAccept are the next two that
+can use it. What is genuinely left after those is the pure render modules, which hold no observable
+state at all; `assertScreenshotEquals` in the game test API is the only honest option there.
+
+Superseded note, kept because it explains the helper: chat modules needed a way to read
 back what `ChatComponent` stored, which has no public accessor — reflection against the dev jar is
 the likely route. Pure render modules (ESPs, nametags, tracers) have no observable state at all;
 `assertScreenshotEquals` exists in the game test API and is the only honest option there.

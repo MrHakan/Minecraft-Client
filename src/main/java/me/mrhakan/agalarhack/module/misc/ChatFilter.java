@@ -20,7 +20,6 @@ public class ChatFilter extends Module {
 
     public ChatFilter() {
         super("ChatFilter", Category.MISC, "Hides chat lines containing phrases you list, and optionally repeated lines; local display only");
-        markExperimental();
     }
 
     @Override
