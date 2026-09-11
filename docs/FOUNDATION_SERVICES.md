@@ -46,9 +46,34 @@ owner captures the baseline. Dual hotbar/use acquisition is atomic. Cleanup targ
 captured player, never a replacement player's inventory. Manual slot changes cancel the lease
 and cause a 10-tick backoff. Use-key release samples the physical configured input.
 
-Main-inventory swaps and specialized best-weapon/armor selection are not implemented yet.
-Automation only selects the local hotbar; inventory GUI slots are not interchangeable with
-main inventory indices.
+### Item scoring
+
+`ItemScoring` ranks armour and weapons over plain records so the rules are unit tested without a
+client. `InventoryService` adapts live items into those records: attribute values come from
+`ItemStack.forEachModifier` for the slot the item would occupy, and only `ADD_VALUE` modifiers are
+summed because the multiplied operations depend on the wearer's other gear. Damage families come
+from the `SENSITIVE_TO_SMITE` / `SENSITIVE_TO_BANE_OF_ARTHROPODS` entity type tags, not the
+mob-type enum older versions used. Nearly broken gear is devalued progressively rather than
+rejected. Scores are comparison keys only and are never shown as damage predictions.
+
+### Container transfers
+
+Inventory indices (0..35) and `InventoryMenu` slot ids (0 result, 1..4 crafting, 5..8 armour,
+9..35 storage, 36..44 hotbar, 45 offhand) are different coordinate systems for the same items.
+Every conversion goes through `InventoryTransfers`, whose constants are asserted against the
+26.2 layout by tests. Minecraft 26.2 uses `handleContainerInput` with `ContainerInput`; the older
+`handleInventoryMouseClick`/`ClickType` pair no longer exists.
+
+`ContainerTransferController` runs at most one click per tick, only from a normal play state with
+an empty cursor. Priority preemption is allowed only while the cursor is empty, because a click
+boundary with nothing carried always leaves the inventory consistent; a plan holding a carried
+item cannot be preempted, an owner cannot preempt itself, and an owner still returning a stack is
+left alone. Losing the click channel mid-plan drops the remaining clicks instead of guessing, and
+a full inventory holds the channel rather than dropping the player's item on the floor. Hotbar
+sources use a single atomic SWAP click that never involves the cursor.
+
+AutoArmor (50), AutoWeapon (45 on the hotbar lease) and AutoTotem (90) consume these. Container
+transfers only operate on the player's own inventory menu; other containers are out of scope.
 
 ## Targets and rotations
 
@@ -147,8 +172,15 @@ fields. The follow-up uses the x()/z() accessors verified in Fabric 26.2 ClientC
 the follow-up passed `./gradlew build --stacktrace` (including JUnit) in Actions run
 [34533637579](https://github.com/MrHakan/Minecraft-Client/actions/runs/34533637579).
 The final choice-screen refresh correction must also pass its own CI run; see the PR for
-the latest head validation. Local Gradle bootstrap is unavailable in the
-restricted execution environment. A compiled JAR does not establish in-game visual correctness.
+the latest head validation. A compiled JAR does not establish in-game visual correctness.
+
+Local builds are possible after all: Gradle resolves dependencies through the environment proxy,
+and a JDK 25 can be fetched from Adoptium and passed with `-Dorg.gradle.java.home`. The system JDK
+is 21, which cannot satisfy `options.release = 25`. `./gradlew genSources` also works, and
+`javap -constants -cp` against
+`~/.gradle/caches/fabric-loom/minecraftMaven/net/minecraft/minecraft-merged-deobf/26.2/...` is a
+fast way to confirm a 26.2 signature before writing against it. Local success still does not
+replace the branch-head CI run recorded in the PR.
 
 ### Required in-game smoke tests
 

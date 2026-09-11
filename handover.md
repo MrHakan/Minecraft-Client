@@ -1,6 +1,6 @@
 # Agalar Hack — AI agent handover
 
-Last updated: 2026-09-11. Read this before implementing more features.
+Last updated: 2026-09-11 (inventory scoring / container transfer batch). Read this before implementing more features.
 
 ## Goal and current checkpoint
 
@@ -8,24 +8,25 @@ Repository: `MrHakan/Minecraft-Client`. Build a polished, maintainable Minecraft
 Fabric utility/anarchy client with deep useful modules, predictable restoration, bounded
 scanners, strong configuration and an eventual addon API. Module count is not a success metric.
 
-Work is on **`codex/foundation-services-26.2`**, draft **[PR #9](https://github.com/MrHakan/Minecraft-Client/pull/9)**.
+Work continues on **`claude/main-goal-mvph38`**, branched from the same tree as
+`codex/foundation-services-26.2` (draft **[PR #9](https://github.com/MrHakan/Minecraft-Client/pull/9)**).
 Last inspected `main`: **`19f83ab888a55d9b459f84fbae27dffe39036f71`** (26.2.5, merged PR #8).
-At the 2026-09-11 inspection, #9 was the only open PR. Always inspect current main and all
+At the 2026-09-11 re-inspection, #9 was still the only open PR, at head `f3eb4ff`. Always inspect current main and all
 open PRs again: this document is a checkpoint, not a substitute for live repository state.
 **Nothing in this work has been automatically merged into main.**
 
-Approximate progress against the complete requested roadmap: **20–25% implemented;
-75–80% remains**. This is a qualitative scope estimate, not measured work hours, a count
+Approximate progress against the complete requested roadmap: **25–30% implemented;
+70–75% remains**. This is a qualitative scope estimate, not measured work hours, a count
 of commits, or a release-readiness percentage. Earlier estimate was about 20%; this batch
 mainly deepens existing foundations. Do not extrapolate remaining duration from these numbers.
 No entire phase is accepted as complete; Minecraft in-game smoke testing remains outstanding.
 
 | Phase | Approximate implementation | Main remaining work |
 | --- | --- | --- |
-| A: foundation | 70–75% | Block-update producer, specialized inventory scoring/transfers, rotation integration, sound, integration tests |
+| A: foundation | 80–85% | Block-update producer, rotation integration, notification sound, integration tests |
 | B: UI/HUD | 55–60% | Full widget/animation/accessibility coverage, Module List transitions, richer TargetHUD, remaining legacy bounds |
 | C: rendering | 10–15% | More ESP modes, nametags/items/projectiles, waypoints, breadcrumbs, user block sets, trajectory extraction |
-| D: player utility | 0–5% | AutoArmor/Totem/Refill/Cleaner/Fish/Respawn using inventory ownership |
+| D: player utility | 25–30% | AutoRefill/Cleaner/Fish/Respawn/Walk/Accept, inventory HUD depth |
 | E: movement/world | 0–5% | SafeWalk, Parkour, Elytra utility, BaseFinder/HoleESP/light visualization |
 | F: information/social | 0–5% | BetterChat, totems, TPS estimates/ping graph, macros and aliases |
 | G: ecosystem | 0% | Stable external addon API/template, optional Baritone, localization |
@@ -187,7 +188,7 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 1 | Internal events | Partial: tick/render/connection/entities/chunks/equipment/screens/input; real block-update hook missing |
 | 2 | Service registry | Partial: real shared managers/services; waypoint/addon contracts pending |
 | 3 | Target selector | Partial: combat filters/priorities implemented; optional common selector adoption by visuals still pending |
-| 4 | Inventory service | Partial: bounded lookup, copies, equipment events, hotbar/use ownership; weapon/armor scoring and menu transfers missing |
+| 4 | Inventory service | Partial: bounded lookup, copies, equipment events, hotbar/use ownership, armour/weapon scoring and preemptible container transfers; multi-container transfers still out of scope |
 | 5 | Rotations | Partial: None/Client/Smooth; validated silent adapter and wider integration missing |
 | 6 | Notifications | Partial: queue, producers, HUD and settings; sound and further producers missing |
 | 7 | UI components | Partial: toggle/slider/choice/text/bind/color; full panel/card/range/multiselect/modal toolkit pending |
@@ -216,8 +217,8 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 30 | Trajectory accuracy | Partial existing charge/collision/custom physics; full physics-family audit and markers/time details pending |
 | 31 | TargetHUD | Partial existing health/equipment/effects card; faces/layouts/animations/detail expansion pending |
 | 32 | Combat history | Not started |
-| 33 | AutoArmor | Not started; first implement inventory scoring/transfers/ownership |
-| 34 | AutoTotem | Not started; use same inventory service, conservative swaps/restoration |
+| 33 | AutoArmor | Implemented via scoring plus the container channel; in-game swap/cursor testing outstanding |
+| 34 | AutoTotem | Implemented with hysteresis-guarded offhand restore and totem counting; explosion/falling triggers and in-game testing outstanding |
 | 35 | AutoRefill | Not started |
 | 36 | InventoryCleaner | Not started; conservative whitelist/custom-item defaults required |
 | 37 | AutoFish | Not started; legitimate local bite cues only |
@@ -233,7 +234,7 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 47 | Movement stats | Partial simple horizontal speed HUD; vertical/acceleration/history pending |
 | 48 | Aura improvements | Partial shared targeting/rotation/policy; switch delay/lock/multiple-target behavior pending |
 | 49 | TriggerBot improvements | Partial shared filters and baseline cooldown behavior; full weapon/critical/reaction settings pending |
-| 50 | AutoWeapon | Not started; coordinate with AutoTool through inventory ownership |
+| 50 | AutoWeapon | Implemented on the hotbar lease above AutoTool, using scoring and the damage-family tags |
 | 51 | Critical information | Not started; no packet exploit chains |
 | 52 | Totem tracker | Not started; client-visible activations only |
 | 53 | BaseFinder | Not started; reuse scheduler and local evidence |
@@ -264,7 +265,7 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 78 | Chunk result cache | Partial unload invalidation and tick-only lookup cache; persistent chunk cache/block-update invalidation missing |
 | 79 | Render culling | Partial distance/target/label bounds; frustum and broader render cap coverage pending |
 | 80 | Performance HUD | Partial scanner diagnostics and memory; module tick/render timings and broader counters pending |
-| 81 | Unit tests | Extended across pure services/settings/config/UI/scanner logic; trajectory/armor/scoring/fade coverage pending |
+| 81 | Unit tests | 98 tests; now covers item scoring, menu slot arithmetic and transfer sequencing/preemption/recovery; trajectory and fade coverage pending |
 | 82 | Integration smoke tests | Not performed in-game; automate where feasible and record exact environment/results |
 | 83 | Lifecycle audit | Partial code audit/restoration; all listed state-changing modules need in-game transition checks |
 | 84 | Error reporting | Partial logger/module/render/scanner isolation; guarded HUD measurements/renderers with notices and retry; remaining boundaries need review |
@@ -277,8 +278,9 @@ increase reflects deeper existing controls, not completion of the whole phase.
 1. Verify a **real 26.2 block-update producer** against current sources. Do not invent an event without a producer
    or paste an old-version mixin. Preserve Fabric hooks; add a narrowly scoped mixin only if necessary and verified.
 2. Use block/chunk lifecycle signals for a bounded chunk-result cache, with world/config invalidation and budgeted rebuilds.
-3. Extend InventoryService with verified 26.2 armor/weapon attribute/enchantment scoring and container-safe transfer
-   ownership. Keep hotbar and menu slot coordinates explicit; test cursor/stack safety and cancellation before automation.
+3. Continue Phase D on the now-available inventory foundation: AutoRefill, InventoryCleaner (conservative
+   whitelist defaults), AutoRespawn and AutoFish. They should consume `ContainerTransferController` and the
+   hotbar lease rather than adding new slot handling.
 4. Complete notification sound and menu rendering/lifecycle behavior, then close remaining Phase A integration gaps.
 5. Continue Phase B quality work (exact HUD measurements, Module List transitions/TargetHUD, accessibility) before aggressively
    adding the Phase C–F module catalogue. Addon template and Baritone belong after stable internal contracts.
@@ -286,9 +288,39 @@ increase reflects deeper existing controls, not completion of the whole phase.
 Choose 5–6 meaningful topic commits, not arbitrary tiny edits just to reach a count. If the user changes scope,
 follow their latest instruction. Keep this file updated whenever a system's status materially changes.
 
+## Latest continuation: inventory scoring, container transfers and Phase D automation
+
+Main and every open PR were re-inspected first; main remained `19f83ab` with only draft PR #9 open.
+Six topic commits:
+
+1. `ItemScoring` plus `InventoryService` adapters. Armour/weapon ranking lives in pure records so the vanilla
+   enchantment curves and durability penalty are asserted without a client. Attributes are read with
+   `ItemStack.forEachModifier` for the destination slot, summing only `ADD_VALUE`; damage families use the
+   `SENSITIVE_TO_SMITE`/`SENSITIVE_TO_BANE_OF_ARTHROPODS` tags.
+2. `InventoryTransfers` and `ContainerTransferController`. **26.2 renamed the click call**: it is
+   `MultiPlayerGameMode.handleContainerInput(containerId, slotId, button, ContainerInput, player)`;
+   `handleInventoryMouseClick`/`ClickType` no longer exist. One click per tick, safe-state and empty-cursor
+   entry, dropped clicks instead of guesses when the channel is lost, and stack recovery before release.
+3. `AutoArmor` plus a new `PLAYER` category. The ClickGUI sidebar now shrinks its row pitch instead of
+   overlapping the Themes button, which also fixed a pre-existing overlap at small sizes.
+4. `AutoTotem` with hotbar SWAP fast path, hysteresis-guarded restore that only undoes its own swap, and
+   remaining-totem reporting.
+5. `AutoWeapon` on the hotbar lease above AutoTool; `AutoEat` moved to `PLAYER`, `AutoTool` stays in `WORLD`.
+6. Review fix: container priority was decorative and AutoTotem only beat AutoArmor through registration order.
+   Preemption is now explicit and only permitted while the cursor is empty.
+
+Not done here: AutoTotem has no explosion/falling trigger, transfers cover only the player's own inventory
+menu, and **nothing in this batch has been run inside Minecraft**.
+
 ## Validation and source references
 
 Canonical command: **`./gradlew build --stacktrace` with JDK 25**.
+**Local builds work in this environment**, contrary to the earlier note below: Gradle resolves through the
+agent proxy, and a JDK 25 tarball from Adoptium passed via `-Dorg.gradle.java.home` satisfies
+`options.release = 25` (the system JDK is 21 and cannot). `./gradlew genSources` also succeeds, and
+`javap -constants -cp ~/.gradle/caches/fabric-loom/minecraftMaven/.../minecraft-merged-deobf-26.2.jar`
+is the fastest way to confirm a 26.2 signature before coding against it — that is how the
+`handleContainerInput` rename was caught. Local success is still not a substitute for the branch-head CI run.
 Workflow: `.github/workflows/build.yml` (`CI`), PR events on main. Latest branch-head CI and manual checklist
 are maintained in [PR #9](https://github.com/MrHakan/Minecraft-Client/pull/9); inspect the exact head SHA/run,
 not a previous green run. Historical baseline before this UI/HUD continuation: head `e9bcd1b` passed
@@ -302,6 +334,7 @@ config migrations/file preservation, key chords, UI sessions/search/colors/layou
 copied slot snapshots, notification layout, nearest-candidate retention, theme preservation/accessibility,
 module-list ordering/formatting and HUD measurement bounds.
 **No Minecraft in-game run, screenshot validation or measured gameplay performance has been performed here.**
+The local `./gradlew build` result covers compilation and JUnit only.
 The scanner HUD exposes timing for future real measurements; its presence is not a performance benchmark.
 
 Primary API sources inspected: [Fabric API 26.2](https://github.com/FabricMC/fabric-api/tree/26.2), especially
@@ -333,6 +366,10 @@ Fabric's 26.2 `ClientChunkCacheMixin`. Do not reintroduce 1.20/1.21 examples bli
   block/entity removal, changing filters/ranges and world replacement. Visual latency/partial observations are expected
   under limits, not a promise that every entity in a dense world is considered.
 - Render isolation: failed overlay must not suppress peers; queued geometry from an old world must be skipped.
+- AutoArmor/AutoTotem/AutoWeapon: swap with a full inventory, with a stack already on the cursor, while opening
+  and closing the inventory mid-swap, during death/respawn and dimension changes, and while AutoEat/AutoTool are
+  also active. Confirm no item is ever left on the cursor, that AutoTotem preempts AutoArmor, that a popped totem
+  cancels the pending restore, and that a renamed armour piece is never auto-equipped by default.
 
 ## Environment and publishing notes for the next agent
 
@@ -340,8 +377,8 @@ Previous local work directory: `/workspace/scratch/ca15ca290945/Minecraft-Client
 No AGENTS.md was present at inspection; check again in a fresh environment. Use the remote branch to recover.
 This is an externally Git-backed project; do not duplicate the repository into a separate artifact store.
 
-Local Gradle/JDK bootstrap was unavailable: network restrictions prevented Gradle download and the current
-workspace has no `javac` on PATH. CI supplied JDK 25 and dependencies. Do not claim local build success.
+An earlier environment had no Gradle download and no `javac`; that is no longer true here. Verify in your own
+environment before assuming either way, and never claim a build result you did not observe.
 Direct git push lacked HTTPS credentials; the connected GitHub tools published Git trees/commits and advanced
 one branch ref per batch. Every created tree was verified against the corresponding local commit tree.
 Consequently **local and remote commit SHAs differ even when source trees match**. Prefer checking out the
