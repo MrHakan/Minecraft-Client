@@ -48,7 +48,7 @@ public class HudEditorScreen extends Screen implements me.mrhakan.agalarhack.ui.
     public void init() {
         super.init();
         widgetOrder=me.mrhakan.agalarhack.services.ClientServices.require(me.mrhakan.agalarhack.ui.hud.HudRegistry.class).ids();
-        String[] labels={"Select","Anchor","Visible","Lock","Front","Grid","Grid size","Snap","Magnet","Margin","Reset","Back"};
+        String[] labels={"Select","Anchor","Visible","Lock","Front","Grid","Grid size","Snap","Magnet","Margin","Reset","Back","Retry"};
         int columns=Math.max(1,width/66),rows=(labels.length+columns-1)/columns;
         toolbarTop=height-rows*24-8;
         for(int i=0;i<labels.length;i++){
@@ -68,6 +68,7 @@ public class HudEditorScreen extends Screen implements me.mrhakan.agalarhack.ui.
                     case 9->{options.safeMargin=(options.safeMargin+4)%20;layout.saveEditorOptions();}
                     case 10->layout.reset(selected);
                     case 11->onClose();
+                    case 12->me.mrhakan.agalarhack.services.ClientServices.require(me.mrhakan.agalarhack.ui.hud.HudRegistry.class).retry(selected);
                 }
             }).bounds(4+(i%columns)*66,toolbarTop+(i/columns)*24,62,20).build());
         }
@@ -192,15 +193,15 @@ public class HudEditorScreen extends Screen implements me.mrhakan.agalarhack.ui.
             int border = collision ? 0xFFFF5E6C : active ? 0xFF74B9FF : 0xFF617185;
             graphics.fill(b.x, b.y, b.x + b.width, b.y + b.height, fill);
             graphics.outline(b.x, b.y, b.width, b.height, border);
-            graphics.text(font, title(id) + (state.visible ? "" : " [hidden]")+(state.locked?" [locked]":""), b.x + 5, b.y + 5, 0xFFFFFFFF, true);
-            graphics.text(font, state.anchor.name(), b.x + 5, b.y + 5 + font.lineHeight, 0xFFB8C5D6, true);
-            if (collision) {
+            if(b.height>=font.lineHeight)graphics.text(font,font.plainSubstrByWidth(title(id)+(state.visible?"":" [hidden]")+(state.locked?" [locked]":""),Math.max(0,b.width-2)),b.x+1,b.y,0xFFFFFFFF,true);
+            if(b.height>=font.lineHeight*2+6)graphics.text(font,font.plainSubstrByWidth(state.anchor.name(),Math.max(0,b.width-10)),b.x+5,b.y+5+font.lineHeight,0xFFB8C5D6,true);
+            if (collision && b.height>=font.lineHeight*3+6 && b.width>=font.width("OVERLAP")+10) {
                 graphics.text(font, "OVERLAP", b.x + 5, b.y + 5 + font.lineHeight * 2, 0xFFFF8A94, true);
             }
         }
 
         WidgetState state = AgalarHackClient.HUD_LAYOUT.get(selected);
-        String status = state.anchor.name() + "  offset " + state.offsetX + ", " + state.offsetY;
+        String status = title(selected)+" • "+state.anchor.name() + "  offset " + state.offsetX + ", " + state.offsetY;
         status += " • grid " + gridSize() + " • magnet " + snapThreshold() + " • margin " + safeMargin();
         if (!overlaps.isEmpty()) {
             status += "  • overlap detected: " + String.join(", ", overlaps);
@@ -310,9 +311,8 @@ public class HudEditorScreen extends Screen implements me.mrhakan.agalarhack.ui.
     }
 
     private Bounds boundsFor(String id) {
-        var component=me.mrhakan.agalarhack.services.ClientServices.require(me.mrhakan.agalarhack.ui.hud.HudRegistry.class).get(id);
-        int w=Math.max(70,Math.min(width,component.width().getAsInt()));
-        int h=Math.max(30,Math.min(toolbarTop-6,component.height().getAsInt()));
+        var measured=me.mrhakan.agalarhack.services.ClientServices.require(me.mrhakan.agalarhack.ui.hud.HudRegistry.class).measure(id,width,height);
+        int w=measured.width(),h=measured.height();
         int x = AgalarHackClient.HUD_LAYOUT.resolveX(id, width, w);
         int y = AgalarHackClient.HUD_LAYOUT.resolveY(id, height, h);
         return new Bounds(x, y, w, h);
@@ -320,7 +320,7 @@ public class HudEditorScreen extends Screen implements me.mrhakan.agalarhack.ui.
 
     private String title(String id) {
         var component=me.mrhakan.agalarhack.services.ClientServices.require(me.mrhakan.agalarhack.ui.hud.HudRegistry.class).get(id);
-        return component==null?id:component.title();
+        return (component==null?id:component.title())+(me.mrhakan.agalarhack.services.ClientServices.require(me.mrhakan.agalarhack.ui.hud.HudRegistry.class).failed(id)?" [ERROR]":"");
     }
 
     private record Point(int x, int y) {
