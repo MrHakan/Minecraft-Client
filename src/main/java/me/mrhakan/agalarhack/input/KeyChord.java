@@ -17,4 +17,34 @@ public record KeyChord(int key, int modifiers) {
         } catch (NumberFormatException ignored) { return new KeyChord(-1,0); }
     }
     public boolean matchesModifiers(int down) { return modifiers == (down & 15); }
+
+    /**
+     * Resolves a key name typed by the player into a GLFW code.
+     *
+     * <p>Accepts both bare names ("g", "f7") and Minecraft's own identifiers
+     * ("key.keyboard.g"), because the player sees the short form in the GUI and the long form in
+     * their options file.
+     *
+     * @return the code, or -1 when the name is not a keyboard key
+     */
+    public static int keyFromName(String name) {
+        if (name == null || name.isBlank()) return -1;
+        String trimmed = name.trim().toLowerCase(java.util.Locale.ROOT).replace('_', '.');
+        String id = trimmed.startsWith("key.") ? trimmed : "key.keyboard." + trimmed;
+        try {
+            var key = com.mojang.blaze3d.platform.InputConstants.getKey(id);
+            if (key.getType() != com.mojang.blaze3d.platform.InputConstants.Type.KEYSYM) return -1;
+            int value = key.getValue();
+            return valid(value) && value != -1 ? value : -1;
+        } catch (RuntimeException unknown) {
+            return -1;
+        }
+    }
+
+    /** Human-readable label for a stored key, matching what the bind UI shows. */
+    public static String nameOf(int key, boolean mouse) {
+        if (mouse) return "Mouse " + (key <= -100 ? -100 - key + 1 : key + 1);
+        if (key == -1) return "Unbound";
+        return com.mojang.blaze3d.platform.InputConstants.Type.KEYSYM.getOrCreate(key).getDisplayName().getString();
+    }
 }

@@ -6,6 +6,7 @@ import java.util.List;
 import me.mrhakan.agalarhack.AgalarHackClient;
 import me.mrhakan.agalarhack.commands.Command;
 import me.mrhakan.agalarhack.commands.impl.Alias;
+import me.mrhakan.agalarhack.commands.impl.MacroCommand;
 import me.mrhakan.agalarhack.commands.impl.Bind;
 import me.mrhakan.agalarhack.commands.impl.Friend;
 import me.mrhakan.agalarhack.commands.impl.Gui;
@@ -32,6 +33,33 @@ public class CommandManager {
                     me.mrhakan.agalarhack.config.AliasCodec::encode);
 
     public static me.mrhakan.agalarhack.services.CommandAliases aliases() { return ALIASES; }
+
+    private static final me.mrhakan.agalarhack.services.MacroDefinitions MACROS =
+            new me.mrhakan.agalarhack.services.MacroDefinitions();
+    private static final me.mrhakan.agalarhack.config.BoundedJsonFile<java.util.List<me.mrhakan.agalarhack.services.MacroDefinitions.Macro>> MACRO_FILE =
+            new me.mrhakan.agalarhack.config.BoundedJsonFile<>(
+                    net.fabricmc.loader.api.FabricLoader.getInstance().getConfigDir().resolve("agalarhack-macros.json"),
+                    me.mrhakan.agalarhack.config.MacroCodec.MAX_BYTES,
+                    me.mrhakan.agalarhack.config.MacroCodec::decode,
+                    me.mrhakan.agalarhack.config.MacroCodec::encode);
+
+    public static me.mrhakan.agalarhack.services.MacroDefinitions macros() { return MACROS; }
+
+    public static void loadMacros() {
+        try {
+            MACRO_FILE.load().ifPresent(MACROS::replaceAll);
+        } catch (java.io.IOException failure) {
+            AgalarHackClient.LOGGER.warn("Macros preserved; saving disabled until a successful reload", failure);
+        }
+    }
+
+    public static void saveMacros() {
+        try {
+            MACRO_FILE.save(MACROS.all());
+        } catch (java.io.IOException | IllegalArgumentException failure) {
+            AgalarHackClient.LOGGER.error("Could not save macros", failure);
+        }
+    }
 
     /** An unreadable alias file is preserved and saving stays off, as with every other store. */
     public static void loadAliases() {
@@ -63,7 +91,9 @@ public class CommandManager {
         commands.add(new Gui());
         commands.add(new WaypointCommand());
         loadAliases();
+        loadMacros();
         commands.add(new Alias());
+        commands.add(new MacroCommand());
         commands.add(new Panic());
     }
 
