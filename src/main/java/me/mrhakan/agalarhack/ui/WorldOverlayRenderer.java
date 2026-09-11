@@ -51,6 +51,9 @@ public final class WorldOverlayRenderer {
         Module freecamModule = AgalarHackClient.moduleManager.getModule("Freecam");
         Module storageModule = AgalarHackClient.moduleManager.getModule("StorageESP");
         Module blockModule = AgalarHackClient.moduleManager.getModule("BlockESP");
+        Module spawnModule = AgalarHackClient.moduleManager.getModule("SpawnESP");
+        me.mrhakan.agalarhack.module.render.SpawnESP spawns =
+                spawnModule instanceof me.mrhakan.agalarhack.module.render.SpawnESP sp ? sp : null;
         Module holeModule = AgalarHackClient.moduleManager.getModule("HoleESP");
         me.mrhakan.agalarhack.module.render.HoleESP holes =
                 holeModule instanceof me.mrhakan.agalarhack.module.render.HoleESP h ? h : null;
@@ -87,7 +90,8 @@ public final class WorldOverlayRenderer {
         boolean tracersEnabled = tracers != null && tracers.isToggled();
         boolean projectilesEnabled = projectiles != null && projectiles.isToggled();
         boolean holesEnabled = holes != null && holes.isToggled();
-        if (!holesEnabled && !projectilesEnabled && !tracersEnabled && !breadcrumbsEnabled && !espEnabled && !trajectoriesEnabled && !storageEnabled && !blockEnabled && !bodyMarker
+        boolean spawnsEnabled = spawns != null && spawns.isToggled();
+        if (!spawnsEnabled && !holesEnabled && !projectilesEnabled && !tracersEnabled && !breadcrumbsEnabled && !espEnabled && !trajectoriesEnabled && !storageEnabled && !blockEnabled && !bodyMarker
                 && !waypointsEnabled && !itemsEnabled && !nametagsEnabled) return;
 
         var renderService = me.mrhakan.agalarhack.services.ClientServices.require(me.mrhakan.agalarhack.services.RenderService.class);
@@ -116,6 +120,7 @@ public final class WorldOverlayRenderer {
             if (storageEnabled) renderService.guard(storage, () -> renderStorageEsp(mc, storage, camera, pose, buffer));
             if (blockEnabled) renderService.guard(blockEsp, () -> renderBlockEsp(mc, blockEsp, camera, pose, buffer));
             if (trajectoriesEnabled) renderService.guard(trajectories, () -> renderTrajectory(mc, trajectories, camera, pose, buffer));
+            if (spawnsEnabled) renderService.guard(spawns, () -> renderSpawns(spawns, camera, pose, buffer));
             if (holesEnabled) renderService.guard(holes, () -> renderHoles(holes, camera, pose, buffer));
             if (projectilesEnabled) renderService.guard(projectiles, () -> renderProjectiles(projectiles, camera, pose, buffer));
             if (tracersEnabled) renderService.guard(tracers, () -> renderTracers(tracers, camera, pose, buffer));
@@ -249,6 +254,21 @@ public final class WorldOverlayRenderer {
             AABB block = new AABB(pos.getX(), pos.getY(), pos.getZ(), pos.getX() + 1.0, pos.getY() + 1.0, pos.getZ() + 1.0)
                     .inflate(0.015).move(-camera.x, -camera.y, -camera.z);
             box(buffer, pose, block, (alpha << 24) | rgb);
+        }
+    }
+
+    private static void renderSpawns(me.mrhakan.agalarhack.module.render.SpawnESP module,
+            Vec3 camera, PoseStack.Pose pose, VertexConsumer buffer) {
+        int alpha = (int) Math.max(32, Math.min(255, module.getNumberSetting("alpha", 120.0))) << 24;
+        for (var entry : module.results()) {
+            BlockPos pos = entry.getKey();
+            // Red for always-spawnable, amber for night-only: the distinction is what the player acts on.
+            int rgb = entry.getValue() == me.mrhakan.agalarhack.services.scanning.SpawnLightRules.Spawnable.ALWAYS
+                    ? 0xFF4444 : 0xFFBB44;
+            AABB box = new AABB(pos.getX() + 0.02, pos.getY(), pos.getZ() + 0.02,
+                    pos.getX() + 0.98, pos.getY() + 0.02, pos.getZ() + 0.98)
+                    .move(-camera.x, -camera.y, -camera.z);
+            box(buffer, pose, box, alpha | rgb);
         }
     }
 
