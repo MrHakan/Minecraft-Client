@@ -18,6 +18,7 @@ class ContainerTransferControllerTest {
         public int emptyStorageMenuSlot() { return freeSlot; }
         public void pickup(int menuSlot) { clicks.add("pickup:" + menuSlot); }
         public void swap(int menuSlot, int hotbarIndex) { clicks.add("swap:" + menuSlot + ":" + hotbarIndex); }
+        public void drop(int menuSlot, boolean wholeStack) { clicks.add("drop:" + menuSlot + ":" + wholeStack); }
     }
 
     private static ContainerTransferController controller(FakeControls controls) {
@@ -187,6 +188,32 @@ class ContainerTransferControllerTest {
         var controller = controller(controls);
         assertFalse(controller.swapHotbar("autototem", 90, InventoryTransfers.MENU_OFFHAND, 9));
         assertFalse(controller.swapHotbar("autototem", 90, InventoryTransfers.MENU_OFFHAND, -1));
+        assertTrue(controls.clicks.isEmpty());
+    }
+
+    @Test void dropIsASingleClickAndNeverTouchesTheCursor() {
+        var controls = new FakeControls();
+        var controller = controller(controls);
+        assertTrue(controller.dropSlot("cleaner", 20, 14, true));
+        assertEquals(List.of("drop:14:true"), controls.clicks);
+        assertFalse(controller.busy());
+    }
+
+    @Test void dropIsRefusedWhileAStackIsCarried() {
+        var controls = new FakeControls();
+        var controller = controller(controls);
+        assertTrue(controller.begin("autoarmor", 50, InventoryTransfers.equipPlan(10, 6)));
+        controller.tick();
+        controls.cursorEmpty = false;
+        assertFalse(controller.dropSlot("cleaner", 99, 14, true));
+        assertEquals(List.of("pickup:10"), controls.clicks);
+    }
+
+    @Test void dropValidatesTheSlotRange() {
+        var controls = new FakeControls();
+        var controller = controller(controls);
+        assertFalse(controller.dropSlot("cleaner", 20, -1, true));
+        assertFalse(controller.dropSlot("cleaner", 20, 46, true));
         assertTrue(controls.clicks.isEmpty());
     }
 

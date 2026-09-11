@@ -31,6 +31,8 @@ public final class ContainerTransferController {
         void pickup(int menuSlot);
         /** A vanilla SWAP click exchanging a menu slot with a hotbar index 0..8. */
         void swap(int menuSlot, int hotbarIndex);
+        /** A vanilla THROW click dropping one item, or the whole stack, out of a menu slot. */
+        void drop(int menuSlot, boolean wholeStack);
     }
 
     /** Upper bound on a single plan; the longest supported sequence is three clicks. */
@@ -97,6 +99,19 @@ public final class ContainerTransferController {
         if (!canPreempt(owner, priority)) return false;
         finish();
         controls.swap(menuSlot, hotbarIndex);
+        return true;
+    }
+
+    /**
+     * Drops a slot's contents on the floor. Like {@link #swapHotbar} this is a single atomic click
+     * that never involves the cursor, so it cannot leave an item stranded.
+     */
+    public boolean dropSlot(String owner, int priority, int menuSlot, boolean wholeStack) {
+        if (owner == null || owner.isBlank() || menuSlot < 0 || menuSlot > InventoryTransfers.MENU_OFFHAND) return false;
+        if (!controls.ready() || !controls.cursorEmpty()) return false;
+        if (!canPreempt(owner, priority)) return false;
+        finish();
+        controls.drop(menuSlot, wholeStack);
         return true;
     }
 

@@ -17,7 +17,10 @@ import me.mrhakan.agalarhack.module.misc.AutoReconnect;
 import me.mrhakan.agalarhack.module.movement.Flight;
 import me.mrhakan.agalarhack.module.player.AutoArmor;
 import me.mrhakan.agalarhack.module.player.AutoTotem;
+import me.mrhakan.agalarhack.module.player.AutoRefill;
+import me.mrhakan.agalarhack.module.player.AutoRespawn;
 import me.mrhakan.agalarhack.module.player.AutoWeapon;
+import me.mrhakan.agalarhack.module.player.InventoryCleaner;
 import me.mrhakan.agalarhack.module.movement.Jesus;
 import me.mrhakan.agalarhack.module.movement.NoFall;
 import me.mrhakan.agalarhack.module.movement.Speed;
@@ -69,6 +72,9 @@ public class ModuleManager {
         register(new AutoTotem());
         register(new AutoArmor());
         register(new AutoWeapon());
+        register(new AutoRefill());
+        register(new AutoRespawn());
+        register(new InventoryCleaner());
 
         register(new AutoTool());
     }

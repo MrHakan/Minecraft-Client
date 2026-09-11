@@ -52,6 +52,10 @@ public final class InventoryService {
             }
             public void pickup(int menuSlot) { click(menuSlot, 0, net.minecraft.world.inventory.ContainerInput.PICKUP); }
             public void swap(int menuSlot, int hotbarIndex) { click(menuSlot, hotbarIndex, net.minecraft.world.inventory.ContainerInput.SWAP); }
+            public void drop(int menuSlot, boolean wholeStack) {
+                // Button 1 throws the whole stack, button 0 a single item.
+                click(menuSlot, wholeStack ? 1 : 0, net.minecraft.world.inventory.ContainerInput.THROW);
+            }
             private void click(int menuSlot, int button, net.minecraft.world.inventory.ContainerInput input) {
                 if (mc.gameMode == null || mc.player == null) return;
                 mc.gameMode.handleContainerInput(mc.player.inventoryMenu.containerId, menuSlot, button, input, mc.player);
