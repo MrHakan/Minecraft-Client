@@ -58,4 +58,34 @@ class RollingSamplesTest {
         samples.add(7);
         assertArrayEquals(new double[] { 7 }, samples.snapshot());
     }
+
+    @Test
+    void medianIgnoresASpikeThatWouldDragTheAverage() {
+        RollingSamples samples = new RollingSamples(8);
+        for (int index = 0; index < 7; index++) samples.add(50);
+        samples.add(2_000);
+        org.junit.jupiter.api.Assertions.assertEquals(50.0, samples.median(), 1e-9);
+        org.junit.jupiter.api.Assertions.assertTrue(samples.average() > 200,
+                "the average is dragged, which is exactly why a baseline must not use it");
+    }
+
+    @Test
+    void medianOfAnEvenCountAveragesTheMiddlePair() {
+        RollingSamples samples = new RollingSamples(4);
+        samples.add(1); samples.add(2); samples.add(3); samples.add(10);
+        org.junit.jupiter.api.Assertions.assertEquals(2.5, samples.median(), 1e-9);
+    }
+
+    @Test
+    void medianOfAnOddCountIsTheMiddleSample() {
+        RollingSamples samples = new RollingSamples(3);
+        samples.add(9); samples.add(1); samples.add(5);
+        org.junit.jupiter.api.Assertions.assertEquals(5.0, samples.median(), 1e-9,
+                "insertion order must not matter");
+    }
+
+    @Test
+    void medianOfNothingIsZero() {
+        org.junit.jupiter.api.Assertions.assertEquals(0.0, new RollingSamples(4).median(), 1e-9);
+    }
 }

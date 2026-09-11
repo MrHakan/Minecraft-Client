@@ -55,6 +55,21 @@ public final class RollingSamples {
         return total / count;
     }
 
+    /**
+     * Middle sample, which is what a baseline wants.
+     *
+     * <p>The average is the wrong tool for a baseline: a single 2000 ms ping drags it far enough that
+     * the spike raises its own threshold and hides the next one. The median ignores the outlier
+     * entirely, which is the whole point of having a baseline to compare against.
+     */
+    public double median() {
+        if (count == 0) return 0;
+        double[] sorted = snapshot();
+        Arrays.sort(sorted);
+        int middle = sorted.length / 2;
+        return sorted.length % 2 == 1 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2.0;
+    }
+
     public double minimum() {
         if (count == 0) return 0;
         double best = Double.MAX_VALUE;

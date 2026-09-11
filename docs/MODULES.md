@@ -134,6 +134,10 @@ Ping history and an estimated server tick rate, both clearly labelled as client-
 | `pingInterval` | `20` | `5..200` | Ticks between ping samples |
 | `lagThreshold` | `15` | `1..19.5` | Warn when the estimated tick rate falls below this |
 | `lagWarning` | `false` | `true/false or on/off` | Notify when the estimate drops below the threshold |
+| `pingSpikeWarning` | `false` | `true/false or on/off` | Notify when your ping jumps well above its recent normal |
+| `pingSpikeFactor` | `3` | `1.5..10` | How many times the recent median counts as a spike |
+| `frozenWarning` | `false` | `true/false or on/off` | Notify when the server stops sending world time updates |
+| `frozenSeconds` | `5` | `2..60` | Seconds without an update before saying so |
 
 ## Movement
 
