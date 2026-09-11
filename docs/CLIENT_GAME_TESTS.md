@@ -71,6 +71,7 @@ Headless machines need `xvfb` and Mesa's software rasteriser; `tools/smoke-clien
 OpenGL overrides itself. Minecraft 26.2 needs an OpenGL 3.3 core context, so asking llvmpipe for 3.2
 makes window creation fail with a misleading error.
 
-The whole run takes under two minutes: the client shuts itself down as soon as the tests finish, so
-unlike the timeout-driven check it replaced, a slow exit is a real failure rather than the normal way
-the run ends.
+Locally the run takes about two minutes. On a GitHub runner the whole step is **2m41s**, including
+installing xvfb and downloading Minecraft's assets, against **7m11s** for the timeout-driven check it
+replaced. The saving is not incidental: the client shuts itself down as soon as the tests finish, so
+a slow exit is a real failure rather than the normal way the run ends.

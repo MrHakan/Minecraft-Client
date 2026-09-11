@@ -12,7 +12,7 @@ Every module here is enabled, ticked and disabled inside a real world on every p
 request, so an UNTESTED one is known not to crash; what is missing is a check that it
 does the thing it exists to do. The badge is cleared in the commit that adds that check.
 
-53 modules across 6 categories; 25 marked UNTESTED.
+53 modules across 6 categories; 23 marked UNTESTED.
 
 ## Combat
 
@@ -313,7 +313,7 @@ Automatically eats food from the hotbar when hunger is low
 | `swapBack` | `true` | `true/false or on/off` | Return to the previous hotbar slot afterwards |
 | `allowGoldenApples` | `false` | `true/false or on/off` | Allow automatic use of golden/enchanted golden apples |
 
-### AutoRefill — UNTESTED
+### AutoRefill
 
 Refills low hotbar stacks from the inventory before they run out
 
@@ -369,7 +369,7 @@ Elytra durability and firework warnings plus glide speed; informational only
 | `fireworkWarning` | `4` | `0..64` | Warn when fireworks run this low; 0 disables |
 | `showSpeed` | `true` | `true/false or on/off` | Show glide speed in the module list while flying |
 
-### InventoryCleaner — UNTESTED
+### InventoryCleaner
 
 Drops only the items you list as junk, protecting enchanted and named gear
 

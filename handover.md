@@ -273,7 +273,7 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 84 | Error reporting | Reviewed. Module tick, render, scanner, command, macro and HUD boundaries were already guarded. The one real gap was the shared chat callback: the bus detaches a listener that throws, so one chat module's bug disabled all three for the session. `ModuleGuard` now contains each module separately and reports once per failure episode, and ChatFilter fails open so a broken filter cannot hide chat |
 | 85 | Structured logging | Implemented SLF4J replacement for raw stderr. One `System.out.println` survived in the profile auto-load path and has now been replaced; the rest of the audit remains |
 | 86 | Module documentation | Implemented: `docs/MODULES.md` is generated from the live settings registry and a test fails when it and the code disagree, rewriting the file as it fails |
-| 87 | Experimental flags | Implemented: `markExperimental()` plus an UNTESTED badge in the ClickGUI, surfaced in the generated module reference. 25 of the original 31 remain; a source-level test stops a new module shipping unmarked **and** refuses a cleared flag that does not name a game test scenario that still exists |
+| 87 | Experimental flags | Implemented: `markExperimental()` plus an UNTESTED badge in the ClickGUI, surfaced in the generated module reference. 23 of the original 31 remain; a source-level test stops a new module shipping unmarked **and** refuses a cleared flag that does not name a game test scenario that still exists |
 
 ## Recommended next development batch
 
@@ -499,7 +499,8 @@ player would notice, and the module's name added to `VERIFIED_IN_GAME` in `Exper
 pointing at that scenario. The test fails if the scenario does not exist, so a flag cannot be cleared
 by editing a list — which is the only thing that makes the badge worth anything.
 
-Cleared so far: AutoTotem, AutoArmor, AutoWalk, SafeWalk, Parkour, CameraTweaks.
+Cleared so far: AutoTotem, AutoArmor, AutoWalk, SafeWalk, Parkour, CameraTweaks, AutoRefill,
+InventoryCleaner.
 
 Write the control half of every scenario first. Each one asserts the effect is *absent* before the
 module is switched on; without that, an assertion that passes because the game does it anyway looks
@@ -856,8 +857,10 @@ Wait for it if you actually want to see the result.
 ## Latest continuation: the client drives itself
 
 `tools/smoke-client.sh` now runs `runClientGameTest` instead of `runClient`. Same launch, far more
-checked, and **faster**: under two minutes against the old 7m11s, because the client shuts itself
-down when the tests finish rather than being killed by a timeout. A slow exit is now a real failure.
+checked, and **faster**: **2m41s** on a GitHub runner against the old 7m11s (whole job 3m21s against
+7m52s), because the client shuts itself down when the tests finish rather than being killed by a
+timeout. A slow exit is now a real failure. Confirmed on run 162, the first pull-request run to carry
+the game tests.
 
 Four entry points in `src/gametest`, in order: screens, module lifecycle, module behaviour, log scan.
 Full description in [docs/CLIENT_GAME_TESTS.md](docs/CLIENT_GAME_TESTS.md). Three things about it are
@@ -905,9 +908,9 @@ overwrites before reading.
 
 ### Where to go next
 
-The 25 remaining badges are the queue, and the inventory and movement ones are the tractable half:
-AutoRefill (a depleted hotbar stack gets topped up), InventoryCleaner (junk leaves the inventory),
-AutoWeapon (the selected slot holds a weapon once there is a target). Chat modules need a way to read
+The 23 remaining badges are the queue. AutoWeapon is the next tractable one: give the player a sword,
+aim at the zombie `TestScene` already spawns, and assert the selected hotbar slot holds it. Chat
+modules need a way to read
 back what `ChatComponent` stored, which has no public accessor — reflection against the dev jar is
 the likely route. Pure render modules (ESPs, nametags, tracers) have no observable state at all;
 `assertScreenshotEquals` exists in the game test API and is the only honest option there.

@@ -15,6 +15,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.Blocks;
@@ -53,6 +54,8 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
             cameraTweaks(context);
             autoWalk(context, singleplayer);
             safeWalk(context, singleplayer);
+            autoRefill(context, singleplayer);
+            inventoryCleaner(context, singleplayer);
 
             LOGGER.info("Module behaviour scenarios passed");
         }
@@ -266,6 +269,79 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
 
     private static Vec3 position(ClientGameTestContext context) {
         return context.computeOnClient(client -> client.player.position());
+    }
+
+    /** A low hotbar stack with a full one behind it in the inventory should be topped up. */
+    private void autoRefill(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        final int hotbarSlot = 0;
+        final int storageSlot = 20;
+        setInventory(singleplayer, slots -> {
+            slots.setItem(hotbarSlot, new ItemStack(Items.COBBLESTONE, 4));
+            slots.setItem(storageSlot, new ItemStack(Items.COBBLESTONE, 64));
+        });
+        context.waitTicks(10);
+
+        Predicate<Minecraft> toppedUp =
+                client -> client.player.getInventory().getItem(hotbarSlot).getCount() > 4;
+        assertNotYet(context, toppedUp, "the hotbar stack was already above the refill threshold");
+
+        toggle(context, "AutoRefill", true);
+        boolean refilled = settle(context, toppedUp, SETTLE_TICKS * 2);
+        toggle(context, "AutoRefill", false);
+        if (!refilled) {
+            throw new AssertionError("AutoRefill left a 4-item hotbar stack alone with a full stack "
+                    + "of the same item in the inventory");
+        }
+        LOGGER.info("  AutoRefill topped up a low hotbar stack");
+    }
+
+    /**
+     * The one automation here that destroys property, so the scenario cares as much about what
+     * survives as about what goes. An unlisted item in the next slot must still be there afterwards.
+     */
+    private void inventoryCleaner(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        final int junkSlot = 20;
+        final int keepSlot = 21;
+        setInventory(singleplayer, slots -> {
+            slots.setItem(junkSlot, new ItemStack(Items.ROTTEN_FLESH, 8));
+            slots.setItem(keepSlot, new ItemStack(Items.DIAMOND, 8));
+        });
+        context.waitTicks(10);
+
+        Predicate<Minecraft> junkGone =
+                client -> !client.player.getInventory().getItem(junkSlot).is(Items.ROTTEN_FLESH);
+        assertNotYet(context, junkGone, "the junk slot did not contain the junk the scenario placed");
+
+        toggle(context, "InventoryCleaner", true);
+        boolean dropped = settle(context, junkGone, SETTLE_TICKS * 2);
+        toggle(context, "InventoryCleaner", false);
+        if (!dropped) {
+            throw new AssertionError("InventoryCleaner did not drop rotten flesh, which is in its "
+                    + "default junk list");
+        }
+
+        boolean kept = context.computeOnClient(client ->
+                client.player.getInventory().getItem(keepSlot).is(Items.DIAMOND));
+        if (!kept) {
+            throw new AssertionError("InventoryCleaner dropped a diamond, which is not in any junk "
+                    + "list; this module must never remove something nobody listed");
+        }
+        LOGGER.info("  InventoryCleaner dropped the listed junk and left the diamonds alone");
+    }
+
+    /**
+     * Replaces the player's inventory so a scenario starts from exactly what it placed. The earlier
+     * scenarios equip and swap things, so whatever is left by then is not a foundation to assert on.
+     */
+    private static void setInventory(TestSingleplayerContext singleplayer,
+            java.util.function.Consumer<net.minecraft.world.entity.player.Inventory> change) {
+        singleplayer.getServer().runOnServer(server -> {
+            ServerPlayer player = singleplayer.getConnection().getServerPlayer();
+            player.getInventory().clearContent();
+            change.accept(player.getInventory());
+            // Without this the client keeps drawing - and the modules keep reading - the old contents.
+            player.containerMenu.broadcastChanges();
+        });
     }
 
     private static void configure(ClientGameTestContext context, String name, java.util.function.Consumer<Module> change) {
