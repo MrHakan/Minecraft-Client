@@ -17,8 +17,8 @@ At the 2026-09-11 re-inspection, #9 was still the only open PR, at head `f3eb4ff
 open PRs again: this document is a checkpoint, not a substitute for live repository state.
 **Nothing in this work has been automatically merged into main.**
 
-Approximate progress against the complete requested roadmap: **42–48% implemented;
-52–58% remains**. This is a qualitative scope estimate, not measured work hours, a count
+Approximate progress against the complete requested roadmap: **46–52% implemented;
+48–54% remains**. This is a qualitative scope estimate, not measured work hours, a count
 of commits, or a release-readiness percentage. Earlier estimate was about 20%; this batch
 mainly deepens existing foundations. Do not extrapolate remaining duration from these numbers.
 No entire phase is accepted as complete; Minecraft in-game smoke testing remains outstanding.
@@ -27,9 +27,9 @@ No entire phase is accepted as complete; Minecraft in-game smoke testing remains
 | --- | --- | --- |
 | A: foundation | 90–95% | Rotation adoption beyond Aura, shared selector adoption by visuals, integration tests |
 | B: UI/HUD | 55–60% | Full widget/animation/accessibility coverage, Module List transitions, richer TargetHUD, remaining legacy bounds |
-| C: rendering | 50–55% | More ESP modes, projectiles and warnings, camera tweaks, trajectory simulator extraction |
+| C: rendering | 65–70% | More ESP render modes, camera tweaks, per-block BlockESP colours |
 | D: player utility | 55–60% | AutoFish, AutoWalk, AutoAccept, FastPlace, inventory HUD depth |
-| E: movement/world | 0–5% | SafeWalk, Parkour, Elytra utility, BaseFinder/HoleESP/light visualization |
+| E: movement/world | 10–15% | Parkour, AutoJump, Elytra utility, BaseFinder/HoleESP/light visualization |
 | F: information/social | 0–5% | BetterChat, totems, TPS estimates/ping graph, macros and aliases |
 | G: ecosystem | 0% | Stable external addon API/template, optional Baritone, localization |
 | H: hardening | 50–55% | In-game lifecycle testing, complete profiling/config migration audit |
@@ -210,12 +210,12 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 21 | Breadcrumbs | Implemented: distance-based sampling, bounded store, optional age limit, fade, cleared on dimension change |
 | 22 | Generalized tracers | Implemented as its own module with per-group filters, colours and origin; ESP keeps its own tracer toggle |
 | 23 | ItemESP | Implemented: bounded discovery, whitelist/blacklist, rarity colouring, count/distance labels |
-| 24 | ProjectileESP | Not started |
-| 25 | Projectile warning | Not started; informational only when implemented |
+| 24 | ProjectileESP | Implemented: bounded discovery, boxes and heading lines; TNT optional |
+| 25 | Projectile warning | Implemented: closest-approach estimate through the shared simulator, labelled as an estimate, informational only |
 | 26 | Freecam expansion | Partial existing camera/body/motion settings plus restoration changes; full requested controls/QA pending |
 | 27 | Fullbright modes | Partial: existing effect-based mode and restoration; safe gamma-like mode pending |
 | 28 | Camera tweaks | Not started |
-| 29 | Trajectory simulator | Partial existing simulation in WorldOverlayRenderer; standalone reusable architecture missing |
+| 29 | Trajectory simulator | Implemented: ProjectilePhysics/ProjectileSimulator extracted and consumed by the renderer and the warning module |
 | 30 | Trajectory accuracy | Partial existing charge/collision/custom physics; full physics-family audit and markers/time details pending |
 | 31 | TargetHUD | Partial existing health/equipment/effects card; faces/layouts/animations/detail expansion pending |
 | 32 | Combat history | Not started |
@@ -229,7 +229,7 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 40 | AutoAccept | Not started; explicitly opt-in local requests only |
 | 41 | Use tweaks | Not started; bounded, no packet spam |
 | 42 | Inventory HUD | Partial implemented main-inventory viewer; richer item overlays/layouts pending |
-| 43 | SafeWalk | Not started |
+| 43 | SafeWalk | Implemented by reusing vanilla's sneak-edge check through a client-only mixin |
 | 44 | Parkour | Not started |
 | 45 | AutoJump | Not started |
 | 46 | Elytra utility | Not started; warnings/counters/equipment assistance first |
@@ -267,7 +267,7 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 78 | Chunk result cache | Implemented for BlockESP: bounded LRU clean-chunk cache with block-update, unload, anchor and filter invalidation. Other scanners still sweep |
 | 79 | Render culling | Partial distance/target/label bounds shared through EntityDiscovery; frustum culling pending |
 | 80 | Performance HUD | Partial scanner diagnostics and memory; module tick/render timings and broader counters pending |
-| 81 | Unit tests | 187 tests; adds block-update batching, chunk cache eviction, cursor completion, id-list parsing, notification sinks, waypoint normalisation/persistence and compass bearings; trajectory and fade coverage pending |
+| 81 | Unit tests | 202 tests; adds block-update batching, chunk cache eviction, cursor completion, id-list parsing, notification sinks, waypoint normalisation/persistence and compass bearings; trajectory and fade coverage pending |
 | 82 | Integration smoke tests | Not performed in-game; automate where feasible and record exact environment/results |
 | 83 | Lifecycle audit | Partial code audit/restoration; all listed state-changing modules need in-game transition checks |
 | 84 | Error reporting | Partial logger/module/render/scanner isolation; guarded HUD measurements/renderers with notices and retry; remaining boundaries need review |
@@ -363,8 +363,25 @@ Three more topic commits on top of the waypoint batch.
    list and then reset the selector. The custom list is part of the scan signature, so editing it
    invalidates the chunk cache.
 
-Still missing in Phase C: ProjectileESP, projectile warning, camera tweaks, per-block BlockESP colours
-and the trajectory simulator extraction.
+## Latest continuation: projectile simulator, projectile modules and SafeWalk
+
+Three more topic commits.
+
+1. **`ProjectilePhysics`/`ProjectileSimulator`** extracted from the trajectory renderer. Collision stays
+   in the renderer because it needs the world; keeping it out is what makes the physics testable.
+   **The drag/gravity order differs by family** — arrow-like moves then decays, throwable-like decays
+   then moves — and a test asserts the two orders diverge. Constants are carried over unchanged, so
+   this was a refactor, not a retune.
+2. **ProjectileESP** (heading lines deliberately ignore gravity: a direction, not a predicted path) and
+   **ProjectileWarning**, which extrapolates an observed velocity with an *estimated* motion model and
+   says so in the text. It reuses ProjectileESP's discovery rather than opening a second sweep.
+3. **SafeWalk** through a second mixin, `PlayerEdgeMixin`. It forces vanilla's own
+   `isStayingOnGroundSurface` gate rather than reimplementing edge detection. `Player` is common code,
+   so the injection is restricted to the client's own player.
+
+There are now **two mixins**; both are listed in `agalarhack.mixins.json` under `client`.
+
+Still missing in Phase C: camera tweaks, per-block BlockESP colours and richer ESP render modes.
 
 ## Validation and source references
 
@@ -424,6 +441,11 @@ Fabric's 26.2 `ClientChunkCacheMixin`. Do not reintroduce 1.20/1.21 examples bli
   `required: true` with `defaultRequire: 1` means a failed injection is a hard crash at load, so this is
   the first thing to check in-game. Place and break blocks, trigger a piston or explosion for the
   section path, and watch BlockESP markers update without a rescan.
+- SafeWalk: walk off ledges with each mode, in singleplayer as well as multiplayer, and confirm the
+  integrated server's own players are unaffected. Check it does not fight with Sprint or Speed.
+- Projectile modules: have someone shoot at you and confirm the warning fires once, reads as an
+  estimate, and does not fire for your own shots. Compare the trajectory overlay against where arrows
+  actually land, since the simulator refactor must not have changed the path.
 - Waypoints: add/remove/list from both dimensions, restart the client and confirm they persist, corrupt
   the file deliberately and confirm it is preserved with saving disabled, check the HUD arrow points the
   right way while turning, and confirm beams and labels respect render distance.
