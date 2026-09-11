@@ -96,6 +96,9 @@ public final class WorldOverlayRenderer {
 
         var renderService = me.mrhakan.agalarhack.services.ClientServices.require(me.mrhakan.agalarhack.services.RenderService.class);
         Vec3 camera = ctx.levelState().cameraRenderState.pos;
+        // Built once per frame from the frustum the game already prepared, then shared by every
+        // box-shaped overlay below. Line overlays deliberately do not use it; see ViewCulling.
+        ViewCulling culling = ViewCulling.of(ctx);
         List<LivingEntity> espTargets = espEnabled && esp instanceof EntityESP entityEsp ? entityEsp.targets() : List.of();
         if (espEnabled && esp.getBooleanSetting("labels", true)) renderService.guard(esp, () -> renderEspLabels(ctx, mc, esp, espTargets, camera));
         if (storageEnabled && storage.getBooleanSetting("labels", false)) renderService.guard(storage, () -> renderStorageLabels(ctx, mc, storage, camera));
@@ -117,18 +120,18 @@ public final class WorldOverlayRenderer {
         ctx.submitNodeCollector().submitCustomGeometry(ctx.poseStack(), RenderTypes.lines(), (pose, buffer) -> {
             if (mc.level != submittedLevel || mc.player != submittedPlayer || mc.player == null) return;
             if (espEnabled) renderService.guard(esp, () -> renderEspGeometry(mc, esp, espTargets, camera, pose, buffer));
-            if (storageEnabled) renderService.guard(storage, () -> renderStorageEsp(mc, storage, camera, pose, buffer));
-            if (blockEnabled) renderService.guard(blockEsp, () -> renderBlockEsp(mc, blockEsp, camera, pose, buffer));
+            if (storageEnabled) renderService.guard(storage, () -> renderStorageEsp(mc, storage, camera, pose, buffer, culling));
+            if (blockEnabled) renderService.guard(blockEsp, () -> renderBlockEsp(mc, blockEsp, camera, pose, buffer, culling));
             if (trajectoriesEnabled) renderService.guard(trajectories, () -> renderTrajectory(mc, trajectories, camera, pose, buffer));
-            if (spawnsEnabled) renderService.guard(spawns, () -> renderSpawns(spawns, camera, pose, buffer));
-            if (holesEnabled) renderService.guard(holes, () -> renderHoles(holes, camera, pose, buffer));
+            if (spawnsEnabled) renderService.guard(spawns, () -> renderSpawns(spawns, camera, pose, buffer, culling));
+            if (holesEnabled) renderService.guard(holes, () -> renderHoles(holes, camera, pose, buffer, culling));
             if (projectilesEnabled) renderService.guard(projectiles, () -> renderProjectiles(projectiles, camera, pose, buffer));
             if (tracersEnabled) renderService.guard(tracers, () -> renderTracers(tracers, camera, pose, buffer));
             if (breadcrumbsEnabled) renderService.guard(breadcrumbs, () -> renderBreadcrumbs(breadcrumbs, camera, pose, buffer));
             if (itemsEnabled && itemEsp.getBooleanSetting("boxes", true)) {
-                renderService.guard(itemEsp, () -> renderItemEsp(mc, itemEsp, camera, pose, buffer));
+                renderService.guard(itemEsp, () -> renderItemEsp(mc, itemEsp, camera, pose, buffer, culling));
             }
-            if (waypointsEnabled) renderService.guard(waypoints, () -> renderWaypoints(mc, waypoints, camera, pose, buffer));
+            if (waypointsEnabled) renderService.guard(waypoints, () -> renderWaypoints(mc, waypoints, camera, pose, buffer, culling));
             if (bodyMarker) renderService.guard(freecam, () -> renderFreecamBodyMarker(mc, freecam, camera, pose, buffer));
         });
     }
@@ -211,9 +214,10 @@ public final class WorldOverlayRenderer {
         return (r << 16) | (g << 8) | b;
     }
 
-    private static void renderStorageEsp(Minecraft mc, StorageESP module, Vec3 camera, PoseStack.Pose pose, VertexConsumer buffer) {
+    private static void renderStorageEsp(Minecraft mc, StorageESP module, Vec3 camera, PoseStack.Pose pose, VertexConsumer buffer, ViewCulling culling) {
         double range = module.getNumberSetting("range", 64.0);
         for (BlockPos pos : module.getCachedPositions()) {
+            if (!culling.isVisible(pos)) continue;
             if (blockDistance(mc, pos) > module.getNumberSetting("range", 64.0)
                     || !mc.level.hasChunk(pos.getX() >> 4, pos.getZ() >> 4)) continue;
             String id = blockId(mc, pos);
@@ -243,10 +247,11 @@ public final class WorldOverlayRenderer {
         }
     }
 
-    private static void renderBlockEsp(Minecraft mc, BlockESP module, Vec3 camera, PoseStack.Pose pose, VertexConsumer buffer) {
+    private static void renderBlockEsp(Minecraft mc, BlockESP module, Vec3 camera, PoseStack.Pose pose, VertexConsumer buffer, ViewCulling culling) {
         double range = module.getNumberSetting("horizontalRange", 24.0);
         int rgb = rgb(module.getNumberSetting("red", 255.0), module.getNumberSetting("green", 100.0), module.getNumberSetting("blue", 220.0));
         for (BlockPos pos : module.getMatches()) {
+            if (!culling.isVisible(pos)) continue;
             if (!mc.level.hasChunk(pos.getX() >> 4, pos.getZ() >> 4)) continue;
             String id = blockId(mc, pos);
             if (!module.matches(id)) continue;
@@ -258,10 +263,11 @@ public final class WorldOverlayRenderer {
     }
 
     private static void renderSpawns(me.mrhakan.agalarhack.module.render.SpawnESP module,
-            Vec3 camera, PoseStack.Pose pose, VertexConsumer buffer) {
+            Vec3 camera, PoseStack.Pose pose, VertexConsumer buffer, ViewCulling culling) {
         int alpha = (int) Math.max(32, Math.min(255, module.getNumberSetting("alpha", 120.0))) << 24;
         for (var entry : module.results()) {
             BlockPos pos = entry.getKey();
+            if (!culling.isVisible(pos)) continue;
             // Red for always-spawnable, amber for night-only: the distinction is what the player acts on.
             int rgb = entry.getValue() == me.mrhakan.agalarhack.services.scanning.SpawnLightRules.Spawnable.ALWAYS
                     ? 0xFF4444 : 0xFFBB44;
@@ -273,10 +279,11 @@ public final class WorldOverlayRenderer {
     }
 
     private static void renderHoles(me.mrhakan.agalarhack.module.render.HoleESP module,
-            Vec3 camera, PoseStack.Pose pose, VertexConsumer buffer) {
+            Vec3 camera, PoseStack.Pose pose, VertexConsumer buffer, ViewCulling culling) {
         int alpha = (int) Math.max(32, Math.min(255, module.getNumberSetting("alpha", 150.0))) << 24;
         for (var entry : module.results()) {
             BlockPos pos = entry.getKey();
+            if (!culling.isVisible(pos)) continue;
             // Green reads as safe and orange as "encloses you but will not hold"; the distinction
             // is the whole point of the module, so it is carried by colour rather than a label.
             int rgb = entry.getValue() == me.mrhakan.agalarhack.services.scanning.HoleDetector.Hole.SAFE
@@ -381,11 +388,13 @@ public final class WorldOverlayRenderer {
     }
 
     private static void renderItemEsp(Minecraft mc, me.mrhakan.agalarhack.module.render.ItemESP module,
-            Vec3 camera, PoseStack.Pose pose, VertexConsumer buffer) {
+            Vec3 camera, PoseStack.Pose pose, VertexConsumer buffer, ViewCulling culling) {
         int alpha = (int) module.getNumberSetting("alpha", 220.0);
         for (var drop : module.items()) {
             if (!drop.isAlive()) continue;
-            AABB box = drop.getBoundingBox().inflate(0.08).move(-camera.x, -camera.y, -camera.z);
+            AABB world = drop.getBoundingBox().inflate(0.08);
+            if (!culling.isVisible(world)) continue;
+            AABB box = world.move(-camera.x, -camera.y, -camera.z);
             box(buffer, pose, box, (Math.max(32, Math.min(255, alpha)) << 24) | itemColor(module, drop));
         }
     }
@@ -412,7 +421,7 @@ public final class WorldOverlayRenderer {
     }
 
     private static void renderWaypoints(Minecraft mc, me.mrhakan.agalarhack.module.render.Waypoints module,
-            Vec3 camera, PoseStack.Pose pose, VertexConsumer buffer) {
+            Vec3 camera, PoseStack.Pose pose, VertexConsumer buffer, ViewCulling culling) {
         double limit = module.getNumberSetting("renderDistance", 512);
         double size = module.getNumberSetting("markerSize", 1.0);
         boolean beams = module.getBooleanSetting("beams", true);
@@ -420,16 +429,19 @@ public final class WorldOverlayRenderer {
         for (var point : module.visible()) {
             if (point.horizontalDistanceTo(mc.player.getX(), mc.player.getZ()) > limit) continue;
             double half = size / 2.0;
+            // Marker and beam are tested separately: a beam reaches hundreds of blocks above its
+            // marker, so one of the two is very often on screen while the other is not.
             AABB marker = new AABB(point.x() + 0.5 - half, point.y(), point.z() + 0.5 - half,
-                    point.x() + 0.5 + half, point.y() + size, point.z() + 0.5 + half)
-                    .move(-camera.x, -camera.y, -camera.z);
-            box(buffer, pose, marker, point.color());
+                    point.x() + 0.5 + half, point.y() + size, point.z() + 0.5 + half);
+            if (culling.isVisible(marker)) {
+                box(buffer, pose, marker.move(-camera.x, -camera.y, -camera.z), point.color());
+            }
             if (!beams || !point.beam()) continue;
             // A thin tall box reads as a beam and reuses the same line geometry as every other overlay.
             AABB beam = new AABB(point.x() + 0.45, point.y(), point.z() + 0.45,
-                    point.x() + 0.55, point.y() + beamHeight, point.z() + 0.55)
-                    .move(-camera.x, -camera.y, -camera.z);
-            box(buffer, pose, beam, (point.color() & 0x00FFFFFF) | 0x60000000);
+                    point.x() + 0.55, point.y() + beamHeight, point.z() + 0.55);
+            if (!culling.isVisible(beam)) continue;
+            box(buffer, pose, beam.move(-camera.x, -camera.y, -camera.z), (point.color() & 0x00FFFFFF) | 0x60000000);
         }
     }
 
