@@ -54,6 +54,7 @@ import me.mrhakan.agalarhack.module.render.Waypoints;
 import me.mrhakan.agalarhack.module.render.Tracers;
 import me.mrhakan.agalarhack.module.render.Trajectories;
 import me.mrhakan.agalarhack.module.world.AutoTool;
+import me.mrhakan.agalarhack.module.world.BaseFinder;
 import net.minecraft.client.Minecraft;
 
 public class ModuleManager {
@@ -113,6 +114,7 @@ public class ModuleManager {
         register(new ElytraInfo());
 
         register(new AutoTool());
+        register(new BaseFinder());
     }
 
     private void register(Module module) {
