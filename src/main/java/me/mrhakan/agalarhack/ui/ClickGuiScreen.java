@@ -10,6 +10,7 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
+import me.mrhakan.agalarhack.services.Translations;
 import net.minecraft.network.chat.Component;
 
 /** Modern searchable control center with persistent category sidebar and module cards. */
@@ -35,7 +36,7 @@ public class ClickGuiScreen extends Screen implements me.mrhakan.agalarhack.ui.C
     }
 
     private ClickGuiScreen(String query, int page, int categoryIndex) {
-        super(Component.literal("Agalar Hack"));
+        super(Translations.text("gui.title", "Agalar Hack"));
         this.query = query == null ? "" : query;
         this.page = Math.max(0, page);
         this.categoryIndex = Math.max(0, Math.min(Category.values().length, categoryIndex));
@@ -54,24 +55,27 @@ public class ClickGuiScreen extends Screen implements me.mrhakan.agalarhack.ui.C
         searchBox = new EditBox(font, contentLeft, 26, searchWidth, 20, Component.literal("Search modules & settings"));
         searchBox.setValue(query);
         addRenderableWidget(searchBox);
-        addRenderableWidget(Button.builder(Component.literal("Search"), b -> openSearch(searchBox.getValue(), 0, categoryIndex))
+        addRenderableWidget(Button.builder(Translations.text("gui.search", "Search"), b -> openSearch(searchBox.getValue(), 0, categoryIndex))
                 .bounds(contentLeft + searchWidth + 5, 26, 58, 20).build());
-        addRenderableWidget(Button.builder(Component.literal("Clear"), b -> openSearch("", 0, categoryIndex))
+        addRenderableWidget(Button.builder(Translations.text("gui.clear", "Clear"), b -> openSearch("", 0, categoryIndex))
                 .bounds(contentLeft + searchWidth + 67, 26, 50, 20).build());
 
+        // The filter and sort choice lists are intentionally NOT translated: the chosen string is
+        // also the stored value that the switches below compare against, so translating it would
+        // silently break filtering. Localising them needs a display/value split in ChoiceScreen.
         int actionWidth = Math.max(30,(contentWidth-16)/5);
-        addRenderableWidget(Button.builder(Component.literal("Targets"), b -> minecraft.gui.setScreen(new TargetPolicyScreen(this)))
+        addRenderableWidget(Button.builder(Translations.text("gui.targets", "Targets"), b -> minecraft.gui.setScreen(new TargetPolicyScreen(this)))
                 .bounds(contentLeft,50,actionWidth,20).build());
-        addRenderableWidget(Button.builder(Component.literal("Profiles"), b -> minecraft.gui.setScreen(new ProfileScreen(this)))
+        addRenderableWidget(Button.builder(Translations.text("gui.profiles", "Profiles"), b -> minecraft.gui.setScreen(new ProfileScreen(this)))
                 .bounds(contentLeft+actionWidth+4,50,actionWidth,20).build());
-        addRenderableWidget(Button.builder(Component.literal("HUD"), b -> minecraft.gui.setScreen(new HudEditorScreen(this)))
+        addRenderableWidget(Button.builder(Translations.text("gui.hud", "HUD"), b -> minecraft.gui.setScreen(new HudEditorScreen(this)))
                 .bounds(contentLeft+(actionWidth+4)*2,50,actionWidth,20).build());
-        addRenderableWidget(Button.builder(Component.literal("Filter"), b -> minecraft.gui.setScreen(new me.mrhakan.agalarhack.ui.components.ChoiceScreen(this,"Filter",List.of("All","Enabled","Bound","Favorites","Recent"),choice->filter=choice)))
+        addRenderableWidget(Button.builder(Translations.text("gui.filter", "Filter"), b -> minecraft.gui.setScreen(new me.mrhakan.agalarhack.ui.components.ChoiceScreen(this,"Filter",List.of("All","Enabled","Bound","Favorites","Recent"),choice->filter=choice)))
                 .bounds(contentLeft+(actionWidth+4)*3,50,actionWidth,20).build());
-        addRenderableWidget(Button.builder(Component.literal("Sort"), b -> minecraft.gui.setScreen(new me.mrhakan.agalarhack.ui.components.ChoiceScreen(this,"Sort",List.of("Name","Category","Recent"),choice->sort=choice)))
+        addRenderableWidget(Button.builder(Translations.text("gui.sort", "Sort"), b -> minecraft.gui.setScreen(new me.mrhakan.agalarhack.ui.components.ChoiceScreen(this,"Sort",List.of("Name","Category","Recent"),choice->sort=choice)))
                 .bounds(contentLeft+(actionWidth+4)*4,50,actionWidth,20).build());
 
-        addRenderableWidget(Button.builder(Component.literal("Themes"),b->minecraft.gui.setScreen(new ThemeScreen(this))).bounds(10,height-28,SIDEBAR_WIDTH-20,20).build());
+        addRenderableWidget(Button.builder(Translations.text("gui.themes", "Themes"),b->minecraft.gui.setScreen(new ThemeScreen(this))).bounds(10,height-28,SIDEBAR_WIDTH-20,20).build());
         int categoryY = 62;
         // The sidebar must stay above the Themes button at every GUI scale, so the row pitch
         // shrinks once the category list no longer fits instead of overlapping it.
@@ -79,7 +83,7 @@ public class ClickGuiScreen extends Screen implements me.mrhakan.agalarhack.ui.C
         int sidebarSpace = Math.max(entries * 12, height - 28 - 6 - categoryY);
         int step = Math.max(12, Math.min(24, sidebarSpace / entries));
         int buttonHeight = Math.max(9, step - 4);
-        addCategoryButton("ALL", 0, categoryY, buttonHeight);
+        addCategoryButton(Translations.string("gui.all", "ALL"), 0, categoryY, buttonHeight);
         for (int i = 0; i < Category.values().length; i++) {
             addCategoryButton(Category.values()[i].name, i + 1, categoryY + (i + 1) * step, buttonHeight);
         }

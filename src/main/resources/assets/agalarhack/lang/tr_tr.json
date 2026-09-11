@@ -1,0 +1,19 @@
+{
+  "key.category.agalarhack.client": "Agalar Hack",
+  "key.agalarhack.open_gui": "ClickGUI'yi aç",
+  "agalarhack.gui.title": "Agalar Hack",
+  "agalarhack.gui.search": "Ara",
+  "agalarhack.gui.clear": "Temizle",
+  "agalarhack.gui.targets": "Hedefler",
+  "agalarhack.gui.profiles": "Profiller",
+  "agalarhack.gui.hud": "HUD",
+  "agalarhack.gui.filter": "Filtre",
+  "agalarhack.gui.sort": "Sırala",
+  "agalarhack.gui.themes": "Temalar",
+  "agalarhack.gui.all": "TÜMÜ",
+  "agalarhack.gui.back": "Geri",
+  "agalarhack.gui.done": "Tamam",
+  "agalarhack.gui.cancel": "İptal",
+  "agalarhack.gui.reset": "Sıfırla",
+  "agalarhack.gui.apply": "Uygula"
+}

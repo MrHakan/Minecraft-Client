@@ -1,4 +1,19 @@
 {
   "key.category.agalarhack.client": "Agalar Hack",
-  "key.agalarhack.open_gui": "Open ClickGUI"
+  "key.agalarhack.open_gui": "Open ClickGUI",
+  "agalarhack.gui.title": "Agalar Hack",
+  "agalarhack.gui.search": "Search",
+  "agalarhack.gui.clear": "Clear",
+  "agalarhack.gui.targets": "Targets",
+  "agalarhack.gui.profiles": "Profiles",
+  "agalarhack.gui.hud": "HUD",
+  "agalarhack.gui.filter": "Filter",
+  "agalarhack.gui.sort": "Sort",
+  "agalarhack.gui.themes": "Themes",
+  "agalarhack.gui.all": "ALL",
+  "agalarhack.gui.back": "Back",
+  "agalarhack.gui.done": "Done",
+  "agalarhack.gui.cancel": "Cancel",
+  "agalarhack.gui.reset": "Reset",
+  "agalarhack.gui.apply": "Apply"
 }
