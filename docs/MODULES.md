@@ -10,7 +10,7 @@ Every module also has the shared settings `enabled`, `keybind`, `keyModifiers`,
 **UNTESTED** marks a module that has never been exercised in a running game. It compiles and
 its logic is unit tested; nobody has confirmed it behaves correctly in Minecraft.
 
-51 modules across 6 categories; 29 marked UNTESTED.
+52 modules across 6 categories; 30 marked UNTESTED.
 
 ## Combat
 
@@ -107,6 +107,19 @@ Attacks the valid entity under your crosshair when the hit is ready
 | `reactionTicks` | `0` | `0..20` | Ticks the crosshair must rest on a target first, so sweeping past something does not attack it |
 
 ## Misc
+
+### AutoAccept — UNTESTED
+
+Answers teleport or party requests from listed players with a command you choose
+
+| Setting | Default | Values | Description |
+| --- | --- | --- | --- |
+| `phrases` | — | `text` | — |
+| `reply` | — | `text` | — |
+| `friendsOnly` | `true` | `true/false or on/off` | Only answer players in the friend list |
+| `allowedNames` | — | `text` | — |
+| `cooldownSeconds` | `5` | `1..120` | Minimum time between replies |
+| `notify` | `true` | `true/false or on/off` | Say when a request was answered |
 
 ### AutoFish — UNTESTED
 

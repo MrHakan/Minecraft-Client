@@ -142,6 +142,12 @@ public class AgalarHackClient implements ClientModInitializer {
                     && !event.gameMessage()) {
                 chat.onChatMessage(event.message());
             }
+            var accept = moduleManager.getModule("AutoAccept");
+            if (accept instanceof me.mrhakan.agalarhack.module.misc.AutoAccept auto && auto.isToggled()) {
+                // Game messages carry plugin request lines on most servers, so both kinds are offered;
+                // the module's own rules decide, not the message kind.
+                auto.onChatMessage(event.message());
+            }
             var filter = moduleManager.getModule("ChatFilter");
             if (filter instanceof me.mrhakan.agalarhack.module.misc.ChatFilter chatFilter && chatFilter.isToggled()
                     && chatFilter.shouldHide(event.message(), event.gameMessage())) {
