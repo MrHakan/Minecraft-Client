@@ -48,6 +48,9 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
     /** Set by the SafeWalk scenario: known-solid ground, and which way the pit lies. */
     private BlockPos ledge;
 
+    /** Where the scene was built. Fixed for the run, unlike wherever a scenario left the player. */
+    private BlockPos sceneBase;
+
     @Override
     public void runTest(ClientGameTestContext context) {
         try (TestSingleplayerContext singleplayer = context.worldBuilder()
@@ -57,6 +60,8 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
             singleplayer.getServer().runOnServer(server ->
                     TestScene.build(singleplayer.getConnection().getServerPlayer()));
             context.waitTicks(20);
+            sceneBase = singleplayer.getServer().computeOnServer(server ->
+                    singleplayer.getConnection().getServerPlayer().blockPosition());
 
             autoTotem(context);
             autoArmor(context);
@@ -70,7 +75,10 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
             chatFilter(context, singleplayer);
             chatMentions(context, singleplayer);
             autoAccept(context, singleplayer);
+            quietFrames(context, true);
             holeEsp(context, singleplayer);
+            tracersAndNametags(context, singleplayer);
+            quietFrames(context, false);
 
             LOGGER.info("Module behaviour scenarios passed");
         }
@@ -249,11 +257,19 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
      * when the sampling window closed, and failed on a slower CI runner where they fell far enough
      * to die. A test whose meaning depends on how fast the machine is has no meaning.
      */
-    private static BlockPos digPit(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
-        return singleplayer.getServer().computeOnServer(server -> {
+    private BlockPos digPit(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        BlockPos dug = singleplayer.getServer().computeOnServer(server -> {
             ServerPlayer player = singleplayer.getConnection().getServerPlayer();
             ServerLevel level = player.level();
-            BlockPos stand = player.blockPosition();
+            // Clean ground a fixed distance from the scene, not wherever the player happens to be.
+            // AutoWalk runs immediately before this and stops somewhere different every time, so the
+            // pit used to be dug on top of whatever TestScene had built there - and a chest or an
+            // ore block at the ledge gives the player a 0.6 step up and a completely different walk.
+            // That is the whole of the intermittent SafeWalk failure: roughly one run in ten the
+            // scenario was not testing the thing it describes.
+            BlockPos stand = sceneBase.offset(0, 0, -30);
+            player.teleportTo(stand.getX() + 0.5, stand.getY(), stand.getZ() + 0.5);
+            player.setDeltaMovement(Vec3.ZERO);
             for (int dx = 2; dx <= 6; dx++) {
                 for (int dz = -2; dz <= 2; dz++) {
                     level.setBlockAndUpdate(stand.offset(dx, -PIT_DEPTH - 1, dz), Blocks.STONE.defaultBlockState());
@@ -264,6 +280,9 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
             }
             return stand;
         });
+        singleplayer.getConnection().waitForChunksRender();
+        context.waitTicks(20);
+        return dug;
     }
 
     /** How the player's height changed during one walk at the pit, relative to where they started. */
@@ -629,6 +648,28 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
     }
 
     /**
+     * Everything that moves the picture without a module doing it.
+     *
+     * <p>Clouds drift whatever the world clock does; on their own they put the noise floor at 1.77.
+     * The HUD is worse than noise: the enabled-module list changes whenever a module is toggled, so
+     * leaving it on would let every render scenario pass with nothing drawn in the world at all.
+     *
+     * <p>This is shared setup rather than per-scenario because the first version toggled the HUD
+     * inside one scenario and restored it at the end, which left every later one measuring the HUD.
+     * That showed up as a noise floor of 0.85 against a signal of 0.87 - the control refusing to
+     * call it evidence, correctly.
+     */
+    private static void quietFrames(ClientGameTestContext context, boolean quiet) {
+        if (quiet) {
+            context.runOnClient(client ->
+                    client.options.cloudStatus().set(net.minecraft.client.CloudStatus.OFF));
+        }
+        // F1 toggles; pressing it again on the way out puts the HUD back.
+        context.getInput().pressKey(options -> options.keyToggleGui);
+        context.waitTicks(20);
+    }
+
+    /**
      * The first render module checked by what it draws rather than by what it stores.
      *
      * <p>An overlay leaves nothing behind to assert on, so the evidence is the picture. See
@@ -650,13 +691,6 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
         // Straight down the shaft at the marker on the floor.
         context.getInput().lookAt(0.0f, 89.0f);
 
-        // Clouds drift whatever the world clock does, and on their own they moved the picture by
-        // 1.77 - enough to argue with the signal. Turning them off removes the noise rather than
-        // widening the tolerance until it stops mattering.
-        context.runOnClient(client -> client.options.cloudStatus().set(net.minecraft.client.CloudStatus.OFF));
-        // F1. The HUD is the other thing that changes when a module is toggled: an enabled-module
-        // list would make every render scenario pass without anything being drawn in the world.
-        context.getInput().pressKey(options -> options.keyToggleGui);
         context.waitTicks(40);
 
         // Both windows are the same length on purpose. Measuring noise over ten ticks and signal
@@ -675,7 +709,6 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
         java.nio.file.Path on = context.takeScreenshot("holeesp-on");
         toggle(context, "HoleESP", false);
         double signal = Frames.difference(stillOff, on);
-        context.getInput().pressKey(options -> options.keyToggleGui);
 
         LOGGER.info("    HoleESP frames: noise={} signal={}",
                 String.format("%.3f", noise), String.format("%.3f", signal));
@@ -688,6 +721,97 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
                     + "floor of " + noise + "; it drew nothing over a hole it should have marked");
         }
         LOGGER.info("  HoleESP drew over the hole");
+    }
+
+    /**
+     * Two overlays that need something to point at, checked the same way HoleESP was.
+     *
+     * <p>The target is a pig with its AI switched off: a Mob, which is what both modules select on,
+     * that stays where it is put and does not burn in daylight. Every target group is switched on so
+     * it counts whichever bucket the mod files it under - the scenario is about whether the overlay
+     * draws, not about the classification.
+     */
+    private void tracersAndNametags(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        BlockPos stand = openSceneWithTarget(context, singleplayer);
+        context.getInput().lookAt(stand.above());
+        context.waitTicks(40);
+
+        configure(context, "Tracers", module -> {
+            module.settings.setSetting("players", true);
+            module.settings.setSetting("hostiles", true);
+            module.settings.setSetting("passives", true);
+        });
+        configure(context, "Nametags", module -> {
+            module.settings.setSetting("players", true);
+            module.settings.setSetting("mobs", true);
+        });
+
+        drawsSomething(context, "Tracers", "a line to the pig");
+        drawsSomething(context, "Nametags", "a tag above the pig");
+    }
+
+    /**
+     * The shared shape of every render scenario: measure how still the picture is, then how much the
+     * module moves it. Both windows are the same length, for the reason given in {@link #holeEsp}.
+     */
+    private void drawsSomething(ClientGameTestContext context, String name, String expected) {
+        final int window = 60;
+        java.nio.file.Path first = context.takeScreenshot(name.toLowerCase(java.util.Locale.ROOT) + "-off-1");
+        context.waitTicks(window);
+        java.nio.file.Path second = context.takeScreenshot(name.toLowerCase(java.util.Locale.ROOT) + "-off-2");
+        double noise = Frames.difference(first, second);
+
+        toggle(context, name, true);
+        context.waitTicks(window);
+        java.nio.file.Path on = context.takeScreenshot(name.toLowerCase(java.util.Locale.ROOT) + "-on");
+        toggle(context, name, false);
+        double signal = Frames.difference(second, on);
+
+        LOGGER.info("    {} frames: noise={} signal={}", name,
+                String.format("%.3f", noise), String.format("%.3f", signal));
+        if (noise > 1.0) {
+            throw new AssertionError("two frames taken with nothing changed differ by " + noise
+                    + "; the scene will not hold still, so this scenario means nothing");
+        }
+        if (signal < Math.max(0.5, noise * 5)) {
+            throw new AssertionError(name + " changed the picture by " + signal + " against a noise "
+                    + "floor of " + noise + "; it drew no " + expected);
+        }
+        LOGGER.info("  {} drew {}", name, expected);
+    }
+
+    /** Open flat ground with one motionless living entity in clear view, and nothing else moving. */
+    private static BlockPos openSceneWithTarget(ClientGameTestContext context,
+            TestSingleplayerContext singleplayer) {
+        BlockPos spot = singleplayer.getServer().computeOnServer(server -> {
+            ServerPlayer player = singleplayer.getConnection().getServerPlayer();
+            ServerLevel level = player.level();
+            for (Entity entity : level.getAllEntities()) {
+                if (!(entity instanceof ServerPlayer)) entity.discard();
+            }
+            BlockPos footing = player.blockPosition().offset(0, 0, 20);
+            player.teleportTo(footing.getX() + 0.5, footing.getY(), footing.getZ() + 0.5);
+            player.setDeltaMovement(Vec3.ZERO);
+            BlockPos target = footing.offset(0, 0, 6);
+            // A pig with its AI switched off. An armour stand looked like the obvious still target
+            // and Tracers ignored it, correctly: its groups are player, item and Mob, and an armour
+            // stand is a LivingEntity that is none of those. A zombie is a Mob but burns in daylight,
+            // which both kills it and fills the frame with flames.
+            var pig = EntityTypes.PIG.spawn(level, target, EntitySpawnReason.COMMAND);
+            if (pig == null) {
+                throw new AssertionError("could not spawn the pig at " + target);
+            }
+            pig.setNoAi(true);
+            pig.setPersistenceRequired();
+            // Deliberately NOT invisible. That was tried, to stop the model animating, and the
+            // discovery pass returned no targets at all - the mod does not offer invisible entities
+            // to these overlays. The animation it was meant to silence turned out to be the HUD
+            // anyway, which quietFrames now handles.
+            return target;
+        });
+        singleplayer.getConnection().waitForChunksRender();
+        context.waitTicks(40);
+        return spot;
     }
 
     /**
