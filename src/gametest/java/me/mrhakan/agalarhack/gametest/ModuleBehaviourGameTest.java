@@ -90,6 +90,7 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
             combatHistory(context, singleplayer);
             baseFinder(context, singleplayer);
             projectileWarning(context, singleplayer);
+            autoFish(context, singleplayer);
             quietFrames(context, true);
             holeEsp(context, singleplayer);
             tracersAndNametags(context, singleplayer);
@@ -231,10 +232,24 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
 
         toggle(context, "SafeWalk", true);
         Walk held = walkOffAndReport(context, singleplayer, ledge);
+        // A walk that rises before it falls is a walk where the player left the ground before the
+        // edge, and vanilla only clamps a player who is above ground - Player.maybeBackOffFromEdge
+        // tests isAboveGround(maxUpStep) alongside the sneak gate this module forces. So SafeWalk
+        // cannot hold an already-airborne player, by vanilla's rule rather than as a defect, and a
+        // walk like that tells nothing apart. It is taken again rather than reported either way.
+        // Seen locally at rise=0.60, exactly maxUpStep, on a machine running four Gradle daemons;
+        // the same commit was green on CI.
+        if (held.drop() < -0.5 && held.rise() > 0.25) {
+            LOGGER.info("    retaking the SafeWalk walk: the player rose {} before falling, so they "
+                    + "were airborne at the edge and vanilla's clamp never applied",
+                    String.format("%.2f", held.rise()));
+            held = walkOffAndReport(context, singleplayer, ledge);
+        }
         toggle(context, "SafeWalk", false);
         if (held.drop() < -0.5) {
             throw new AssertionError("SafeWalk let the player drop " + held.drop()
-                    + " blocks off a ledge the control walk also fell from");
+                    + " blocks (rising " + held.rise() + " first) off a ledge the control walk also "
+                    + "fell from");
         }
         LOGGER.info("  SafeWalk held the edge the control walk fell off");
 
@@ -1520,6 +1535,101 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
                     + (SETTLE_TICKS * 2) + " ticks");
         }
         LOGGER.info("  AutoRespawn cleared a death screen the game left standing");
+    }
+
+    /**
+     * The cast is real and the bite is not.
+     *
+     * <p>Casting is asserted end to end: a rod goes in the hotbar, the module is switched on, and a
+     * fishing hook appears because the module selected the slot and pressed use. Nothing about that
+     * is simulated.
+     *
+     * <p>The bite is. A server picks its own moment between five and thirty seconds, which is a long
+     * time to hold a test open for a result that is a coin toss on a slow runner. What the module
+     * actually watches for is the bobber being pulled under — it says so, and it cannot know a fish
+     * is there — so the bobber is pulled under on the server instead. That is the cue reproduced,
+     * not the module's decision: whether it reels in, how long it waits and whether it casts again
+     * are still entirely the module's. Fishing against a real server on a real catch stays on the
+     * manual acceptance list.
+     */
+    private void autoFish(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        moveThere(context, singleplayer, sceneBase.offset(0, 0, 390));
+        BlockPos pool = singleplayer.getServer().computeOnServer(server -> {
+            ServerPlayer player = singleplayer.getConnection().getServerPlayer();
+            ServerLevel level = player.level();
+            for (Entity entity : level.getAllEntities()) {
+                if (!(entity instanceof ServerPlayer)) entity.discard();
+            }
+            // A wide pool starting three blocks ahead, two deep so a bobber floats rather than
+            // resting on the bottom. No wall is built around it: the untouched superflat terrain at
+            // the same depth already holds the water in. The first version raised a stone lip and
+            // the lip stood at head height between the player and the water, so every cast hit it -
+            // which the scenario reported as the bobber never reaching the water, correctly.
+            BlockPos centre = player.blockPosition().offset(8, 0, 0);
+            for (int dx = -7; dx <= 7; dx++) {
+                for (int dz = -7; dz <= 7; dz++) {
+                    level.setBlockAndUpdate(centre.offset(dx, 0, dz), Blocks.AIR.defaultBlockState());
+                    for (int dy = -2; dy <= -1; dy++) {
+                        level.setBlockAndUpdate(centre.offset(dx, dy, dz), Blocks.WATER.defaultBlockState());
+                    }
+                }
+            }
+            return centre;
+        });
+        singleplayer.getConnection().waitForChunksRender();
+        setInventory(singleplayer, slots -> {
+            slots.setItem(0, new ItemStack(Items.FISHING_ROD));
+            slots.setSelectedSlot(0);
+        });
+        // At the middle of the pool. It is thirteen blocks across, so any ordinary cast lands in it.
+        context.getInput().lookAt(pool);
+        context.waitTicks(20);
+
+        Predicate<Minecraft> hooked = client -> client.player.fishing != null && client.player.fishing.isAlive();
+        assertNotYet(context, hooked, "a fishing hook was already out before AutoFish ran");
+
+        toggle(context, "AutoFish", true);
+        boolean cast = settle(context, hooked);
+        if (!cast) {
+            toggle(context, "AutoFish", false);
+            throw new AssertionError("AutoFish never cast with a rod in the selected hotbar slot");
+        }
+        // Waiting for the bobber to settle in the water: the detector ignores a hook that is not in it.
+        Vec3 start = position(context);
+        boolean floating = settle(context, client -> client.player.fishing != null
+                && client.player.fishing.isInWater());
+        String bobber = context.computeOnClient(client -> client.player.fishing == null ? "gone"
+                : "at " + client.player.fishing.position() + " inWater="
+                        + client.player.fishing.isInWater() + " onGround="
+                        + client.player.fishing.onGround());
+        int firstHook = context.computeOnClient(client -> client.player.fishing.getId());
+
+        if (floating) {
+            singleplayer.getServer().runOnServer(server -> {
+                var hook = singleplayer.getConnection().getServerPlayer().fishing;
+                // Well past the default threshold of four hundredths of a block per tick.
+                if (hook != null) hook.setDeltaMovement(0.0, -0.4, 0.0);
+            });
+        }
+        boolean reeled = floating && settle(context, client -> client.player.fishing == null
+                || client.player.fishing.getId() != firstHook);
+        toggle(context, "AutoFish", false);
+        singleplayer.getServer().runOnServer(server -> {
+            var hook = singleplayer.getConnection().getServerPlayer().fishing;
+            if (hook != null) hook.discard();
+        });
+
+        if (!floating) {
+            throw new AssertionError("the bobber never reached the water, so there was no bite cue to "
+                    + "give AutoFish; the scenario is broken, not the module. The hook ended " + bobber
+                    + ", with the player at " + start + " and water from x=" + (pool.getX() - 7)
+                    + " to x=" + (pool.getX() + 7));
+        }
+        if (!reeled) {
+            throw new AssertionError("AutoFish left the same hook out after the bobber was pulled "
+                    + "under, which is the one cue it reels in on");
+        }
+        LOGGER.info("  AutoFish cast, then reeled in when the bobber went under");
     }
 
     /**

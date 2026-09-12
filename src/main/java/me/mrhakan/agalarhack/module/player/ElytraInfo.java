@@ -20,7 +20,6 @@ public class ElytraInfo extends Module {
 
     public ElytraInfo() {
         super("ElytraInfo", Category.PLAYER, "Elytra durability and firework warnings plus glide speed; informational only");
-        markExperimental();
     }
 
     @Override

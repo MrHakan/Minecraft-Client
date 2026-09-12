@@ -20,7 +20,6 @@ import me.mrhakan.agalarhack.services.scanning.ScanBudgets;
 public class Performance extends Module {
     public Performance() {
         super("Performance", Category.MISC, "Sets the shared per-tick scanning ceiling every ESP scanner draws from");
-        markExperimental();
     }
 
     @Override

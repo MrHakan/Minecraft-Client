@@ -47,7 +47,20 @@ class ExperimentalFlagTest {
             java.util.Map.entry("Tracers.java", "tracersAndNametags"),
             java.util.Map.entry("Nametags.java", "tracersAndNametags"),
             java.util.Map.entry("ItemESP.java", "itemEsp"),
-            java.util.Map.entry("Breadcrumbs.java", "breadcrumbs"));
+            java.util.Map.entry("Breadcrumbs.java", "breadcrumbs"),
+            java.util.Map.entry("Waypoints.java", "waypoints"),
+            java.util.Map.entry("SpawnESP.java", "spawnEsp"),
+            java.util.Map.entry("ProjectileESP.java", "projectileEsp"),
+            java.util.Map.entry("ProjectileWarning.java", "projectileWarning"),
+            java.util.Map.entry("Performance.java", "performance"),
+            java.util.Map.entry("ServerInfo.java", "serverInfo"),
+            java.util.Map.entry("AutoFish.java", "autoFish"),
+            java.util.Map.entry("CritInfo.java", "critInfo"),
+            java.util.Map.entry("TotemTracker.java", "totemTracker"),
+            java.util.Map.entry("CombatHistory.java", "combatHistory"),
+            java.util.Map.entry("ElytraInfo.java", "elytraInfo"),
+            java.util.Map.entry("AutoRespawn.java", "autoRespawn"),
+            java.util.Map.entry("BaseFinder.java", "baseFinder"));
 
     private static final Path BEHAVIOUR_TEST =
             Path.of("src/gametest/java/me/mrhakan/agalarhack/gametest/ModuleBehaviourGameTest.java");

@@ -21,7 +21,6 @@ public class TotemTracker extends Module {
 
     public TotemTracker() {
         super("TotemTracker", Category.COMBAT, "Counts totem activations you have actually seen and reports them");
-        markExperimental();
     }
 
     @Override

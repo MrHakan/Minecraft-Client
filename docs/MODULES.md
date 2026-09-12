@@ -12,7 +12,7 @@ Every module here is enabled, ticked and disabled inside a real world on every p
 request, so an UNTESTED one is known not to crash; what is missing is a check that it
 does the thing it exists to do. The badge is cleared in the commit that adds that check.
 
-53 modules across 6 categories; 13 marked UNTESTED.
+53 modules across 6 categories; 0 marked UNTESTED.
 
 ## Combat
 
@@ -51,7 +51,7 @@ Attacks the best valid entity in range using global and module target filters
 | `switchDelay` | `8` | `0..60` | Ticks a chosen target is kept even when another ranks higher; 0 always takes the top-ranked one |
 | `maxTargets` | `1` | `1..8` | Spread attacks across this many targets, one per landed hit; 1 is ordinary single-target behaviour |
 
-### CombatHistory — UNTESTED
+### CombatHistory
 
 Remembers who you recently fought, from what this client observed
 
@@ -61,7 +61,7 @@ Remembers who you recently fought, from what this client observed
 | `forgetAfter` | `120` | `10..900` | Seconds before an idle target is forgotten |
 | `showTimeSince` | `true` | `true/false or on/off` | Show seconds since the last combat in the module list |
 
-### CritInfo — UNTESTED
+### CritInfo
 
 Shows attack charge and whether the next hit would be a critical; informational only
 
@@ -70,7 +70,7 @@ Shows attack charge and whether the next hit would be a critical; informational 
 | `showCharge` | `true` | `true/false or on/off` | Show the attack charge as a percentage |
 | `readyAt` | `100` | `50..100` | Charge percentage counted as ready |
 
-### TotemTracker — UNTESTED
+### TotemTracker
 
 Counts totem activations you have actually seen and reports them
 
@@ -123,7 +123,7 @@ Answers teleport or party requests from listed players with a command you choose
 | `cooldownSeconds` | `5` | `1..120` | Minimum time between replies |
 | `notify` | `true` | `true/false or on/off` | Say when a request was answered |
 
-### AutoFish — UNTESTED
+### AutoFish
 
 Reels in when the bobber is pulled under, then casts again
 
@@ -178,7 +178,7 @@ Notifies when your name, a friend, or a keyword appears in chat
 | `soundVolume` | `0.6` | `0.05..1` | Mention cue volume |
 | `cooldown` | `1000` | `0..10000` | Milliseconds between mention notifications |
 
-### Performance — UNTESTED
+### Performance
 
 Sets the shared per-tick scanning ceiling every ESP scanner draws from
 
@@ -186,7 +186,7 @@ Sets the shared per-tick scanning ceiling every ESP scanner draws from
 | --- | --- | --- | --- |
 | `scanBudget` | `balanced` | `low\|balanced\|high` | Total scanning work allowed per client tick; balanced is what the client used before this was tunable |
 
-### ServerInfo — UNTESTED
+### ServerInfo
 
 Ping history and an estimated server tick rate, both clearly labelled as client-side
 
@@ -325,7 +325,7 @@ Refills low hotbar stacks from the inventory before they run out
 | `selectedOnly` | `false` | `true/false or on/off` | Only refill the slot currently held |
 | `preserveNamed` | `true` | `true/false or on/off` | Never move renamed or custom items |
 
-### AutoRespawn — UNTESTED
+### AutoRespawn
 
 Respawns automatically after a configurable delay
 
@@ -359,7 +359,7 @@ Picks the strongest hotbar weapon for the current target
 | `onlyWhileAttacking` | `false` | `true/false or on/off` | Only switch while the attack key is held |
 | `swapBack` | `true` | `true/false or on/off` | Return to the previous hotbar slot afterwards |
 
-### ElytraInfo — UNTESTED
+### ElytraInfo
 
 Elytra durability and firework warnings plus glide speed; informational only
 
@@ -602,7 +602,7 @@ Bounded first-party status and error toasts
 | `soundVolume` | `0.5` | `0.05..1` | Notification cue volume |
 | `soundFor` | `all` | `all\|warnings\|errors` | Which severities are audible |
 
-### ProjectileESP — UNTESTED
+### ProjectileESP
 
 Highlights projectiles in flight with their direction of travel
 
@@ -621,7 +621,7 @@ Highlights projectiles in flight with their direction of travel
 | `rainbowSeconds` | `4` | `0.5..60` | Seconds for one full colour cycle |
 | `alpha` | `220` | `32..255` | Overlay alpha channel |
 
-### ProjectileWarning — UNTESTED
+### ProjectileWarning
 
 Estimates whether an incoming projectile will pass close to you; reads ProjectileESP's tracked list, so enable that too
 
@@ -632,7 +632,7 @@ Estimates whether an incoming projectile will pass close to you; reads Projectil
 | `cooldown` | `40` | `5..200` | Ticks between warnings |
 | `ignoreOwnProjectiles` | `true` | `true/false or on/off` | Ignore projectiles you fired yourself |
 
-### SpawnESP — UNTESTED
+### SpawnESP
 
 Marks spots where light level alone permits hostile spawning; not a spawn prediction
 
@@ -730,7 +730,7 @@ Predicts held projectile flight paths using vanilla-aware launch physics
 | `rainbow` | `false` | `true/false or on/off` | Cycle this module's colour through the hues |
 | `rainbowSeconds` | `4` | `0.5..60` | Seconds for one full colour cycle |
 
-### Waypoints — UNTESTED
+### Waypoints
 
 Shows saved waypoints for the current dimension with optional beams and labels
 
@@ -757,7 +757,7 @@ Automatically selects the fastest hotbar tool while mining
 | `miningOnly` | `true` | `true/false or on/off` | Only switch tools while the attack key is held |
 | `minDurability` | `5` | `0..1000` | Avoid damageable tools with this many or fewer uses remaining |
 
-### BaseFinder — UNTESTED
+### BaseFinder
 
 Reports likely bases from storage clusters StorageESP already found; enable that module too
 

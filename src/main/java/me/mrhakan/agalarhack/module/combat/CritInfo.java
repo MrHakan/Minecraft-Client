@@ -20,7 +20,6 @@ import me.mrhakan.agalarhack.services.CriticalHits;
 public class CritInfo extends Module {
     public CritInfo() {
         super("CritInfo", Category.COMBAT, "Shows attack charge and whether the next hit would be a critical; informational only");
-        markExperimental();
     }
 
     @Override

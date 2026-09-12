@@ -10,7 +10,6 @@ public class AutoRespawn extends Module {
 
     public AutoRespawn() {
         super("AutoRespawn", Category.PLAYER, "Respawns automatically after a configurable delay");
-        markExperimental();
     }
 
     @Override

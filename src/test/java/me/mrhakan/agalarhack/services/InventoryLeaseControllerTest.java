@@ -31,6 +31,47 @@ class InventoryLeaseControllerTest {
         for (int i=0;i<10;i++) { actions.beginTick(); leases.tick(true); }
         assertTrue(leases.select("food",60,3,true,true));
     }
+    /**
+     * A single-tick pulse must be a single click.
+     *
+     * <p>This latched: the first tick that asked for the use key pressed it, and nothing lowered it
+     * again until the lease was released. AutoFish therefore held right-click instead of clicking
+     * once, and the game re-used the rod every few ticks - casting, retrieving and recasting so the
+     * bobber never left the player. Found by the AutoFish game test scenario, whose hook changed
+     * entity id five times in forty ticks without moving.
+     */
+    @Test void aPulseThatIsNotRepeatedReleasesTheUseKey() {
+        var controls = new Controls(); var actions = new UtilityActionManager();
+        var leases = new InventoryLeaseController<>(controls, actions);
+        assertTrue(leases.select("fish",40,1,true,true));
+        assertTrue(controls.use, "the tick that asked for use should press the key");
+        actions.beginTick(); leases.tick(true);
+        assertTrue(leases.select("fish",40,1,false,true));
+        assertFalse(controls.use, "a tick that does not ask for use must release the key again");
+    }
+
+    /** Holding is still holding: a module that asks every tick keeps the key down. */
+    @Test void repeatedRequestsKeepTheUseKeyDown() {
+        var controls = new Controls(); var actions = new UtilityActionManager();
+        var leases = new InventoryLeaseController<>(controls, actions);
+        for (int tick = 0; tick < 5; tick++) {
+            actions.beginTick(); leases.tick(true);
+            assertTrue(leases.select("food",60,3,true,true));
+            assertTrue(controls.use);
+        }
+    }
+
+    /** A key the player is physically holding is never lowered by a lease that stops asking. */
+    @Test void aLeaseNeverLowersTheKeyThePlayerIsHolding() {
+        var controls = new Controls(); var actions = new UtilityActionManager();
+        var leases = new InventoryLeaseController<>(controls, actions);
+        controls.physical = true;
+        assertTrue(leases.select("fish",40,1,true,true));
+        actions.beginTick(); leases.tick(true);
+        assertTrue(leases.select("fish",40,1,false,true));
+        assertTrue(controls.use, "the player's own right-click must survive the lease letting go");
+    }
+
     @Test void replacementRestoresOldPlayerAndPhysicalInput() {
         var controls = new Controls(); var actions = new UtilityActionManager();
         var leases = new InventoryLeaseController<>(controls, actions);

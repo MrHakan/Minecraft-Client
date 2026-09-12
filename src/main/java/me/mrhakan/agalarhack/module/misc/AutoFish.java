@@ -33,7 +33,6 @@ public class AutoFish extends Module {
 
     public AutoFish() {
         super("AutoFish", Category.MISC, "Reels in when the bobber is pulled under, then casts again");
-        markExperimental();
     }
 
     @Override

@@ -37,9 +37,15 @@ public final class InventoryLeaseController<P> {
             previous = controls.selected(player); this.restore = restore;
         }
         this.priority = Math.max(this.priority, priority);
-        this.use |= use;
+        // The use key follows this tick's request rather than latching on the first one. Latching
+        // made a single-tick pulse into a held right-click: nothing lowered the key again until the
+        // lease was released, so AutoFish cast, vanilla re-used the rod four ticks later, and the
+        // bobber was retrieved and re-thrown before it ever left the player. A holder that wants the
+        // key down keeps asking for it, which is what AutoEat already does while it eats.
+        this.use = use;
         applied = slot; controls.select(player, slot);
-        if (use) controls.use(true);
+        // Never lower a key the player is physically holding; reset() has the same rule.
+        controls.use(use || controls.physicalUseDown());
         return true;
     }
     public void release(String owner) { if (owns(owner)) reset(); }

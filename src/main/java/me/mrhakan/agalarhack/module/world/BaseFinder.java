@@ -29,7 +29,6 @@ public class BaseFinder extends Module {
     public BaseFinder() {
         super("BaseFinder", Category.WORLD,
                 "Reports likely bases from storage clusters StorageESP already found; enable that module too");
-        markExperimental();
     }
 
     @Override

@@ -268,12 +268,12 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 79 | Render culling | Implemented: box overlays test the frustum the game already built, in world space. Tracers and breadcrumbs are deliberately exempt and a test enforces that. Safe because it is view-volume, not occlusion, culling - the overlays draw through walls on purpose |
 | 80 | Performance HUD | Implemented: `ModuleTimings` ranks per-module tick cost over a rolling window, in a hidden-by-default widget. Measurement is self-expiring rather than a setting, and a module that stops ticking is dropped rather than frozen on screen |
 | 81 | Unit tests | 631 tests; adds block-update batching, chunk cache eviction, cursor completion, id-list parsing, notification sinks, waypoint normalisation/persistence and compass bearings; trajectory and fade coverage pending |
-| 82 | Integration smoke tests | Implemented as `tools/smoke-client.sh`, **run by CI on every pull request**: it drives Fabric's client game tests, which open all 165 mod screens, create a world and enable/tick/disable all 53 modules in it, assert six per-module behaviours, and scan the run's log for failures the mod swallowed; the script then fails if any mixin in the config was not applied to the running bytecode. It reads the mixin config rather than a hand-kept list, so a new mixin is covered automatically. See [docs/CLIENT_GAME_TESTS.md](docs/CLIENT_GAME_TESTS.md) |
+| 82 | Integration smoke tests | Implemented as `tools/smoke-client.sh`, **run by CI on every pull request**: it drives Fabric's client game tests, which open all 165 mod screens, create a world and enable/tick/disable all 53 modules in it, assert thirty per-module behaviours covering all 31 verified modules, and scan the run's log for failures the mod swallowed; the script then fails if any mixin in the config was not applied to the running bytecode. It reads the mixin config rather than a hand-kept list, so a new mixin is covered automatically. See [docs/CLIENT_GAME_TESTS.md](docs/CLIENT_GAME_TESTS.md) |
 | 83 | Lifecycle audit | Partial code audit/restoration; all listed state-changing modules need in-game transition checks |
 | 84 | Error reporting | Reviewed. Module tick, render, scanner, command, macro and HUD boundaries were already guarded. The one real gap was the shared chat callback: the bus detaches a listener that throws, so one chat module's bug disabled all three for the session. `ModuleGuard` now contains each module separately and reports once per failure episode, and ChatFilter fails open so a broken filter cannot hide chat |
 | 85 | Structured logging | Implemented SLF4J replacement for raw stderr. One `System.out.println` survived in the profile auto-load path and has now been replaced; the rest of the audit remains |
 | 86 | Module documentation | Implemented: `docs/MODULES.md` is generated from the live settings registry and a test fails when it and the code disagree, rewriting the file as it fails |
-| 87 | Experimental flags | Implemented: `markExperimental()` plus an UNTESTED badge in the ClickGUI, surfaced in the generated module reference. 13 of the original 31 remain; a source-level test stops a new module shipping unmarked **and** refuses a cleared flag that does not name a game test scenario that still exists |
+| 87 | Experimental flags | Implemented: `markExperimental()` plus an UNTESTED badge in the ClickGUI, surfaced in the generated module reference. none of the original 31 remain; a source-level test stops a new module shipping unmarked **and** refuses a cleared flag that does not name a game test scenario that still exists |
 
 ## Recommended next development batch
 
@@ -490,18 +490,44 @@ outstanding.**
 
 ## Untested badge
 
-25 modules still show **UNTESTED** in the ClickGUI. What the badge means changed once CI started
-running every module in a real world: it no longer says "never been run in Minecraft", because all of
-them now are, on every pull request. It says **nobody has checked this module does its job**.
+**No module shows UNTESTED any more.** All 53 are either modules that shipped before this work or
+modules with a behaviour scenario asserting the effect a player would notice: 31 cleared badges, 22
+pre-existing, and `ExperimentalFlagTest` fails the build if either set stops adding up.
+
+What the badge meant changed once CI started running every module in a real world: it stopped saying
+"never been run in Minecraft", because all of them are on every pull request, and became **nobody has
+checked this module does its job**. That gap is now closed.
 
 Clearing one is a two-part commit: a scenario in `ModuleBehaviourGameTest` asserting the effect a
 player would notice, and the module's name added to `VERIFIED_IN_GAME` in `ExperimentalFlagTest`
 pointing at that scenario. The test fails if the scenario does not exist, so a flag cannot be cleared
 by editing a list — which is the only thing that makes the badge worth anything.
 
-Cleared so far: AutoTotem, AutoArmor, AutoWalk, SafeWalk, Parkour, CameraTweaks, AutoRefill,
-InventoryCleaner, AutoWeapon, BetterChat, ChatFilter, ChatMentions, AutoAccept, HoleESP,
-SafeWalk, Tracers, Nametags, ItemESP, Breadcrumbs.
+Cleared: AutoTotem, AutoArmor, AutoWalk, SafeWalk, Parkour, CameraTweaks, AutoRefill,
+InventoryCleaner, AutoWeapon, BetterChat, ChatFilter, ChatMentions, AutoAccept, HoleESP, Tracers,
+Nametags, ItemESP, Breadcrumbs, Waypoints, SpawnESP, ProjectileESP, ProjectileWarning, Performance,
+ServerInfo, CritInfo, ElytraInfo, TotemTracker, CombatHistory, BaseFinder, AutoRespawn, AutoFish.
+
+**AutoFish did not work, and the scenario is what found it.** Its bobber never left the player: the
+hook's entity id changed five times in forty ticks while its x never moved off 0.8. The cause was in
+shared code rather than in the module - `InventoryLeaseController.select` did `this.use |= use` and
+only ever called `controls.use(true)`, so the use key went down on the tick a pulse was asked for and
+nothing lowered it until the lease was released. A single-tick pulse was therefore a held
+right-click, and the game re-used the rod every few ticks: cast, retrieve, cast. The key now follows
+each tick's request, and still never lowers a key the player is physically holding. Three unit tests
+cover it, and the pulse one was watched failing against the old behaviour.
+
+Two scenario lessons from the same batch, both worth keeping:
+
+- **A mob never targets a creative player** (`EntitySelector.NO_CREATIVE_OR_SPECTATOR`), so a zombie
+  spawned for something to fight does not walk towards the player - it wanders, and about one run in
+  five it wandered out of Aura's four-block reach. Give anything that must stay put `setNoAi(true)`.
+- **SafeWalk cannot hold an airborne player, and that is vanilla's rule.**
+  `Player.maybeBackOffFromEdge` tests `isAboveGround(maxUpStep)` as well as the sneak gate the mixin
+  forces, so a player who left the ground before the edge is never clamped. A walk that rose 0.60 -
+  exactly `maxUpStep` - before falling is that case; the scenario retakes such a walk rather than
+  reporting it either way. Seen locally on a machine running four Gradle daemons while the same
+  commit was green on CI.
 
 Write the control half of every scenario first. Each one asserts the effect is *absent* before the
 module is switched on; without that, an assertion that passes because the game does it anyway looks
@@ -926,7 +952,7 @@ overwrites before reading.
 
 ### Where to go next
 
-The 18 remaining badges are the queue, and chat is done. `ChatView` in the game test source set
+No badges remain. Chat, render and state modules all have scenarios. `ChatView` in the game test source set
 reads `ChatComponent.allMessages` by reflection - the field is private with no accessor, and the
 helper throws rather than returning an empty list if it ever moves, so a rename cannot quietly turn
 every chat scenario into one that checks nothing. Three rules the chat scenarios had to learn, each of them the module being
