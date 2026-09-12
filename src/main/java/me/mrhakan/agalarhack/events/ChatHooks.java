@@ -44,6 +44,43 @@ public final class ChatHooks {
         return chat.mentionReason(message.getString()) != null;
     }
 
+    /**
+     * Colours the matched words inside a line, keeping everything else exactly as it arrived.
+     *
+     * <p>Rebuilt run by run through {@code visit}, which hands over each piece of text with the style
+     * already resolved for it — so the server's own colours, and any click or hover attached to a
+     * run, survive. Only the matched words have a colour laid over them.
+     *
+     * <p>One limitation worth knowing: a keyword split across two differently styled runs is not
+     * matched, because each run is segmented on its own. Chat that arrives as one styled run, which
+     * is nearly all of it, is unaffected.
+     */
+    private static Component highlight(Component message, java.util.Set<String> terms) {
+        MutableComponent rebuilt = Component.empty();
+        message.visit((style, text) -> {
+            for (var segment : me.mrhakan.agalarhack.services.ChatMatcher.highlight(text, terms)) {
+                MutableComponent part = Component.literal(segment.text()).setStyle(style);
+                if (segment.matched()) {
+                    part = part.withStyle(existing -> existing.withColor(ChatFormatting.GOLD).withBold(true));
+                }
+                rebuilt.append(part);
+            }
+            return java.util.Optional.empty();
+        }, net.minecraft.network.chat.Style.EMPTY);
+        return rebuilt;
+    }
+
+    /** The terms ChatMentions would fire on, or empty when that module is off. */
+    private static java.util.Set<String> mentionTerms() {
+        var manager = AgalarHackClient.moduleManager;
+        if (manager == null) return java.util.Set.of();
+        var module = manager.getModule("ChatMentions");
+        if (!(module instanceof me.mrhakan.agalarhack.module.misc.ChatMentions chat) || !chat.isToggled()) {
+            return java.util.Set.of();
+        }
+        return chat.mentionTerms();
+    }
+
     public static Component decorate(Component message) {
         if (message == null) return null;
         try {
@@ -53,8 +90,14 @@ public final class ChatHooks {
             if (!(module instanceof me.mrhakan.agalarhack.module.misc.BetterChat chat) || !chat.isToggled()) {
                 return message;
             }
+            Component body = message;
+            boolean mentioned = mentions(message);
+            if (mentioned && chat.getBooleanSetting("highlightMentions", true)) {
+                var terms = mentionTerms();
+                if (!terms.isEmpty()) body = highlight(message, terms);
+            }
             MutableComponent prefix = null;
-            if (chat.getBooleanSetting("markMentions", true) && mentions(message)) {
+            if (chat.getBooleanSetting("markMentions", true) && mentioned) {
                 prefix = Component.literal("\u00bb ").withStyle(style -> style.withColor(ChatFormatting.GOLD));
             }
             if (chat.getBooleanSetting("timestamps", true)) {
@@ -63,7 +106,7 @@ public final class ChatHooks {
                         .withStyle(style -> style.withColor(ChatFormatting.DARK_GRAY));
                 prefix = prefix == null ? stampPart : stampPart.append(prefix);
             }
-            return prefix == null ? message : prefix.append(message);
+            return prefix == null ? body : prefix.append(body);
         } catch (RuntimeException failure) {
             // Chat that fails to draw is far worse than chat without a timestamp.
             AgalarHackClient.LOGGER.error("Chat decoration failed; showing the message unchanged", failure);

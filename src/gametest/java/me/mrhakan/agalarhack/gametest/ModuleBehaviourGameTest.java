@@ -84,6 +84,7 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
             betterChat(context, singleplayer);
             chatFilter(context, singleplayer);
             chatMentions(context, singleplayer);
+            chatHighlight(context, singleplayer);
             autoAccept(context, singleplayer);
             performance(context);
             serverInfo(context);
@@ -1905,6 +1906,67 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
                 String.format(java.util.Locale.ROOT, "%.0f", startYaw),
                 String.format(java.util.Locale.ROOT, "%.0f", endYaw),
                 String.format(java.util.Locale.ROOT, "%.0f", endPitch));
+    }
+
+    /**
+     * The matched word inside a line, coloured, with the rest of the line untouched.
+     *
+     * <p>Asserted on the drawn component rather than on pixels, because what matters here is which
+     * characters carry the colour. Two things are checked and both can break on their own: the line
+     * still reads exactly as it arrived, and the colour is on the keyword and on nothing else. A
+     * highlighter that colours the whole line would pass the first check and fail the second.
+     */
+    private void chatHighlight(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        String keyword = "kumquat";
+        String line = "the kumquat is not a plum";
+        configure(context, "ChatMentions", module -> {
+            module.settings.setSetting("keywords", keyword);
+            module.settings.setSetting("ownName", false);
+            module.settings.setSetting("sound", false);
+            module.settings.setSetting("cooldown", 0.0);
+        });
+        configure(context, "BetterChat", module -> {
+            module.settings.setSetting("highlightMentions", true);
+            // Off so the assertion below sees the line and nothing prepended to it.
+            module.settings.setSetting("timestamps", false);
+            module.settings.setSetting("markMentions", false);
+        });
+        toggle(context, "ChatMentions", true);
+        toggle(context, "BetterChat", true);
+
+        somebodySays(context, singleplayer, "Someone", line);
+        context.waitTicks(20);
+
+        String coloured = context.computeOnClient(client -> {
+            var drawn = ChatView.find(client, "kumquat is not a plum");
+            if (drawn == null) return "<nothing arrived>";
+            StringBuilder gold = new StringBuilder();
+            drawn.visit((style, text) -> {
+                if (style.getColor() != null
+                        && style.getColor().equals(net.minecraft.network.chat.TextColor.fromLegacyFormat(
+                                net.minecraft.ChatFormatting.GOLD))) {
+                    gold.append(text);
+                }
+                return java.util.Optional.empty();
+            }, net.minecraft.network.chat.Style.EMPTY);
+            return gold.toString();
+        });
+        String whole = context.computeOnClient(client -> {
+            var drawn = ChatView.find(client, "kumquat is not a plum");
+            return drawn == null ? "" : drawn.getString();
+        });
+        toggle(context, "BetterChat", false);
+        toggle(context, "ChatMentions", false);
+
+        if (!whole.contains(line)) {
+            throw new AssertionError("the line was changed by the highlighting: it reads \"" + whole
+                    + "\" rather than containing \"" + line + "\"");
+        }
+        if (!coloured.equals(keyword)) {
+            throw new AssertionError("the gold run reads \"" + coloured + "\" rather than \"" + keyword
+                    + "\"; the highlight is on the wrong characters");
+        }
+        LOGGER.info("  BetterChat coloured \"{}\" inside the line and left the rest of it alone", coloured);
     }
 
     /**

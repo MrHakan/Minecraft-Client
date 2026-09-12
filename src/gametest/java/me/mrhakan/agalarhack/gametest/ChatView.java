@@ -35,6 +35,19 @@ final class ChatView {
         return text;
     }
 
+    /**
+     * The drawn line containing the fragment, with its styling intact, or null.
+     *
+     * <p>Looked up by content rather than by position on purpose: which end of the list is newest is
+     * not something this helper should be asserting on behalf of a scenario.
+     */
+    static net.minecraft.network.chat.Component find(Minecraft client, String fragment) {
+        for (GuiMessage message : messages(client.gui.hud.getChat())) {
+            if (message.content().getString().contains(fragment)) return message.content();
+        }
+        return null;
+    }
+
     /** True when some line contains the text; chat carries prefixes and colours around it. */
     static boolean contains(Minecraft client, String fragment) {
         return lines(client).stream().anyMatch(line -> line.contains(fragment));

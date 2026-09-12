@@ -1,6 +1,8 @@
 package me.mrhakan.agalarhack.services;
 
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
@@ -32,26 +34,71 @@ public final class ChatMatcher {
         return terms;
     }
 
+    /** One run of a message, and whether a term matched it. */
+    public record Segment(String text, boolean matched) { }
+
     /**
-     * Whether {@code message} contains {@code term} as a whole word.
+     * Where {@code term} next appears as a whole word, or -1.
      *
      * <p>A word boundary here is anything that is not a letter, digit or underscore, which keeps
      * player names intact while still matching them next to punctuation.
+     *
+     * <p>Both the "is this about me" test and the inline highlighting read this, so a change to what
+     * counts as a word cannot make the marker and the colouring disagree.
      */
-    public static boolean containsWord(String message, String term) {
-        if (message == null || term == null || term.isEmpty()) return false;
+    public static int indexOfWord(String message, String term, int from) {
+        if (message == null || term == null || term.isEmpty()) return -1;
         String haystack = message.toLowerCase(Locale.ROOT);
         String needle = term.toLowerCase(Locale.ROOT);
-        int from = 0;
-        while (true) {
-            int index = haystack.indexOf(needle, from);
-            if (index < 0) return false;
+        int at = Math.max(0, from);
+        while (at <= haystack.length() - needle.length()) {
+            int index = haystack.indexOf(needle, at);
+            if (index < 0) return -1;
             boolean startOk = index == 0 || !isWordCharacter(haystack.charAt(index - 1));
             int end = index + needle.length();
             boolean endOk = end >= haystack.length() || !isWordCharacter(haystack.charAt(end));
-            if (startOk && endOk) return true;
-            from = index + 1;
+            if (startOk && endOk) return index;
+            at = index + 1;
         }
+        return -1;
+    }
+
+    /** Whether {@code message} contains {@code term} as a whole word. */
+    public static boolean containsWord(String message, String term) {
+        return indexOfWord(message, term, 0) >= 0;
+    }
+
+    /**
+     * Splits a message into alternating plain and matched runs, in order and losing nothing.
+     *
+     * <p>Where two terms match at the same place the longer one wins, so listing both "sam" and
+     * "sammy" highlights the whole of a "sammy" rather than three of its letters.
+     */
+    public static List<Segment> highlight(String message, Set<String> terms) {
+        if (message == null || message.isEmpty()) return List.of();
+        if (terms == null || terms.isEmpty()) return List.of(new Segment(message, false));
+        List<Segment> segments = new ArrayList<>();
+        int cursor = 0;
+        while (cursor < message.length()) {
+            int bestAt = -1;
+            int bestLength = 0;
+            for (String term : terms) {
+                int at = indexOfWord(message, term, cursor);
+                if (at < 0) continue;
+                if (bestAt < 0 || at < bestAt || (at == bestAt && term.length() > bestLength)) {
+                    bestAt = at;
+                    bestLength = term.length();
+                }
+            }
+            if (bestAt < 0) {
+                segments.add(new Segment(message.substring(cursor), false));
+                break;
+            }
+            if (bestAt > cursor) segments.add(new Segment(message.substring(cursor, bestAt), false));
+            segments.add(new Segment(message.substring(bestAt, bestAt + bestLength), true));
+            cursor = bestAt + bestLength;
+        }
+        return List.copyOf(segments);
     }
 
     /** True when any term appears as a whole word. */

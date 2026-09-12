@@ -153,6 +153,7 @@ Adds a local timestamp to each chat line, and marks mentions
 | `timestamps` | `true` | `true/false or on/off` | Prefix each line with the time it reached this client |
 | `seconds` | `false` | `true/false or on/off` | Include seconds in the timestamp |
 | `markMentions` | `true` | `true/false or on/off` | Mark lines ChatMentions counts as a mention; needs that module on |
+| `highlightMentions` | `true` | `true/false or on/off` | Colour the matched word inside the line, not just the line; needs ChatMentions on |
 
 ### ChatFilter
 

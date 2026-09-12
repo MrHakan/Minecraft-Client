@@ -28,6 +28,7 @@ public class BetterChat extends Module {
         addBooleanSetting("timestamps", true, "Prefix each line with the time it reached this client");
         addBooleanSetting("seconds", false, "Include seconds in the timestamp");
         addBooleanSetting("markMentions", true, "Mark lines ChatMentions counts as a mention; needs that module on");
+        addBooleanSetting("highlightMentions", true, "Colour the matched word inside the line, not just the line; needs ChatMentions on");
     }
 
     @Override public boolean runsWithoutWorld() { return true; }

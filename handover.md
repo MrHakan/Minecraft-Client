@@ -30,7 +30,7 @@ No entire phase is accepted as complete; Minecraft in-game smoke testing remains
 | C: rendering | 75–80% | More ESP render modes, per-block BlockESP colours |
 | D: player utility | 55–60% | AutoFish, AutoWalk, AutoAccept, FastPlace, inventory HUD depth |
 | E: movement/world | 70–75% | NewChunks |
-| F: information/social | 75–80% | BetterChat rendering (timestamps/highlighting) |
+| F: information/social | 100% | Complete: BetterChat renders timestamps, the mention marker and inline highlighting |
 | G: ecosystem | 15–20% | Stable external addon API/template, optional Baritone; localization coverage beyond the ClickGUI |
 | H: hardening | 60–65% | In-game lifecycle testing, complete profiling/config migration audit |
 
@@ -244,7 +244,7 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 55 | Light/spawn visualization | Implemented as SpawnESP over light levels only; deliberately does not model biome/mob/cap rules and says so |
 | 56 | HoleESP | Implemented: safe vs unsafe by real explosion resistance, bounded shared-cursor scan, block-update invalidation |
 | 57 | Portal/gateway finder | Implemented: BlockESP still highlights portal blocks, and `.portal` answers the part highlighting cannot - where to build on the other side so a pair links, with the linking search radius and an optional waypoint placed in the target dimension |
-| 58 | BetterChat | Implemented as far as is safe: local timestamps and a mention marker through the `ChatComponent.addMessage` mixin, and repeat hiding through the existing veto (no mixin needed). **True inline word styling is deliberately not done**: recolouring a substring means rebuilding the component tree, and getting it wrong strips the server's own colours and breaks click events on links. A prefix cannot damage what it is prepended to |
+| 58 | BetterChat | Implemented: local timestamps, a mention marker, repeat hiding through the existing veto, and **inline word highlighting**. That last one was previously refused here on the grounds that rebuilding the component tree strips the server's own colours and breaks click events on links - a real risk, and the reason it is done through `Component.visit`, which hands over each run with its style already resolved. Each run is re-emitted with that same style and only the matched words get a colour laid over them, so server colours, click and hover events all survive. Known limit: a keyword split across two differently styled runs is not matched, because each run is segmented on its own |
 | 59 | Chat mentions | Implemented: whole-word own-name/friend/keyword matching with notification and optional sound |
 | 60 | Translator architecture | Optional, not started; core operation must not depend on cloud API |
 | 61 | Macros | Implemented: key to chat/command/toggle, persistent, revalidated on load; timed sequences deliberately excluded |
@@ -414,9 +414,14 @@ length. **ChatMentions** notifies on own-name, friend or keyword; own messages a
 **ChatFilter** hides lines locally only, with an empty default list so enabling it hides nothing.
 
 **Fabric 26.2 has `ALLOW_CHAT`/`CHAT` but no `MODIFY_CHAT`**, so chat timestamps, inline highlighting
-and duplicate compaction would need a mixin into chat rendering. That was left undone rather than
-done fragilely; the internal `ChatReceived` event is vetoable but not rewritable, matching what the
-API actually supports.
+and duplicate compaction need a mixin into chat rendering. `ChatComponentMixin` is that mixin, on the
+private `addMessage` every added line reaches, and all three are implemented on top of it. The
+internal `ChatReceived` event stays vetoable but not rewritable, matching what the API supports;
+rewriting is the mixin's job.
+
+The terms the highlighting colours are asked of ChatMentions rather than re-derived, so the coloured
+word and the notification can never disagree about what counts as a mention - two implementations of
+"is this about me" would drift the moment either changed.
 
 Also fixed: local Gradle runs write to `logs/`, which was missing from `.gitignore`, so `git add -A`
 had swept eight log files into the branch. They are untracked now and `logs/` is ignored; the pushed

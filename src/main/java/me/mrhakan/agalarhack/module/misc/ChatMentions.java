@@ -83,6 +83,26 @@ public class ChatMentions extends Module {
         }
     }
 
+    /**
+     * Every term this module would treat as a mention, lower-cased.
+     *
+     * <p>Exposed so the inline highlighting colours exactly what the notification fired on. Deriving
+     * the terms a second time is how a marker and its colouring drift apart: the moment either side
+     * changes what counts, the line says one thing and the toast says another.
+     */
+    public Set<String> mentionTerms() {
+        Set<String> terms = new java.util.LinkedHashSet<>(keywords());
+        if (mc.player != null && getBooleanSetting("ownName", true)) {
+            terms.add(mc.player.getName().getString().toLowerCase(java.util.Locale.ROOT));
+        }
+        if (getBooleanSetting("friendNames", false) && AgalarHackClient.FRIEND_MANAGER != null) {
+            for (String friend : AgalarHackClient.FRIEND_MANAGER.getFriends()) {
+                if (friend != null && !friend.isBlank()) terms.add(friend.toLowerCase(java.util.Locale.ROOT));
+            }
+        }
+        return terms;
+    }
+
     private Set<String> keywords() {
         String raw = getStringSetting("keywords", "");
         if (!raw.equals(parsedKeywords)) {
