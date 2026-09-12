@@ -17,6 +17,9 @@ set -uo pipefail
 cd "$(dirname "$0")/.."
 
 LOG="${SMOKE_LOG:-build/smoke-client.log}"
+# Anything that ends a run, not just a failed assertion. A scenario that throws an NPE, a client that
+# dies in the renderer and a JVM that runs out of memory all used to report "(no assertion)".
+FAILURE_PATTERN='AssertionError|Game crashed|FormattedException|Exception in thread|OutOfMemoryError|A fatal error has been detected'
 TIMEOUT="${SMOKE_TIMEOUT:-900}"
 RUN_DIR=build/run/clientGameTest
 mkdir -p "$(dirname "$LOG")"
@@ -54,8 +57,8 @@ if [ "$status" -eq 124 ]; then
     note "the client game tests did not finish within ${TIMEOUT}s"
 elif [ "$status" -ne 0 ]; then
     note "the client game tests failed (gradle exit $status)"
-    # The assertion, not the 40 lines of loader plumbing wrapped around it.
-    grep -A6 -m2 -E 'AssertionError|Game crashed' "$LOG" | head -30
+    # The failure, not the 40 lines of loader plumbing wrapped around it.
+    grep -A6 -m2 -E "$FAILURE_PATTERN" "$LOG" | head -30
 fi
 
 if grep -qiE 'mixin.*(error applying|failed to apply)' "$LOG"; then
@@ -99,7 +102,13 @@ if [ "$failed" -ne 0 ]; then
     # out of reach and costs a full log download to read. Here it is the last thing in the step.
     echo
     echo "=== what failed ==="
-    grep -m1 -A4 -E 'AssertionError|Game crashed' "$LOG" | sed 's/^/  /' || echo "  (no assertion in $LOG)"
+    if ! grep -m1 -A4 -E "$FAILURE_PATTERN" "$LOG" | sed 's/^/  /' | grep -q .; then
+        # A scenario that threw something unexpected used to land here as "(no assertion)", which is
+        # the least useful thing a failing check can say. The tail is not pretty, but it always
+        # contains whatever actually happened.
+        echo "  No recognised failure line. The last 40 lines of $LOG were:"
+        tail -40 "$LOG" | sed 's/^/  | /'
+    fi
     echo "Smoke check FAILED; see $LOG"
     exit 1
 fi
