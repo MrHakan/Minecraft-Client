@@ -734,9 +734,33 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
             context.runOnClient(client ->
                     client.options.cloudStatus().set(net.minecraft.client.CloudStatus.OFF));
         }
+        // The theme animates its own colours continuously, which is a moving picture behind every
+        // frame comparison. This used to be switched off by the HUD scale scenario and left that
+        // way, so every render scenario below silently depended on a scenario above it having run -
+        // delete or reorder that one and these get noisier for no visible reason. Stillness is owned
+        // here now, by the helper whose whole job is holding the scene still.
+        stillTheme(context, quiet);
         // F1 toggles; pressing it again on the way out puts the HUD back.
         context.getInput().pressKey(options -> options.keyToggleGui);
         context.waitTicks(20);
+    }
+
+    /**
+     * Stops, or restarts, everything the theme animates.
+     *
+     * <p>Through the theme's own reduced-motion switch rather than anything test-only, so what is
+     * being held still is a state a player can also be in.
+     */
+    private static void stillTheme(ClientGameTestContext context, boolean still) {
+        context.runOnClient(client -> {
+            var service = me.mrhakan.agalarhack.services.ClientServices.require(
+                    me.mrhakan.agalarhack.services.ThemeService.class);
+            var theme = service.copy();
+            theme.reducedMotion = still;
+            theme.uiAnimations = !still;
+            theme.animationSpeed = 1.0;
+            service.preview(theme);
+        });
     }
 
     /**
@@ -1645,6 +1669,11 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
         context.getInput().lookAt(0.0f, -40.0f);
         context.waitTicks(40);
 
+        // The HUD animates its colours continuously, which showed up as a noise floor of 964 changed
+        // pixels between any two frames however far apart - a moving picture rather than jitter.
+        // Switched off here and back on at the end, so this scenario leaves the theme as it found it.
+        stillTheme(context, true);
+
         final int window = 60;
         setHudScale(context, me.mrhakan.agalarhack.services.HudScale.DEFAULT);
         java.nio.file.Path first = context.takeScreenshot("hud-scale-1");
@@ -1660,6 +1689,7 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
         setHudScale(context, me.mrhakan.agalarhack.services.HudScale.DEFAULT);
         double restored = context.computeOnClient(client -> AgalarHackClient.HUD_LAYOUT.scale());
 
+        stillTheme(context, false);
         LOGGER.info("    HUD scale pixels: noise={} signal={}", noise, signal);
         if (applied != 1.6) {
             throw new AssertionError("the theme's HUD scale of 1.6 reached the layout as " + applied
@@ -1680,12 +1710,6 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
                     me.mrhakan.agalarhack.services.ThemeService.class);
             var theme = service.copy();
             theme.hudScale = scale;
-            // The HUD animates its colours continuously, which showed up as a noise floor of 964
-            // changed pixels between any two frames however far apart - a moving picture rather than
-            // jitter. The theme's own reduced-motion switch stops it, which is the honest way to
-            // hold the scene still: a setting a player has, not a hack for the test.
-            theme.reducedMotion = true;
-            theme.uiAnimations = false;
             service.preview(theme);
         });
     }
@@ -1705,6 +1729,9 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
         int target = 3;
         int travelled = categoryStripeTravel(context, target, true);
         int still = categoryStripeTravel(context, target, false);
+
+        // It drives motion on and off to make its point, so it hands the theme back unchanged.
+        stillTheme(context, false);
 
         if (travelled <= 0) {
             throw new AssertionError("the ClickGUI's category transition was already finished on the "
