@@ -877,9 +877,7 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
         BlockPos drop = singleplayer.getServer().computeOnServer(server -> {
             ServerPlayer player = singleplayer.getConnection().getServerPlayer();
             ServerLevel level = player.level();
-            for (Entity entity : level.getAllEntities()) {
-                if (!(entity instanceof ServerPlayer)) entity.discard();
-            }
+            clearEntities(level);
             BlockPos where = player.blockPosition().offset(0, 0, 5);
             var item = new net.minecraft.world.entity.item.ItemEntity(level,
                     where.getX() + 0.5, where.getY(), where.getZ() + 0.5,
@@ -947,9 +945,7 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
         moveThere(context, singleplayer, sceneBase.offset(0, 0, 150));
         BlockPos marker = singleplayer.getServer().computeOnServer(server -> {
             ServerPlayer player = singleplayer.getConnection().getServerPlayer();
-            for (Entity entity : player.level().getAllEntities()) {
-                if (!(entity instanceof ServerPlayer)) entity.discard();
-            }
+            clearEntities(player.level());
             return player.blockPosition().offset(0, 0, 20);
         });
         context.runOnClient(client -> {
@@ -986,9 +982,7 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
         singleplayer.getServer().runOnServer(server -> {
             ServerPlayer player = singleplayer.getConnection().getServerPlayer();
             ServerLevel level = player.level();
-            for (Entity entity : level.getAllEntities()) {
-                if (!(entity instanceof ServerPlayer)) entity.discard();
-            }
+            clearEntities(level);
             BlockPos centre = player.blockPosition();
             // A sealed shell: walls, and a roof three blocks up so there is standing room under it.
             // The floor is replaced too, because superflat's grass dies once it is roofed over and
@@ -1239,9 +1233,7 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
         moveThere(context, singleplayer, sceneBase.offset(0, 0, 240));
         BlockPos where = singleplayer.getServer().computeOnServer(server -> {
             ServerPlayer player = singleplayer.getConnection().getServerPlayer();
-            for (Entity entity : player.level().getAllEntities()) {
-                if (!(entity instanceof ServerPlayer)) entity.discard();
-            }
+            clearEntities(player.level());
             BlockPos spot = player.blockPosition().offset(3, 0, 0);
             var zombie = EntityTypes.ZOMBIE.spawn(player.level(), spot, EntitySpawnReason.COMMAND);
             if (zombie == null) throw new AssertionError("could not spawn the zombie at " + spot);
@@ -1274,8 +1266,10 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
         double gap = singleplayer.getServer().computeOnServer(server -> {
             ServerPlayer player = singleplayer.getConnection().getServerPlayer();
             double nearest = Double.MAX_VALUE;
+            // Read-only, so nothing is being removed under the iterator here; the null guard is
+            // for consistency with clearEntities rather than because this one has ever seen one.
             for (Entity entity : player.level().getAllEntities()) {
-                if (entity instanceof ServerPlayer) continue;
+                if (entity == null || entity instanceof ServerPlayer) continue;
                 nearest = Math.min(nearest, player.distanceTo(entity));
             }
             return nearest;
@@ -1292,9 +1286,7 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
         toggle(context, "Aura", false);
         toggle(context, "CombatHistory", false);
         singleplayer.getServer().runOnServer(server -> {
-            for (Entity entity : singleplayer.getConnection().getServerPlayer().level().getAllEntities()) {
-                if (!(entity instanceof ServerPlayer)) entity.discard();
-            }
+            clearEntities(singleplayer.getConnection().getServerPlayer().level());
         });
 
         if (!logged) {
@@ -1381,9 +1373,7 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
         toggle(context, "Notifications", true);
         moveThere(context, singleplayer, sceneBase.offset(0, 0, 300));
         singleplayer.getServer().runOnServer(server -> {
-            for (Entity entity : singleplayer.getConnection().getServerPlayer().level().getAllEntities()) {
-                if (!(entity instanceof ServerPlayer)) entity.discard();
-            }
+            clearEntities(singleplayer.getConnection().getServerPlayer().level());
         });
         context.waitTicks(10);
 
@@ -1431,9 +1421,7 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
         toggle(context, "ProjectileWarning", false);
         toggle(context, "ProjectileESP", false);
         singleplayer.getServer().runOnServer(server -> {
-            for (Entity entity : singleplayer.getConnection().getServerPlayer().level().getAllEntities()) {
-                if (!(entity instanceof ServerPlayer)) entity.discard();
-            }
+            clearEntities(singleplayer.getConnection().getServerPlayer().level());
         });
 
         if (!warned) {
@@ -1457,9 +1445,7 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
         BlockPos cluster = singleplayer.getServer().computeOnServer(server -> {
             ServerPlayer player = singleplayer.getConnection().getServerPlayer();
             ServerLevel level = player.level();
-            for (Entity entity : level.getAllEntities()) {
-                if (!(entity instanceof ServerPlayer)) entity.discard();
-            }
+            clearEntities(level);
             BlockPos centre = player.blockPosition().offset(5, 0, 0);
             for (int dz = -1; dz <= 1; dz++) {
                 for (int dx = -1; dx <= 2; dx++) {
@@ -1495,9 +1481,7 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
                         instanceof me.mrhakan.agalarhack.module.render.ProjectileESP esp
                         && !esp.projectiles().isEmpty());
         singleplayer.getServer().runOnServer(server -> {
-            for (Entity entity : singleplayer.getConnection().getServerPlayer().level().getAllEntities()) {
-                if (!(entity instanceof ServerPlayer)) entity.discard();
-            }
+            clearEntities(singleplayer.getConnection().getServerPlayer().level());
         });
     }
 
@@ -1566,9 +1550,7 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
         BlockPos pool = singleplayer.getServer().computeOnServer(server -> {
             ServerPlayer player = singleplayer.getConnection().getServerPlayer();
             ServerLevel level = player.level();
-            for (Entity entity : level.getAllEntities()) {
-                if (!(entity instanceof ServerPlayer)) entity.discard();
-            }
+            clearEntities(level);
             // A wide pool starting three blocks ahead, two deep so a bobber floats rather than
             // resting on the bottom. No wall is built around it: the untouched superflat terrain at
             // the same depth already holds the water in. The first version raised a stone lip and
@@ -1655,9 +1637,7 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
     private void hudScale(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
         moveThere(context, singleplayer, sceneBase.offset(0, 0, 420));
         singleplayer.getServer().runOnServer(server -> {
-            for (Entity entity : singleplayer.getConnection().getServerPlayer().level().getAllEntities()) {
-                if (!(entity instanceof ServerPlayer)) entity.discard();
-            }
+            clearEntities(singleplayer.getConnection().getServerPlayer().level());
         });
         context.runOnClient(client -> client.options.cloudStatus().set(net.minecraft.client.CloudStatus.OFF));
         // Up at empty sky. The previous scenario leaves the camera angled down at a pool, and water
@@ -2055,9 +2035,7 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
         return singleplayer.getServer().computeOnServer(server -> {
             ServerPlayer player = singleplayer.getConnection().getServerPlayer();
             ServerLevel level = player.level();
-            for (Entity entity : level.getAllEntities()) {
-                if (!(entity instanceof ServerPlayer)) entity.discard();
-            }
+            clearEntities(level);
             BlockPos target = player.blockPosition().offset(0, 0, distance);
             var pig = EntityTypes.PIG.spawn(level, target, EntitySpawnReason.COMMAND);
             if (pig == null) {
@@ -2125,9 +2103,7 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
         BlockPos hole = singleplayer.getServer().computeOnServer(server -> {
             ServerPlayer player = singleplayer.getConnection().getServerPlayer();
             ServerLevel level = player.level();
-            for (Entity entity : level.getAllEntities()) {
-                if (!(entity instanceof ServerPlayer)) entity.discard();
-            }
+            clearEntities(level);
 
             BlockPos centre = ledgeOrSpawn(player).offset(0, 0, 20);
             for (int dx = -1; dx <= 1; dx++) {
@@ -2189,6 +2165,23 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
             // Without this the client keeps drawing - and the modules keep reading - the old contents.
             player.containerMenu.broadcastChanges();
         });
+    }
+
+    /**
+     * Empties the level of everything except the player.
+     *
+     * <p>Snapshotted before anything is discarded. {@code getAllEntities()} is a live view, and
+     * removing from it while iterating hands back a null - which is exactly how this failed: with a
+     * handful of entities the iteration was short enough never to hit it, and once the scenarios
+     * before it left arrows, mobs and a fishing bobber lying around, it did. The same loop had been
+     * copied fourteen times, so it is one method now.
+     */
+    private static void clearEntities(ServerLevel level) {
+        java.util.List<Entity> present = new java.util.ArrayList<>();
+        level.getAllEntities().forEach(present::add);
+        for (Entity entity : present) {
+            if (entity != null && !(entity instanceof ServerPlayer)) entity.discard();
+        }
     }
 
     private static void configure(ClientGameTestContext context, String name, java.util.function.Consumer<Module> change) {
