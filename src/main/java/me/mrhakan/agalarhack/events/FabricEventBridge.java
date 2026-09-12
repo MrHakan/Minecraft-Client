@@ -35,8 +35,20 @@ public final class FabricEventBridge {
         ClientEntityEvents.ENTITY_LOAD.register((entity, level) -> bus.post(new ClientEvents.EntityAdded(entity, level)));
         ClientEntityEvents.ENTITY_UNLOAD.register((entity, level) -> bus.post(new ClientEvents.EntityRemoved(entity, level)));
         LevelRenderEvents.COLLECT_SUBMITS.register(context -> bus.post(new ClientEvents.RenderSubmit(context)));
-        HudElementRegistry.addLast(Identifier.fromNamespaceAndPath("agalarhack", "hud"),
-                (graphics, delta) -> bus.post(new ClientEvents.HudRender(graphics, delta)));
+        // Every HUD widget is scaled here rather than each one scaling itself: one push and pop
+        // around the whole overlay, with the layout working in the matching logical size so an
+        // anchored widget still reaches its edge. See HudScale.
+        HudElementRegistry.addLast(Identifier.fromNamespaceAndPath("agalarhack", "hud"), (graphics, delta) -> {
+            float scale = (float) me.mrhakan.agalarhack.AgalarHackClient.HUD_LAYOUT.scale();
+            if (scale == 1.0f) {
+                bus.post(new ClientEvents.HudRender(graphics, delta));
+                return;
+            }
+            graphics.pose().pushMatrix();
+            graphics.pose().scale(scale, scale);
+            try { bus.post(new ClientEvents.HudRender(graphics, delta)); }
+            finally { graphics.pose().popMatrix(); }
+        });
         ScreenEvents.BEFORE_INIT.register((client, screen, width, height) -> {
             me.mrhakan.agalarhack.AgalarHackClient.UI_SESSION.transition(screen);
             ScreenKeyboardEvents.beforeKeyPress(screen).register((s, key) -> bus.post(new ClientEvents.ScreenKeyInput(s, key, true)));

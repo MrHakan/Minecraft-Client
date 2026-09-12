@@ -13,7 +13,8 @@ public final class ThemeCodec {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final Set<String> INTEGERS = Set.of("schemaVersion", "background", "panel", "accent",
             "text", "muted", "on", "off", "cornerRadius");
-    private static final Set<String> NUMBERS = Set.of("panelOpacity", "animationSpeed");
+    private static final Set<String> NUMBERS = Set.of("panelOpacity", "animationSpeed", "hudScale");
+
     private static final Set<String> BOOLEANS = Set.of("shadows", "uiAnimations", "reducedMotion", "highContrast",
             "enforceContrast");
 
@@ -46,6 +47,7 @@ public final class ThemeCodec {
         theme.panelOpacity = Math.clamp(theme.panelOpacity, 0.2, 1);
         theme.animationSpeed = Math.clamp(theme.animationSpeed, 0.25, 4);
         theme.cornerRadius = Math.clamp(theme.cornerRadius, 0, 12);
+        theme.hudScale = me.mrhakan.agalarhack.services.HudScale.clamp(theme.hudScale);
         if (theme.name.length() > 40) theme.name = theme.name.substring(0, 40);
         return theme;
     }

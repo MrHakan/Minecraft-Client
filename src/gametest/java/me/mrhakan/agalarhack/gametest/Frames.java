@@ -74,13 +74,26 @@ final class Frames {
      * letting the body's noise decide the answer.
      */
     static int changedPixels(Path first, Path second, double fromHeight, double toHeight) {
+        // The middle half horizontally: what a module draws in front of the player, away from the
+        // vanilla HUD at the edges.
+        return changedPixels(first, second, fromHeight, toHeight, 0.25, 0.75);
+    }
+
+    /**
+     * As above, over an explicit horizontal band.
+     *
+     * <p>The mod's own HUD sits at the screen's corners, which the default crop is chosen to exclude;
+     * measuring it needs the full width.
+     */
+    static int changedPixels(Path first, Path second, double fromHeight, double toHeight,
+            double fromWidth, double toWidth) {
         BufferedImage a = read(first);
         BufferedImage b = read(second);
         if (a.getWidth() != b.getWidth() || a.getHeight() != b.getHeight()) {
             throw new AssertionError("frames differ in size; the window resized mid-scenario");
         }
-        int left = a.getWidth() / 4;
-        int right = a.getWidth() - left;
+        int left = (int) Math.round(a.getWidth() * fromWidth);
+        int right = (int) Math.round(a.getWidth() * toWidth);
         int top = (int) Math.round(a.getHeight() * fromHeight);
         int bottom = (int) Math.round(a.getHeight() * toHeight);
         int changed = 0;

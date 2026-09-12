@@ -28,6 +28,12 @@ public final class ThemeScreen extends Screen implements me.mrhakan.agalarhack.u
             y->addRenderableWidget(new NumberSlider(x,y,w,"Panel opacity",0.2,1,editing.panelOpacity,v->{editing.panelOpacity=v;service.preview(editing);})),
             y->addRenderableWidget(new NumberSlider(x,y,w,"Corner radius",0,12,editing.cornerRadius,v->{editing.cornerRadius=(int)Math.round(v);service.preview(editing);})),
             y->addRenderableWidget(new NumberSlider(x,y,w,"Animation speed",0.25,4,editing.animationSpeed,v->{editing.animationSpeed=v;service.preview(editing);})),
+            // Previewing applies it straight to the layout, so the HUD behind this screen resizes
+            // as the slider moves rather than after the theme is saved.
+            y->addRenderableWidget(new NumberSlider(x,y,w,"HUD scale",
+                    me.mrhakan.agalarhack.services.HudScale.MINIMUM,
+                    me.mrhakan.agalarhack.services.HudScale.MAXIMUM,
+                    editing.hudScale,v->{editing.hudScale=v;service.preview(editing);})),
             y->button("Animations: "+editing.uiAnimations,x,y,w,()->{editing.uiAnimations=!editing.uiAnimations;refresh();}),
             y->button("Reduced motion: "+editing.reducedMotion,x,y,w,()->{editing.reducedMotion=!editing.reducedMotion;refresh();}),
             y->button("High contrast: "+editing.highContrast,x,y,w,()->{editing.highContrast=!editing.highContrast;refresh();}),

@@ -161,9 +161,16 @@ public class HudLayoutManager {
      * Moves a widget by absolute screen coordinates. During a drag callers can
      * keep {@code persist=false}; the final mouse release re-anchors to the nearest
      * corner and persists once.
+     *
+     * <p>The position is in the same logical space {@link #resolveX} returns, so the screen size
+     * passed here is the physical one and is converted the same way. Anything else and a widget
+     * dragged to the right edge in the editor would be stored against a different edge than the one
+     * it is drawn against.
      */
-    public void moveTo(String id, int x, int y, int screenWidth, int screenHeight,
+    public void moveTo(String id, int x, int y, int physicalWidth, int physicalHeight,
             int contentWidth, int contentHeight, boolean autoAnchor, boolean persist) {
+        int screenWidth = logicalWidth(physicalWidth);
+        int screenHeight = logicalHeight(physicalHeight);
         WidgetState state = get(id);
         int clampedX = Math.max(0, Math.min(Math.max(0, screenWidth - contentWidth), x));
         int clampedY = Math.max(0, Math.min(Math.max(0, screenHeight - contentHeight), y));
@@ -212,7 +219,27 @@ public class HudLayoutManager {
         save();
     }
 
-    public int resolveX(String id, int screenWidth, int contentWidth) {
+    /**
+     * How large the HUD draws. Layout is done in the space the matrix is scaled into, so this has to
+     * match what the render pass and the editor use; all three read it from {@link HudScale}.
+     */
+    private double scale = me.mrhakan.agalarhack.services.HudScale.DEFAULT;
+
+    public void setScale(double value) { scale = me.mrhakan.agalarhack.services.HudScale.clamp(value); }
+
+    public double scale() { return scale; }
+
+    /** The screen size a widget is placed against: the real one divided by the scale. */
+    public int logicalWidth(int screenWidth) {
+        return me.mrhakan.agalarhack.services.HudScale.logical(screenWidth, scale);
+    }
+
+    public int logicalHeight(int screenHeight) {
+        return me.mrhakan.agalarhack.services.HudScale.logical(screenHeight, scale);
+    }
+
+    public int resolveX(String id, int physicalWidth, int contentWidth) {
+        int screenWidth = logicalWidth(physicalWidth);
         WidgetState state = get(id);
         int x = switch (state.anchor) {
             case TOP_RIGHT, BOTTOM_RIGHT -> screenWidth - contentWidth - state.offsetX;
@@ -221,7 +248,8 @@ public class HudLayoutManager {
         return Math.max(0, Math.min(Math.max(0, screenWidth - contentWidth), x));
     }
 
-    public int resolveY(String id, int screenHeight, int contentHeight) {
+    public int resolveY(String id, int physicalHeight, int contentHeight) {
+        int screenHeight = logicalHeight(physicalHeight);
         WidgetState state = get(id);
         int y = switch (state.anchor) {
             case BOTTOM_LEFT, BOTTOM_RIGHT -> screenHeight - contentHeight - state.offsetY;

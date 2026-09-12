@@ -108,7 +108,7 @@ public class HudEditorScreen extends Screen implements me.mrhakan.agalarhack.ui.
         for (int i = widgets().size() - 1; i >= 0; i--) {
             String id = widgets().get(i);
             Bounds b = bounds.get(id);
-            if (b != null && b.contains(event.x(), event.y())) {
+            if (b != null && b.contains(toHud(event.x()), toHud(event.y()))) {
                 boolean shift=me.mrhakan.agalarhack.services.ClientServices.require(me.mrhakan.agalarhack.services.InputStateService.class).keyDown(340)
                         ||me.mrhakan.agalarhack.services.ClientServices.require(me.mrhakan.agalarhack.services.InputStateService.class).keyDown(344);
                 selected = id;
@@ -119,8 +119,8 @@ public class HudEditorScreen extends Screen implements me.mrhakan.agalarhack.ui.
                 // the change it is meant to undo. One drag is one undo step, not one per pixel.
                 history.record(AgalarHackClient.HUD_LAYOUT.snapshot());
                 dragging = id;
-                grabX = event.x() - b.x;
-                grabY = event.y() - b.y;
+                grabX = toHud(event.x()) - b.x;
+                grabY = toHud(event.y()) - b.y;
                 return true;
             }
         }
@@ -134,8 +134,8 @@ public class HudEditorScreen extends Screen implements me.mrhakan.agalarhack.ui.
         }
         Bounds b = boundsFor(dragging);
         Point snapped = snapPosition(dragging,
-                (int) Math.round(event.x() - grabX),
-                (int) Math.round(event.y() - grabY),
+                (int) Math.round(toHud(event.x()) - grabX),
+                (int) Math.round(toHud(event.y()) - grabY),
                 b.width, b.height);
         moveSelection(snapped.x-b.x,snapped.y-b.y,false);
         updateBounds();
@@ -147,8 +147,8 @@ public class HudEditorScreen extends Screen implements me.mrhakan.agalarhack.ui.
         if (dragging != null && event.button() == 0) {
             Bounds b = boundsFor(dragging);
             Point snapped = snapPosition(dragging,
-                    (int) Math.round(event.x() - grabX),
-                    (int) Math.round(event.y() - grabY),
+                    (int) Math.round(toHud(event.x()) - grabX),
+                    (int) Math.round(toHud(event.y()) - grabY),
                     b.width, b.height);
             moveSelection(snapped.x-b.x,snapped.y-b.y,true);
             AgalarHackClient.HUD_LAYOUT.save();
@@ -173,14 +173,19 @@ public class HudEditorScreen extends Screen implements me.mrhakan.agalarhack.ui.
         super.extractRenderState(graphics, mouseX, mouseY, delta);
         updateBounds();
         Set<String> overlaps = overlappingWidgets();
+        // Everything from here to the matching pop is drawn in the HUD's own space. An editor that
+        // drew widget boxes at screen scale while the HUD drew at another would be showing a layout
+        // nobody is going to see.
+        graphics.pose().pushMatrix();
+        graphics.pose().scale(hudScale(), hudScale());
         if(dragging!=null){
-            graphics.fill(width/2,0,width/2+1,toolbarTop-6,0x8058a6ff);
-            graphics.fill(0,(toolbarTop-6)/2,width,(toolbarTop-6)/2+1,0x8058a6ff);
+            graphics.fill(hudWidth()/2,0,hudWidth()/2+1,hudBottom(),0x8058a6ff);
+            graphics.fill(0,hudBottom()/2,hudWidth(),hudBottom()/2+1,0x8058a6ff);
             Bounds moving=bounds.get(dragging);
             for(var entry:bounds.entrySet())if(!selection.contains(entry.getKey())){
                 Bounds other=entry.getValue();
-                if(moving.x==other.x)graphics.fill(other.x,0,other.x+1,toolbarTop-6,0x8080ffb0);
-                if(moving.y==other.y)graphics.fill(0,other.y,width,other.y+1,0x8080ffb0);
+                if(moving.x==other.x)graphics.fill(other.x,0,other.x+1,hudBottom(),0x8080ffb0);
+                if(moving.y==other.y)graphics.fill(0,other.y,hudWidth(),other.y+1,0x8080ffb0);
             }
         }
 
@@ -208,6 +213,7 @@ public class HudEditorScreen extends Screen implements me.mrhakan.agalarhack.ui.
                 graphics.text(font, "OVERLAP", b.x + 5, b.y + 5 + font.lineHeight * 2, 0xFFFF8A94, true);
             }
         }
+        graphics.pose().popMatrix();
 
         WidgetState state = AgalarHackClient.HUD_LAYOUT.get(selected);
         String status = title(selected)+" • "+state.anchor.name() + "  offset " + state.offsetX + ", " + state.offsetY;
@@ -228,8 +234,8 @@ public class HudEditorScreen extends Screen implements me.mrhakan.agalarhack.ui.
         updateBounds();
         int minDx=Integer.MIN_VALUE,maxDx=Integer.MAX_VALUE,minDy=Integer.MIN_VALUE,maxDy=Integer.MAX_VALUE;
         for(String id:selection){if(AgalarHackClient.HUD_LAYOUT.get(id).locked)continue;Bounds b=bounds.get(id);
-            minDx=Math.max(minDx,safeMargin()-b.x);maxDx=Math.min(maxDx,width-safeMargin()-b.width-b.x);
-            minDy=Math.max(minDy,safeMargin()-b.y);maxDy=Math.min(maxDy,toolbarTop-6-safeMargin()-b.height-b.y);
+            minDx=Math.max(minDx,safeMargin()-b.x);maxDx=Math.min(maxDx,hudWidth()-safeMargin()-b.width-b.x);
+            minDy=Math.max(minDy,safeMargin()-b.y);maxDy=Math.min(maxDy,hudBottom()-safeMargin()-b.height-b.y);
         }
         if(minDx==Integer.MIN_VALUE)return;
         if(maxDx<minDx){minDx=0;maxDx=0;}
@@ -302,8 +308,8 @@ public class HudEditorScreen extends Screen implements me.mrhakan.agalarhack.ui.
     }
 
     private Point snapPosition(String id, int x, int y, int contentWidth, int contentHeight) {
-        int maxX = Math.max(0, width - contentWidth);
-        int maxY = Math.max(0, toolbarTop - 6 - contentHeight);
+        int maxX = Math.max(0, hudWidth() - contentWidth);
+        int maxY = Math.max(0, hudBottom() - contentHeight);
         int snappedX = Math.max(0, Math.min(maxX, x));
         int snappedY = Math.max(0, Math.min(maxY, y));
         if (!AgalarHackClient.HUD_LAYOUT.editorOptions().snapping) {
@@ -349,8 +355,8 @@ public class HudEditorScreen extends Screen implements me.mrhakan.agalarhack.ui.
                 }
             }
         }
-        if(Math.abs(bestX+contentWidth/2-width/2)<=snapThreshold())bestX=width/2-contentWidth/2;
-        if(Math.abs(bestY+contentHeight/2-(toolbarTop-6)/2)<=snapThreshold())bestY=(toolbarTop-6)/2-contentHeight/2;
+        if(Math.abs(bestX+contentWidth/2-hudWidth()/2)<=snapThreshold())bestX=hudWidth()/2-contentWidth/2;
+        if(Math.abs(bestY+contentHeight/2-hudBottom()/2)<=snapThreshold())bestY=hudBottom()/2-contentHeight/2;
         return new Point(Math.max(safeMargin(), Math.min(maxX-safeMargin(), bestX)), Math.max(safeMargin(), Math.min(maxY-safeMargin(), bestY)));
     }
 
@@ -369,6 +375,26 @@ public class HudEditorScreen extends Screen implements me.mrhakan.agalarhack.ui.
         return overlaps;
     }
 
+    /**
+     * The editor works in the same logical space the HUD draws in.
+     *
+     * <p>Widget boxes, guides, snapping and the mouse all go through these; the editor's own chrome
+     * — title, status line, toolbar, grid — stays in screen coordinates, because it is the editor's
+     * furniture rather than part of the HUD being arranged.
+     */
+    private int hudWidth() { return AgalarHackClient.HUD_LAYOUT.logicalWidth(width); }
+
+    private int hudHeight() { return AgalarHackClient.HUD_LAYOUT.logicalHeight(height); }
+
+    private float hudScale() { return (float) AgalarHackClient.HUD_LAYOUT.scale(); }
+
+    /** The toolbar's top edge in logical space: the bottom of the area widgets may be dragged in. */
+    private int hudBottom() { return (int) toHud(toolbarTop - 6); }
+
+    private double toHud(double physical) {
+        return me.mrhakan.agalarhack.services.HudScale.toLogical(physical, AgalarHackClient.HUD_LAYOUT.scale());
+    }
+
     private void updateBounds() {
         widgetOrder=me.mrhakan.agalarhack.services.ClientServices.require(me.mrhakan.agalarhack.ui.hud.HudRegistry.class).ids();
         bounds.clear();
@@ -378,7 +404,7 @@ public class HudEditorScreen extends Screen implements me.mrhakan.agalarhack.ui.
     }
 
     private Bounds boundsFor(String id) {
-        var measured=me.mrhakan.agalarhack.services.ClientServices.require(me.mrhakan.agalarhack.ui.hud.HudRegistry.class).measure(id,width,height);
+        var measured=me.mrhakan.agalarhack.services.ClientServices.require(me.mrhakan.agalarhack.ui.hud.HudRegistry.class).measure(id,hudWidth(),hudHeight());
         int w=measured.width(),h=measured.height();
         int x = AgalarHackClient.HUD_LAYOUT.resolveX(id, width, w);
         int y = AgalarHackClient.HUD_LAYOUT.resolveY(id, height, h);

@@ -64,6 +64,9 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
                 // changes. Grass dying under a roof is enough to empty a result set between the
                 // scan and the screenshot, which reads exactly like a module that drew nothing.
                 server.getGameRules().set(GameRules.RANDOM_TICK_SPEED, 0, server);
+                // The sun moves otherwise, and a sky that is a shade different sixty ticks later is
+                // noise in every frame comparison that can see any of it.
+                server.getGameRules().set(GameRules.ADVANCE_TIME, false, server);
                 TestScene.build(singleplayer.getConnection().getServerPlayer());
             });
             context.waitTicks(20);
@@ -91,6 +94,7 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
             baseFinder(context, singleplayer);
             projectileWarning(context, singleplayer);
             autoFish(context, singleplayer);
+            hudScale(context, singleplayer);
             quietFrames(context, true);
             holeEsp(context, singleplayer);
             tracersAndNametags(context, singleplayer);
@@ -1630,6 +1634,75 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
                     + "under, which is the one cue it reels in on");
         }
         LOGGER.info("  AutoFish cast, then reeled in when the bobber went under");
+    }
+
+    /**
+     * The HUD drawn at a different size, which is the one thing a scale control has to actually do.
+     *
+     * <p>Measured over the top-left corner rather than the middle band the other render scenarios
+     * use, because that is where the branding widget draws and the middle band excludes it. Narrow
+     * on purpose: a wider band takes in widgets whose text changes by itself — a frame counter, a
+     * ping figure — and their noise is indistinguishable from a size change.
+     *
+     * <p>Set through {@code ThemeService.preview}, the same call the slider makes, so this covers the
+     * path from the stored theme to the layout rather than poking the layout directly.
+     */
+    private void hudScale(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        moveThere(context, singleplayer, sceneBase.offset(0, 0, 420));
+        singleplayer.getServer().runOnServer(server -> {
+            for (Entity entity : singleplayer.getConnection().getServerPlayer().level().getAllEntities()) {
+                if (!(entity instanceof ServerPlayer)) entity.discard();
+            }
+        });
+        context.runOnClient(client -> client.options.cloudStatus().set(net.minecraft.client.CloudStatus.OFF));
+        // Up at empty sky. The previous scenario leaves the camera angled down at a pool, and water
+        // animates, so the corner being measured had a moving picture behind it.
+        context.getInput().lookAt(0.0f, -40.0f);
+        context.waitTicks(40);
+
+        final int window = 60;
+        setHudScale(context, me.mrhakan.agalarhack.services.HudScale.DEFAULT);
+        java.nio.file.Path first = context.takeScreenshot("hud-scale-1");
+        context.waitTicks(window);
+        java.nio.file.Path second = context.takeScreenshot("hud-scale-2");
+        int noise = Frames.changedPixels(first, second, BRAND_TOP, BRAND_BOTTOM, 0.0, BRAND_RIGHT);
+
+        setHudScale(context, 1.6);
+        context.waitTicks(window);
+        java.nio.file.Path larger = context.takeScreenshot("hud-scale-3");
+        int signal = Frames.changedPixels(second, larger, BRAND_TOP, BRAND_BOTTOM, 0.0, BRAND_RIGHT);
+        double applied = context.computeOnClient(client -> AgalarHackClient.HUD_LAYOUT.scale());
+        setHudScale(context, me.mrhakan.agalarhack.services.HudScale.DEFAULT);
+        double restored = context.computeOnClient(client -> AgalarHackClient.HUD_LAYOUT.scale());
+
+        LOGGER.info("    HUD scale pixels: noise={} signal={}", noise, signal);
+        if (applied != 1.6) {
+            throw new AssertionError("the theme's HUD scale of 1.6 reached the layout as " + applied
+                    + ", so nothing below measures a scaled HUD");
+        }
+        if (restored != me.mrhakan.agalarhack.services.HudScale.DEFAULT) {
+            throw new AssertionError("the HUD scale stayed at " + restored + " after being set back");
+        }
+        assertDrew("HUD scale", "a HUD any different in size", noise, signal);
+    }
+
+    /** The corner the branding widget occupies, as a fraction of the frame. */
+    private static final double BRAND_TOP = 0.0, BRAND_BOTTOM = 0.06, BRAND_RIGHT = 0.35;
+
+    private static void setHudScale(ClientGameTestContext context, double scale) {
+        context.runOnClient(client -> {
+            var service = me.mrhakan.agalarhack.services.ClientServices.require(
+                    me.mrhakan.agalarhack.services.ThemeService.class);
+            var theme = service.copy();
+            theme.hudScale = scale;
+            // The HUD animates its colours continuously, which showed up as a noise floor of 964
+            // changed pixels between any two frames however far apart - a moving picture rather than
+            // jitter. The theme's own reduced-motion switch stops it, which is the honest way to
+            // hold the scene still: a setting a player has, not a hack for the test.
+            theme.reducedMotion = true;
+            theme.uiAnimations = false;
+            service.preview(theme);
+        });
     }
 
     /**

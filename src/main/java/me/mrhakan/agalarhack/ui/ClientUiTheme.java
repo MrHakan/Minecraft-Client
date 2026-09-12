@@ -21,6 +21,11 @@ public final class ClientUiTheme {
         BACKGROUND=theme.background; SIDEBAR=theme.background; PANEL=((int)(theme.panelOpacity*255)<<24)|(theme.panel&0xffffff);
         PANEL_HOVER=PANEL;BORDER=theme.off;ACCENT=theme.accent;TEXT=theme.text;MUTED=theme.muted;SUCCESS=theme.on;
         radius=theme.cornerRadius;shadows=theme.shadows;
+        // The HUD scale lives on the theme but is used by the layout, so applying a theme is where
+        // the two are kept in step - including a preview, so the editor shows the size being tried.
+        if (me.mrhakan.agalarhack.AgalarHackClient.HUD_LAYOUT != null) {
+            me.mrhakan.agalarhack.AgalarHackClient.HUD_LAYOUT.setScale(theme.hudScale);
+        }
         if (theme.highContrast) {
             BACKGROUND=SIDEBAR=PANEL=PANEL_HOVER=0xff000000;
             TEXT=MUTED=BORDER=0xffffffff;

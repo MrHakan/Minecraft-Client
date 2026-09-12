@@ -22,10 +22,30 @@ class ThemeCodecTest {
         assertEquals(theme.accent, copy.accent);
     }
 
+    /**
+     * The HUD scale is an optional field, added the same way the contrast guard was: a theme saved
+     * before it existed still reads, with the scale left at one. No schema bump, because the version
+     * is what refuses a file from a newer client and this is not one.
+     */
+    @Test void aThemeSavedBeforeTheHudScaleExistedStillReadsUnscaled() {
+        var theme = ThemeCodec.decode("{\"name\":\"Legacy\"}");
+        assertEquals(me.mrhakan.agalarhack.services.HudScale.DEFAULT, theme.hudScale);
+    }
+
+    @Test void theHudScaleIsHeldToItsRangeAndSurvivesARoundTrip() {
+        assertEquals(me.mrhakan.agalarhack.services.HudScale.MAXIMUM,
+                ThemeCodec.decode("{\"hudScale\":8}").hudScale);
+        assertEquals(me.mrhakan.agalarhack.services.HudScale.MINIMUM,
+                ThemeCodec.decode("{\"hudScale\":0.01}").hudScale);
+        var theme = ThemeCodec.decode("{\"hudScale\":1.25}");
+        assertEquals(1.25, ThemeCodec.copy(theme).hudScale);
+        assertTrue(ThemeCodec.encode(theme).contains("hudScale"));
+    }
+
     @Test void rejectsCoercionsFutureSchemasAndNonObjects() {
         for (String raw : new String[]{"null", "[]", "{\"schemaVersion\":2}", "{\"schemaVersion\":1.2}",
                 "{\"accent\":4294967295}", "{\"uiAnimations\":\"false\"}", "{\"panelOpacity\":\"NaN\"}",
-                "{\"name\":null}", "{\"unknown\":true}"}) {
+                "{\"name\":null}", "{\"unknown\":true}", "{\"hudScale\":\"1.5\"}"}) {
             assertThrows(RuntimeException.class, () -> ThemeCodec.decode(raw), raw);
         }
     }

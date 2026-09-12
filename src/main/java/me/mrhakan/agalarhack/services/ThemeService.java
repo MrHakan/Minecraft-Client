@@ -14,6 +14,13 @@ public final class ThemeService {
         public String name="Default Dark";
         public int background=0xff0b1017,panel=0xff16202d,accent=0xff58a6ff,text=0xfff0f5fa,muted=0xff8fa3b8,on=0xff62d68b,off=0xff526379;
         public double panelOpacity=0.92,animationSpeed=1;
+        /**
+         * How large the mod's own HUD overlay draws, independent of Minecraft's GUI scale.
+         *
+         * <p>Only the HUD. The screens are left to the vanilla GUI scale, which already scales them
+         * and which a second control here would merely duplicate.
+         */
+        public double hudScale=HudScale.DEFAULT;
         public int cornerRadius=4;
         public boolean shadows=true,uiAnimations=true;
         public boolean reducedMotion=false,highContrast=false;
