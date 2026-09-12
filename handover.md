@@ -8,26 +8,28 @@ Authority: current source > current tests > live PR description > latest handove
 
 - **PR:** [#9](https://github.com/MrHakan/Minecraft-Client/pull/9), open/draft; continue
   `codex/foundation-services-26.2`. Do not merge, force-push or open a duplicate PR.
-- **Live head inspected:** `c4e4113e626c212cc79a6e80ede7a1cfe190622c`.
-  **Main:** `19f83ab888a55d9b459f84fbae27dffe39036f71`. Only #9 was open.
-  Baseline diff: 190 commits, 329 files, +28,321/-867 lines. These numbers describe the inspected
-  checkpoint; re-fetch before publishing, and see PR #9 for this continuation's resulting head/CI.
+- **Live head inspected:** `1e0c00f` (this continuation), built on Astra's `5b69fc2`.
+  **Main:** `19f83ab888a55d9b459f84fbae27dffe39036f71`. Only #9 was open at every check.
+  198 commits against main. Re-fetch before publishing: two sessions have pushed to this branch,
+  so never assume the head in a handover note is current.
 - **Version:** Minecraft 26.2, Loader 0.19.3, Fabric API 0.157.0+26.2, Java 25.
 - **Modules:** 53 built-ins, 0 UNTESTED; 22 baseline exemptions plus 31 behaviour-mapped modules.
   The runtime lifecycle log says **54**, because the game-test addon registers one extra module.
   A zero badge count does not prove every baseline module has a dedicated behaviour scenario.
-- **Unit suite:** 700 test methods in 97 test source files (699 short `@Test` annotations plus one
-  fully qualified annotation). This count is corroborated by source; CI passed the suite but did
-  not publish a per-test XML count in its console. CI now reports actual XML totals after the full build; source counts are not execution counts.
-- **Behaviour suite:** 36 existing scenarios, including command/addon paths; four Fabric game-test
-  entrypoints covered screens, world lifecycle, behaviour and swallowed failures at that baseline.
-  This continuation adds two entrypoints with three acceptance scenarios (inventory interruption,
-  real Nether transition and disconnect): **39 scenario checks / six entrypoints** after the batch. No existing
-  behaviour scenario or experimental-flag mapping is being removed or renamed in this continuation.
-- **Observed CI:** [34688661603](https://github.com/MrHakan/Minecraft-Client/actions/runs/34688661603),
-  job 103539994863, successful on the inspected head. Logs inspected: JDK 25 build passed in 33s;
-  real client/world game tests, behaviour scenarios, swallowed-error scan, all six mixin targets
-  and artifact creation passed. This is **integrated-server** evidence, not dedicated multiplayer.
+- **Unit suite:** **705 executed**, 0 failures, 0 errors, 0 skipped, read from the JUnit XML by
+  `tools/summarize-tests.py` rather than counted from source. CI reports the same totals.
+- **Behaviour suite:** **41 scenario checks across eight game-test entrypoints**, counted one per
+  reported outcome: 37 in `ModuleBehaviourGameTest` (36 plus `weaponFamilies`), Astra's three
+  acceptance scenarios (inventory interruption, real Nether transition, disconnect), and external
+  addon packaging. **Three further dedicated-server checks are NOT in that count** because they are
+  off by default - see below. No existing scenario or experimental-flag mapping has been removed or
+  renamed by either continuation.
+- **Observed CI:** run **199** ([34704562001](https://github.com/MrHakan/Minecraft-Client/actions/runs/34704562001))
+  succeeded on `d86db4c`; Astra's run **198** succeeded on `5b69fc2`. Both ran the inventory
+  regression control, the JDK 25 build, the unit suite with XML totals, the headless client game
+  tests, the runtime mixin check and artifact creation. Default CI is **client plus
+  integrated-server** evidence; the dedicated-server scenarios are opt-in and were **not** part of
+  either run. Re-read CI for the current head before quoting a result.
 - **Roadmap estimate:** roughly **80–85% of the useful original feature scope**, based on re-reading
   implementation and remaining requested depth across the 87 items. This is a qualitative estimate,
   not measured effort, an average of old percentages, or a release-readiness score. Some whole systems
@@ -48,13 +50,20 @@ never replace Fabric entrypoints with a folder scanner/class loader.
 
 ### Acceptance and remaining scope
 
-1. Independent external addon **JAR** packaging, persistence/restart/removal, failure/collision and
-   missing-client dependency checks. The in-tree addon entrypoint scenario is not this test.
+1. External addon packaging: **partly closed.** Two genuinely separate jars are now built by
+   `addonFixtureJar`/`brokenAddonFixtureJar` and installed in the game-test client, and
+   `ExternalAddonGameTest` asserts jar-origin loading, registration, settings application, module and
+   command collision refusal, and containment of a throwing addon. **Still manual:** intermediary
+   remapping of a production jar, discovery from a `mods/` folder, persistence across a restart, and
+   the loader-level failure when Agalar Hack is absent - one client launch cannot show the last two.
 2. Real dimension/player/reconnect transitions; adversarial container cursor/full-inventory/screen
    interruption and ownership. This continuation prioritizes a concrete release/recovery defect
    found during independent review, with real client scenarios rather than synthetic event posts.
-3. Controlled dedicated-server/network-latency tests, real fishing bites and AutoAccept trust/cooldown;
-   installed Baritone success path. Existing integrated-server evidence does not cover these.
+3. Dedicated server: **available but off by default.** `DedicatedServerGameTest` starts a real
+   server and connects to it, and passes locally with `-PacceptServerEula=true`; it is skipped in CI
+   because accepting Minecraft's EULA in automation is the owner's decision. Network *latency*,
+   contention and peer traffic are not covered by it at all. Real fishing bites, AutoAccept
+   trust/cooldown and an installed Baritone success path remain untested.
 4. Visual correctness: TargetHUD face, depth-tested ESP placement/colours, nametags, frustum edges,
    waypoint beams, trajectory landing and potion/XP arcs, HUD/GUI scales and theme contrast.
    Changed pixels prove rendering activity, not correct appearance.
@@ -66,9 +75,29 @@ server-hidden chunk classification, redundant AutoJump/use variants, cloud-requi
 No claim that every original sub-bullet is implemented. A separate addon template repository is still
 pending; earlier environment access claims are historical, so check actual capabilities when needed.
 
-Next: finish the current audit/regressions, run the **full** pipeline, then prioritize standalone addon
-packaging and dedicated-server acceptance. Keep the mature behaviour suite intact; splitting its large
-file is optional and should not consume this batch at the expense of regression evidence.
+### The dedicated-server scenarios are opt-in, and a skip is not a pass
+
+A dedicated server will not start until Minecraft's server EULA is accepted, and the harness
+recreates its run directory every run, so an accepted `eula.txt` cannot be committed - it has to be
+written by automation as the test runs. Agreeing to <https://aka.ms/MinecraftEULA> is the repository
+owner's decision rather than a test's, so `DedicatedServerGameTest` does nothing unless
+`-PacceptServerEula=true` is passed (or `AGALARHACK_ACCEPT_SERVER_EULA=true`, which
+`tools/smoke-client.sh` converts into that flag). Without it the scenario logs a warning naming what
+it skipped and asserts nothing.
+
+**Do not describe those three checks as coverage unless the flag was set in the run being
+described.** Turning it on in `.github/workflows/build.yml` is one line and is the owner's to make.
+Verified locally with the flag on: a real dedicated server, a real connection, `Packets 68 in / 69
+out per s` - the first time the two `Connection` netty mixins have been observed *counting* rather
+than merely verified as applied - AutoArmor equipping with the server's own copy of the player
+agreeing, counters reset on disconnect, and a working reconnect. One player on loopback is not a
+busy public server: latency, contention and peer traffic remain manual.
+
+Next: dedicated-server coverage in CI if the owner accepts the EULA there; then visual correctness
+(faces, geometry, beams, arcs - changed pixels prove activity, not appearance), real fishing bites,
+an installed Baritone, profile dimension bindings on the real transition fixture, and broader
+inventory ownership contention. Keep the mature behaviour suite intact; splitting its large file is
+optional and must not displace release evidence.
 
 ### Current continuation: independent audit and acceptance regressions
 
@@ -99,6 +128,42 @@ coverage. It is not exhaustive proof of 28k added lines. Potential further work:
 coordination across priority-preempting atomic callers, peer inventory changes during transfers, packet
 counter scoping across integrated-server connections, broader profile-transition and external addon tests.
 Do not claim these follow-ups fixed or dedicated multiplayer tested in this batch.
+
+### Current continuation: packaging, a real connection and two deprecations
+
+Built on Astra's `5b69fc2`; nothing of theirs was reverted, and their authority order and
+current-state format are kept.
+
+- **Standalone addon packaging** (`b725a9f`). Two fixture addons are compiled against the published
+  API and packaged into their own jars, in packages outside `me.mrhakan.agalarhack`, then installed
+  in the game-test client. `ExternalAddonGameTest` works entirely from the client's own state.
+  Two silent-pass modes are closed: the "loaded from a jar" check first applies the same predicate to
+  the client itself, which a dev launch loads from classpath directories, and fails if that also
+  looks like a jar; and the swallowed-failure scan exempts the deliberately broken fixture **by mod
+  id** while asserting the exemption was used, so a fixture that stopped failing cannot leave the
+  containment checks testing nothing. Watched failing with the wiring removed.
+- **Dedicated server** (`d86db4c`), opt-in as described above. First observation of the two
+  `Connection` netty mixins counting: `Packets 68 in / 69 out per s`.
+- **Damage families** (`a4b7809`). `familyOf` decides Smite/Bane weighting from entity-type tags,
+  which are server-sent data bound onto registry holders; if that binding were missing the rule would
+  answer GENERIC for everything with no exception and no log line, and nothing tested it because
+  AutoWeapon's scenario aims at an armour stand. The new `weaponFamilies` scenario classifies a real
+  zombie, spider and pig: it passes, so this is new coverage rather than a bug report. With a test
+  under it, `EntityType.builtInRegistryHolder()` was replaced by the supported registry call.
+- **`BlockPresence`** (`1e0c00f`). Five copies of `BlockState.blocksMotion()` across SpawnESP,
+  HoleESP and Parkour now ask through one place. Deliberately **not** migrated: nothing has the same
+  meaning (`isCollisionShapeFullBlock` is false for a slab or fence, an empty collision shape misses
+  the cobweb and bamboo-sapling exclusions made by name, and vanilla still calls it in its own
+  `isSuffocating` predicate), so the deprecation is acknowledged once with the reasoning beside it.
+  Behaviour unchanged, evidenced by identical scenario numbers: HoleESP 1.335, SpawnESP 5110,
+  Parkour 1.25 blocks. Together with the registry change, `./gradlew build` no longer reports any
+  deprecated API use.
+
+Evidence discipline for this batch: unit tested = 705 executed from JUnit XML; integrated-server
+tested = the eight-entrypoint client suite in CI; dedicated-server tested = local only, opt-in,
+never in CI; externally packaged = jar-origin loading in the client suite, not a mods/ folder or a
+remapped production jar; visually inspected = nothing. Pixel-difference scenarios prove rendering
+activity, not appearance.
 
 ## Historical development record
 
