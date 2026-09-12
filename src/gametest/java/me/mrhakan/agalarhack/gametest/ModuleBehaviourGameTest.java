@@ -97,6 +97,7 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
             hudScale(context, singleplayer);
             clickGuiTransition(context);
             freecam(context, singleplayer);
+            lookCommand(context, singleplayer);
             quietFrames(context, true);
             holeEsp(context, singleplayer);
             tracersAndNametags(context, singleplayer);
@@ -1848,6 +1849,62 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
         }
         LOGGER.info("  Freecam flew the camera {} blocks, held it inside {}, left the body still and "
                 + "gave the camera back", String.format(java.util.Locale.ROOT, "%.1f", travelled), radius);
+    }
+
+    /**
+     * The rotation service driven by something that is not Aura.
+     *
+     * <p>That was the open half of the rotation work: one arbitrated, step-limited path, with a
+     * single consumer. This drives it from a typed command instead, which is the case the service
+     * was built for and had never been exercised by — a caller that asks once and needs the aim held
+     * across ticks.
+     *
+     * <p>The view really moves, which is the point. A rotation the player cannot see but the server
+     * can is the thing this client refuses to implement, so there is nothing here to hide.
+     */
+    private void lookCommand(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        moveThere(context, singleplayer, sceneBase.offset(0, 0, 480));
+        context.getInput().lookAt(0.0f, 0.0f);
+        context.waitTicks(10);
+
+        float startYaw = context.computeOnClient(client -> client.player.getYRot());
+        // Through the mod's own chat dispatch, alias resolution and all, rather than by calling the
+        // command object directly.
+        context.runOnClient(client -> me.mrhakan.agalarhack.managers.CommandManager.handleChat(
+                me.mrhakan.agalarhack.AgalarHackClient.prefix + "look 90 25"));
+        boolean turned = settle(context, client ->
+                me.mrhakan.agalarhack.services.LookController.arrived(
+                        client.player.getYRot(), client.player.getXRot(), 90.0f, 25.0f));
+        float endYaw = context.computeOnClient(client -> client.player.getYRot());
+        float endPitch = context.computeOnClient(client -> client.player.getXRot());
+
+        if (!turned) {
+            throw new AssertionError("the view did not reach 90, 25 within " + SETTLE_TICKS
+                    + " ticks of the look command; it ended at " + endYaw + ", " + endPitch
+                    + " having started at " + startYaw);
+        }
+
+        // Letting go matters as much as turning: a controller that keeps asking owns the player's
+        // view for the rest of the session.
+        boolean released = settle(context, client ->
+                !me.mrhakan.agalarhack.services.ClientServices.require(
+                        me.mrhakan.agalarhack.services.LookController.class).active());
+        if (!released) {
+            throw new AssertionError("the look controller was still holding the view after arriving");
+        }
+
+        // And the player can still turn their own head afterwards.
+        context.getInput().lookAt(0.0f, 0.0f);
+        context.waitTicks(10);
+        float afterward = context.computeOnClient(client -> client.player.getYRot());
+        if (me.mrhakan.agalarhack.services.LookController.arrived(afterward, 0, 90.0f, 0)) {
+            throw new AssertionError("the view snapped back to the commanded heading, so something "
+                    + "is still steering it");
+        }
+        LOGGER.info("  look turned the view from {} to {}, {} and let go of it",
+                String.format(java.util.Locale.ROOT, "%.0f", startYaw),
+                String.format(java.util.Locale.ROOT, "%.0f", endYaw),
+                String.format(java.util.Locale.ROOT, "%.0f", endPitch));
     }
 
     /**

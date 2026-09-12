@@ -85,6 +85,24 @@ public class AgalarHackClient implements ClientModInitializer {
         services.register(me.mrhakan.agalarhack.services.TargetService.class, new me.mrhakan.agalarhack.services.TargetService(Minecraft.getInstance(), FRIEND_MANAGER, TARGET_POLICY));
         var rotations = services.register(me.mrhakan.agalarhack.services.RotationService.class,
                 new me.mrhakan.agalarhack.services.RotationService(Minecraft.getInstance()));
+        // Between the modules at 40 and the resolve at 20, so a command's aim is arbitrated against
+        // a module's on the same tick rather than a tick behind it.
+        var look = services.register(me.mrhakan.agalarhack.services.LookController.class,
+                new me.mrhakan.agalarhack.services.LookController());
+        EVENTS.subscribe(ClientEvents.ClientTick.class, "look", 35, event -> {
+            var player = event.client().player;
+            if (player == null) { look.cancel(); return; }
+            var aim = look.tick(player.getYRot(), player.getXRot());
+            if (aim == null) {
+                rotations.release("look");
+                return;
+            }
+            rotations.request(new me.mrhakan.agalarhack.services.RotationService.Request("look",
+                    me.mrhakan.agalarhack.commands.impl.Look.priority(),
+                    aim.smooth() ? me.mrhakan.agalarhack.services.RotationService.Mode.SMOOTH
+                            : me.mrhakan.agalarhack.services.RotationService.Mode.CLIENT,
+                    aim.yaw(), aim.pitch(), aim.speed(), aim.maxYawStep(), aim.maxPitchStep(), false));
+        });
         EVENTS.subscribe(ClientEvents.ClientTick.class, "rotations", 20, event -> rotations.resolve());
         EVENTS.subscribe(ClientEvents.Disconnected.class, "rotations", 100, event -> rotations.clear());
         var notifications = services.register(me.mrhakan.agalarhack.services.NotificationService.class,
