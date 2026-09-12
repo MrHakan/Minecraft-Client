@@ -12,7 +12,7 @@ Every module here is enabled, ticked and disabled inside a real world on every p
 request, so an UNTESTED one is known not to crash; what is missing is a check that it
 does the thing it exists to do. The badge is cleared in the commit that adds that check.
 
-53 modules across 6 categories; 15 marked UNTESTED.
+53 modules across 6 categories; 13 marked UNTESTED.
 
 ## Combat
 
@@ -411,7 +411,7 @@ Incrementally highlights selected loaded block categories without frame-time bru
 | `rainbowSeconds` | `4` | `0.5..60` | Seconds for one full colour cycle |
 | `alpha` | `220` | `32..255` | Block overlay alpha channel |
 
-### Breadcrumbs — UNTESTED
+### Breadcrumbs
 
 Records and draws the path you have walked
 
@@ -527,7 +527,7 @@ Marks standable holes nearby and whether they are blast resistant
 | `safeOnly` | `false` | `true/false or on/off` | Only mark fully blast-resistant holes |
 | `alpha` | `150` | `32..255` | Marker alpha channel |
 
-### ItemESP — UNTESTED
+### ItemESP
 
 Highlights dropped items with optional name, count and rarity colouring
 

@@ -273,7 +273,7 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 84 | Error reporting | Reviewed. Module tick, render, scanner, command, macro and HUD boundaries were already guarded. The one real gap was the shared chat callback: the bus detaches a listener that throws, so one chat module's bug disabled all three for the session. `ModuleGuard` now contains each module separately and reports once per failure episode, and ChatFilter fails open so a broken filter cannot hide chat |
 | 85 | Structured logging | Implemented SLF4J replacement for raw stderr. One `System.out.println` survived in the profile auto-load path and has now been replaced; the rest of the audit remains |
 | 86 | Module documentation | Implemented: `docs/MODULES.md` is generated from the live settings registry and a test fails when it and the code disagree, rewriting the file as it fails |
-| 87 | Experimental flags | Implemented: `markExperimental()` plus an UNTESTED badge in the ClickGUI, surfaced in the generated module reference. 15 of the original 31 remain; a source-level test stops a new module shipping unmarked **and** refuses a cleared flag that does not name a game test scenario that still exists |
+| 87 | Experimental flags | Implemented: `markExperimental()` plus an UNTESTED badge in the ClickGUI, surfaced in the generated module reference. 13 of the original 31 remain; a source-level test stops a new module shipping unmarked **and** refuses a cleared flag that does not name a game test scenario that still exists |
 
 ## Recommended next development batch
 
@@ -501,7 +501,7 @@ by editing a list — which is the only thing that makes the badge worth anythin
 
 Cleared so far: AutoTotem, AutoArmor, AutoWalk, SafeWalk, Parkour, CameraTweaks, AutoRefill,
 InventoryCleaner, AutoWeapon, BetterChat, ChatFilter, ChatMentions, AutoAccept, HoleESP,
-SafeWalk, Tracers, Nametags.
+SafeWalk, Tracers, Nametags, ItemESP, Breadcrumbs.
 
 Write the control half of every scenario first. Each one asserts the effect is *absent* before the
 module is switched on; without that, an assertion that passes because the game does it anyway looks

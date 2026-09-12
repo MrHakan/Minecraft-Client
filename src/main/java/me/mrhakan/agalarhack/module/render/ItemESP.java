@@ -19,7 +19,6 @@ public class ItemESP extends Module {
 
     public ItemESP() {
         super("ItemESP", Category.RENDER, "Highlights dropped items with optional name, count and rarity colouring");
-        markExperimental();
     }
 
     @Override

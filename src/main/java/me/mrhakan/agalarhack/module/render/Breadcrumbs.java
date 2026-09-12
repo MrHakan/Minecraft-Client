@@ -13,7 +13,6 @@ public class Breadcrumbs extends Module {
 
     public Breadcrumbs() {
         super("Breadcrumbs", Category.RENDER, "Records and draws the path you have walked");
-        markExperimental();
     }
 
     @Override
