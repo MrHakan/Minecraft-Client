@@ -69,7 +69,7 @@ public final class InventoryRecoveryGameTest implements FabricClientGameTest {
                     "Inventory recovery passed: actual pickup, open-screen disable, empty client/server cursors and one retained helmet");
         } finally {
             context.runOnClient(client -> {
-                client.gui.setScreen(null);
+                if (client.level != null) client.gui.setScreen(null);
                 var module = AgalarHackClient.moduleManager.getModule("AutoArmor");
                 module.setToggled(false, false);
                 module.settings.setSetting("clickDelay", 1.0);

@@ -18,9 +18,11 @@ Authority: current source > current tests > live PR description > latest handove
   A zero badge count does not prove every baseline module has a dedicated behaviour scenario.
 - **Unit suite:** 700 test methods in 97 test source files (699 short `@Test` annotations plus one
   fully qualified annotation). This count is corroborated by source; CI passed the suite but did
-  not publish a per-test XML count in its console. New CI reporting will expose actual totals.
+  not publish a per-test XML count in its console. CI now reports actual XML totals after the full build; source counts are not execution counts.
 - **Behaviour suite:** 36 existing scenarios, including command/addon paths; four Fabric game-test
-  entrypoints cover screens, world lifecycle, behaviour and swallowed failures. No existing
+  entrypoints covered screens, world lifecycle, behaviour and swallowed failures at that baseline.
+  This continuation adds two entrypoints with three acceptance scenarios (inventory interruption,
+  real Nether transition and disconnect): **39 scenario checks / six entrypoints** after the batch. No existing
   behaviour scenario or experimental-flag mapping is being removed or renamed in this continuation.
 - **Observed CI:** [34688661603](https://github.com/MrHakan/Minecraft-Client/actions/runs/34688661603),
   job 103539994863, successful on the inspected head. Logs inspected: JDK 25 build passed in 33s;
@@ -67,6 +69,36 @@ pending; earlier environment access claims are historical, so check actual capab
 Next: finish the current audit/regressions, run the **full** pipeline, then prioritize standalone addon
 packaging and dedicated-server acceptance. Keep the mature behaviour suite intact; splitting its large
 file is optional and should not consume this batch at the expense of regression evidence.
+
+### Current continuation: independent audit and acceptance regressions
+
+- Fixed a concrete `ContainerTransferController.release` defect: disabling the owner while a screen
+  blocked clicks discarded responsibility for its carried item. Release now drops the remaining plan
+  but retains recovery until normal play resumes. `clear()` remains unconditional for world/player teardown.
+- Reject invalid PICKUP-plan/SWAP slot IDs before ownership/clicks, including vanilla's negative outside
+  window drop sentinel. InventoryService also requires the player's active menu to be its own inventory.
+- Three new unit regressions: open-screen release/recovery, teardown cancelling recovery, and bad final
+  slot rejection. Source total is now **703**. CI temporarily restores the original release predicate and
+  requires the precise regression assertion to fail, restores the source, then runs the full fixed suite.
+- `InventoryRecoveryGameTest`: AutoArmor really picks up a diamond helmet, its settings screen opens,
+  the module is disabled, recovery waits, screen closes, both server/client cursors empty and exactly one
+  helmet remains unequipped. This tests cancellation, not just a successful idle equip.
+- `WorldTransitionGameTest`: server command moves the real player to the Nether, then the actual
+  connection closes. Before/after observers prove a held look was active immediately before cleanup,
+  preventing ordinary arrival/timeout from masquerading as cancellation. Freecam must detach in the
+  first world, rebuild in the new one and restore the replacement player. No synthetic WorldChanged or
+  Disconnected event is posted. The command's test-only slow aim/budget prevents generation timing noise.
+- CI now reports JUnit XML totals and archives them, and clears old transformed-class exports before
+  runtime mixin inspection. Existing 36 scenarios, generated-module checks and flag mappings stay intact.
+- Full head-matched result is maintained in PR #9. The baseline run above is retained as evidence of
+  what was already true before this continuation; it is not used to certify the new scenarios.
+
+Review limits: this was a focused independent review of composition/lifecycle order, inventory transfers,
+input/rotation ownership, thread boundaries, registries, bounded discovery, config/docs and existing
+coverage. It is not exhaustive proof of 28k added lines. Potential further work: actual one-click-per-tick
+coordination across priority-preempting atomic callers, peer inventory changes during transfers, packet
+counter scoping across integrated-server connections, broader profile-transition and external addon tests.
+Do not claim these follow-ups fixed or dedicated multiplayer tested in this batch.
 
 ## Historical development record
 

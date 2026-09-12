@@ -46,6 +46,18 @@ gradle.projectsLoaded {
 GRADLE
 
 echo "Running the client game tests headless (timeout ${TIMEOUT}s); log: $LOG"
+# A previous successful run must not supply transformed classes for a failed/current launch.
+python3 - <<'PY'
+from pathlib import Path
+import shutil
+exports = Path('build/run/clientGameTest/.mixin.out')
+if exports.exists():
+    shutil.rmtree(exports)
+PY
+if [ "$?" -ne 0 ]; then
+    echo 'FAIL: could not clear stale mixin exports'
+    exit 1
+fi
 timeout "$TIMEOUT" xvfb-run -a --server-args="-screen 0 1280x720x24" \
     ./gradlew runClientGameTest --init-script "$INIT_SCRIPT" > "$LOG" 2>&1
 status=$?

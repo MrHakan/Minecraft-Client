@@ -25,6 +25,8 @@ invisible to it:
 | `ClientScreensGameTest` | Opens every screen the mod can show — the ClickGUI, the HUD editor, profiles, themes, the target policy, the colour picker, and each module's settings, actions and keybind screens — against the title screen, where there is no player and no level. |
 | `ModuleLifecycleGameTest` | Creates a flat, fixed-seed world, builds a scene around the player, then enables each module in turn, ticks it, and disables it. |
 | `ModuleBehaviourGameTest` | One scenario per module, asserting the effect a player would actually notice — a totem moved into the offhand, a player who walked, a death screen that closed, pixels that changed where an overlay should be. Every scenario first asserts that effect is *absent* with the module off. Commands and the addon entrypoint are covered the same way: `.look` turns the real view, `.goto` refuses without Baritone and puts nothing in chat, and the game test mod declares its own `agalarhack` entrypoint so a **real addon, loaded by the real Fabric loader**, is asserted to have registered a real module and command. |
+| `InventoryRecoveryGameTest` | Interrupts a real AutoArmor pickup with its settings screen and module disable; checks deferred recovery, both cursors and server-side item conservation. |
+| `WorldTransitionGameTest` | Travels to the Nether through the server, observes held-look cleanup before/after real world replacement, checks Freecam restoration and closes the actual connection. |
 | `SwallowedFailureGameTest` | Reads the log the run just wrote and fails if the mod caught and logged a failure anywhere in it. |
 
 `TestScene` puts a chest, a trapped chest, an ender chest, a barrel, a shulker box, a diamond ore, a
@@ -142,3 +144,14 @@ Locally the run takes about two minutes. On a GitHub runner the whole step is **
 installing xvfb and downloading Minecraft's assets, against **7m11s** for the timeout-driven check it
 replaced. The saving is not incidental: the client shuts itself down as soon as the tests finish, so
 a slow exit is a real failure rather than the normal way the run ends.
+
+
+## Regression controls and reproducible counts
+
+CI first runs `tools/inventory-regression-control.sh`: it temporarily restores the old release predicate,
+requires the specific open-screen recovery unit assertion to fail, then restores the exact source bytes.
+The normal build follows, and `tools/summarize-tests.py` reports observed totals from JUnit XML (archived
+with the client log). This control does not bypass the full game suite or whitelist swallowed failures.
+The current suite adds three acceptance checks to the existing 36 scenario checks; module names and
+experimental-flag scenario mappings remain unchanged. Worlds are integrated-server worlds, including the
+real dimension/disconnect checks. Restarted external addons and dedicated-server latency remain unverified.

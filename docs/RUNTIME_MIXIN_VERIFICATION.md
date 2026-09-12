@@ -133,3 +133,6 @@ statement above is historical: there are 0 badges, with limitations described in
 `tools/smoke-client.sh` currently checks an exported target contains an Agalar injection; it does not
 individually disassemble every injection call site. Source/bytecode target tests and required Mixin
 injections add coverage, but do not overstate this check as ten separate observed handler executions.
+
+The smoke wrapper now deletes only its prior `.mixin.out` export directory before launching. Old
+transformed classes cannot stand in for classes that failed to load in the current run.

@@ -35,8 +35,14 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x ./gradlew
 
+      - name: Prove inventory regression control
+        run: bash tools/inventory-regression-control.sh
+
       - name: Build
         run: ./gradlew build --stacktrace
+
+      - name: Report unit-test totals
+        run: python3 tools/summarize-tests.py
 
       # `./gradlew build` passes whether or not the client can start: a mixin target is
       # named in an annotation string, so a missing one compiles fine and fails at launch,
@@ -63,6 +69,8 @@ jobs:
           path: |
             build/smoke-client.log
             build/run/clientGameTest/logs/latest.log
+            build/inventory-regression-control.log
+            build/test-results/test/*.xml
           if-no-files-found: ignore
 
       - name: Read mod version
