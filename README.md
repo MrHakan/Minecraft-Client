@@ -69,6 +69,7 @@ Profiles store complete module state/settings/keybinds, Global Target Policy and
 | `.profile save|load|delete|list|bind|unbind [name]` | Core profile lifecycle |
 | `.profile duplicate|rename <source> <target>` | Copies/renames profiles |
 | `.profile export|import <name>` | Clipboard profile JSON |
+| `.grind <item> [count]` | Plans what it would take to obtain an item, counting what you already carry (plans only; gathers nothing) |
 | `.gui` | Opens the Control Center |
 | `.panic` | Disables all active modules |
 

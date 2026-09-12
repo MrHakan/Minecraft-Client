@@ -101,6 +101,7 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
             freecam(context, singleplayer);
             lookCommand(context, singleplayer);
             baritoneAbsent(context, singleplayer);
+            grindPlan(context, singleplayer);
             addonLoaded(context);
             quietFrames(context, true);
             holeEsp(context, singleplayer);
@@ -2129,6 +2130,46 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
                     + "; this is exactly the coordinate leak the bridge exists to prevent");
         }
         LOGGER.info("  goto refused without Baritone and put nothing in chat");
+    }
+
+    /**
+     * The grind planner against a real inventory, which is the half of it that can be wrong quietly.
+     *
+     * <p>The arithmetic is unit tested; what this adds is the mapping from a real held item onto the
+     * name the book counts. Three oak logs have to cover the one log a stone pickaxe needs - if the
+     * mapping missed that they are "log", the plan would send the player to chop wood they are
+     * already carrying, and every unit test would still pass.
+     */
+    private void grindPlan(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        setInventory(singleplayer, slots -> {
+            slots.setItem(0, new ItemStack(Items.OAK_LOG, 3));
+            slots.setSelectedSlot(0);
+        });
+        context.waitTicks(10);
+        context.runOnClient(client -> me.mrhakan.agalarhack.managers.CommandManager.handleChat(
+                me.mrhakan.agalarhack.AgalarHackClient.prefix + "grind stone_pickaxe"));
+        context.waitTicks(20);
+
+        java.util.List<String> lines = context.computeOnClient(ChatView::lines);
+        boolean asksForStone = lines.stream().anyMatch(line -> line.contains("gather 3 cobblestone"));
+        boolean asksForWood = lines.stream().anyMatch(line -> line.contains("gather")
+                && line.contains("log"));
+        boolean saysItOnlyPlans = lines.stream().anyMatch(line -> line.contains("Planning only"));
+
+        if (!asksForStone) {
+            throw new AssertionError("the plan did not ask for the three cobblestone a stone pickaxe "
+                    + "needs; chat was " + lines);
+        }
+        if (asksForWood) {
+            throw new AssertionError("the plan asked the player to gather wood while they were "
+                    + "holding three oak logs, so a real item id is not being counted under the "
+                    + "book's name for it; chat was " + lines);
+        }
+        if (!saysItOnlyPlans) {
+            throw new AssertionError("the command did not say that it only plans. A command that "
+                    + "looks like it started a grind and did nothing is worse than one that refuses");
+        }
+        LOGGER.info("  grind planned a stone pickaxe around the wood already carried");
     }
 
     /**

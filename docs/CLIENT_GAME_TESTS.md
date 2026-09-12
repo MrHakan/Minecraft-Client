@@ -24,7 +24,7 @@ invisible to it:
 | --- | --- |
 | `ClientScreensGameTest` | Opens every screen the mod can show — the ClickGUI, the HUD editor, profiles, themes, the target policy, the colour picker, and each module's settings, actions and keybind screens — against the title screen, where there is no player and no level. |
 | `ModuleLifecycleGameTest` | Creates a flat, fixed-seed world, builds a scene around the player, then enables each module in turn, ticks it, and disables it. |
-| `ModuleBehaviourGameTest` | One scenario per module, asserting the effect a player would actually notice — a totem moved into the offhand, a player who walked, a death screen that closed, pixels that changed where an overlay should be. Every scenario first asserts that effect is *absent* with the module off. Commands and the addon entrypoint are covered the same way: `.look` turns the real view, `.goto` refuses without Baritone and puts nothing in chat, and the game test mod declares its own `agalarhack` entrypoint so a **real addon, loaded by the real Fabric loader**, is asserted to have registered a real module and command. |
+| `ModuleBehaviourGameTest` | One scenario per module, asserting the effect a player would actually notice — a totem moved into the offhand, a player who walked, a death screen that closed, pixels that changed where an overlay should be. Every scenario first asserts that effect is *absent* with the module off. Commands and the addon entrypoint are covered the same way: `.look` turns the real view, `.goto` refuses without Baritone and puts nothing in chat, `.grind` plans a stone pickaxe around wood the player is already carrying (and says it only plans), and the game test mod declares its own `agalarhack` entrypoint so a **real addon, loaded by the real Fabric loader**, is asserted to have registered a real module and command. |
 | `InventoryRecoveryGameTest` | Interrupts a real AutoArmor pickup with its settings screen and module disable; checks deferred recovery, both cursors and server-side item conservation. |
 | `WorldTransitionGameTest` | Travels to the Nether through the server, observes held-look cleanup before/after real world replacement, checks Freecam restoration and closes the actual connection. |
 | `InventoryContentionGameTest` | Changes the inventory through vanilla commands **between two clicks of a plan** and asserts item conservation, empty cursors and a released channel. Runs the identical change with nothing in flight first, as a control: the accounting has to be shown trustworthy before its verdict means anything. |
@@ -182,7 +182,7 @@ bytes. The previous report is deleted first; a missing new report fails the cont
 failure can never reuse a prior regression result.
 The normal build follows, and `tools/summarize-tests.py` reports observed totals from JUnit XML (archived
 with the client log). This control does not bypass the full game suite or whitelist swallowed failures.
-There are 41 grouped scenario checks: 37 direct behaviour scenario calls (excluding `quietFrames`
+There are 42 grouped scenario checks: 38 direct behaviour scenario calls (excluding `quietFrames`
 setup), inventory interruption, dimension replacement, disconnect and external addon packaging.
 SafeWalk/Parkour and Tracers/Nametags are grouped; this is not an assertion or log-line count.
 Three dedicated-server checks are excluded while the EULA gate is off. Eight entrypoints include

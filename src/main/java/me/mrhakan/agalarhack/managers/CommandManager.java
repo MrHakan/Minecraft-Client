@@ -117,6 +117,7 @@ public class CommandManager {
         add(new me.mrhakan.agalarhack.commands.impl.Look());
         add(new me.mrhakan.agalarhack.commands.impl.Goto());
         add(new me.mrhakan.agalarhack.commands.impl.Addons());
+        add(new me.mrhakan.agalarhack.commands.impl.Grind());
     }
 
     /**
