@@ -24,6 +24,7 @@ import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.gamerules.GameRules;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
 
@@ -57,8 +58,14 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
                 .setUseConsistentSettings(true)
                 .create()) {
             singleplayer.getConnection().waitForChunksRender();
-            singleplayer.getServer().runOnServer(server ->
-                    TestScene.build(singleplayer.getConnection().getServerPlayer()));
+            singleplayer.getServer().runOnServer(server -> {
+                // Random ticks are the one thing in an empty superflat world that still changes
+                // blocks, and every scanning module restarts its sweep when a block near it
+                // changes. Grass dying under a roof is enough to empty a result set between the
+                // scan and the screenshot, which reads exactly like a module that drew nothing.
+                server.getGameRules().set(GameRules.RANDOM_TICK_SPEED, 0, server);
+                TestScene.build(singleplayer.getConnection().getServerPlayer());
+            });
             context.waitTicks(20);
             sceneBase = singleplayer.getServer().computeOnServer(server ->
                     singleplayer.getConnection().getServerPlayer().blockPosition());
@@ -75,6 +82,14 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
             chatFilter(context, singleplayer);
             chatMentions(context, singleplayer);
             autoAccept(context, singleplayer);
+            performance(context);
+            serverInfo(context);
+            critInfo(context, singleplayer);
+            elytraInfo(context, singleplayer);
+            totemTracker(context, singleplayer);
+            combatHistory(context, singleplayer);
+            baseFinder(context, singleplayer);
+            projectileWarning(context, singleplayer);
             quietFrames(context, true);
             holeEsp(context, singleplayer);
             tracersAndNametags(context, singleplayer);
@@ -82,7 +97,9 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
             breadcrumbs(context, singleplayer);
             waypoints(context, singleplayer);
             spawnEsp(context, singleplayer);
+            projectileEsp(context, singleplayer);
             quietFrames(context, false);
+            autoRespawn(context, singleplayer);
 
             LOGGER.info("Module behaviour scenarios passed");
         }
@@ -630,10 +647,14 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
     }
 
     private static boolean mentionNotified(ClientGameTestContext context) {
-        return context.computeOnClient(client ->
-                me.mrhakan.agalarhack.services.ClientServices.require(
-                                me.mrhakan.agalarhack.services.NotificationService.class)
-                        .visible().stream().anyMatch(notice -> notice.text().contains("mentioned in chat")));
+        return context.computeOnClient(notice("mentioned in chat")::test);
+    }
+
+    /** A toast is showing whose text contains this fragment. */
+    private static Predicate<Minecraft> notice(String fragment) {
+        return client -> me.mrhakan.agalarhack.services.ClientServices.require(
+                        me.mrhakan.agalarhack.services.NotificationService.class)
+                .visible().stream().anyMatch(showing -> showing.text().contains(fragment));
     }
 
     /**
@@ -929,6 +950,14 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
      * one situation this module exists for.
      */
     private void spawnEsp(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        // A short sweep on purpose. The default radius is forty thousand positions, which is several
+        // ticks of a shared budget the other enabled scanners are also drawing on, and the frame is
+        // taken at a fixed moment rather than when the sweep happens to finish.
+        configure(context, "SpawnESP", module -> {
+            module.settings.setSetting("horizontalRange", 12.0);
+            module.settings.setSetting("verticalRange", 4.0);
+        });
+
         moveThere(context, singleplayer, sceneBase.offset(0, 0, 180));
         singleplayer.getServer().runOnServer(server -> {
             ServerPlayer player = singleplayer.getConnection().getServerPlayer();
@@ -938,8 +967,11 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
             }
             BlockPos centre = player.blockPosition();
             // A sealed shell: walls, and a roof three blocks up so there is standing room under it.
+            // The floor is replaced too, because superflat's grass dies once it is roofed over and
+            // each death is a block update that sends the scan back to the start.
             for (int dx = -4; dx <= 4; dx++) {
                 for (int dz = -4; dz <= 4; dz++) {
+                    level.setBlockAndUpdate(centre.offset(dx, -1, dz), Blocks.STONE.defaultBlockState());
                     level.setBlockAndUpdate(centre.offset(dx, 3, dz), Blocks.OBSIDIAN.defaultBlockState());
                     for (int dy = 0; dy <= 2; dy++) {
                         boolean wall = Math.abs(dx) == 4 || Math.abs(dz) == 4;
@@ -955,7 +987,517 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
         // At the floor, where the markers go.
         context.getInput().lookAt(0.0f, 60.0f);
         context.waitTicks(20);
-        drawsSomething(context, "SpawnESP", "markers on a dark floor", 0.25, 0.75);
+        drawsSomething(context, "SpawnESP", "markers on a dark floor", 0.25, 0.75,
+                client -> AgalarHackClient.moduleManager.getModule("SpawnESP")
+                        instanceof me.mrhakan.agalarhack.module.render.SpawnESP spawn
+                        && !spawn.results().isEmpty());
+    }
+
+    /**
+     * A module whose whole job is to reconfigure a shared service, so the service is the evidence.
+     *
+     * <p>The restore half is the one worth asserting. A client left on the low profile after the
+     * module was switched off would scan slowly for the rest of the session, and nothing on screen
+     * would say why.
+     */
+    private void performance(ClientGameTestContext context) {
+        var builtIn = me.mrhakan.agalarhack.services.scanning.ScanBudgets.BALANCED;
+        var wanted = me.mrhakan.agalarhack.services.scanning.ScanBudgets.forProfile("low");
+        var before = scanBudgets(context);
+        if (!builtIn.equals(before)) {
+            throw new AssertionError("the shared scanner was already off its built-in ceiling (" + before
+                    + ") before Performance ran; the scenario proves nothing in that state");
+        }
+
+        configure(context, "Performance", module -> module.settings.setSetting("scanBudget", "low"));
+        toggle(context, "Performance", true);
+        context.waitTicks(8);
+        var applied = scanBudgets(context);
+        toggle(context, "Performance", false);
+        context.waitTicks(8);
+        var restored = scanBudgets(context);
+
+        if (!wanted.equals(applied)) {
+            throw new AssertionError("Performance on the low profile left the shared scanner at "
+                    + applied + " instead of " + wanted);
+        }
+        if (!builtIn.equals(restored)) {
+            throw new AssertionError("Performance left the shared scanner at " + restored
+                    + " after being disabled instead of restoring " + builtIn);
+        }
+        LOGGER.info("  Performance lowered the shared scanning ceiling and gave it back");
+    }
+
+    private static me.mrhakan.agalarhack.services.scanning.ScanBudgets scanBudgets(ClientGameTestContext context) {
+        return context.computeOnClient(client -> me.mrhakan.agalarhack.services.ClientServices.require(
+                me.mrhakan.agalarhack.services.ScannerService.class).budgets());
+    }
+
+    /**
+     * The tick figure is an estimate built from how far apart the server's world-time packets
+     * arrive, so the scenario waits for real packets rather than feeding the module anything.
+     *
+     * <p>Ping is deliberately not asserted: the integrated server reports a latency of zero, which
+     * the module correctly declines to record as a sample.
+     */
+    private void serverInfo(ClientGameTestContext context) {
+        Predicate<Minecraft> estimating = client ->
+                AgalarHackClient.moduleManager.getModule("ServerInfo")
+                        instanceof me.mrhakan.agalarhack.module.misc.ServerInfo info
+                        && info.tickEstimate().hasEstimate()
+                        && info.getDisplayName().startsWith("ServerInfo [");
+        assertNotYet(context, estimating, "ServerInfo already had a tick estimate before it was enabled");
+
+        toggle(context, "ServerInfo", true);
+        // World time arrives once every twenty ticks and two of them make the first interval.
+        boolean estimated = settle(context, estimating, 200);
+        double tps = context.computeOnClient(client ->
+                ((me.mrhakan.agalarhack.module.misc.ServerInfo) AgalarHackClient.moduleManager
+                        .getModule("ServerInfo")).tickEstimate().average());
+        toggle(context, "ServerInfo", false);
+
+        if (!estimated) {
+            throw new AssertionError("ServerInfo produced no tick estimate within 200 ticks of a running server");
+        }
+        // Wide on purpose: this asserts the estimate is a rate rather than nonsense, not that a
+        // headless CI runner hits twenty.
+        if (tps < 1.0 || tps > 60.0) {
+            throw new AssertionError("ServerInfo estimated " + tps + " tps for an idle integrated server");
+        }
+        LOGGER.info("  ServerInfo estimated {} tps from the server's own time packets",
+                String.format(java.util.Locale.ROOT, "%.1f", tps));
+    }
+
+    /**
+     * The crit rule read against the player's real state: no crit with both feet on the ground, a
+     * crit on the way down. Nothing is fed to the module — it reads the same player the game does,
+     * which is the only way to tell a correct rule from one that always answers the same.
+     */
+    private void critInfo(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        Predicate<Minecraft> critting = client ->
+                AgalarHackClient.moduleManager.getModule("CritInfo")
+                        instanceof me.mrhakan.agalarhack.module.combat.CritInfo crit
+                        && crit.critReady()
+                        && "CritInfo [ready]".equals(crit.getDisplayName());
+
+        moveThere(context, singleplayer, sceneBase.offset(0, 0, 210));
+        toggle(context, "CritInfo", true);
+        context.waitTicks(20);
+        if (context.computeOnClient(critting::test)) {
+            toggle(context, "CritInfo", false);
+            throw new AssertionError("CritInfo said a hit would crit while the player stood still on the ground");
+        }
+
+        // Creative, so thirty blocks is a fall rather than a death.
+        BlockPos above = sceneBase.offset(0, 30, 210);
+        singleplayer.getServer().runOnServer(server -> {
+            ServerPlayer player = singleplayer.getConnection().getServerPlayer();
+            player.teleportTo(above.getX() + 0.5, above.getY(), above.getZ() + 0.5);
+            player.setDeltaMovement(Vec3.ZERO);
+        });
+        boolean crits = settle(context, critting, 60);
+        toggle(context, "CritInfo", false);
+        if (!crits) {
+            throw new AssertionError("CritInfo never reported a critical while the player was falling "
+                    + "thirty blocks, which is exactly the state 26.2 crits in");
+        }
+        context.waitTicks(40);
+        LOGGER.info("  CritInfo told a grounded player from a falling one");
+    }
+
+    /**
+     * A nearly worn-out elytra should be news before the flight, not during it.
+     *
+     * <p>The durability figure is read off the worn item rather than guessed, so the assertion is on
+     * the exact number: a module that warned with the right text and the wrong count would be no
+     * use to somebody deciding whether to launch.
+     */
+    private void elytraInfo(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        // Toasts only exist while the Notifications module is on; the lifecycle test left it off.
+        toggle(context, "Notifications", true);
+
+        singleplayer.getServer().runOnServer(server -> {
+            ServerPlayer player = singleplayer.getConnection().getServerPlayer();
+            ItemStack elytra = new ItemStack(Items.ELYTRA);
+            // Ten uses left, well under the twenty-use default threshold.
+            elytra.setDamageValue(elytra.getMaxDamage() - 10);
+            player.setItemSlot(EquipmentSlot.CHEST, elytra);
+        });
+        context.waitTicks(20);
+        assertNotYet(context, notice("Elytra at "), "a worn elytra was reported before ElytraInfo was enabled");
+
+        toggle(context, "ElytraInfo", true);
+        boolean warned = settle(context, notice("Elytra at 10 uses"));
+        String label = context.computeOnClient(client ->
+                AgalarHackClient.moduleManager.getModule("ElytraInfo").getDisplayName());
+        toggle(context, "ElytraInfo", false);
+        singleplayer.getServer().runOnServer(server -> singleplayer.getConnection().getServerPlayer()
+                .setItemSlot(EquipmentSlot.CHEST, ItemStack.EMPTY));
+
+        if (!warned) {
+            throw new AssertionError("ElytraInfo did not warn about an elytra with ten uses left within "
+                    + SETTLE_TICKS + " ticks");
+        }
+        if (!label.startsWith("ElytraInfo [10 dur")) {
+            throw new AssertionError("ElytraInfo warned but its module-list label read " + label
+                    + " rather than the ten uses left on the worn elytra");
+        }
+        LOGGER.info("  ElytraInfo warned about a worn elytra and counted its uses");
+    }
+
+    /**
+     * A totem is popped for real: the player is put in survival, handed one, and dealt more damage
+     * than they have health.
+     *
+     * <p>Ordinary magic damage rather than {@code kill()}, which is tagged as bypassing
+     * invulnerability and would take the player straight past the totem the scenario is about.
+     */
+    private void totemTracker(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        toggle(context, "Notifications", true);
+        moveThere(context, singleplayer, sceneBase.offset(0, 0, 360));
+        String who = context.computeOnClient(client -> client.player.getName().getString());
+
+        singleplayer.getServer().runOnServer(server -> {
+            ServerPlayer player = singleplayer.getConnection().getServerPlayer();
+            player.setGameMode(GameType.SURVIVAL);
+            player.setHealth(player.getMaxHealth());
+            player.setItemSlot(EquipmentSlot.OFFHAND, new ItemStack(Items.TOTEM_OF_UNDYING));
+        });
+        context.waitTicks(20);
+
+        toggle(context, "TotemTracker", true);
+        Predicate<Minecraft> counted = client ->
+                AgalarHackClient.moduleManager.getModule("TotemTracker")
+                        instanceof me.mrhakan.agalarhack.module.combat.TotemTracker tracker
+                        && tracker.popsFor(who) == 1
+                        && "TotemTracker [1]".equals(tracker.getDisplayName());
+        if (context.computeOnClient(counted::test)) {
+            toggle(context, "TotemTracker", false);
+            throw new AssertionError("TotemTracker counted a pop before any totem had been used");
+        }
+
+        singleplayer.getServer().runOnServer(server -> {
+            ServerPlayer player = singleplayer.getConnection().getServerPlayer();
+            player.hurtServer(player.level(), player.level().damageSources().magic(), 1000.0f);
+        });
+        boolean sawPop = settle(context, counted);
+        boolean announced = context.computeOnClient(notice("popped 1 totem (seen)")::test);
+        toggle(context, "TotemTracker", false);
+
+        singleplayer.getServer().runOnServer(server -> {
+            ServerPlayer player = singleplayer.getConnection().getServerPlayer();
+            player.setItemSlot(EquipmentSlot.OFFHAND, ItemStack.EMPTY);
+            player.setHealth(player.getMaxHealth());
+            player.setGameMode(GameType.CREATIVE);
+            // A totem leaves regeneration and absorption running for the next forty-five seconds,
+            // and their particles drift through the camera. The render scenarios that follow
+            // measure a still frame against a still frame, and that is not still.
+            player.removeAllEffects();
+        });
+        context.waitTicks(10);
+
+        if (!sawPop) {
+            throw new AssertionError("TotemTracker did not count the totem the player just popped within "
+                    + SETTLE_TICKS + " ticks");
+        }
+        if (!announced) {
+            throw new AssertionError("TotemTracker counted the pop but published no notification about it");
+        }
+        LOGGER.info("  TotemTracker counted a totem the player actually popped");
+    }
+
+    /**
+     * The log fills from combat, not from being switched on. The control half is the point: the
+     * module sits enabled with a zombie in front of it and records nothing until Aura, which is what
+     * sets the shared target, is switched on too.
+     */
+    private void combatHistory(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        moveThere(context, singleplayer, sceneBase.offset(0, 0, 240));
+        BlockPos where = singleplayer.getServer().computeOnServer(server -> {
+            ServerPlayer player = singleplayer.getConnection().getServerPlayer();
+            for (Entity entity : player.level().getAllEntities()) {
+                if (!(entity instanceof ServerPlayer)) entity.discard();
+            }
+            BlockPos spot = player.blockPosition().offset(3, 0, 0);
+            if (EntityTypes.ZOMBIE.spawn(player.level(), spot, EntitySpawnReason.COMMAND) == null) {
+                throw new AssertionError("could not spawn the zombie at " + spot);
+            }
+            return spot;
+        });
+        context.waitTicks(20);
+        context.getInput().lookAt(where.above());
+
+        Predicate<Minecraft> remembered = client ->
+                AgalarHackClient.moduleManager.getModule("CombatHistory")
+                        instanceof me.mrhakan.agalarhack.module.combat.CombatHistory history
+                        && history.log().size() > 0
+                        && history.getDisplayName().startsWith("CombatHistory [");
+
+        toggle(context, "CombatHistory", true);
+        context.waitTicks(40);
+        if (context.computeOnClient(remembered::test)) {
+            toggle(context, "CombatHistory", false);
+            throw new AssertionError("CombatHistory recorded a target with nothing attacking; it is "
+                    + "logging something other than combat");
+        }
+
+        toggle(context, "Aura", true);
+        boolean logged = settle(context, remembered);
+        toggle(context, "Aura", false);
+        toggle(context, "CombatHistory", false);
+        singleplayer.getServer().runOnServer(server -> {
+            for (Entity entity : singleplayer.getConnection().getServerPlayer().level().getAllEntities()) {
+                if (!(entity instanceof ServerPlayer)) entity.discard();
+            }
+        });
+
+        if (!logged) {
+            throw new AssertionError("CombatHistory logged nothing while Aura was attacking a zombie "
+                    + "three blocks away");
+        }
+        LOGGER.info("  CombatHistory remembered the target Aura fought");
+    }
+
+    /**
+     * A cluster of storage is built and BaseFinder is asked to notice it.
+     *
+     * <p>The module draws on StorageESP's cache rather than scanning itself, and the first half of
+     * this checks it says so plainly instead of looking broken when that module is off.
+     */
+    private void baseFinder(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        toggle(context, "Notifications", true);
+        moveThere(context, singleplayer, sceneBase.offset(0, 0, 270));
+        singleplayer.getServer().runOnServer(server -> {
+            ServerPlayer player = singleplayer.getConnection().getServerPlayer();
+            ServerLevel level = player.level();
+            BlockPos centre = player.blockPosition().offset(6, 0, 0);
+            // Spaced two apart so they stay nine separate chests rather than merging into doubles,
+            // and well inside the twelve-block default cluster radius.
+            for (int dx = -2; dx <= 2; dx += 2) {
+                for (int dz = -2; dz <= 2; dz += 2) {
+                    level.setBlockAndUpdate(centre.offset(dx, 0, dz), Blocks.CHEST.defaultBlockState());
+                }
+            }
+        });
+        singleplayer.getConnection().waitForChunksRender();
+        context.waitTicks(20);
+
+        configure(context, "BaseFinder", module -> {
+            module.settings.setSetting("interval", 5.0);
+            module.settings.setSetting("minimumStorage", 6.0);
+        });
+        toggle(context, "BaseFinder", true);
+        context.waitTicks(20);
+        String withoutStorage = context.computeOnClient(client ->
+                AgalarHackClient.moduleManager.getModule("BaseFinder").getDisplayName());
+        if (!"BaseFinder [needs StorageESP]".equals(withoutStorage)) {
+            toggle(context, "BaseFinder", false);
+            throw new AssertionError("BaseFinder read " + withoutStorage + " with StorageESP off, rather "
+                    + "than saying what it is waiting for");
+        }
+
+        toggle(context, "StorageESP", true);
+        Predicate<Minecraft> found = client ->
+                AgalarHackClient.moduleManager.getModule("BaseFinder")
+                        instanceof me.mrhakan.agalarhack.module.world.BaseFinder finder
+                        && !finder.clusters().isEmpty()
+                        && finder.clusters().get(0).size() >= 6;
+        boolean reported = settle(context, found, SETTLE_TICKS * 2);
+        boolean announced = context.computeOnClient(notice("Likely base:")::test);
+        int size = context.computeOnClient(client -> {
+            var finder = (me.mrhakan.agalarhack.module.world.BaseFinder)
+                    AgalarHackClient.moduleManager.getModule("BaseFinder");
+            return finder.clusters().isEmpty() ? 0 : finder.clusters().get(0).size();
+        });
+        toggle(context, "StorageESP", false);
+        toggle(context, "BaseFinder", false);
+
+        if (!reported) {
+            throw new AssertionError("BaseFinder found no cluster in nine chests within six blocks of "
+                    + "the player, with StorageESP on");
+        }
+        if (!announced) {
+            throw new AssertionError("BaseFinder found a cluster of " + size
+                    + " but published no notification about it");
+        }
+        LOGGER.info("  BaseFinder reported a cluster of {} storage blocks as a likely base", size);
+    }
+
+    /**
+     * Arrows are put in the air on a course that passes through the player, and the module is asked
+     * to see them coming.
+     *
+     * <p>Several rather than one, spread over a range of distances: the tracked list this reads is
+     * filled by a scheduled scan, and a single arrow can be past the player before the scan that
+     * would have found it runs. The claim is unaffected — one warning is one warning.
+     */
+    private void projectileWarning(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        toggle(context, "Notifications", true);
+        moveThere(context, singleplayer, sceneBase.offset(0, 0, 300));
+        singleplayer.getServer().runOnServer(server -> {
+            for (Entity entity : singleplayer.getConnection().getServerPlayer().level().getAllEntities()) {
+                if (!(entity instanceof ServerPlayer)) entity.discard();
+            }
+        });
+        context.waitTicks(10);
+
+        toggle(context, "ProjectileWarning", true);
+        context.waitTicks(20);
+        String alone = context.computeOnClient(client ->
+                AgalarHackClient.moduleManager.getModule("ProjectileWarning").getDisplayName());
+        if (!"ProjectileWarning [needs ProjectileESP]".equals(alone)) {
+            toggle(context, "ProjectileWarning", false);
+            throw new AssertionError("ProjectileWarning read " + alone + " with ProjectileESP off, rather "
+                    + "than saying what it is waiting for");
+        }
+
+        toggle(context, "ProjectileESP", true);
+        context.waitTicks(20);
+        assertNotYet(context, notice("Incoming"), "an incoming projectile was reported before one existed");
+
+        // Volleys rather than one salvo. An arrow crosses the twenty blocks in about seven ticks,
+        // and the list this module reads is filled by a scheduled scan that may not have run in
+        // that window; firing again costs a few ticks and removes the race.
+        boolean warned = false;
+        int tracked = 0;
+        for (int volley = 0; volley < 8 && !warned; volley++) {
+            singleplayer.getServer().runOnServer(server -> {
+                ServerPlayer player = singleplayer.getConnection().getServerPlayer();
+                ServerLevel level = player.level();
+                double eye = player.getEyeY();
+                for (int step = 0; step < 3; step++) {
+                    Entity arrow = EntityTypes.ARROW.create(level, EntitySpawnReason.COMMAND);
+                    if (arrow == null) throw new AssertionError("could not create an arrow");
+                    arrow.setPos(player.getX() + 14 + step * 4, eye, player.getZ());
+                    // A bow shoots at three blocks per tick. Anything slower falls into the ground
+                    // long before it arrives, which is a scenario that proves nothing rather than a
+                    // module that missed something.
+                    arrow.setDeltaMovement(new Vec3(-3.0, 0.0, 0.0));
+                    level.addFreshEntity(arrow);
+                }
+            });
+            warned = settle(context, notice("Incoming"), 20);
+            tracked = Math.max(tracked, context.computeOnClient(client ->
+                    AgalarHackClient.moduleManager.getModule("ProjectileESP")
+                            instanceof me.mrhakan.agalarhack.module.render.ProjectileESP esp
+                            ? esp.projectiles().size() : 0));
+        }
+        toggle(context, "ProjectileWarning", false);
+        toggle(context, "ProjectileESP", false);
+        singleplayer.getServer().runOnServer(server -> {
+            for (Entity entity : singleplayer.getConnection().getServerPlayer().level().getAllEntities()) {
+                if (!(entity instanceof ServerPlayer)) entity.discard();
+            }
+        });
+
+        if (!warned) {
+            // Which half broke: nothing tracked is a scene or discovery problem, a tracked list with
+            // no warning is this module's.
+            throw new AssertionError("ProjectileWarning said nothing about arrows flying straight at "
+                    + "the player's head; ProjectileESP had tracked at most " + tracked + " of them");
+        }
+        LOGGER.info("  ProjectileWarning saw an arrow coming and said so");
+    }
+
+    /**
+     * A dozen arrows stuck in the ground in front of the camera, which is the one way to hold a
+     * projectile still long enough to photograph what the module draws around it.
+     *
+     * <p>They are spent arrows rather than arrows in flight on purpose: an arrow crossing the frame
+     * moves the picture by itself, which is exactly the noise the measurement is trying to exclude.
+     */
+    private void projectileEsp(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        moveThere(context, singleplayer, sceneBase.offset(0, 0, 330));
+        BlockPos cluster = singleplayer.getServer().computeOnServer(server -> {
+            ServerPlayer player = singleplayer.getConnection().getServerPlayer();
+            ServerLevel level = player.level();
+            for (Entity entity : level.getAllEntities()) {
+                if (!(entity instanceof ServerPlayer)) entity.discard();
+            }
+            BlockPos centre = player.blockPosition().offset(5, 0, 0);
+            for (int dz = -1; dz <= 1; dz++) {
+                for (int dx = -1; dx <= 2; dx++) {
+                    Entity arrow = EntityTypes.ARROW.create(level, EntitySpawnReason.COMMAND);
+                    if (arrow == null) throw new AssertionError("could not create an arrow");
+                    // A block up with no motion: it drops, sticks, and stays put from then on.
+                    arrow.setPos(centre.getX() + dx + 0.5, centre.getY() + 1.0, centre.getZ() + dz + 0.5);
+                    arrow.setDeltaMovement(Vec3.ZERO);
+                    level.addFreshEntity(arrow);
+                }
+            }
+            return centre;
+        });
+        singleplayer.getConnection().waitForChunksRender();
+        context.waitTicks(40);
+        context.getInput().lookAt(cluster);
+        context.waitTicks(20);
+
+        int arrows = context.computeOnClient(client -> {
+            int seen = 0;
+            for (Entity entity : client.level.entitiesForRendering()) {
+                if (entity instanceof net.minecraft.world.entity.projectile.Projectile) seen++;
+            }
+            return seen;
+        });
+        if (arrows == 0) {
+            throw new AssertionError("no arrow reached the client, so ProjectileESP has nothing to draw; "
+                    + "the scenario is broken, not the module");
+        }
+
+        drawsSomething(context, "ProjectileESP", "boxes around the spent arrows", 0.25, 0.75,
+                client -> AgalarHackClient.moduleManager.getModule("ProjectileESP")
+                        instanceof me.mrhakan.agalarhack.module.render.ProjectileESP esp
+                        && !esp.projectiles().isEmpty());
+        singleplayer.getServer().runOnServer(server -> {
+            for (Entity entity : singleplayer.getConnection().getServerPlayer().level().getAllEntities()) {
+                if (!(entity instanceof ServerPlayer)) entity.discard();
+            }
+        });
+    }
+
+    /**
+     * Last, because it ends with the player somewhere the world builder chose rather than where the
+     * scenario left them.
+     *
+     * <p>The control is a real wait on a real death screen: sixty ticks with the module off, which
+     * is six times its default delay, and the screen is still there. Without that, a test that
+     * enabled the module and saw the screen close could be watching the game do it.
+     */
+    private void autoRespawn(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        Predicate<Minecraft> onDeathScreen =
+                client -> client.gui.screen() instanceof net.minecraft.client.gui.screens.DeathScreen;
+
+        singleplayer.getServer().runOnServer(server -> {
+            ServerPlayer player = singleplayer.getConnection().getServerPlayer();
+            player.setGameMode(GameType.SURVIVAL);
+            player.setHealth(player.getMaxHealth());
+        });
+        context.waitTicks(20);
+        singleplayer.getServer().runOnServer(server ->
+                singleplayer.getConnection().getServerPlayer().kill(
+                        singleplayer.getConnection().getServerPlayer().level()));
+
+        if (!settle(context, onDeathScreen)) {
+            throw new AssertionError("the player did not reach a death screen after being killed in "
+                    + "survival; the scenario is broken, not the module");
+        }
+        context.waitTicks(60);
+        if (!context.computeOnClient(onDeathScreen::test)) {
+            throw new AssertionError("the death screen closed on its own with AutoRespawn off; "
+                    + "the scenario proves nothing in that state");
+        }
+
+        toggle(context, "AutoRespawn", true);
+        boolean respawned = settle(context, onDeathScreen.negate(), SETTLE_TICKS * 2);
+        toggle(context, "AutoRespawn", false);
+        singleplayer.getServer().runOnServer(server ->
+                singleplayer.getConnection().getServerPlayer().setGameMode(GameType.CREATIVE));
+
+        if (!respawned) {
+            throw new AssertionError("AutoRespawn left the player on the death screen for "
+                    + (SETTLE_TICKS * 2) + " ticks");
+        }
+        LOGGER.info("  AutoRespawn cleared a death screen the game left standing");
     }
 
     /**
@@ -1016,6 +1558,20 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
      */
     private void drawsSomething(ClientGameTestContext context, String name, String expected,
             double fromHeight, double toHeight) {
+        drawsSomething(context, name, expected, fromHeight, toHeight, null);
+    }
+
+    /**
+     * As above, with a guard on whether the module had anything to draw when the frame was taken.
+     *
+     * <p>Scanning modules fill their result set on a shared budget, and an empty one produces a
+     * frame identical to the control. Without this the scenario reports that as "drew nothing",
+     * which blames the module for what is really the scene or the schedule. The guard is read
+     * rather than waited on, deliberately: waiting would make the signal window longer than the
+     * noise window, and unequal windows are how drift gets counted as signal.
+     */
+    private void drawsSomething(ClientGameTestContext context, String name, String expected,
+            double fromHeight, double toHeight, Predicate<Minecraft> hadSomethingToDraw) {
         final int window = 60;
         String slug = name.toLowerCase(java.util.Locale.ROOT);
         java.nio.file.Path first = context.takeScreenshot(slug + "-off-1");
@@ -1026,10 +1582,16 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
         toggle(context, name, true);
         context.waitTicks(window);
         java.nio.file.Path on = context.takeScreenshot(slug + "-on");
+        boolean anything = hadSomethingToDraw == null || context.computeOnClient(hadSomethingToDraw::test);
         toggle(context, name, false);
         int signal = Frames.changedPixels(second, on, fromHeight, toHeight);
 
         LOGGER.info("    {} pixels: noise={} signal={}", name, noise, signal);
+        if (!anything) {
+            throw new AssertionError(name + " had found nothing to draw when the frame was taken, so "
+                    + "the comparison would be measuring the scene rather than the module; the "
+                    + "scenario is broken, not the module");
+        }
         assertDrew(name, expected, noise, signal);
         LOGGER.info("  {} drew {}", name, expected);
     }
