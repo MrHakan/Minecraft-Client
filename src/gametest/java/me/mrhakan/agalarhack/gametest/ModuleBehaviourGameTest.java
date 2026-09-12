@@ -1219,9 +1219,13 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
                 if (!(entity instanceof ServerPlayer)) entity.discard();
             }
             BlockPos spot = player.blockPosition().offset(3, 0, 0);
-            if (EntityTypes.ZOMBIE.spawn(player.level(), spot, EntitySpawnReason.COMMAND) == null) {
-                throw new AssertionError("could not spawn the zombie at " + spot);
-            }
+            var zombie = EntityTypes.ZOMBIE.spawn(player.level(), spot, EntitySpawnReason.COMMAND);
+            if (zombie == null) throw new AssertionError("could not spawn the zombie at " + spot);
+            // Mobs never target a creative player - that is what EntitySelector.NO_CREATIVE_OR_SPECTATOR
+            // is for - so a zombie with its AI on does not walk towards the player, it wanders, and
+            // roughly one run in five it wanders outside Aura's four-block reach before the window
+            // closes. Standing still is the whole of its job here.
+            zombie.setNoAi(true);
             return spot;
         });
         context.waitTicks(20);
@@ -1239,6 +1243,24 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
             toggle(context, "CombatHistory", false);
             throw new AssertionError("CombatHistory recorded a target with nothing attacking; it is "
                     + "logging something other than combat");
+        }
+
+        // Aura reaches four blocks. If the zombie is not inside that, Aura is right to do nothing and
+        // reporting it as CombatHistory's failure would be a lie about which half broke.
+        double gap = singleplayer.getServer().computeOnServer(server -> {
+            ServerPlayer player = singleplayer.getConnection().getServerPlayer();
+            double nearest = Double.MAX_VALUE;
+            for (Entity entity : player.level().getAllEntities()) {
+                if (entity instanceof ServerPlayer) continue;
+                nearest = Math.min(nearest, player.distanceTo(entity));
+            }
+            return nearest;
+        });
+        if (gap > 4.0) {
+            toggle(context, "CombatHistory", false);
+            throw new AssertionError("the nearest thing to fight is " + gap + " blocks away, outside "
+                    + "Aura's reach, so there is nothing for CombatHistory to record; the scenario is "
+                    + "broken, not the module");
         }
 
         toggle(context, "Aura", true);
