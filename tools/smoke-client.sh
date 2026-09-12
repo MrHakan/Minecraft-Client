@@ -58,8 +58,18 @@ if [ "$?" -ne 0 ]; then
     echo 'FAIL: could not clear stale mixin exports'
     exit 1
 fi
+# Opt-in, and deliberately explicit: the dedicated-server scenarios cannot run until Minecraft's
+# server EULA is accepted, and that is the repository owner's call rather than a test's. Read from
+# the environment here, where it is always current, and passed to Gradle as a property, because a
+# daemon started before the variable was exported would not see it.
+EULA_FLAG=()
+if [ "${AGALARHACK_ACCEPT_SERVER_EULA:-}" = "true" ]; then
+    echo "Server EULA accepted by AGALARHACK_ACCEPT_SERVER_EULA; dedicated-server scenarios will run"
+    EULA_FLAG=(-PacceptServerEula=true)
+fi
+
 timeout "$TIMEOUT" xvfb-run -a --server-args="-screen 0 1280x720x24" \
-    ./gradlew runClientGameTest --init-script "$INIT_SCRIPT" > "$LOG" 2>&1
+    ./gradlew runClientGameTest --init-script "$INIT_SCRIPT" "${EULA_FLAG[@]+"${EULA_FLAG[@]}"}" > "$LOG" 2>&1
 status=$?
 
 failed=0

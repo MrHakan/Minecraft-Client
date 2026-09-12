@@ -27,7 +27,32 @@ invisible to it:
 | `ModuleBehaviourGameTest` | One scenario per module, asserting the effect a player would actually notice — a totem moved into the offhand, a player who walked, a death screen that closed, pixels that changed where an overlay should be. Every scenario first asserts that effect is *absent* with the module off. Commands and the addon entrypoint are covered the same way: `.look` turns the real view, `.goto` refuses without Baritone and puts nothing in chat, and the game test mod declares its own `agalarhack` entrypoint so a **real addon, loaded by the real Fabric loader**, is asserted to have registered a real module and command. |
 | `InventoryRecoveryGameTest` | Interrupts a real AutoArmor pickup with its settings screen and module disable; checks deferred recovery, both cursors and server-side item conservation. |
 | `WorldTransitionGameTest` | Travels to the Nether through the server, observes held-look cleanup before/after real world replacement, checks Freecam restoration and closes the actual connection. |
-| `SwallowedFailureGameTest` | Reads the log the run just wrote and fails if the mod caught and logged a failure anywhere in it. |
+| `ExternalAddonGameTest` | Installs two **separately packaged addon jars** and checks them from the outside: one registers a module and a command and receives settings, the other collides with a built-in module and a built-in command on purpose and has to be contained. Asserts the good one was loaded from a real `.jar` file, and first asserts the client itself is *not*, so that check separates installed jars from classpath mods rather than passing for everything. |
+| `DedicatedServerGameTest` | **Opt-in; see below.** Starts a real dedicated server and connects to it: observes the packet counters actually counting, equips armour where every click crosses a socket and the server has to agree, then checks the counters reset on disconnect and that a reconnect works. |
+| `SwallowedFailureGameTest` | Reads the log the run just wrote and fails if the mod caught and logged a failure anywhere in it. One exemption, by mod id: the deliberately broken addon fixture, whose failure is *asserted to happen* rather than merely ignored. |
+
+## The dedicated-server scenarios are opt-in
+
+A dedicated server will not start until Minecraft's server EULA is accepted, and the harness
+recreates its run directory on every run, so an accepted `eula.txt` cannot be checked in — it has to
+be written by automation while the test runs. Agreeing to [Mojang's
+EULA](https://aka.ms/MinecraftEULA) is the repository owner's decision rather than a test's, so it
+is off by default:
+
+```sh
+AGALARHACK_ACCEPT_SERVER_EULA=true ./tools/smoke-client.sh   # or: -PacceptServerEula=true
+```
+
+Without it `DedicatedServerGameTest` logs a warning naming exactly what it skipped and asserts
+nothing. **A skipped run is not evidence**, so do not count those scenarios when describing coverage
+unless the flag was actually set. The environment variable is read by the shell script and passed to
+Gradle as a property, because a Gradle daemon started before the variable was exported would not see
+it.
+
+What the dedicated-server run adds over the rest of the suite: the `Connection` mixins are the only
+ones whose handlers were verified *applied* to the bytecode without ever being seen to *fire*, and
+they cannot fire meaningfully without a connection. It is still a single player on loopback — the
+code paths a remote connection uses, not behaviour on a busy public server.
 
 `TestScene` puts a chest, a trapped chest, an ender chest, a barrel, a shulker box, a diamond ore, a
 two-deep obsidian hole, a zombie, a dropped item and a full inventory next to the player. An empty

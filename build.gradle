@@ -112,6 +112,16 @@ tasks.named('check') {
 tasks.matching { it.name == 'runClientGameTest' }.configureEach {
     dependsOn 'addonFixtureJar', 'brokenAddonFixtureJar'
     classpath += files(tasks.named('addonFixtureJar'), tasks.named('brokenAddonFixtureJar'))
+
+    // Dedicated-server scenarios need Minecraft's server EULA accepted, and a dedicated server
+    // recreates its run directory every run, so the acceptance has to be written by automation.
+    // Agreeing to https://aka.ms/MinecraftEULA is the repository owner's decision, so it is opt-in
+    // and explicit: without this flag DedicatedServerGameTest logs why it is skipping and asserts
+    // nothing. tools/smoke-client.sh turns AGALARHACK_ACCEPT_SERVER_EULA=true into the flag, since a
+    // long-lived Gradle daemon cannot be relied on to see a newly exported environment variable.
+    if (project.findProperty('acceptServerEula') == 'true') {
+        systemProperty 'agalarhack.acceptServerEula', 'true'
+    }
 }
 
 java {

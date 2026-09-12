@@ -13,6 +13,7 @@
       "me.mrhakan.agalarhack.gametest.InventoryRecoveryGameTest",
       "me.mrhakan.agalarhack.gametest.WorldTransitionGameTest",
       "me.mrhakan.agalarhack.gametest.ExternalAddonGameTest",
+      "me.mrhakan.agalarhack.gametest.DedicatedServerGameTest",
       "me.mrhakan.agalarhack.gametest.SwallowedFailureGameTest"
     ],
     "agalarhack": [
