@@ -19,7 +19,19 @@ import net.minecraft.world.entity.Entity;
 public final class EntityDiscovery {
     private EntityDiscovery() { }
 
-    /** Hard ceiling on entities inspected per tick, independent of the shared budget. */
+    /**
+     * Ceiling on entities inspected in one pass.
+     *
+     * <p>It is <strong>not</strong> independent of the shared budget, whatever an earlier comment
+     * here claimed: it is the same figure as the balanced profile's whole entity allowance, and the
+     * five consumers each pay a unit per entity they look at out of that one pool. Past roughly
+     * eight hundred rendered entities they therefore start truncating each other, and the scheduler
+     * rotates task order every tick, so which of them truncates changes from tick to tick.
+     *
+     * <p>That is bounded scanning working as designed rather than a fault, but it is a real ceiling
+     * on a busy server and the honest place to write it down is here. A single shared walk feeding
+     * all five would remove it; that is a larger change than this comment.
+     */
     public static final int MAX_OBSERVATIONS = 4096;
 
     /**
@@ -44,9 +56,17 @@ public final class EntityDiscovery {
                 sink.accept(List.of());
                 return ScanScheduler.Result.DONE;
             }
-            if (considered[0] >= MAX_OBSERVATIONS || !iterator.hasNext() || !budget.take(0, 0, 1)) {
+            if (considered[0] >= MAX_OBSERVATIONS || !iterator.hasNext()) {
                 sink.accept(nearest.snapshot());
                 return ScanScheduler.Result.DONE;
+            }
+            if (!budget.take(0, 0, 1)) {
+                // Out of budget, which is not the same thing as having walked the list, and every
+                // other scanner here says so by returning BLOCKED. What was found is still published
+                // rather than dropped - the pass cannot resume, because the next tick starts from a
+                // fresh iterator - but it is a prefix of the entity list, not all of it.
+                sink.accept(nearest.snapshot());
+                return ScanScheduler.Result.BLOCKED;
             }
             considered[0]++;
             Entity entity = iterator.next();

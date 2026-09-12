@@ -41,6 +41,51 @@ class ScanSchedulerTest {
         var scheduler = new ScanScheduler<String>((owner, error) -> fail(error));
         scheduler.offer("bad", Priority.NEAR, 16384, budget -> Result.MORE);
         scheduler.run(1, 1, 1);
-        assertEquals(16384, scheduler.lastUsage().steps());
+        assertEquals(ScanScheduler.MAX_IDLE_STEPS, scheduler.lastUsage().steps(),
+                "a task that spends nothing is stopped by the idle allowance");
+    }
+
+    /**
+     * The step ceiling must not sit below what the configured budget allows.
+     *
+     * <p>It was a flat 16384, while the "high" profile grants 28,000 blocks plus 128 chunk lookups
+     * and 8,192 entities. A scanner that spends one unit per step - BlockESP and the entity walk
+     * both do - therefore stopped at 16,384 units however high the budget was set, so choosing
+     * "high" bought a player nothing over "balanced". Two ceilings, and the one nobody could see
+     * won.
+     *
+     * <p>Several owners, because the ceiling is shared across all of them rather than per task.
+     */
+    @Test void theStepCeilingDoesNotCutTheConfiguredBudgetShort() {
+        var scheduler = new ScanScheduler<String>((owner, error) -> fail(error));
+        var budgets = ScanBudgets.forProfile("high");
+        int[] spent = { 0 };
+        for (int owner = 0; owner < 4; owner++) {
+            scheduler.offer("owner" + owner, Priority.NEAR, 16384, budget -> {
+                if (!budget.take(1, 0, 0)) return Result.BLOCKED;
+                spent[0]++;
+                return Result.MORE;
+            });
+        }
+        scheduler.run(budgets.blocks(), budgets.chunkLookups(), budgets.entities());
+        assertTrue(spent[0] > 16384,
+                "the high profile grants " + budgets.blocks() + " blocks but only " + spent[0]
+                        + " were spendable, so the step ceiling is the real limit");
+    }
+
+    /**
+     * The runaway guard does not loosen just because the budget is large.
+     *
+     * <p>Tying the ceiling to the budget is only safe if the thing it actually guards against - a
+     * task returning MORE while spending nothing - is bounded separately. Otherwise raising the scan
+     * profile would also raise how long a broken task can hold the client tick.
+     */
+    @Test void aTaskThatSpendsNothingIsStoppedRegardlessOfHowLargeTheBudgetIs() {
+        var scheduler = new ScanScheduler<String>((owner, error) -> fail(error));
+        int[] steps = { 0 };
+        scheduler.offer("greedy", Priority.NEAR, 16384, budget -> { steps[0]++; return Result.MORE; });
+        scheduler.run(28_000, 128, 8_192);
+        assertEquals(ScanScheduler.MAX_IDLE_STEPS, steps[0],
+                "a huge budget must not buy a spinning task more of the tick");
     }
 }

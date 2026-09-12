@@ -82,11 +82,11 @@ class TargetRotationTest {
         TargetRotation rotation = new TargetRotation(10);
         int[] candidates = { 1, 2, 3, 4 };
         assertEquals(1, rotation.select(0, candidates, 3));
-        rotation.attacked(0);
+        rotation.attacked();
         assertEquals(2, rotation.select(1, candidates, 3));
-        rotation.attacked(1);
+        rotation.attacked();
         assertEquals(3, rotation.select(2, candidates, 3));
-        rotation.attacked(2);
+        rotation.attacked();
         assertEquals(1, rotation.select(3, candidates, 3), "wraps back rather than reaching the fourth");
     }
 
@@ -98,14 +98,14 @@ class TargetRotationTest {
             assertEquals(1, rotation.select(tick, candidates, 2),
                     "nothing landed, so the rotation must not run ahead of the attack timing");
         }
-        rotation.attacked(20);
+        rotation.attacked();
         assertEquals(2, rotation.select(21, candidates, 2));
     }
 
     @Test
     void aShrinkingCandidateListCannotIndexPastItsEnd() {
         TargetRotation rotation = new TargetRotation(10);
-        for (int index = 0; index < 5; index++) rotation.attacked(index);
+        for (int index = 0; index < 5; index++) rotation.attacked();
         // Four attacks in, but only one candidate left: must still be a valid choice.
         assertEquals(9, rotation.select(6, new int[] { 9 }, 4));
     }
@@ -114,7 +114,7 @@ class TargetRotationTest {
     void maxTargetsIsClampedToWhatIsActuallyThere() {
         TargetRotation rotation = new TargetRotation(10);
         assertEquals(5, rotation.select(0, new int[] { 5 }, 8));
-        rotation.attacked(0);
+        rotation.attacked();
         assertEquals(5, rotation.select(1, new int[] { 5 }, 8));
     }
 
@@ -129,7 +129,7 @@ class TargetRotationTest {
     void resetForgetsTheHeldTargetAndTheRotation() {
         TargetRotation rotation = new TargetRotation(10);
         rotation.select(0, new int[] { 7, 8 }, 1);
-        rotation.attacked(0);
+        rotation.attacked();
         rotation.reset();
         assertEquals(TargetRotation.NONE, rotation.current());
         assertEquals(8, rotation.select(1, new int[] { 8, 7 }, 1), "no held target means no hold");
@@ -144,5 +144,43 @@ class TargetRotationTest {
         assertEquals(TargetRotation.NONE, rotation.select(1, new int[0], 1));
         assertNotEquals(7, rotation.select(2, new int[] { 8, 7 }, 1),
                 "after the fight ended, the old target has no claim on the next one");
+    }
+
+    /**
+     * Landing hits must not postpone a switch forever.
+     *
+     * <p>The existing delay test never lands an attack, which is exactly where this hid: `attacked`
+     * also stamped the switch-delay window, so every landed hit restarted it. With Aura's default
+     * eight-tick delay and any weapon swinging faster than that - bare hands are five - the window
+     * never elapsed and the aura held its first target for the whole fight, whatever the priority
+     * ordering said.
+     */
+    @Test
+    void landedHitsDoNotPostponeASwitchForever() {
+        TargetRotation rotation = new TargetRotation(8);
+        assertEquals(7, rotation.select(0, new int[] { 7, 8 }, 1));
+
+        int chosen = 7;
+        for (int tick = 1; tick <= 60 && chosen != 8; tick++) {
+            chosen = rotation.select(tick, new int[] { 8, 7 }, 1);
+            if (tick % 5 == 0) rotation.attacked();
+        }
+        assertEquals(8, chosen, "a better target that stayed better for sixty ticks was never taken");
+    }
+
+    /**
+     * Dropping from several targets to one must not freeze the choice.
+     *
+     * <p>The multi-target branch set the current target without ever recording when, so the single
+     * target branch measured its delay from Long.MIN_VALUE. That subtraction overflows to a large
+     * negative, which is always below the delay, so the window never expired and the stale pick was
+     * held until something reset it.
+     */
+    @Test
+    void droppingToASingleTargetStillRespectsTheDelayRatherThanFreezing() {
+        TargetRotation rotation = new TargetRotation(10);
+        assertEquals(1, rotation.select(0, new int[] { 1, 2 }, 2));
+        assertEquals(2, rotation.select(20, new int[] { 2, 1 }, 1),
+                "twenty ticks is well past the ten-tick delay");
     }
 }

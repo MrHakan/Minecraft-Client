@@ -132,7 +132,7 @@ public class Aura extends Module {
 		mc.player.swing(InteractionHand.MAIN_HAND);
 		// Only a landed hit advances a multi-target rotation, so each target gets a real attack
 		// rather than the rotation running ahead of the attack timing and spraying.
-		rotation.attacked(tick);
+		rotation.attacked();
 		if (!vanillaCooldown) {
 			cooldown = (int) Math.round(getNumberSetting("delay", 10.0));
 		}

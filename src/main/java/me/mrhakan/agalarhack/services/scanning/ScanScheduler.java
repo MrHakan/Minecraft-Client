@@ -28,7 +28,21 @@ public final class ScanScheduler<K> {
             blocks += blockCount; chunks += chunkCount; entities += entityCount;
             return true;
         }
+        /** Total units consumed so far, used to tell a working step from a spinning one. */
+        int spent() { return blocks + chunks + entities; }
     }
+
+    /**
+     * How many consecutive steps may consume nothing before the run is stopped.
+     *
+     * <p>This, rather than a flat step count, is what guards the tick. A task that spends budget is
+     * already bounded by the budget; the only way to run away is to keep returning MORE without
+     * spending, and that is what this catches. The previous guard was a flat 16384 steps, which
+     * bounded the honest tasks too: the "high" profile grants 28,000 blocks, so a scanner spending
+     * one block per step - BlockESP and the entity walk both do - stopped at 16,384 whatever the
+     * setting said, and choosing "high" bought nothing over "balanced".
+     */
+    public static final int MAX_IDLE_STEPS = 4096;
     private record Request(Priority priority, int steps, Task task) { }
     private final Map<K, Request> pending = new LinkedHashMap<>();
     private final BiConsumer<K, RuntimeException> failure;
@@ -50,6 +64,10 @@ public final class ScanScheduler<K> {
 
     public void run(int blocks, int chunks, int entities) {
         Budget budget = new Budget(blocks, chunks, entities);
+        // Derived from the budget rather than fixed, so the two ceilings cannot contradict each
+        // other. The idle allowance is the slack a well-behaved task never needs.
+        final long stepCeiling = (long) blocks + chunks + entities + MAX_IDLE_STEPS;
+        int idleSteps = 0;
         var work = new ArrayList<>(pending.entrySet());
         // Rotate equal-priority entry order, so a tiny shared budget cannot permanently starve a peer.
         if (!work.isEmpty()) java.util.Collections.rotate(work, Math.floorMod(round++, work.size()));
@@ -58,18 +76,20 @@ public final class ScanScheduler<K> {
         int totalSteps = 0;
         boolean progress = true;
         try {
-            while (progress && totalSteps < 16384) {
+            while (progress && totalSteps < stepCeiling && idleSteps < MAX_IDLE_STEPS) {
                 progress = false;
-                for (int index = 0; index < work.size() && totalSteps < 16384; index++) {
+                for (int index = 0; index < work.size() && totalSteps < stepCeiling && idleSteps < MAX_IDLE_STEPS; index++) {
                     var entry = work.get(index);
                     Request request = entry.getValue();
                     if (remaining[index] == 0 || pending.get(entry.getKey()) != request) continue;
                     // Earlier priorities receive more work per round, while background tasks still get a turn.
                     int quantum = switch (request.priority()) { case NEAR -> 64; case FOCUSED -> 32; case BACKGROUND -> 16; };
-                    for (int i = 0; i < quantum && remaining[index] > 0 && totalSteps < 16384; i++) {
+                    for (int i = 0; i < quantum && remaining[index] > 0 && totalSteps < stepCeiling && idleSteps < MAX_IDLE_STEPS; i++) {
                         remaining[index]--; totalSteps++; progress = true;
                         try {
+                            int before = budget.spent();
                             Result result = Objects.requireNonNull(request.task().step(budget));
+                            idleSteps = budget.spent() == before ? idleSteps + 1 : 0;
                             if (result != Result.MORE) { remaining[index] = 0; break; }
                         } catch (RuntimeException error) {
                             remaining[index] = 0;

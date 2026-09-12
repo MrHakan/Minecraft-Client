@@ -45,7 +45,15 @@ public final class TargetRotation {
         int limit = Math.max(1, Math.min(maxTargets, candidates.length));
         if (limit > 1) {
             // The index is bounded by the modulo, so a shrinking candidate list cannot index past it.
-            current = candidates[Math.floorMod(rotationIndex, limit)];
+            int chosen = candidates[Math.floorMod(rotationIndex, limit)];
+            if (chosen != current) {
+                current = chosen;
+                // Recorded even though the rotation never reads it. maxTargets can drop to 1 while a
+                // target is held, and the single-target branch below measures its window from here:
+                // left unset that is Long.MIN_VALUE, and `tick - Long.MIN_VALUE` overflows to a large
+                // negative that is forever below the delay, freezing the stale pick.
+                lastSwitchTick = tick;
+            }
             return current;
         }
 
@@ -60,9 +68,17 @@ public final class TargetRotation {
         return current;
     }
 
-    /** Called after an attack actually lands, which is what advances a multi-target rotation. */
-    public void attacked(long tick) {
-        lastSwitchTick = tick;
+    /**
+     * Called after an attack actually lands, which is what advances a multi-target rotation.
+     *
+     * <p>It takes no tick, and that is the fix rather than an oversight. It used to take one and
+     * stamp the switch-delay window with it, which quietly disabled the delay it was meant to serve:
+     * the window is "how long since the target changed", and restarting it on every landed hit made
+     * it "how long since the last swing" instead. Any weapon faster than the delay - bare hands
+     * swing every five ticks against a default of eight - then held its first target for the whole
+     * fight. With no tick in hand there is nothing here to stamp it with.
+     */
+    public void attacked() {
         // Wraps rather than growing without bound over a long session.
         rotationIndex = rotationIndex == Integer.MAX_VALUE ? 0 : rotationIndex + 1;
     }
