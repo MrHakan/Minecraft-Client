@@ -40,7 +40,8 @@ public final class InventoryService {
         transfers = new ContainerTransferController(new ContainerTransferController.Controls() {
             public boolean ready() {
                 return mc.player != null && mc.level != null && mc.player.isAlive()
-                        && mc.gui.screen() == null && mc.gameMode != null && mc.player.inventoryMenu != null;
+                        && mc.gui.screen() == null && mc.gameMode != null && mc.player.inventoryMenu != null
+                        && mc.player.containerMenu == mc.player.inventoryMenu;
             }
             public boolean cursorEmpty() {
                 return mc.player == null || mc.player.inventoryMenu.getCarried().isEmpty();

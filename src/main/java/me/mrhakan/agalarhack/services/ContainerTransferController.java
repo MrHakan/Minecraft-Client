@@ -78,6 +78,9 @@ public final class ContainerTransferController {
      */
     public boolean begin(String owner, int priority, int[] menuSlots) {
         if (owner == null || owner.isBlank() || menuSlots == null || menuSlots.length == 0 || menuSlots.length > MAX_PLAN) return false;
+        // Negative PICKUP ids include vanilla's outside-window drop sentinel. Reject the whole
+        // plan before acquiring ownership or issuing any click, including a bad final slot.
+        for (int slot : menuSlots) if (slot < 0 || slot > InventoryTransfers.MENU_OFFHAND) return false;
         if (!controls.ready() || !controls.cursorEmpty()) return false;
         if (!canPreempt(owner, priority)) return false;
         this.owner = owner;
@@ -95,6 +98,7 @@ public final class ContainerTransferController {
      */
     public boolean swapHotbar(String owner, int priority, int menuSlot, int hotbarIndex) {
         if (owner == null || owner.isBlank() || hotbarIndex < 0 || hotbarIndex >= InventoryTransfers.HOTBAR_SIZE) return false;
+        if (menuSlot < 0 || menuSlot > InventoryTransfers.MENU_OFFHAND) return false;
         if (!controls.ready() || !controls.cursorEmpty()) return false;
         if (!canPreempt(owner, priority)) return false;
         finish();
@@ -149,7 +153,10 @@ public final class ContainerTransferController {
     /** Releases the channel unless a carried stack still has to be returned. */
     public void release(String owner) {
         if (!owns(owner)) return;
-        if (controls.ready() && !controls.cursorEmpty()) { plan = new int[0]; step = 0; recovering = true; return; }
+        // An open screen temporarily removes the click channel; it does not prove the cursor is
+        // empty. Keep recovery ownership until that channel returns. World/player teardown uses
+        // clear(), so this never transfers an old world's recovery into its replacement.
+        if (!controls.ready() || !controls.cursorEmpty()) { plan = new int[0]; step = 0; recovering = true; return; }
         finish();
     }
 

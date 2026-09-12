@@ -10,6 +10,7 @@
       "me.mrhakan.agalarhack.gametest.ClientScreensGameTest",
       "me.mrhakan.agalarhack.gametest.ModuleLifecycleGameTest",
       "me.mrhakan.agalarhack.gametest.ModuleBehaviourGameTest",
+      "me.mrhakan.agalarhack.gametest.InventoryRecoveryGameTest",
       "me.mrhakan.agalarhack.gametest.SwallowedFailureGameTest"
     ],
     "agalarhack": [

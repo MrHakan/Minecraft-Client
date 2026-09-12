@@ -175,6 +175,53 @@ class ContainerTransferControllerTest {
         assertFalse(controller.busy());
     }
 
+    @Test void disablingWhileAScreenIsOpenRetainsRecoveryUntilPlayResumes() {
+        var controls = new FakeControls();
+        var controller = controller(controls);
+        assertTrue(controller.begin("autoarmor", 50, InventoryTransfers.equipPlan(10, 6)));
+        controller.tick();
+        controls.cursorEmpty = false;
+        controls.ready = false;
+        controller.release("autoarmor");
+        assertTrue(controller.owns("autoarmor"));
+        assertTrue(controller.recovering());
+        controller.tick();
+        assertEquals(List.of("pickup:10"), controls.clicks);
+        controls.ready = true;
+        controller.tick();
+        assertEquals(List.of("pickup:10", "pickup:30"), controls.clicks);
+        controls.cursorEmpty = true;
+        controller.tick();
+        assertFalse(controller.busy());
+    }
+
+    @Test void worldTeardownCancelsDeferredRecoveryWithoutClickingTheNewInventory() {
+        var controls = new FakeControls();
+        var controller = controller(controls);
+        assertTrue(controller.begin("autoarmor", 50, new int[]{10}));
+        controller.tick();
+        controls.ready = false;
+        controls.cursorEmpty = false;
+        controller.release("autoarmor");
+        controller.clear();
+        controls.ready = true;
+        controller.tick();
+        assertFalse(controller.busy());
+        assertEquals(List.of("pickup:10"), controls.clicks);
+    }
+
+    @Test void invalidFinalSlotCannotStartAPartialPlanOrDropOutsideTheWindow() {
+        var controls = new FakeControls();
+        var controller = controller(controls);
+        for (int invalid : new int[]{-999, -1, 46, Integer.MAX_VALUE}) {
+            assertFalse(controller.begin("autoarmor", 50, new int[]{10, 6, invalid}));
+            assertFalse(controller.swapHotbar("autototem", 90, invalid, 0));
+        }
+        controller.tick();
+        assertFalse(controller.busy());
+        assertTrue(controls.clicks.isEmpty());
+    }
+
     @Test void hotbarSwapIsASingleClickAndNeverTouchesTheCursor() {
         var controls = new FakeControls();
         var controller = controller(controls);
