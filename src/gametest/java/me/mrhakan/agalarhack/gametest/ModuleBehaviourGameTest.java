@@ -1693,15 +1693,38 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
                         + client.player.fishing.onGround());
         int firstHook = context.computeOnClient(client -> client.player.fishing.getId());
 
+        // Keep pulling the bobber under until the module reacts, rather than pushing it once.
+        //
+        // One impulse was a coin toss, and it lost a CI run: the server sets the velocity, the
+        // client's own hook physics then apply water drag and buoyancy on top of it, and the module
+        // only reels if it happens to sample a tick where the client's copy is still descending
+        // faster than the detector's threshold. A real bite is a plunge lasting several ticks - that
+        // is why the detector suppresses repeats at all - so this reproduces a plunge instead of a
+        // single frame of one. It does not relax what is asserted: the cue is still only a bobber
+        // moving down, and whether to reel is still entirely the module's decision.
+        double deepest = 0;
+        boolean reeled = false;
         if (floating) {
-            singleplayer.getServer().runOnServer(server -> {
-                var hook = singleplayer.getConnection().getServerPlayer().fishing;
-                // Well past the default threshold of four hundredths of a block per tick.
-                if (hook != null) hook.setDeltaMovement(0.0, -0.4, 0.0);
-            });
+            for (int round = 0; round < 10 && !reeled; round++) {
+                singleplayer.getServer().runOnServer(server -> {
+                    var hook = singleplayer.getConnection().getServerPlayer().fishing;
+                    // Well past the default threshold of eight hundredths of a block per tick.
+                    if (hook != null) hook.setDeltaMovement(0.0, -0.4, 0.0);
+                });
+                context.waitTicks(2);
+                deepest = Math.min(deepest, context.computeOnClient(client ->
+                        client.player.fishing == null ? 0.0
+                                : client.player.fishing.getDeltaMovement().y));
+                reeled = context.computeOnClient(client -> client.player.fishing == null
+                        || client.player.fishing.getId() != firstHook);
+            }
+            // The reel itself waits `reelDelay` ticks after the pull is recognised, so give the
+            // module that long once the cue has stopped being applied.
+            if (!reeled) {
+                reeled = settle(context, client -> client.player.fishing == null
+                        || client.player.fishing.getId() != firstHook);
+            }
         }
-        boolean reeled = floating && settle(context, client -> client.player.fishing == null
-                || client.player.fishing.getId() != firstHook);
         toggle(context, "AutoFish", false);
         singleplayer.getServer().runOnServer(server -> {
             var hook = singleplayer.getConnection().getServerPlayer().fishing;
@@ -1715,10 +1738,20 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
                     + " to x=" + (pool.getX() + 7));
         }
         if (!reeled) {
-            throw new AssertionError("AutoFish left the same hook out after the bobber was pulled "
-                    + "under, which is the one cue it reels in on");
+            // Two different failures used to produce the same message, and telling them apart is
+            // the difference between a module bug and a scenario that never delivered its cue.
+            if (deepest > -me.mrhakan.agalarhack.services.BobberBite.DEFAULT_THRESHOLD) {
+                throw new AssertionError("the client never saw the bobber pulled under - the "
+                        + "steepest descent it observed was " + deepest + " blocks per tick against "
+                        + "a threshold of -" + me.mrhakan.agalarhack.services.BobberBite.DEFAULT_THRESHOLD
+                        + " - so AutoFish was never given the cue. The scenario is broken, not the "
+                        + "module: the server-side pull is not reaching the client's copy of the hook.");
+            }
+            throw new AssertionError("AutoFish left the same hook out although the client saw the "
+                    + "bobber pulled under at " + deepest + " blocks per tick, which is the one cue "
+                    + "it reels in on");
         }
-        LOGGER.info("  AutoFish cast, then reeled in when the bobber went under");
+        LOGGER.info("  AutoFish cast, then reeled in when the bobber went under at {} b/t", deepest);
     }
 
     /**
