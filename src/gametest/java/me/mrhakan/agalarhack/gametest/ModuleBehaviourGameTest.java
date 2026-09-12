@@ -95,6 +95,7 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
             projectileWarning(context, singleplayer);
             autoFish(context, singleplayer);
             hudScale(context, singleplayer);
+            clickGuiTransition(context);
             quietFrames(context, true);
             holeEsp(context, singleplayer);
             tracersAndNametags(context, singleplayer);
@@ -1703,6 +1704,84 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
             theme.uiAnimations = false;
             service.preview(theme);
         });
+    }
+
+    /**
+     * The ClickGUI's category transition, driven by a real click on a real button.
+     *
+     * <p>Asserted on the stripe's position rather than on pixels: what the transition does is move
+     * something from one row to another, and reading where it is says that directly. The control is
+     * the theme's own reduced-motion switch — with it on the stripe is at its destination on the
+     * first frame, which is the whole promise of that setting.
+     *
+     * <p>The animation is slowed for the measurement, not shortened: at the default speed it lasts
+     * about three and a half ticks, which is too close to the sampling interval to read reliably.
+     */
+    private void clickGuiTransition(ClientGameTestContext context) {
+        int target = 3;
+        int travelled = categoryStripeTravel(context, target, true);
+        int still = categoryStripeTravel(context, target, false);
+
+        if (travelled <= 0) {
+            throw new AssertionError("the ClickGUI's category transition was already finished on the "
+                    + "first frame with motion on, so nothing was animated");
+        }
+        if (still != 0) {
+            throw new AssertionError("the ClickGUI transition still had " + still + " to run with the "
+                    + "theme's reduced motion on; that switch is supposed to leave nothing animating");
+        }
+        LOGGER.info("  ClickGUI animated its category change ({} to go a tick in), and not at all "
+                + "with reduced motion", travelled);
+    }
+
+    /**
+     * Opens the ClickGUI, clicks a category, and reports how far the stripe still had to travel one
+     * tick later.
+     *
+     * @return how far the transition still had to run a tick after the click: the stripe's remaining
+     *         travel in pixels plus the content veil in hundredths, so one number covers both
+     */
+    private int categoryStripeTravel(ClientGameTestContext context, int category, boolean motion) {
+        context.runOnClient(client -> {
+            var service = me.mrhakan.agalarhack.services.ClientServices.require(
+                    me.mrhakan.agalarhack.services.ThemeService.class);
+            var theme = service.copy();
+            theme.uiAnimations = motion;
+            theme.reducedMotion = !motion;
+            // Quarter speed: long enough that a tick of sampling lands inside the transition.
+            theme.animationSpeed = 0.25;
+            service.preview(theme);
+            client.gui.setScreen(new me.mrhakan.agalarhack.ui.ClickGuiScreen());
+        });
+        context.waitTicks(10);
+
+        // Where the category's own button is, in window pixels: the screen is drawn at the GUI scale.
+        double[] spot = context.computeOnClient(client -> {
+            var screen = (me.mrhakan.agalarhack.ui.ClickGuiScreen) client.gui.screen();
+            double scale = client.getWindow().getGuiScale();
+            return new double[]{50 * scale,
+                    (screen.categoryRowY(category) + screen.categoryRowHeight() / 2.0) * scale};
+        });
+        context.getInput().setCursorPos(spot[0], spot[1]);
+        context.waitTicks(2);
+        context.getInput().pressMouse(0);
+        context.waitTicks(1);
+
+        int remaining = context.computeOnClient(client -> {
+            if (!(client.gui.screen() instanceof me.mrhakan.agalarhack.ui.ClickGuiScreen screen)) return -1;
+            // The veil covers the same transition from the other end: the content fading up on
+            // open, on a category and on a page. Counted in the same units so one number carries
+            // both - a hundredth of the veil is a pixel's worth of movement.
+            return Math.abs(screen.categoryRowY(category) - screen.stripeY())
+                    + (int) Math.round(screen.contentVeil() * 100);
+        });
+        context.runOnClient(client -> client.gui.setScreen(null));
+        context.waitTicks(5);
+        if (remaining < 0) {
+            throw new AssertionError("clicking the category at " + spot[1] + " did not leave the "
+                    + "ClickGUI open, so there was no stripe to measure; the scenario is broken");
+        }
+        return remaining;
     }
 
     /**

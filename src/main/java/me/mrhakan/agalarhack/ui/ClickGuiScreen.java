@@ -36,11 +36,26 @@ public class ClickGuiScreen extends Screen implements me.mrhakan.agalarhack.ui.C
     }
 
     private ClickGuiScreen(String query, int page, int categoryIndex) {
+        this(query, page, categoryIndex, categoryIndex);
+    }
+
+    /**
+     * @param cameFrom the category the previous screen was showing, so the selection stripe can
+     *                 slide from it. Equal to {@code categoryIndex} when there is nothing to slide
+     *                 from, which is the first open.
+     */
+    private ClickGuiScreen(String query, int page, int categoryIndex, int cameFrom) {
         super(Translations.text("gui.title", "Agalar Hack"));
         this.query = query == null ? "" : query;
         this.page = Math.max(0, page);
         this.categoryIndex = Math.max(0, Math.min(Category.values().length, categoryIndex));
+        this.cameFrom = Math.max(0, Math.min(Category.values().length, cameFrom));
     }
+
+    /** Where the stripe starts, and when. Picking the same category again slides nowhere. */
+    private final int cameFrom;
+    private long openedAt;
+    private int stripeTop, stripeStep, stripeHeight;
 
     @Override
     public void init() {
@@ -83,6 +98,10 @@ public class ClickGuiScreen extends Screen implements me.mrhakan.agalarhack.ui.C
         int sidebarSpace = Math.max(entries * 12, height - 28 - 6 - categoryY);
         int step = Math.max(12, Math.min(24, sidebarSpace / entries));
         int buttonHeight = Math.max(9, step - 4);
+        stripeTop = categoryY;
+        stripeStep = step;
+        stripeHeight = buttonHeight;
+        openedAt = monotonicMillis();
         addCategoryButton(Translations.string("gui.all", "ALL"), 0, categoryY, buttonHeight);
         for (int i = 0; i < Category.values().length; i++) {
             addCategoryButton(Category.values()[i].name, i + 1, categoryY + (i + 1) * step, buttonHeight);
@@ -141,6 +160,60 @@ public class ClickGuiScreen extends Screen implements me.mrhakan.agalarhack.ui.C
                 .bounds((contentLeft + contentRight) / 2 - 30, height - 27, 60, 20).build());
     }
 
+    /**
+     * A bar behind the selected category that slides from the one you were on.
+     *
+     * <p>Behind, and decorative, on purpose. Every category is a vanilla button that hit-tests
+     * against its own bounds, so the buttons themselves must not move: a button drawn away from
+     * where it answers clicks is a worse problem than a screen that changes instantly. Sliding
+     * something behind them shows the same movement and breaks nothing.
+     */
+    private void drawCategoryStripe(GuiGraphicsExtractor graphics) {
+        int y = stripeY();
+        graphics.fill(6, y, 9, y + stripeHeight, ClientUiTheme.ACCENT);
+    }
+
+    /**
+     * Where a category's row sits, in screen coordinates. Exposed for the behaviour game test, which
+     * clicks one and then watches the stripe travel; the same reason the scanning modules expose
+     * their result lists.
+     */
+    public int categoryRowY(int index) {
+        return stripeTop + Math.max(0, index) * stripeStep;
+    }
+
+    public int categoryRowHeight() { return stripeHeight; }
+
+    /** Where the stripe is drawn this instant, which is the whole of what the transition does. */
+    public int stripeY() {
+        return (int) Math.round(me.mrhakan.agalarhack.services.ScreenTransition.between(
+                categoryRowY(cameFrom), categoryRowY(categoryIndex), transitionProgress()));
+    }
+
+    /**
+     * How strongly the content area is still veiled, 0 once settled.
+     *
+     * <p>The screen is rebuilt for every category and every page, so this is the one transition that
+     * covers opening, switching category and paging: the content fades up rather than appearing. It
+     * is a veil drawn over the top, which moves nothing and so cannot put a button anywhere other
+     * than where it answers clicks.
+     */
+    public double contentVeil() {
+        return 1 - me.mrhakan.agalarhack.services.ScreenTransition.ease(transitionProgress());
+    }
+
+    private double transitionProgress() {
+        var theme = me.mrhakan.agalarhack.services.ClientServices.require(
+                me.mrhakan.agalarhack.services.ThemeService.class).current();
+        long duration = me.mrhakan.agalarhack.services.ScreenTransition.duration(
+                theme.motionEnabled(), theme.animationSpeed);
+        return me.mrhakan.agalarhack.services.ScreenTransition.progress(
+                monotonicMillis() - openedAt, duration);
+    }
+
+    /** Monotonic, so a clock correction mid-transition cannot run it backwards. */
+    private static long monotonicMillis() { return System.nanoTime() / 1_000_000L; }
+
     private void addCategoryButton(String label, int index, int y, int buttonHeight) {
         String prefix = categoryIndex == index ? "• " : "  ";
         addRenderableWidget(Button.builder(Component.literal(prefix + label), b -> openSearch(searchBox.getValue(), 0, index))
@@ -153,6 +226,7 @@ public class ClickGuiScreen extends Screen implements me.mrhakan.agalarhack.ui.C
         graphics.fill(0, 2, SIDEBAR_WIDTH, height, ClientUiTheme.SIDEBAR);
         graphics.fill(SIDEBAR_WIDTH, 2, width, HEADER_HEIGHT, ClientUiTheme.SIDEBAR);
         graphics.fill(SIDEBAR_WIDTH - 1, 2, SIDEBAR_WIDTH, height, ClientUiTheme.BORDER);
+        drawCategoryStripe(graphics);
         for (RowVisual row : rowVisuals) {
             ClientUiTheme.panel(graphics, row.x, row.y, row.width, row.height, row.module.isToggled());
         }
@@ -183,6 +257,20 @@ public class ClickGuiScreen extends Screen implements me.mrhakan.agalarhack.ui.C
         if (visibleModules.isEmpty()) {
             graphics.centeredText(font, "No modules match this filter.", (SIDEBAR_WIDTH + width) / 2, 90, 0xFFFFB86B);
         }
+        drawContentVeil(graphics);
+    }
+
+    /**
+     * Fades the content area up whenever the screen is rebuilt — on open, on a category, and on a
+     * page. Drawn last, over everything, because it is a veil rather than a layout change: a button
+     * underneath is still exactly where it answers clicks.
+     */
+    private void drawContentVeil(GuiGraphicsExtractor graphics) {
+        double veil = contentVeil();
+        if (veil <= 0.01) return;
+        int alpha = (int) Math.round(Math.min(1, veil) * 255);
+        graphics.fill(SIDEBAR_WIDTH, HEADER_HEIGHT, width, height,
+                (alpha << 24) | (ClientUiTheme.BACKGROUND & 0xFFFFFF));
     }
 
     @Override public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event,boolean doubleClick) {
@@ -193,7 +281,8 @@ public class ClickGuiScreen extends Screen implements me.mrhakan.agalarhack.ui.C
     }
 
     private void openSearch(String search, int targetPage, int targetCategory) {
-        minecraft.gui.setScreen(new ClickGuiScreen(search == null ? "" : search.trim(), targetPage, targetCategory));
+        minecraft.gui.setScreen(new ClickGuiScreen(search == null ? "" : search.trim(), targetPage,
+                targetCategory, categoryIndex));
     }
 
     private String categoryName() {
