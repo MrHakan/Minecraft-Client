@@ -70,7 +70,9 @@ boundary with nothing carried always leaves the inventory consistent; a plan hol
 item cannot be preempted, an owner cannot preempt itself, and an owner still returning a stack is
 left alone. Losing the click channel mid-plan drops the remaining clicks instead of guessing, and
 a full inventory holds the channel rather than dropping the player's item on the floor. Hotbar
-sources use a single atomic SWAP click that never involves the cursor.
+sources use a single atomic SWAP click that never involves the cursor. The tick budget is separate
+from ownership: PICKUP, recovery, SWAP and THROW all consume it, and release or priority changes
+cannot replenish it. `tick()` starts a new budget before module updates; world teardown clears it.
 
 AutoArmor (50), AutoWeapon (45 on the hotbar lease) and AutoTotem (90) consume these. Container
 transfers only operate on the player's own inventory menu; other containers are out of scope.

@@ -8,9 +8,10 @@ Authority: current source > current tests > live PR description > latest handove
 
 - **PR:** [#9](https://github.com/MrHakan/Minecraft-Client/pull/9), open/draft; continue
   `codex/foundation-services-26.2`. Do not merge, force-push or open a duplicate PR.
-- **Live head inspected:** `1e0c00f` (this continuation), built on Astra's `5b69fc2`.
+- **Live head inspected:** `e380412bf459285dc05479e2654aff0492e5397e` on 2026-09-12.
+  Both Astra's `5b69fc2` and the subsequent nine-commit continuation are ancestors.
   **Main:** `19f83ab888a55d9b459f84fbae27dffe39036f71`. Only #9 was open at every check.
-  198 commits against main. Re-fetch before publishing: two sessions have pushed to this branch,
+  203 commits against main at inspection. Re-fetch before publishing: two sessions have pushed to this branch,
   so never assume the head in a handover note is current.
 - **Version:** Minecraft 26.2, Loader 0.19.3, Fabric API 0.157.0+26.2, Java 25.
 - **Modules:** 53 built-ins, 0 UNTESTED; 22 baseline exemptions plus 31 behaviour-mapped modules.
@@ -20,13 +21,16 @@ Authority: current source > current tests > live PR description > latest handove
   behaviour scenario.
 - **Unit suite:** **705 executed**, 0 failures, 0 errors, 0 skipped, read from the JUnit XML by
   `tools/summarize-tests.py` rather than counted from source. CI reports the same totals.
-- **Behaviour suite:** **41 scenario checks across eight game-test entrypoints**, counted one per
-  reported outcome: 37 in `ModuleBehaviourGameTest` (36 plus `weaponFamilies`), Astra's three
+- **Behaviour suite:** **41 grouped scenario checks across eight game-test entrypoints**: 37
+  direct scenario calls in `ModuleBehaviourGameTest` (excluding the two `quietFrames` setup calls), Astra's three
   acceptance scenarios (inventory interruption, real Nether transition, disconnect), and external
-  addon packaging. **Three further dedicated-server checks are NOT in that count** because they are
+  addon packaging. This groups SafeWalk/Parkour and Tracers/Nametags; it is not a count of individual
+  assertions or log lines. **Three further dedicated-server checks are NOT in that count** because they are
   off by default - see below. No existing scenario or experimental-flag mapping has been removed or
   renamed by either continuation.
-- **Observed CI:** run **202** ([34706598196](https://github.com/MrHakan/Minecraft-Client/actions/runs/34706598196))
+- **Observed CI:** run **204** ([34707128634](https://github.com/MrHakan/Minecraft-Client/actions/runs/34707128634))
+  succeeded on the inspected `e380412` head. Its archived 98 JUnit XML files were downloaded and
+  re-counted: 705 tests, zero failures/errors/skips. Run 203 was superseded, not failed. Run **202** ([34706598196](https://github.com/MrHakan/Minecraft-Client/actions/runs/34706598196))
   succeeded on `8a27ed4`, the last commit in this continuation that changes code. Run **201** on
   `d47d690` **failed** - see the AutoFish note below - and runs 199 and 200 succeeded on `d86db4c`
   and `1e0c00f`; Astra's run **198** succeeded on `5b69fc2`. These ran the inventory
@@ -71,8 +75,10 @@ never replace Fabric entrypoints with a folder scanner/class loader.
 4. Visual correctness: TargetHUD face, depth-tested ESP placement/colours, nametags, frustum edges,
    waypoint beams, trajectory landing and potion/XP arcs, HUD/GUI scales and theme contrast.
    Changed pixels prove rendering activity, not correct appearance.
-5. Remaining worthwhile depth: broader settings/command localization, optional ESP presentations,
-   legacy HUD bounds, additional suffixes and cache consumers. Cosmetic modes rank below correctness.
+5. Remaining worthwhile depth: optional ESP presentations, legacy HUD bounds, additional suffixes
+   and cache consumers where measured value warrants them. **Turkish setting-description work was
+   cancelled by the owner; do not restart it.** Keep the 53 translated module descriptions.
+   Cosmetic modes rank below correctness.
 
 Deliberate omissions: flooding/crashes/malformed packets/dupes/bypass presets, hidden rotation,
 server-hidden chunk classification, redundant AutoJump/use variants, cloud-required translation.
@@ -97,13 +103,42 @@ than merely verified as applied - AutoArmor equipping with the server's own copy
 agreeing, counters reset on disconnect, and a working reconnect. One player on loopback is not a
 busy public server: latency, contention and peer traffic remain manual.
 
-Next: dedicated-server coverage in CI if the owner accepts the EULA there; then visual correctness
-(faces, geometry, beams, arcs - changed pixels prove activity, not appearance), real fishing bites,
-an installed Baritone, profile dimension bindings on the real transition fixture, and broader
-inventory ownership contention. Keep the mature behaviour suite intact; splitting its large file is
-optional and must not displace release evidence.
+Next: profile dimension bindings on the real transition fixture and concrete inventory contention
+regressions (peer edits, physical input, pending-action cancellation). Manual visual/release acceptance
+belongs to the owner, who plans it in about three weeks; do not displace automated hardening with it.
+Dedicated-server CI remains opt-in, without EULA acceptance enabled by this continuation. Keep the
+mature behaviour suite intact; splitting its large file must not displace release evidence.
 
-### Current continuation: independent audit and acceptance regressions
+### Current continuation: one container click across competing owners
+
+A focused source review found that atomic SWAP/THROW calls completed their owner immediately,
+allowing the same owner or a higher-priority caller to issue a second click in the same tick.
+PICKUP deposits and recovery could similarly be followed by an atomic click after release.
+This violated the documented one-click-per-tick contract even though each individual plan tick
+performed only one click.
+
+- `ContainerTransferController` now keeps a per-tick click budget separate from ownership. Plan,
+  recovery, SWAP and THROW consume it; normal release/finish does not replenish it. The inventory
+  service's existing tick (before modules) and unconditional world teardown reset it.
+- Pending-plan priority preemption, cursor recovery, physical input leases and the underlying
+  utility arbiter are preserved. A consumed click cannot be undone by a later urgent request; that
+  request retries next tick. No Minecraft API, rendering, game-test scenario or addon API changed.
+- Four unit tests cover repeated/priority-preempting atomics, deposit plus release, recovery plus
+  teardown, and rejected requests leaving the budget available. Expected full suite: 709; this is
+  not an execution claim until current Actions reports it.
+- The existing regression control now restores both old defects and requires all four named
+  assertions (one recovery, three budget regressions) to fail. Fresh-report deletion, the missing
+  report guard and exact source restoration remain mandatory. Full build/game tests follow it.
+- Local worker has Java 17 runtime only, no `/opt/jdk25`; no local Java 25 or game-run result is
+  claimed. The head-matched continuation result is recorded in PR #9 after Actions completes;
+  CI 204 above certifies the inspected baseline, not these edits.
+
+The review is scoped to inventory sequencing and its composition order, plus reconciliation of
+current tests/docs; it is not a new exhaustive audit of all 342 changed files. Peer edits, dedicated
+latency, restart persistence and visual correctness remain outside this batch. Roadmap scope estimate
+stays 80–85%; fixing a correctness defect is not a new feature-count milestone.
+
+### Earlier hardening continuation: independent audit and acceptance regressions
 
 - Fixed a concrete `ContainerTransferController.release` defect: disabling the owner while a screen
   blocked clicks discarded responsibility for its carried item. Release now drops the remaining plan
@@ -133,7 +168,7 @@ coordination across priority-preempting atomic callers, peer inventory changes d
 counter scoping across integrated-server connections, broader profile-transition and external addon tests.
 Do not claim these follow-ups fixed or dedicated multiplayer tested in this batch.
 
-### Current continuation: packaging, a real connection and two deprecations
+### Earlier hardening continuation: packaging, a real connection and two deprecations
 
 Built on Astra's `5b69fc2`; nothing of theirs was reverted, and their authority order and
 current-state format are kept.

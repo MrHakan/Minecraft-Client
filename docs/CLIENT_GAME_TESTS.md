@@ -173,10 +173,16 @@ a slow exit is a real failure rather than the normal way the run ends.
 
 ## Regression controls and reproducible counts
 
-CI first runs `tools/inventory-regression-control.sh`: it temporarily restores the old release predicate,
-requires the specific open-screen recovery unit assertion to fail, then restores the exact source bytes.
+CI first runs `tools/inventory-regression-control.sh`: it temporarily restores the old release predicate
+and removes the atomic click-budget guards. It requires four named unit assertions to fail (open-screen
+recovery, repeated/preempting atomics, deposit/release and recovery/release), then restores exact source
+bytes. The previous report is deleted first; a missing new report fails the control, so compilation
+failure can never reuse a prior regression result.
 The normal build follows, and `tools/summarize-tests.py` reports observed totals from JUnit XML (archived
 with the client log). This control does not bypass the full game suite or whitelist swallowed failures.
-The current suite adds three acceptance checks to the existing 36 scenario checks; module names and
-experimental-flag scenario mappings remain unchanged. Worlds are integrated-server worlds, including the
+There are 41 grouped scenario checks: 37 direct behaviour scenario calls (excluding `quietFrames`
+setup), inventory interruption, dimension replacement, disconnect and external addon packaging.
+SafeWalk/Parkour and Tracers/Nametags are grouped; this is not an assertion or log-line count.
+Three dedicated-server checks are excluded while the EULA gate is off. Eight entrypoints include
+screen, lifecycle and swallowed-failure gates; module names and flag mappings remain unchanged. Worlds are integrated-server worlds, including the
 real dimension/disconnect checks. Restarted external addons and dedicated-server latency remain unverified.

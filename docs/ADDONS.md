@@ -128,5 +128,10 @@ its module and command are actually registered and findable, and that the loader
 addon's own mod id rather than this client's. That is the same path a third-party addon takes; a unit
 test with a hand-made context would only prove the hand-made context works.
 
-**Not yet verified by hand:** no genuinely separate third-party addon jar has been built and dropped
-into a mods folder. The entrypoint path is exercised, the packaging is not.
+`ExternalAddonGameTest` additionally checks two separately compiled fixture jars outside the client
+package: jar-origin loading (with the client itself as a negative control), module/command registration,
+settings and collision/failure containment. They enter the development launch through its classpath.
+
+**Still manual:** production remapping, discovery from a player's `mods/` folder, settings/keybind
+persistence across restart, removal preserving orphaned config, and the missing-dependency loader
+failure. The named-mappings fixture jars do not establish those installation paths.
