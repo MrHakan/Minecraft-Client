@@ -129,7 +129,14 @@ public class ModuleManager {
         register(new BaseFinder());
     }
 
-    private void register(Module module) {
+    /**
+     * Adds a module to the catalogue.
+     *
+     * <p>Public because addons register through it. It already refuses a duplicate name, which is
+     * the contract {@code AddonContext.addModule} states, so an addon colliding with a built-in
+     * module fails loudly against its own id rather than quietly shadowing something.
+     */
+    public void register(Module module) {
         String key = normalize(module.getName());
         if (modulesByName.containsKey(key)) {
             throw new IllegalStateException("Duplicate module name: " + module.getName());

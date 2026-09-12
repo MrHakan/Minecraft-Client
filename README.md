@@ -133,6 +133,13 @@ Minecraft 26.2 multiplayer does not always synchronize complete active-effect st
 
 26.2.4 added drag-and-drop HUD positioning, ESP tracers/name labels, collision-aware Trajectories, richer TargetHUD, Freecam smoothing/body marker and full profile import/export/duplicate/rename. 26.2.3 introduced profiles/per-server configs, the HUD layout manager, shared target policy/tracker and utility/render modules. 26.2.2 established typed settings, friends, Aura/TriggerBot improvements, safer module lifecycle and modern CI.
 
+## Addons
+
+This client can be extended by other Fabric mods: declare an `agalarhack` entrypoint and you get a
+module and a command registered alongside the built-in ones. The published surface, the rules the
+loader enforces and a complete minimal example are in [Writing an addon](docs/ADDONS.md). The API is
+version 1 and still marked provisional.
+
 ## Foundation development branch
 
 The shared service foundation and its current limitations are documented in

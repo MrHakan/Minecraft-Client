@@ -24,7 +24,7 @@ invisible to it:
 | --- | --- |
 | `ClientScreensGameTest` | Opens every screen the mod can show — the ClickGUI, the HUD editor, profiles, themes, the target policy, the colour picker, and each module's settings, actions and keybind screens — against the title screen, where there is no player and no level. |
 | `ModuleLifecycleGameTest` | Creates a flat, fixed-seed world, builds a scene around the player, then enables each module in turn, ticks it, and disables it. |
-| `ModuleBehaviourGameTest` | One scenario per module, asserting the effect a player would actually notice — a totem moved into the offhand, a player who walked, a death screen that closed, pixels that changed where an overlay should be. Every scenario first asserts that effect is *absent* with the module off. |
+| `ModuleBehaviourGameTest` | One scenario per module, asserting the effect a player would actually notice — a totem moved into the offhand, a player who walked, a death screen that closed, pixels that changed where an overlay should be. Every scenario first asserts that effect is *absent* with the module off. Commands and the addon entrypoint are covered the same way: `.look` turns the real view, `.goto` refuses without Baritone and puts nothing in chat, and the game test mod declares its own `agalarhack` entrypoint so a **real addon, loaded by the real Fabric loader**, is asserted to have registered a real module and command. |
 | `SwallowedFailureGameTest` | Reads the log the run just wrote and fails if the mod caught and logged a failure anywhere in it. |
 
 `TestScene` puts a chest, a trapped chest, an ender chest, a barrel, a shulker box, a diamond ore, a

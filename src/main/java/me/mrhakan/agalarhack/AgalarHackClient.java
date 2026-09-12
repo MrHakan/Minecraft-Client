@@ -42,6 +42,9 @@ public class AgalarHackClient implements ClientModInitializer {
     public static String prefix = ".";
 
     public static ModuleManager moduleManager = new ModuleManager();
+    /** Addons, loaded once during startup between the commands and the module settings. */
+    public static final me.mrhakan.agalarhack.services.AddonLoader ADDONS =
+            new me.mrhakan.agalarhack.services.AddonLoader();
     public static final SettingsManager SETTINGS_MANAGER = new SettingsManager();
     public static final FriendManager FRIEND_MANAGER = new FriendManager();
     public static final HudLayoutManager HUD_LAYOUT = new HudLayoutManager();
@@ -165,10 +168,16 @@ public class AgalarHackClient implements ClientModInitializer {
         HUD_LAYOUT.load();
         TARGET_POLICY.load();
         PROFILES.loadBindings();
+        // This order is load-bearing, not tidiness. CommandManager.init() starts with a clear(), so
+        // an addon command registered before it is wiped; loadModules() is what applies saved
+        // settings, so an addon module registered after it never gets any. Addons therefore go
+        // between the two, which means init() has to come first.
+        CommandManager.init();
+        services.register(me.mrhakan.agalarhack.services.AddonLoader.class, ADDONS);
+        ADDONS.load();
         moduleManager.loadModules();
         var notificationModule = moduleManager.getModule("Notifications");
         notifications.setEnabled(notificationModule != null && notificationModule.isToggled());
-        CommandManager.init();
         // The bus detaches a listener that throws, which would disable chat handling for every chat
         // module for the rest of the session because they share one callback. Each module runs inside
         // the guard instead, so a failure costs only the module that caused it.

@@ -257,9 +257,9 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 68 | Partial profiles | Implemented: `.profile load <name> [selection]` narrows to named modules, categories, `hud` or `targets`; an unknown token or a selection that would change nothing is refused rather than applied |
 | 69 | Profile diff | Implemented: `.profile diff <a> [b]` against another profile or the live config, with numeric-tolerant comparison so a Gson round trip is not reported as a change |
 | 70 | Config schemas | Implemented: `SchemaVersions` states the policy once (missing means current, future is refused rather than overwritten, older is returned so a migration can read it) and the alias, macro and waypoint codecs share it. Profiles gained the version marker they lacked |
-| 71 | Addon API | Internal groundwork only; no external stable API or JAR loading |
-| 72 | Addon metadata | Not started |
-| 73 | Addon template repo | Not created; create MrHakan/AgalarHack-Addon-Template only after API stability |
+| 71 | Addon API | Implemented: `api.AgalarHackApi` / `AgalarHackAddon` / `AddonContext`, loaded by `AddonLoader` through a Fabric `agalarhack` entrypoint. **No jar loading and no addon folder** - discovery is the loader's job, so dependency versions, load order and metadata are handled by something that already does them properly. An addon gets its own identity, an attributable logger, `addModule` and `addCommand`, and nothing else: the event bus, service registry, scan scheduler and codecs stay private because publishing them would freeze them. Each addon is called inside its own guard, so a broken one loses its own registrations and takes nothing else down. `AgalarHackApi.version()` is a **method, not a constant** - a `public static final int` is inlined by javac, which would make every addon's own version check compare a literal against itself and always pass; `AgalarHackApiTest` guards against that being tidied back. Load order is load-bearing and documented at the call site: after `CommandManager.init()` (whose `clear()` would wipe an earlier command) and before `loadModules()` (which is what applies saved settings) |
+| 72 | Addon metadata | Implemented: read from the addon's own `fabric.mod.json` rather than invented - `EntrypointContainer.getProvider().getMetadata()` supplies id, name and version, and each addon is told only about itself. `AddonLoader.Loaded` records what each one registered plus the failure text if it threw, and `.addons` reports it. Verified end-to-end: the game test mod declares its own `agalarhack` entrypoint and the `addonLoaded` scenario asserts the record names the **addon's** mod id, not this client's |
+| 73 | Addon template repo | **Cannot be done from this session**: GitHub access here is scoped to `MrHakan/minecraft-client` only, so a second repository cannot be created. What a template needs is written instead: `docs/ADDONS.md` carries the complete `fabric.mod.json`, the shortest working addon, the Gradle dependency line, the mappings/Java requirements and the version-check idiom. Create `MrHakan/AgalarHack-Addon-Template` from that document when the API settles - it is still version 1 and marked provisional |
 | 74 | Baritone | Implemented as `BaritoneBridge` plus `.goto`. **The earlier deferral was wrong on its facts**: 26.2 Baritone builds do exist for Fabric (loader 0.19.3, Java 25, Mojang mappings - the same as this project), so the bridge is buildable after all. The second objection stood and shaped the design: **nothing here ever sends chat**, because `#goto 100 64 -200` as a chat message broadcasts a player's base the moment Baritone is missing or its prefix is off. Every call is a reflective Java call against the documented `baritone.api` surface, so Baritone stays an optional dependency with no compile-time link, and a moved API produces one log line rather than a crash. Presence is decided by whether the API class loads rather than by a mod id, since Baritone ships under several |
 | 75 | Localization | Partial: `Translations` with English fallback, `en_us`/`tr_tr`, ClickGUI labels and **all 52 module descriptions** translated, guarded by three key tests. Module **names** stay untranslated deliberately - they are the identifiers commands and configs use. Setting descriptions and command output remain English |
 | 76 | Accessibility | Implemented: keyboard controls, paginated themes, high contrast/reduced motion, two colourblind presets, a WCAG contrast guard that raises text a picked or imported theme made unreadable, and a HUD scale from half size to double for readers who need the overlay larger. Screen scale is vanilla's GUI scale, deliberately not duplicated (see 12) |
@@ -268,7 +268,7 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 79 | Render culling | Implemented: box overlays test the frustum the game already built, in world space. Tracers and breadcrumbs are deliberately exempt and a test enforces that. Safe because it is view-volume, not occlusion, culling - the overlays draw through walls on purpose |
 | 80 | Performance HUD | Implemented: `ModuleTimings` ranks per-module tick cost over a rolling window, in a hidden-by-default widget. Measurement is self-expiring rather than a setting, and a module that stops ticking is dropped rather than frozen on screen |
 | 81 | Unit tests | 631 tests; adds block-update batching, chunk cache eviction, cursor completion, id-list parsing, notification sinks, waypoint normalisation/persistence and compass bearings; trajectory and fade coverage pending |
-| 82 | Integration smoke tests | Implemented as `tools/smoke-client.sh`, **run by CI on every pull request**: it drives Fabric's client game tests, which open all 165 mod screens, create a world and enable/tick/disable all 53 modules in it, assert thirty per-module behaviours covering all 31 verified modules, and scan the run's log for failures the mod swallowed; the script then fails if any mixin in the config was not applied to the running bytecode. It reads the mixin config rather than a hand-kept list, so a new mixin is covered automatically. See [docs/CLIENT_GAME_TESTS.md](docs/CLIENT_GAME_TESTS.md) |
+| 82 | Integration smoke tests | Implemented as `tools/smoke-client.sh`, **run by CI on every pull request**: it drives Fabric's client game tests, which open all 165 mod screens, create a world and enable/tick/disable all 53 modules in it, assert thirty-six behaviour scenarios - per-module ones plus the `.look`, `.goto` and `.addons` command paths and the addon entrypoint - and scan the run's log for failures the mod swallowed; the script then fails if any mixin in the config was not applied to the running bytecode. It reads the mixin config rather than a hand-kept list, so a new mixin is covered automatically. See [docs/CLIENT_GAME_TESTS.md](docs/CLIENT_GAME_TESTS.md) |
 | 83 | Lifecycle audit | Partial code audit/restoration; all listed state-changing modules need in-game transition checks |
 | 84 | Error reporting | Reviewed. Module tick, render, scanner, command, macro and HUD boundaries were already guarded. The one real gap was the shared chat callback: the bus detaches a listener that throws, so one chat module's bug disabled all three for the session. `ModuleGuard` now contains each module separately and reports once per failure episode, and ChatFilter fails open so a broken filter cannot hide chat |
 | 85 | Structured logging | Implemented SLF4J replacement for raw stderr. One `System.out.println` survived in the profile auto-load path and has now been replaced; the rest of the audit remains |
@@ -1293,6 +1293,24 @@ Fabric's 26.2 `ClientChunkCacheMixin`. Do not reintroduce 1.20/1.21 examples bli
   changing a single setting. `.profile load <name> hud`, then a category, then a module name, and
   confirm nothing outside the selection changed - including which modules are enabled. Confirm a
   typo is refused by name rather than applied.
+
+### Manual acceptance for addons
+
+The entrypoint path is verified by the game test; **the packaging is not**. Nobody has built a
+genuinely separate addon jar and dropped it into a mods folder, so:
+
+- Build a minimal addon from `docs/ADDONS.md` as its own mod jar, put it in `mods/` alongside this
+  client, and confirm the module appears in the ClickGUI and the module list and its command runs.
+- Restart with the addon still installed and confirm the module kept its settings and its keybind -
+  that is the ordering claim (addons load before `loadModules`) being true in a real profile.
+- Remove the addon jar and confirm the client starts clean with the orphaned settings ignored rather
+  than refused.
+- Install an addon that throws inside `onAgalarHackReady` and confirm the client still starts, the
+  log names the addon's id, and `.addons` shows it as failed.
+- Install two addons that register the same module name and confirm the second is refused by name
+  with the client intact.
+- Confirm `depends` does its job: launch the addon **without** this client installed and confirm the
+  loader refuses to start with a readable message rather than crashing later.
 
 ## Environment and publishing notes for the next agent
 

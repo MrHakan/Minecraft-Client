@@ -79,6 +79,26 @@ public class CommandManager {
         }
     }
 
+    /**
+     * Adds a command, refusing a name or alias that is already taken.
+     *
+     * <p>Public because addons register through it. The duplicate check is new: the list itself
+     * never had one, and two commands answering the same word would have made which one ran depend
+     * on registration order.
+     */
+    public static void register(Command command) {
+        if (command == null) throw new IllegalArgumentException("Command must not be null");
+        if (getCommand(command.getCommand()) != null) {
+            throw new IllegalStateException("Duplicate command name: " + command.getCommand());
+        }
+        for (String alias : command.getAliases()) {
+            if (getCommand(alias) != null) {
+                throw new IllegalStateException("Duplicate command alias: " + alias);
+            }
+        }
+        commands.add(command);
+    }
+
     public static void init() {
         commands.clear();
         commands.add(new Help());
@@ -99,6 +119,7 @@ public class CommandManager {
         commands.add(new Panic());
         commands.add(new me.mrhakan.agalarhack.commands.impl.Look());
         commands.add(new me.mrhakan.agalarhack.commands.impl.Goto());
+        commands.add(new me.mrhakan.agalarhack.commands.impl.Addons());
     }
 
     private static String firstWord(String line) {

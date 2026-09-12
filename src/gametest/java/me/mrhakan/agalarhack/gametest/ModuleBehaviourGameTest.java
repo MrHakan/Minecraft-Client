@@ -100,6 +100,7 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
             freecam(context, singleplayer);
             lookCommand(context, singleplayer);
             baritoneAbsent(context, singleplayer);
+            addonLoaded(context);
             quietFrames(context, true);
             holeEsp(context, singleplayer);
             tracersAndNametags(context, singleplayer);
@@ -2022,6 +2023,74 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
                     + "; this is exactly the coordinate leak the bridge exists to prevent");
         }
         LOGGER.info("  goto refused without Baritone and put nothing in chat");
+    }
+
+    /**
+     * An addon that the Fabric loader actually loaded, registering a module and a command.
+     *
+     * <p>{@link TestAddon} declares itself under the {@code agalarhack} entrypoint in the game test
+     * mod's own {@code fabric.mod.json} — the same way a third-party addon would. So this exercises
+     * the whole path at once: the loader finding it, the metadata coming from its own mod file, the
+     * context it was handed, and both registrations arriving where a player would see them.
+     *
+     * <p>Checked against the loader's record as well as the client's own registries, because those
+     * are the two things that can disagree: an addon whose module registered but was not recorded,
+     * or recorded but not registered, is broken either way.
+     */
+    private void addonLoaded(ClientGameTestContext context) {
+        if (!TestAddon.ran) {
+            throw new AssertionError("the game test addon was never called, so the agalarhack "
+                    + "entrypoint is not being read - nothing below this tests the API, it tests "
+                    + "whether the entrypoint key matches");
+        }
+
+        boolean moduleThere = context.computeOnClient(client ->
+                AgalarHackClient.moduleManager.getModule(TestAddon.MODULE) != null);
+        boolean commandThere = context.computeOnClient(client ->
+                me.mrhakan.agalarhack.managers.CommandManager.getCommand(TestAddon.COMMAND) != null);
+        var record = context.computeOnClient(client ->
+                me.mrhakan.agalarhack.services.ClientServices.require(
+                        me.mrhakan.agalarhack.services.AddonLoader.class).loaded());
+
+        if (!moduleThere) {
+            throw new AssertionError("the addon's module is not in the catalogue, so addModule does "
+                    + "not reach the module manager");
+        }
+        if (!commandThere) {
+            throw new AssertionError("the addon's command is not registered, so addCommand does not "
+                    + "reach the command manager - most likely it was wiped by the clear() at the "
+                    + "start of CommandManager.init(), which is why addons load after it");
+        }
+        var mine = record.stream().filter(entry -> entry.id().equals(TestAddon.seenId)).findFirst();
+        if (mine.isEmpty()) {
+            throw new AssertionError("the loader kept no record of the addon it just ran; .addons "
+                    + "would not list it and a failure would be invisible. Recorded: " + record);
+        }
+        if (!mine.get().ok() || mine.get().modules() != 1 || mine.get().commands() != 1) {
+            throw new AssertionError("the loader recorded " + mine.get() + ", which does not match "
+                    + "the one module and one command the addon registered");
+        }
+        // The identity handed to the addon has to be its own, not the client's.
+        if (TestAddon.seenId == null || TestAddon.seenId.isBlank()
+                || TestAddon.seenId.equals("agalarhack")) {
+            throw new AssertionError("the addon was told its id is \"" + TestAddon.seenId
+                    + "\"; it should be its own mod id, not the client's");
+        }
+        // The other half of the load order, and the half that would fail silently. registerSettings
+        // is called from nowhere but applyValues, inside loadModules, so a module registered after
+        // it has no settings at all - no keybind, no HUD toggle, nothing saved between sessions -
+        // and nothing about that throws. If this ever fires, addons are loading too late.
+        boolean settingsApplied = context.computeOnClient(client -> {
+            var module = AgalarHackClient.moduleManager.getModule(TestAddon.MODULE);
+            return module != null && module.settings.getSetting("keybind") != null;
+        });
+        if (!settingsApplied) {
+            throw new AssertionError("the addon's module has no settings, so it was registered "
+                    + "after loadModules() and will never keep a keybind or anything else across "
+                    + "restarts");
+        }
+        LOGGER.info("  addon {} loaded through the Fabric entrypoint and registered a module and a "
+                + "command", TestAddon.seenName);
     }
 
     /**

@@ -11,6 +11,9 @@
       "me.mrhakan.agalarhack.gametest.ModuleLifecycleGameTest",
       "me.mrhakan.agalarhack.gametest.ModuleBehaviourGameTest",
       "me.mrhakan.agalarhack.gametest.SwallowedFailureGameTest"
+    ],
+    "agalarhack": [
+      "me.mrhakan.agalarhack.gametest.TestAddon"
     ]
   },
   "depends": {
