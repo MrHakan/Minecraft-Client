@@ -47,6 +47,8 @@ public final class ContainerTransferController {
     private int cooldown;
     private int delay = 1;
     private boolean recovering;
+    // Ownership may end or change after a click; neither gives the current tick another click.
+    private boolean clickedThisTick;
 
     public ContainerTransferController(Controls controls, UtilityActionManager actions) {
         this.controls = Objects.requireNonNull(controls);
@@ -97,11 +99,13 @@ public final class ContainerTransferController {
      * preferred route whenever the source stack already sits in the hotbar.
      */
     public boolean swapHotbar(String owner, int priority, int menuSlot, int hotbarIndex) {
+        if (clickedThisTick) return false;
         if (owner == null || owner.isBlank() || hotbarIndex < 0 || hotbarIndex >= InventoryTransfers.HOTBAR_SIZE) return false;
         if (menuSlot < 0 || menuSlot > InventoryTransfers.MENU_OFFHAND) return false;
         if (!controls.ready() || !controls.cursorEmpty()) return false;
         if (!canPreempt(owner, priority)) return false;
         finish();
+        clickedThisTick = true;
         controls.swap(menuSlot, hotbarIndex);
         return true;
     }
@@ -111,16 +115,19 @@ public final class ContainerTransferController {
      * that never involves the cursor, so it cannot leave an item stranded.
      */
     public boolean dropSlot(String owner, int priority, int menuSlot, boolean wholeStack) {
+        if (clickedThisTick) return false;
         if (owner == null || owner.isBlank() || menuSlot < 0 || menuSlot > InventoryTransfers.MENU_OFFHAND) return false;
         if (!controls.ready() || !controls.cursorEmpty()) return false;
         if (!canPreempt(owner, priority)) return false;
         finish();
+        clickedThisTick = true;
         controls.drop(menuSlot, wholeStack);
         return true;
     }
 
-    /** Advances at most one click. Must be called once per client tick. */
+    /** Starts the click budget and advances a plan. Call once per client tick, before modules. */
     public void tick() {
+        clickedThisTick = false;
         if (owner == null) return;
         if (!controls.ready()) {
             // The click channel is gone (screen opened, death, disconnect). Keep ownership so the
@@ -132,13 +139,14 @@ public final class ContainerTransferController {
         }
         if (cooldown > 0) { cooldown--; return; }
         if (step < plan.length) {
+            clickedThisTick = true;
             controls.pickup(plan[step++]);
             cooldown = delay;
             return;
         }
         if (!controls.cursorEmpty()) {
             int free = controls.emptyStorageMenuSlot();
-            if (free >= 0) { controls.pickup(free); cooldown = delay; recovering = true; return; }
+            if (free >= 0) { clickedThisTick = true; controls.pickup(free); cooldown = delay; recovering = true; return; }
             // Inventory is full and the stack cannot be put down safely. Hold the channel rather
             // than dropping the item; the next free slot completes the recovery.
             recovering = true;
@@ -163,6 +171,7 @@ public final class ContainerTransferController {
     /** Unconditional teardown for world changes and player replacement. */
     public void clear() {
         owner = null; priority = 0; plan = new int[0]; step = 0; cooldown = 0; recovering = false;
+        clickedThisTick = false;
     }
 
     private void finish() {
