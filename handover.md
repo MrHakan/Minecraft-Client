@@ -1081,6 +1081,10 @@ Fabric's 26.2 `ClientChunkCacheMixin`. Do not reintroduce 1.20/1.21 examples bli
 - Themes: edit nested presets/colors, apply/cancel, GUI shortcut close, external screen replacement and disconnect.
   Test page navigation at GUI scales, high contrast on/off with custom colors, reduced-motion precedence,
   preset changes preserving accessibility and theme export/import. Preserve a deliberately unreadable theme file.
+- HUD scale: drag a widget in the HUD editor at 0.5, 1.0 and 2.0 and confirm it lands where the editor
+  drew it, that a right- or bottom-anchored widget still reaches its edge, and that snapping and the
+  safe margin still behave. The game test proves the HUD draws at a different size and that the theme
+  value reaches the layout; it clicks nothing in the editor.
 - Module List: old layout/config upgrade, disabling the controller, per-module hiding, each sort/alignment/case/color,
   background/strip changes, tiny viewport clipping and profile switches. Check editor bounds at each anchor.
 - Inject a failing HUD renderer or width supplier: peers continue, one error is logged/notified, visibility preference
