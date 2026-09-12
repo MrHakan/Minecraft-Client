@@ -211,6 +211,13 @@ public class ProfileManager {
             if (deleted) {
                 serverBindings.entrySet().removeIf(entry -> entry.getValue().equalsIgnoreCase(name));
                 saveBindings();
+                // Dimension bindings are maintained here for the same reason server bindings are:
+                // a binding left pointing at a deleted profile does nothing today, because an
+                // auto-load checks the profile exists, and then quietly comes back to life the day
+                // somebody creates a profile that happens to reuse the name.
+                if (dimensionBindings.entrySet().removeIf(entry -> entry.getValue().equalsIgnoreCase(name))) {
+                    saveBindingFile(dimensionBindingsPath, dimensionBindings);
+                }
                 if (activeProfile.equalsIgnoreCase(name)) {
                     activeProfile = "";
                 }
@@ -276,6 +283,12 @@ public class ProfileManager {
 
         serverBindings.replaceAll((server, profile) -> profile.equalsIgnoreCase(source) ? target : profile);
         saveBindings();
+        // The same rewrite for dimension bindings. Leaving them behind was a silent failure rather
+        // than a visible one: the binding still named the old profile, nothing exists under that
+        // name any more, and an auto-load skips a profile that does not exist - so a renamed
+        // profile's dimension binding simply stopped firing, with no error and no log line.
+        dimensionBindings.replaceAll((dimension, profile) -> profile.equalsIgnoreCase(source) ? target : profile);
+        saveBindingFile(dimensionBindingsPath, dimensionBindings);
         if (activeProfile.equalsIgnoreCase(source)) {
             activeProfile = target;
         }
