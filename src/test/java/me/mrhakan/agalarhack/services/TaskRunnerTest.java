@@ -222,4 +222,24 @@ class TaskRunnerTest {
         withNull.add(null);
         assertThrows(NullPointerException.class, () -> runner.start(withNull));
     }
+
+    /**
+     * A plan that is refused leaves nothing behind.
+     *
+     * <p>The tasks used to be added to the live plan as they were checked, so a null halfway down a
+     * list threw with the earlier ones already loaded: the runner stayed IDLE while reporting tasks
+     * it would never run and never cancel. Nothing observable said so, which is the kind of debris
+     * that surfaces as a mystery three states later.
+     */
+    @Test void aRefusedPlanLeavesTheRunnerEmpty() {
+        TaskRunner runner = new TaskRunner();
+        java.util.List<TaskRunner.Task> withANull = new java.util.ArrayList<>();
+        withANull.add(new Counting("real", 1));
+        withANull.add(null);
+
+        assertThrows(NullPointerException.class, () -> runner.start(withANull));
+        assertEquals(TaskRunner.State.IDLE, runner.state());
+        assertEquals(0, runner.total(), "a refused plan must not leave tasks loaded");
+        assertEquals(0, runner.completed());
+    }
 }

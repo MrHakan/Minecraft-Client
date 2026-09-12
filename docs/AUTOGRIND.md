@@ -13,9 +13,9 @@ shows the result to a player. It deliberately stops short of the part that walks
 
 | Piece | What it is | Tested by |
 | --- | --- | --- |
-| `TaskRunner` | The engine a long run is made of: an ordered plan of tasks, each with a satisfied-check, a tick and a budget. | `TaskRunnerTest` (15) |
-| `CraftingPlan` | The arithmetic: expands a wanted item into the gather/craft steps it needs, subtracting what is already held. | `CraftingPlanTest` (17) |
-| `GrindBook` | The early-game recipes, plus the mapping from real item ids onto the generic names those recipes use. | `GrindBookTest` (9) |
+| `TaskRunner` | The engine a long run is made of: an ordered plan of tasks, each with a satisfied-check, a tick and a budget. | `TaskRunnerTest` (16) |
+| `CraftingPlan` | The arithmetic: expands a wanted item into the gather/craft steps it needs, subtracting what is already held. | `CraftingPlanTest` (18) |
+| `GrindBook` | The early-game recipes, plus the mapping from real item ids onto the generic names those recipes use. | `GrindBookTest` (10) |
 | `.grind <item> [count]` | Shows the plan for a real inventory. **Plans only.** | `ModuleBehaviourGameTest.grindPlan` |
 
 None of the first three import a Minecraft type, which is the reason they can be unit tested at all.
@@ -25,6 +25,27 @@ None of the first three import a Minecraft type, which is the reason they can be
 **Satisfied tasks are never started.** A run that is interrupted and resumed has to skip what it
 already did rather than redo it, so `satisfied()` is checked before `tick()` and a task that is already
 done costs nothing. This is what makes a plan resumable instead of merely repeatable.
+
+**Each item is planned once, and the plan is counted before it is written.** `CraftingPlan` totals
+every requirement first and emits one step per item, rather than resolving straight into a step list.
+Doing the latter is simpler and produces a worse plan: an item two parents both need gets resolved
+twice, so a wooden pickaxe read "gather 1 log, craft 1 planks, gather 1 log, craft 1 planks". The
+totals were right and the order was followable, but nobody reads that and believes the bot knows what
+it is doing.
+
+Merging the duplicates afterwards is the obvious fix and is **unsound**. Moving a repeated step to
+the first of its positions can put a craft before the gather that feeds it; moving it to the last can
+put it after something that already consumed it. Both are easy to write and wrong on trees this code
+already meets. Counting first avoids the question: an item is placed where its requirement *first*
+completed, which is already a valid dependency order, because a requirement completes only after
+every ingredient it named has.
+
+**A craft step reports items, not crafts.** Asking for five sticks answers "craft 8 stick", not
+"craft 2 stick" - both are true of something, but only one is what you are about to be holding.
+
+**Fuel is charged per furnace load.** One coal burns for eight smelts, so the smelting recipe is
+written at that size. Charging a coal per ingot is wrong by a factor of eight, and the error grows
+with the goal rather than staying a rounding difference.
 
 **Plans are deterministic.** `CraftingPlan` resolves a recipe's ingredients in **name order**, not map
 order. This is not cosmetic: `Map.of` randomises its iteration per JVM run, so an earlier version

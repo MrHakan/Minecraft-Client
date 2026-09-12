@@ -49,10 +49,13 @@ public final class GrindBook {
                 Map.of(COBBLESTONE, 3, STICK, 2), true));
         book.put(IRON_PICKAXE, new CraftingPlan.Recipe(IRON_PICKAXE, 1,
                 Map.of(IRON_INGOT, 3, STICK, 2), true));
-        // Smelting rather than crafting. It is in the book because the planner only needs to know
-        // that an iron ingot comes from raw iron plus fuel; whether that happens in a furnace is the
-        // executing task's problem, and it is flagged as needing a station for exactly that reason.
-        book.put(IRON_INGOT, new CraftingPlan.Recipe(IRON_INGOT, 1, Map.of(RAW_IRON, 1, COAL, 1), true));
+        // Smelting rather than crafting, written at the size a furnace actually works in: one coal
+        // burns for eight smelts. Charging a coal per ingot - which this did - is wrong by a factor
+        // of eight, and the error grows with the goal: a full set of iron tools asked for over a
+        // stack of coal to smelt what one eighth of that would. A batch of eight is exact whenever
+        // the goal is a multiple of eight and rounds up to a furnace load below that, which is what
+        // a player does anyway. Flagged as needing a station because a furnace is not a hand craft.
+        book.put(IRON_INGOT, new CraftingPlan.Recipe(IRON_INGOT, 8, Map.of(RAW_IRON, 8, COAL, 1), true));
         return Map.copyOf(book);
     }
 

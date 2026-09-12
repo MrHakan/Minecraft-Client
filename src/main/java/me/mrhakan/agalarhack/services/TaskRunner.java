@@ -84,7 +84,10 @@ public final class TaskRunner {
             state = State.DONE;
             return;
         }
-        for (Task task : tasks) plan.add(Objects.requireNonNull(task, "a plan cannot hold a null task"));
+        // Validated before anything is stored: adding as we go left a rejected plan half-loaded in
+        // an IDLE runner, so total() reported tasks that would never run and never be cancelled.
+        for (Task task : tasks) Objects.requireNonNull(task, "a plan cannot hold a null task");
+        plan.addAll(tasks);
         state = State.RUNNING;
         index = 0;
         spent = 0;

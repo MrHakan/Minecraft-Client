@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeSet;
 
 /**
  * Turns "I want a stone pickaxe" into the ordered steps that actually produce one.
@@ -63,8 +64,12 @@ public final class CraftingPlan {
     }
 
     /**
-     * @param count for {@link Kind#GATHER} the number of items to obtain; for {@link Kind#CRAFT} the
-     *              number of times to perform the craft, not the number of items it produces
+     * @param count how many of the item this step ends up with: for {@link Kind#GATHER} the number
+     *              to obtain, for {@link Kind#CRAFT} the number the crafts actually produce. It is
+     *              deliberately not a count of crafts - "craft 2 stick" for a step that hands you
+     *              eight is the kind of line a player reads once and stops trusting. The executor
+     *              divides by the recipe's yield, which is exact because the count is always a
+     *              whole number of crafts.
      */
     public record Step(Kind kind, String item, int count, boolean needsTable) { }
 
@@ -79,54 +84,96 @@ public final class CraftingPlan {
             Map<String, Recipe> book) {
         if (target == null || target.isBlank()) throw new IllegalArgumentException("Plan needs a target");
         if (wanted < 1) return List.of();
-        Map<String, Integer> stock = new LinkedHashMap<>(have == null ? Map.of() : have);
         Map<String, Recipe> recipes = book == null ? Map.of() : book;
-        List<Step> steps = new ArrayList<>();
-        resolve(target, wanted, stock, recipes, steps, new ArrayList<>());
-        return List.copyOf(steps);
+        Tally tally = new Tally(new LinkedHashMap<>(have == null ? Map.of() : have));
+        tally.require(target, wanted, recipes, new ArrayList<>());
+        return tally.steps(recipes);
     }
 
-    private static void resolve(String item, int wanted, Map<String, Integer> stock,
-            Map<String, Recipe> book, List<Step> steps, List<String> chain) {
-        int held = stock.getOrDefault(item, 0);
-        int short_ = wanted - held;
-        if (short_ <= 0) {
-            // Already covered by what is held; spend it so nothing else counts the same items.
-            stock.put(item, held - wanted);
-            return;
-        }
-        // Everything held is spent towards this, and the rest has to be produced.
-        stock.put(item, 0);
+    /**
+     * Counts everything first, then emits one step per item.
+     *
+     * <p>Resolving straight into a step list is simpler and produces a worse plan. An item needed by
+     * two different parents gets resolved twice, so a wooden pickaxe came out as "gather 1 log,
+     * craft 1 planks, gather 1 log, craft 1 planks" - the totals were right and the order was
+     * followable, but nobody reads that and believes the bot knows what it is doing.
+     *
+     * <p><strong>Merging the duplicates afterwards would be unsound, which is why this counts
+     * instead.</strong> Moving a repeated step to the first of its positions can put a craft before
+     * the gather that feeds it; moving it to the last can put it after something that already
+     * consumed it. Both are easy to write and wrong on trees this code will meet.
+     *
+     * <p>So each item is emitted once, at the position where its requirement <em>first</em>
+     * completed. That position is already a valid dependency order: a requirement completes only
+     * after every ingredient it named has completed, so an item can never be placed before something
+     * it needs. A later requirement for the same item adds to its count and leaves its place alone -
+     * moving it is exactly the unsound step above.
+     */
+    private static final class Tally {
+        private final Map<String, Integer> stock;
+        private final Map<String, Integer> toGather = new LinkedHashMap<>();
+        private final Map<String, Integer> toCraft = new LinkedHashMap<>();
+        private final List<String> order = new ArrayList<>();
 
-        Recipe recipe = book.get(item);
-        if (recipe == null) {
-            steps.add(new Step(Kind.GATHER, item, short_, false));
-            return;
-        }
-        if (chain.contains(item)) {
-            throw new IllegalArgumentException("Recipe cycle: " + String.join(" -> ", chain) + " -> " + item);
-        }
-        if (chain.size() >= MAX_DEPTH) {
-            throw new IllegalArgumentException("Recipe chain deeper than " + MAX_DEPTH + " at " + item);
+        Tally(Map<String, Integer> stock) {
+            this.stock = stock;
         }
 
-        int batches = Math.ceilDiv(short_, recipe.yield());
-        chain.add(item);
-        // Ingredients are resolved in name order, not map order, so the same goal always produces
-        // the same plan. `Map.of` randomises its iteration per JVM run, so without this the steps
-        // come out in a different order from one launch to the next: a player comparing two runs
-        // sees noise, and a test asserting the order passes or fails by luck. This was found
-        // exactly that way.
-        for (String ingredient : new java.util.TreeSet<>(recipe.ingredients().keySet())) {
-            resolve(ingredient, recipe.ingredients().get(ingredient) * batches, stock, book, steps, chain);
-        }
-        chain.remove(chain.size() - 1);
+        void require(String item, int count, Map<String, Recipe> book, List<String> chain) {
+            int held = stock.getOrDefault(item, 0);
+            int spend = Math.min(held, count);
+            // Everything held is spent towards this, so nothing else counts the same items.
+            stock.put(item, held - spend);
+            int missing = count - spend;
+            if (missing <= 0) return;
 
-        steps.add(new Step(Kind.CRAFT, item, batches, recipe.needsTable()));
-        // A craft that overshoots leaves the remainder for later steps, which is why five planks
-        // costs two logs rather than five and the spare three are not gathered again.
-        int produced = batches * recipe.yield();
-        stock.put(item, produced - short_);
+            Recipe recipe = book.get(item);
+            if (recipe == null) {
+                toGather.merge(item, missing, Integer::sum);
+                place(item);
+                return;
+            }
+            if (chain.contains(item)) {
+                throw new IllegalArgumentException("Recipe cycle: " + String.join(" -> ", chain) + " -> " + item);
+            }
+            if (chain.size() >= MAX_DEPTH) {
+                throw new IllegalArgumentException("Recipe chain deeper than " + MAX_DEPTH + " at " + item);
+            }
+
+            int batches = Math.ceilDiv(missing, recipe.yield());
+            chain.add(item);
+            // Ingredients are resolved in name order, not map order, so the same goal always produces
+            // the same plan. `Map.of` randomises its iteration per JVM run, so without this the steps
+            // come out in a different order from one launch to the next: a player comparing two runs
+            // sees noise, and a test asserting the order passes or fails by luck. This was found
+            // exactly that way.
+            for (String ingredient : new TreeSet<>(recipe.ingredients().keySet())) {
+                require(ingredient, recipe.ingredients().get(ingredient) * batches, book, chain);
+            }
+            chain.remove(chain.size() - 1);
+
+            int made = batches * recipe.yield();
+            toCraft.merge(item, made, Integer::sum);
+            place(item);
+            // A craft that overshoots leaves the remainder for later steps, which is why five planks
+            // costs two logs rather than five and the spare three are not gathered again.
+            stock.merge(item, made - missing, Integer::sum);
+        }
+
+        private void place(String item) {
+            if (!order.contains(item)) order.add(item);
+        }
+
+        List<Step> steps(Map<String, Recipe> book) {
+            List<Step> steps = new ArrayList<>();
+            for (String item : order) {
+                Integer gather = toGather.get(item);
+                if (gather != null) steps.add(new Step(Kind.GATHER, item, gather, false));
+                Integer craft = toCraft.get(item);
+                if (craft != null) steps.add(new Step(Kind.CRAFT, item, craft, book.get(item).needsTable()));
+            }
+            return List.copyOf(steps);
+        }
     }
 
     /** Every distinct item a plan has to gather, in plan order, for a progress display. */

@@ -62,6 +62,22 @@ class GrindBookTest {
         assertEquals(1, steps.size());
     }
 
+    /**
+     * Fuel is charged per furnace load, not per ingot.
+     *
+     * <p>One coal burns for eight smelts. The book used to spend a coal on every ingot, which is
+     * wrong by a factor of eight and gets worse the larger the goal: kitting out with iron asked for
+     * over a stack of coal to smelt what an eighth of it covers. The scale is what makes it worth a
+     * test - a single pickaxe hides the error inside a rounding-up, and only a real goal exposes it.
+     */
+    @Test void coalIsSpentPerFurnaceLoadNotPerIngot() {
+        var steps = CraftingPlan.plan(GrindBook.IRON_INGOT, 64, Map.of(), GrindBook.recipes());
+        var coal = steps.stream().filter(s -> s.item().equals(GrindBook.COAL)).findFirst().orElseThrow();
+        assertEquals(8, coal.count(), "sixty-four ingots is eight furnace loads, so eight coal");
+        var ore = steps.stream().filter(s -> s.item().equals(GrindBook.RAW_IRON)).findFirst().orElseThrow();
+        assertEquals(64, ore.count(), "the ore is still one for one");
+    }
+
     @Test void theBookRecognisesWhatItCanBeAskedFor() {
         assertTrue(GrindBook.knows(GrindBook.IRON_PICKAXE));
         assertTrue(GrindBook.knows(GrindBook.LOG), "a raw material is a legitimate goal on its own");

@@ -50,13 +50,13 @@ class CraftingPlanTest {
         var steps = plan("planks", 5, Map.of());
         assertEquals(List.of(
                 step(CraftingPlan.Kind.GATHER, "log", 2),
-                step(CraftingPlan.Kind.CRAFT, "planks", 2)), steps);
+                step(CraftingPlan.Kind.CRAFT, "planks", 8)), steps);
     }
 
     @Test void anExactMultipleDoesNotOverGather() {
         var steps = plan("planks", 8, Map.of());
         assertEquals(step(CraftingPlan.Kind.GATHER, "log", 2), steps.get(0));
-        assertEquals(step(CraftingPlan.Kind.CRAFT, "planks", 2), steps.get(1));
+        assertEquals(step(CraftingPlan.Kind.CRAFT, "planks", 8), steps.get(1));
     }
 
     /** Leftovers from an earlier craft must be spent before anything more is gathered. */
@@ -66,7 +66,7 @@ class CraftingPlanTest {
         var steps = CraftingPlan.plan("crafting_table", 1, Map.of("stick", 0), BOOK);
         assertEquals(List.of(
                 step(CraftingPlan.Kind.GATHER, "log", 1),
-                step(CraftingPlan.Kind.CRAFT, "planks", 1),
+                step(CraftingPlan.Kind.CRAFT, "planks", 4),
                 step(CraftingPlan.Kind.CRAFT, "crafting_table", 1)), steps);
     }
 
@@ -91,8 +91,8 @@ class CraftingPlanTest {
         assertEquals(List.of(
                 step(CraftingPlan.Kind.GATHER, "cobblestone", 3),
                 step(CraftingPlan.Kind.GATHER, "log", 1),
-                step(CraftingPlan.Kind.CRAFT, "planks", 1),
-                step(CraftingPlan.Kind.CRAFT, "stick", 1),
+                step(CraftingPlan.Kind.CRAFT, "planks", 4),
+                step(CraftingPlan.Kind.CRAFT, "stick", 4),
                 new CraftingPlan.Step(CraftingPlan.Kind.CRAFT, "stone_pickaxe", 1, true)), steps);
     }
 
@@ -121,10 +121,47 @@ class CraftingPlanTest {
         assertTrue(steps.get(0).needsTable(), "the executor has to know it needs a crafting table");
     }
 
-    @Test void craftCountsAreBatchesNotItems() {
+    /**
+     * A craft step reports the items it hands you, not how many times you pull the lever.
+     *
+     * <p>This assertion used to read the other way, and the command printed it straight: asking for
+     * five sticks answered "craft 2 stick" for a step that produces eight. Both numbers are true of
+     * something, but only one of them is what the player is about to be holding, and a plan that
+     * reads as if it is short is a plan nobody follows twice.
+     */
+    @Test void craftCountsAreItemsNotBatches() {
         var steps = plan("stick", 5, Map.of("planks", 10));
         var craft = steps.stream().filter(s -> s.kind() == CraftingPlan.Kind.CRAFT).findFirst().orElseThrow();
-        assertEquals(2, craft.count(), "five sticks is two crafts of four, not five crafts");
+        assertEquals(8, craft.count(),
+                "five sticks is two crafts of four, and two crafts of four is eight sticks");
+    }
+
+    /**
+     * An item two different parents both need is planned once, with the counts added together.
+     *
+     * <p>The chain is built so leftovers cannot paper over it: every yield is one, so the second
+     * parent genuinely has to make another core, and a planner that resolves into a step list
+     * emits the whole gather-and-craft pair a second time. The old plan for a wooden pickaxe read
+     * "gather 1 log, craft 1 planks, gather 1 log, craft 1 planks" for exactly this reason.
+     *
+     * <p>The order is asserted as well as the counts, because the tempting fix - merging the
+     * duplicates afterwards - is unsound in both directions: merging to the first position can put
+     * a craft before the gather that feeds it, and merging to the last can put it after something
+     * that already consumed it.
+     */
+    @Test void anIngredientTwoParentsNeedIsPlannedOnce() {
+        Map<String, CraftingPlan.Recipe> shared = Map.of(
+                "parent", new CraftingPlan.Recipe("parent", 1, Map.of("left", 1, "right", 1), false),
+                "left", new CraftingPlan.Recipe("left", 1, Map.of("core", 1), false),
+                "right", new CraftingPlan.Recipe("right", 1, Map.of("core", 1), false),
+                "core", new CraftingPlan.Recipe("core", 1, Map.of("ore", 1), false));
+        var steps = CraftingPlan.plan("parent", 1, Map.of(), shared);
+        assertEquals(List.of(
+                step(CraftingPlan.Kind.GATHER, "ore", 2),
+                step(CraftingPlan.Kind.CRAFT, "core", 2),
+                step(CraftingPlan.Kind.CRAFT, "left", 1),
+                step(CraftingPlan.Kind.CRAFT, "right", 1),
+                step(CraftingPlan.Kind.CRAFT, "parent", 1)), steps);
     }
 
     @Test void wantingNoneIsNotAPlan() {
