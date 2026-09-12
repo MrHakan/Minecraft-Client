@@ -57,6 +57,18 @@ public class SwallowedFailureGameTest implements FabricClientGameTest {
             "failed to load; it has been skipped",
             "Baritone is installed but this client could not");
 
+    /**
+     * The one deliberate failure in the run: the broken addon fixture, which exists to prove a
+     * failing addon is contained.
+     *
+     * <p>Exempted by mod id rather than by loosening the marker, so a real addon failure - or the
+     * same failure from anything else - still fails the run. The exemption is also asserted rather
+     * than merely applied: if no line mentions this id, the fixture has stopped failing and the
+     * expectation here is stale, which is worth failing on because {@link ExternalAddonGameTest}
+     * would then be checking containment that no longer happens.
+     */
+    private static final String EXPECTED_FAILING_ADDON = "agalarhack-broken-fixture";
+
     @Override
     public void runTest(ClientGameTestContext context) {
         Path log = context.computeOnClient(client -> client.gameDirectory.toPath().resolve("logs/latest.log"));
@@ -68,14 +80,18 @@ public class SwallowedFailureGameTest implements FabricClientGameTest {
 
         List<String> offenders = new ArrayList<>();
         int scanned = 0;
+        int expected = 0;
         try {
             for (String line : Files.readAllLines(log, StandardCharsets.UTF_8)) {
                 scanned++;
                 for (String marker : SWALLOWED) {
-                    if (line.contains(marker)) {
-                        offenders.add(line.strip());
+                    if (!line.contains(marker)) continue;
+                    if (line.contains(EXPECTED_FAILING_ADDON)) {
+                        expected++;
                         break;
                     }
+                    offenders.add(line.strip());
+                    break;
                 }
             }
         } catch (IOException unreadable) {
@@ -87,6 +103,13 @@ public class SwallowedFailureGameTest implements FabricClientGameTest {
                     + " failure(s) during this run. Each is a real bug that a player would never see:\n  "
                     + String.join("\n  ", offenders.subList(0, Math.min(20, offenders.size()))));
         }
-        LOGGER.info("Scanned {} log lines for swallowed failures; found none", scanned);
+        if (expected == 0) {
+            throw new AssertionError("No logged failure mentions " + EXPECTED_FAILING_ADDON
+                    + ". That fixture is installed to fail on purpose, so either it no longer fails - "
+                    + "in which case the containment checks in ExternalAddonGameTest are testing "
+                    + "nothing - or it was never installed in this run.");
+        }
+        LOGGER.info("Scanned {} log lines for swallowed failures; found none beyond the {} expected "
+                + "from the deliberately broken addon fixture", scanned, expected);
     }
 }

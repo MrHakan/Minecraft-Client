@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "id": "agalarhack-external-fixture",
+  "version": "1.0.0",
+  "name": "Agalar Hack External Fixture",
+  "description": "A separately packaged addon used to prove addon packaging, never shipped.",
+  "environment": "client",
+  "entrypoints": {
+    "agalarhack": [
+      "com.example.agalarhackfixture.FixtureAddon"
+    ]
+  },
+  "depends": {
+    "agalarhack": "*"
+  }
+}
