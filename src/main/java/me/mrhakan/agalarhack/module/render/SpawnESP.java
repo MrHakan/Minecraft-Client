@@ -1,5 +1,6 @@
 package me.mrhakan.agalarhack.module.render;
 
+import me.mrhakan.agalarhack.services.BlockPresence;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import me.mrhakan.agalarhack.events.ClientEvents;
@@ -144,14 +145,14 @@ public class SpawnESP extends Module {
 
     private SpawnLightRules.Spawnable classifyAt(int x, int y, int z) {
         probe.set(x, y - 1, z);
-        boolean floorSolid = mc.level.getBlockState(probe).blocksMotion();
+        boolean floorSolid = BlockPresence.blocksMotion(mc.level.getBlockState(probe));
         probe.set(x, y, z);
-        boolean feetClear = !mc.level.getBlockState(probe).blocksMotion();
+        boolean feetClear = BlockPresence.isPassable(mc.level.getBlockState(probe));
         var engine = mc.level.getLightEngine();
         int blockLight = engine.getLayerListener(LightLayer.BLOCK).getLightValue(probe);
         int skyLight = engine.getLayerListener(LightLayer.SKY).getLightValue(probe);
         probe.set(x, y + 1, z);
-        boolean headClear = !mc.level.getBlockState(probe).blocksMotion();
+        boolean headClear = BlockPresence.isPassable(mc.level.getBlockState(probe));
         return SpawnLightRules.classify(blockLight, skyLight, floorSolid && feetClear && headClear);
     }
 }

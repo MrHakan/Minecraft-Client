@@ -1,5 +1,6 @@
 package me.mrhakan.agalarhack.module.movement;
 
+import me.mrhakan.agalarhack.services.BlockPresence;
 import me.mrhakan.agalarhack.AgalarHackClient;
 import me.mrhakan.agalarhack.module.Category;
 import me.mrhakan.agalarhack.module.Module;
@@ -50,7 +51,7 @@ public class Parkour extends Module {
     /** True when there is nothing to stand on just beyond the current position. */
     private boolean wouldFall(double x, double y, double z) {
         BlockPos below = BlockPos.containing(x, y - 0.2, z);
-        return !mc.level.getBlockState(below).blocksMotion();
+        return BlockPresence.isPassable(mc.level.getBlockState(below));
     }
 
     private static boolean safeWalkHolding() {

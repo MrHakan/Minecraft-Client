@@ -1,5 +1,6 @@
 package me.mrhakan.agalarhack.module.render;
 
+import me.mrhakan.agalarhack.services.BlockPresence;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import me.mrhakan.agalarhack.events.ClientEvents;
@@ -158,7 +159,7 @@ public class HoleESP extends Module {
     private HoleDetector.Material material(int x, int y, int z) {
         probe.set(x, y, z);
         BlockState state = mc.level.getBlockState(probe);
-        if (state.isAir() || !state.blocksMotion()) return HoleDetector.Material.OPEN;
+        if (state.isAir() || BlockPresence.isPassable(state)) return HoleDetector.Material.OPEN;
         return state.getBlock().getExplosionResistance() >= RESISTANT_THRESHOLD
                 ? HoleDetector.Material.RESISTANT : HoleDetector.Material.WEAK;
     }
