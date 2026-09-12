@@ -1294,6 +1294,39 @@ Fabric's 26.2 `ClientChunkCacheMixin`. Do not reintroduce 1.20/1.21 examples bli
   confirm nothing outside the selection changed - including which modules are enabled. Confirm a
   typo is refused by name rather than applied.
 
+## Review of the addon and UI batch
+
+Done against the checklist in the development rules (duplicated logic, stale settings, state
+restoration, lifecycle, allocations, unbounded caches, render-thread scanning, input ownership,
+duplicate keybinds, config corruption). Four things came out of it; everything else held.
+
+- **The duplicate-command check only guarded addons.** `CommandManager.init()` still called
+  `commands.add` directly, so a collision between two built-ins stayed as invisible as it had always
+  been - both in the list, registration order deciding which answered. Built-ins now go through the
+  same check, logged rather than thrown (crashing a player's client over a duplicate alias is the
+  wrong trade) with the message in the swallowed-failure list so CI fails on the pull request that
+  introduces one. There are no collisions today.
+- **`CommandManager` cannot be unit tested at all.** Its static initialiser opens the alias and macro
+  files through `FabricLoader.getConfigDir()`, so merely referencing the class throws
+  `ExceptionInInitializerError` off-client. The check moved into `CommandNames` as pure logic, with
+  nine cases. Worth remembering before writing any other test against that class.
+- **A held `.look` aim survived a dimension change.** Coordinates are resolved to angles when the
+  command runs, so carrying the aim across a transition points the player at a number that means
+  nothing there - and it would take rotation control straight back off the `rotations.clear()` the
+  world-change handler does. Now cancelled on `WorldChanged` and `Disconnected`. The 60-tick budget
+  would have expired it in three seconds, which is three seconds too long. **Not covered by a
+  scenario**: a dimension transition in the game test needs a reconnect.
+- **A javadoc claim that the code does not make.** `AddonLoader` said a failing addon "loses its own
+  registrations". It does not: what it registered before it threw stays registered and working, and
+  the recorded counts already report how far it got. The javadoc says that now.
+
+Checked and correct without changes: HUD scale stores offsets in logical space and resolves them the
+same way, so a scale change moves nothing and writes nothing (anchors keep widgets on their edge and
+the clamp is non-destructive, so lowering the scale back restores the position); Freecam's disable
+path restores the previous camera entity only when it is still alive and in the same level, else the
+player; `ChatMentions.keywords()` caches its parse against the raw setting string; `.look` at
+priority 70 over Aura's 50 is deliberate and documented; no new keybinds and no new scanners.
+
 ### Manual acceptance for addons
 
 The entrypoint path is verified by the game test; **the packaging is not**. Nobody has built a

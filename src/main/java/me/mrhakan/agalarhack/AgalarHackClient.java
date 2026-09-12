@@ -110,6 +110,12 @@ public class AgalarHackClient implements ClientModInitializer {
         });
         EVENTS.subscribe(ClientEvents.ClientTick.class, "rotations", 20, event -> rotations.resolve());
         EVENTS.subscribe(ClientEvents.Disconnected.class, "rotations", 100, event -> rotations.clear());
+        // A held aim belongs to the world it was asked for. Its coordinates were resolved to angles
+        // when the command ran, so carrying it into another dimension points the player at a number
+        // that means nothing there - and it would take rotation control straight back off the clear
+        // above. The budget would expire it in three seconds; that is three seconds too long.
+        EVENTS.subscribe(ClientEvents.Disconnected.class, "look", 100, event -> look.cancel());
+        EVENTS.subscribe(ClientEvents.WorldChanged.class, "look", 100, event -> look.cancel());
         var notifications = services.register(me.mrhakan.agalarhack.services.NotificationService.class,
                 new me.mrhakan.agalarhack.services.NotificationService());
         var hudRegistry=services.register(me.mrhakan.agalarhack.ui.hud.HudRegistry.class,new me.mrhakan.agalarhack.ui.hud.HudRegistry(HUD_LAYOUT));
