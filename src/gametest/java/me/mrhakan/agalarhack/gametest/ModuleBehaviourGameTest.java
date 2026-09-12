@@ -77,6 +77,7 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
             autoAccept(context, singleplayer);
             quietFrames(context, true);
             holeEsp(context, singleplayer);
+            tracersAndNametags(context, singleplayer);
             quietFrames(context, false);
 
             LOGGER.info("Module behaviour scenarios passed");
@@ -246,6 +247,16 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
 
     /** How deep the pit is. Deep enough that falling in is unmistakable, shallow enough to survive. */
     private static final int PIT_DEPTH = 3;
+
+    /**
+     * The smallest number of changed pixels worth calling a drawing.
+     *
+     * <p>The real test is the ratio to the noise measured in the same run; this rules out a handful
+     * of stray pixels when the scene is perfectly still and that floor is zero. Sixty is about a
+     * short line or a few characters of text - small enough not to demand a particular size of
+     * marker, large enough that nothing arrives there by accident.
+     */
+    private static final int DRAWN_PIXELS = 60;
 
     /**
      * Clears a 5x5 pit two blocks away and returns the standing spot facing it.
@@ -734,6 +745,108 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
     }
 
     /**
+     * Two overlays with something to point at, each measured where it actually draws.
+     *
+     * <p>Both need a Mob - the groups these modules select on are player, item and Mob, and nothing
+     * else - that stays put and does not burn in daylight, so a pig with its AI switched off. It
+     * cannot be made invisible to stop the model animating: the mod never offers invisible entities
+     * to these overlays at all, and the target count drops to zero.
+     *
+     * <p>The two are framed differently on purpose, because they draw in different places. A tracer
+     * is a line from the edge of the screen to the target, so the target goes far away where its
+     * animation is a handful of pixels and the line is still full length. A nametag is a small label
+     * directly above the entity, so the target comes close where the label is large, and only the
+     * band above the crosshair is measured - which is where the label is and where the animating
+     * body is not.
+     */
+    private void tracersAndNametags(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        configure(context, "Tracers", module -> {
+            module.settings.setSetting("players", true);
+            module.settings.setSetting("hostiles", true);
+            module.settings.setSetting("passives", true);
+            // Lines start at the bottom of the screen. With the default centre origin and the camera
+            // pointed at the target, a tracer runs from the middle of the screen to the middle of
+            // the screen: no length, and a signal of nothing.
+            module.settings.setSetting("origin", "bottom");
+        });
+        configure(context, "Nametags", module -> {
+            module.settings.setSetting("players", true);
+            module.settings.setSetting("mobs", true);
+        });
+
+        BlockPos far = pigAt(context, singleplayer, 30);
+        context.getInput().lookAt(far);
+        context.waitTicks(40);
+        drawsSomething(context, "Tracers", "a line to the pig", 0.25, 0.75);
+
+        BlockPos near = pigAt(context, singleplayer, 6);
+        // At the pig itself. A pig is about nine tenths of a block tall, so its tag sits barely
+        // above its back - aiming two blocks up, as for something person-sized, puts the crosshair
+        // above the tag and the tag below the band being measured.
+        context.getInput().lookAt(near);
+        // HUD back on for this one. Nametags are labels rather than world geometry, and F1 takes
+        // them with it - with the HUD hidden the module draws nothing measurable at all. The band
+        // measured here is the middle of the screen above the crosshair, which no HUD element
+        // occupies: the module list is top right, the hotbar bottom centre, both outside it.
+        context.getInput().pressKey(options -> options.keyToggleGui);
+        context.waitTicks(40);
+        drawsSomething(context, "Nametags", "a tag above the pig", 0.10, 0.50);
+        context.getInput().pressKey(options -> options.keyToggleGui);
+    }
+
+    /** Clean ground, nothing else alive, and one motionless pig the given distance ahead. */
+    private BlockPos pigAt(ClientGameTestContext context, TestSingleplayerContext singleplayer,
+            int distance) {
+        moveThere(context, singleplayer, sceneBase.offset(0, 0, 60));
+        return singleplayer.getServer().computeOnServer(server -> {
+            ServerPlayer player = singleplayer.getConnection().getServerPlayer();
+            ServerLevel level = player.level();
+            for (Entity entity : level.getAllEntities()) {
+                if (!(entity instanceof ServerPlayer)) entity.discard();
+            }
+            BlockPos target = player.blockPosition().offset(0, 0, distance);
+            var pig = EntityTypes.PIG.spawn(level, target, EntitySpawnReason.COMMAND);
+            if (pig == null) {
+                throw new AssertionError("could not spawn the pig at " + target);
+            }
+            pig.setNoAi(true);
+            pig.setPersistenceRequired();
+            return target;
+        });
+    }
+
+    /**
+     * The shared shape of every render scenario: how still the picture is, then how much the module
+     * moves it. Both windows are the same length, for the reason given in {@link #holeEsp}.
+     */
+    private void drawsSomething(ClientGameTestContext context, String name, String expected,
+            double fromHeight, double toHeight) {
+        final int window = 60;
+        String slug = name.toLowerCase(java.util.Locale.ROOT);
+        java.nio.file.Path first = context.takeScreenshot(slug + "-off-1");
+        context.waitTicks(window);
+        java.nio.file.Path second = context.takeScreenshot(slug + "-off-2");
+        int noise = Frames.changedPixels(first, second, fromHeight, toHeight);
+
+        toggle(context, name, true);
+        context.waitTicks(window);
+        java.nio.file.Path on = context.takeScreenshot(slug + "-on");
+        toggle(context, name, false);
+        int signal = Frames.changedPixels(second, on, fromHeight, toHeight);
+
+        LOGGER.info("    {} pixels: noise={} signal={}", name, noise, signal);
+        if (noise > DRAWN_PIXELS) {
+            throw new AssertionError(name + ": " + noise + " pixels changed with nothing switched "
+                    + "on, so the scene will not hold still and this scenario means nothing");
+        }
+        if (signal < Math.max(DRAWN_PIXELS, noise * 5)) {
+            throw new AssertionError(name + " changed " + signal + " pixels against a noise floor of "
+                    + noise + "; it drew no " + expected);
+        }
+        LOGGER.info("  {} drew {}", name, expected);
+    }
+
+    /**
      * Builds a fresh hole on untouched ground and empties the world of everything that moves.
      *
      * <p>Both halves matter. A hole left over from an earlier scenario may have been walked through
@@ -770,6 +883,26 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
         singleplayer.getConnection().waitForChunksRender();
         context.waitTicks(40);
         return hole;
+    }
+
+    /**
+     * Puts the player somewhere and waits until the world there actually exists.
+     *
+     * <p>Every scenario that builds scenery must do this first. Writing blocks or spawning entities
+     * into a chunk the server has not loaded silently does nothing, and what follows is a scenario
+     * measuring an empty field and blaming the module. That mistake was made four times here before
+     * it was worth a helper, and twice it turned CI red.
+     */
+    private static void moveThere(ClientGameTestContext context, TestSingleplayerContext singleplayer,
+            BlockPos where) {
+        singleplayer.getServer().runOnServer(server -> {
+            ServerPlayer player = singleplayer.getConnection().getServerPlayer();
+            player.teleportTo(where.getX() + 0.5, where.getY(), where.getZ() + 0.5);
+            player.setDeltaMovement(Vec3.ZERO);
+            player.fallDistance = 0;
+        });
+        singleplayer.getConnection().waitForChunksRender();
+        context.waitTicks(40);
     }
 
     private static BlockPos ledgeOrSpawn(ServerPlayer player) {

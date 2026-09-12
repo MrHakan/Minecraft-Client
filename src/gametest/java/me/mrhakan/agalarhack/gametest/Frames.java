@@ -64,6 +64,42 @@ final class Frames {
         return samples == 0 ? 0 : (double) total / samples;
     }
 
+    /**
+     * How many pixels differ noticeably, within a band of the frame given as fractions of its height.
+     *
+     * <p>Counting pixels rather than averaging: a mean over the whole crop makes a one-pixel line
+     * across the frame look like 0.10 and a small label look like 0.01, while both are plainly
+     * drawings. And a band, because where a module draws is known in advance - a nametag sits above
+     * the entity, so measuring only that strip excludes the animating body underneath it instead of
+     * letting the body's noise decide the answer.
+     */
+    static int changedPixels(Path first, Path second, double fromHeight, double toHeight) {
+        BufferedImage a = read(first);
+        BufferedImage b = read(second);
+        if (a.getWidth() != b.getWidth() || a.getHeight() != b.getHeight()) {
+            throw new AssertionError("frames differ in size; the window resized mid-scenario");
+        }
+        int left = a.getWidth() / 4;
+        int right = a.getWidth() - left;
+        int top = (int) Math.round(a.getHeight() * fromHeight);
+        int bottom = (int) Math.round(a.getHeight() * toHeight);
+        int changed = 0;
+        for (int y = top; y < bottom; y++) {
+            for (int x = left; x < right; x++) {
+                int p = a.getRGB(x, y);
+                int q = b.getRGB(x, y);
+                // Eight levels per channel: above rounding between two renders of the same scene,
+                // far below anything a module deliberately draws.
+                if (Math.abs(((p >> 16) & 0xFF) - ((q >> 16) & 0xFF)) > 8
+                        || Math.abs(((p >> 8) & 0xFF) - ((q >> 8) & 0xFF)) > 8
+                        || Math.abs((p & 0xFF) - (q & 0xFF)) > 8) {
+                    changed++;
+                }
+            }
+        }
+        return changed;
+    }
+
     private static BufferedImage read(Path path) {
         try {
             if (!Files.isRegularFile(path)) {
