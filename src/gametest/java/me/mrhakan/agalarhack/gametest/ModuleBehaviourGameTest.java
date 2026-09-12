@@ -80,6 +80,8 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
             tracersAndNametags(context, singleplayer);
             itemEsp(context, singleplayer);
             breadcrumbs(context, singleplayer);
+            waypoints(context, singleplayer);
+            spawnEsp(context, singleplayer);
             quietFrames(context, false);
 
             LOGGER.info("Module behaviour scenarios passed");
@@ -882,6 +884,78 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
         LOGGER.info("    Breadcrumbs pixels: noise={} signal={}", noise, signal);
         assertDrew("Breadcrumbs", "trail behind a player that had just walked", noise, signal);
         LOGGER.info("  Breadcrumbs drew the trail the player had just walked");
+    }
+
+    /**
+     * A waypoint marker, with its beam, twenty blocks ahead.
+     *
+     * <p>The beam is a column two hundred blocks tall, which makes this the least ambiguous drawing
+     * any of these modules produce. The waypoint is added through the service the command uses, so
+     * the scenario exercises the same path a player would.
+     */
+    private void waypoints(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        configure(context, "Waypoints", module -> {
+            module.settings.setSetting("beams", true);
+            module.settings.setSetting("labels", true);
+        });
+
+        moveThere(context, singleplayer, sceneBase.offset(0, 0, 150));
+        BlockPos marker = singleplayer.getServer().computeOnServer(server -> {
+            ServerPlayer player = singleplayer.getConnection().getServerPlayer();
+            for (Entity entity : player.level().getAllEntities()) {
+                if (!(entity instanceof ServerPlayer)) entity.discard();
+            }
+            return player.blockPosition().offset(0, 0, 20);
+        });
+        context.runOnClient(client -> {
+            var service = me.mrhakan.agalarhack.services.ClientServices.require(
+                    me.mrhakan.agalarhack.services.WaypointService.class);
+            service.remove("gametest", me.mrhakan.agalarhack.module.render.Waypoints.currentDimension(client));
+            service.add(me.mrhakan.agalarhack.services.Waypoint.of("gametest",
+                            marker.getX(), marker.getY(), marker.getZ(),
+                            me.mrhakan.agalarhack.module.render.Waypoints.currentDimension(client))
+                    .withBeam(true));
+        });
+        context.getInput().lookAt(marker);
+        context.waitTicks(40);
+        drawsSomething(context, "Waypoints", "a marker or beam at the saved position", 0.25, 0.75);
+    }
+
+    /**
+     * SpawnESP marks where light allows a spawn, so the scenario has to make somewhere dark.
+     *
+     * <p>A superflat world at noon has no such place: the surface is lit everywhere and the module
+     * would correctly mark nothing. The player is sealed into a roofed box instead, which is the
+     * one situation this module exists for.
+     */
+    private void spawnEsp(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        moveThere(context, singleplayer, sceneBase.offset(0, 0, 180));
+        singleplayer.getServer().runOnServer(server -> {
+            ServerPlayer player = singleplayer.getConnection().getServerPlayer();
+            ServerLevel level = player.level();
+            for (Entity entity : level.getAllEntities()) {
+                if (!(entity instanceof ServerPlayer)) entity.discard();
+            }
+            BlockPos centre = player.blockPosition();
+            // A sealed shell: walls, and a roof three blocks up so there is standing room under it.
+            for (int dx = -4; dx <= 4; dx++) {
+                for (int dz = -4; dz <= 4; dz++) {
+                    level.setBlockAndUpdate(centre.offset(dx, 3, dz), Blocks.OBSIDIAN.defaultBlockState());
+                    for (int dy = 0; dy <= 2; dy++) {
+                        boolean wall = Math.abs(dx) == 4 || Math.abs(dz) == 4;
+                        level.setBlockAndUpdate(centre.offset(dx, dy, dz), wall
+                                ? Blocks.OBSIDIAN.defaultBlockState() : Blocks.AIR.defaultBlockState());
+                    }
+                }
+            }
+        });
+        singleplayer.getConnection().waitForChunksRender();
+        // Long enough for the light engine to darken the sealed volume before anything is scanned.
+        context.waitTicks(80);
+        // At the floor, where the markers go.
+        context.getInput().lookAt(0.0f, 60.0f);
+        context.waitTicks(20);
+        drawsSomething(context, "SpawnESP", "markers on a dark floor", 0.25, 0.75);
     }
 
     /**
