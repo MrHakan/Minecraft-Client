@@ -182,9 +182,10 @@ bytes. The previous report is deleted first; a missing new report fails the cont
 failure can never reuse a prior regression result.
 The normal build follows, and `tools/summarize-tests.py` reports observed totals from JUnit XML (archived
 with the client log). This control does not bypass the full game suite or whitelist swallowed failures.
-There are 42 grouped scenario checks: 38 direct behaviour scenario calls (excluding `quietFrames`
-setup), inventory interruption, dimension replacement, disconnect and external addon packaging.
+There are 44 grouped scenario checks: 38 direct behaviour scenario calls (excluding `quietFrames`
+setup), inventory interruption, mid-plan inventory contention, dimension replacement, profile
+dimension bindings, disconnect and external addon packaging.
 SafeWalk/Parkour and Tracers/Nametags are grouped; this is not an assertion or log-line count.
-Three dedicated-server checks are excluded while the EULA gate is off. Eight entrypoints include
+Three dedicated-server checks are excluded while the EULA gate is off. Ten entrypoints include
 screen, lifecycle and swallowed-failure gates; module names and flag mappings remain unchanged. Worlds are integrated-server worlds, including the
 real dimension/disconnect checks. Restarted external addons and dedicated-server latency remain unverified.
