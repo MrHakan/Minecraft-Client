@@ -96,6 +96,7 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
             autoFish(context, singleplayer);
             hudScale(context, singleplayer);
             clickGuiTransition(context);
+            freecam(context, singleplayer);
             quietFrames(context, true);
             holeEsp(context, singleplayer);
             tracersAndNametags(context, singleplayer);
@@ -1782,6 +1783,71 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
                     + "ClickGUI open, so there was no stripe to measure; the scenario is broken");
         }
         return remaining;
+    }
+
+    /**
+     * The camera leaves and the player does not, which is the whole of what Freecam promises.
+     *
+     * <p>Three things are asserted because all three can break independently: the camera really
+     * detaches and moves under the movement keys, the body stays exactly where it was, and the
+     * camera is handed back to the player when the module is switched off. That last one is the
+     * quiet failure — a client left looking through an armour stand after Freecam is gone.
+     *
+     * <p>The distance limit is checked here too, with a short radius so a few seconds of holding a
+     * key is enough to reach it.
+     */
+    private void freecam(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        final double radius = 8.0;
+        moveThere(context, singleplayer, sceneBase.offset(0, 0, 450));
+        configure(context, "Freecam", module -> {
+            module.settings.setSetting("maxDistance", radius);
+            // Fast enough to reach the limit inside the window, still eased rather than teleporting.
+            module.settings.setSetting("speed", 1.5);
+        });
+
+        Vec3 body = position(context);
+        assertNotYet(context, client -> client.getCameraEntity() != client.player,
+                "the camera was already detached from the player before Freecam ran");
+
+        toggle(context, "Freecam", true);
+        context.waitTicks(5);
+        boolean detached = context.computeOnClient(client ->
+                client.getCameraEntity() != null && client.getCameraEntity() != client.player);
+
+        context.getInput().holdKeyFor(options -> options.keyUp, 80);
+        context.waitTicks(10);
+        double travelled = context.computeOnClient(client ->
+                AgalarHackClient.moduleManager.getModule("Freecam")
+                        instanceof me.mrhakan.agalarhack.module.render.Freecam freecam
+                        ? freecam.distanceFromBody() : -1.0);
+        Vec3 bodyAfter = position(context);
+
+        toggle(context, "Freecam", false);
+        context.waitTicks(10);
+        boolean restored = context.computeOnClient(client -> client.getCameraEntity() == client.player);
+
+        if (!detached) {
+            throw new AssertionError("Freecam did not detach the camera from the player");
+        }
+        if (travelled < 1.0) {
+            throw new AssertionError("the camera moved " + travelled + " blocks while the forward key "
+                    + "was held for eighty ticks, so Freecam is not flying it");
+        }
+        // A little over, because the position is eased towards a target that is itself on the limit.
+        if (travelled > radius + 0.5) {
+            throw new AssertionError("the camera reached " + travelled + " blocks from the body with "
+                    + "the limit set to " + radius);
+        }
+        if (bodyAfter.distanceTo(body) > 0.5) {
+            throw new AssertionError("the player moved " + bodyAfter.distanceTo(body) + " blocks while "
+                    + "the camera was detached; Freecam is supposed to leave the body where it is");
+        }
+        if (!restored) {
+            throw new AssertionError("the camera was not handed back to the player when Freecam was "
+                    + "switched off, so the client is still looking through the armour stand");
+        }
+        LOGGER.info("  Freecam flew the camera {} blocks, held it inside {}, left the body still and "
+                + "gave the camera back", String.format(java.util.Locale.ROOT, "%.1f", travelled), radius);
     }
 
     /**

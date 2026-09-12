@@ -212,7 +212,7 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 23 | ItemESP | Implemented: bounded discovery, whitelist/blacklist, rarity colouring, count/distance labels |
 | 24 | ProjectileESP | Implemented: bounded discovery, boxes and heading lines; TNT optional |
 | 25 | Projectile warning | Implemented: closest-approach estimate through the shared simulator, labelled as an estimate, informational only |
-| 26 | Freecam expansion | Partial existing camera/body/motion settings plus restoration changes; full requested controls/QA pending |
+| 26 | Freecam expansion | Implemented: camera/body/motion settings, a body marker, restoration of the previous camera entity, and a distance limit (`CameraLeash`, pure and unit tested) that keeps the camera a camera rather than a scouting tool - 24 blocks by default, 0 to remove it. A behaviour scenario flies it with the real movement keys and asserts all three promises separately: the camera detaches and moves, the body stays where it was, and the camera is handed back on disable. Camera block collision is **not** implemented and is not planned: passing through terrain is what the module is for |
 | 27 | Fullbright modes | Implemented: `nightVision` (brighter, but adds an effect the server never granted) and `gamma` (only moves the brightness slider, inside vanilla's own range, restored on disable and disconnect). The gamma mode is new and has not been used in game |
 | 28 | Camera tweaks | Implemented: no hurt shake (third mixin), bobbing, FOV override, steady FOV, all with guarded restoration |
 | 29 | Trajectory simulator | Implemented: ProjectilePhysics/ProjectileSimulator extracted and consumed by the renderer and the warning module |

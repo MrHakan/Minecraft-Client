@@ -504,6 +504,7 @@ Detaches the camera with smooth accelerated movement without moving the real pla
 | `smoothing` | `0.45` | `0.05..1` | Final position response; 1 follows the eased movement target immediately |
 | `freezePlayer` | `true` | `true/false or on/off` | Keep the real player's position anchored while freecam is active |
 | `bodyMarker` | `true` | `true/false or on/off` | Draw a marker around the real player body while the camera is detached |
+| `maxDistance` | `24` | `0..128` | How far the camera may travel from your body in blocks; 0 removes the limit |
 
 ### Fullbright
 
