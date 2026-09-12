@@ -8,10 +8,11 @@ Authority: current source > current tests > live PR description > latest handove
 
 - **PR:** [#9](https://github.com/MrHakan/Minecraft-Client/pull/9), open/draft; continue
   `codex/foundation-services-26.2`. Do not merge, force-push or open a duplicate PR.
-- **Live head inspected:** `e380412bf459285dc05479e2654aff0492e5397e` on 2026-09-12.
+- **Verified implementation head:** `86c76269ce40f7693166b23d1c72b180f41d4a7b` on 2026-09-12.
+  This evidence-only documentation commit follows it; fetch PR #9 for the live head and its CI.
   Both Astra's `5b69fc2` and the subsequent nine-commit continuation are ancestors.
   **Main:** `19f83ab888a55d9b459f84fbae27dffe39036f71`. Only #9 was open at every check.
-  203 commits against main at inspection. Re-fetch before publishing: two sessions have pushed to this branch,
+  205 commits against main at the verified implementation head (206 with this evidence checkpoint). Re-fetch before publishing: two sessions have pushed to this branch,
   so never assume the head in a handover note is current.
 - **Version:** Minecraft 26.2, Loader 0.19.3, Fabric API 0.157.0+26.2, Java 25.
 - **Modules:** 53 built-ins, 0 UNTESTED; 22 baseline exemptions plus 31 behaviour-mapped modules.
@@ -19,7 +20,7 @@ Authority: current source > current tests > live PR description > latest handove
   game-test addon and the external packaging fixture - and neither ships. It said 54 before the
   external fixture existed. A zero badge count does not prove every baseline module has a dedicated
   behaviour scenario.
-- **Unit suite:** **705 executed**, 0 failures, 0 errors, 0 skipped, read from the JUnit XML by
+- **Unit suite:** **709 executed**, 0 failures, 0 errors, 0 skipped, read from the JUnit XML by
   `tools/summarize-tests.py` rather than counted from source. CI reports the same totals.
 - **Behaviour suite:** **41 grouped scenario checks across eight game-test entrypoints**: 37
   direct scenario calls in `ModuleBehaviourGameTest` (excluding the two `quietFrames` setup calls), Astra's three
@@ -28,16 +29,23 @@ Authority: current source > current tests > live PR description > latest handove
   assertions or log lines. **Three further dedicated-server checks are NOT in that count** because they are
   off by default - see below. No existing scenario or experimental-flag mapping has been removed or
   renamed by either continuation.
-- **Observed CI:** run **204** ([34707128634](https://github.com/MrHakan/Minecraft-Client/actions/runs/34707128634))
-  succeeded on the inspected `e380412` head. Its archived 98 JUnit XML files were downloaded and
+- **Observed CI:** run **205** ([34708097645](https://github.com/MrHakan/Minecraft-Client/actions/runs/34708097645))
+  **succeeded on `86c7626`**, the latest implementation commit. Archived JUnit XML re-counted:
+  709 tests, 0 failures/errors/skips across 98 suites; 27 tests in the container controller suite.
+  All four old-behaviour control assertions failed as required before restoring source; then the
+  full build, generated docs, 171 screens, 55-module lifecycle, grouped behaviour/acceptance checks,
+  external fixture jars, six mixin target checks and artifact creation passed. The three gated
+  dedicated-server checks explicitly skipped; no deprecated-API note appeared.
+  Baseline run **204** ([34707128634](https://github.com/MrHakan/Minecraft-Client/actions/runs/34707128634))
+  succeeded on the initially inspected `e380412` head. Its archived 98 JUnit XML files were downloaded and
   re-counted: 705 tests, zero failures/errors/skips. Run 203 was superseded, not failed. Run **202** ([34706598196](https://github.com/MrHakan/Minecraft-Client/actions/runs/34706598196))
-  succeeded on `8a27ed4`, the last commit in this continuation that changes code. Run **201** on
+  succeeded on `8a27ed4`, the previous continuation's last code commit. Run **201** on
   `d47d690` **failed** - see the AutoFish note below - and runs 199 and 200 succeeded on `d86db4c`
   and `1e0c00f`; Astra's run **198** succeeded on `5b69fc2`. These ran the inventory
   regression control, the JDK 25 build, the unit suite with XML totals, the headless client game
   tests, the runtime mixin check and artifact creation. Default CI is **client plus
   integrated-server** evidence; the dedicated-server scenarios are opt-in and were **not** part of
-  either run. Re-read CI for the current head before quoting a result.
+  these default runs. Re-read CI for the current head before quoting a result.
 - **Roadmap estimate:** roughly **80–85% of the useful original feature scope**, based on re-reading
   implementation and remaining requested depth across the 87 items. This is a qualitative estimate,
   not measured effort, an average of old percentages, or a release-readiness score. Some whole systems
@@ -124,14 +132,14 @@ performed only one click.
   utility arbiter are preserved. A consumed click cannot be undone by a later urgent request; that
   request retries next tick. No Minecraft API, rendering, game-test scenario or addon API changed.
 - Four unit tests cover repeated/priority-preempting atomics, deposit plus release, recovery plus
-  teardown, and rejected requests leaving the budget available. Expected full suite: 709; this is
-  not an execution claim until current Actions reports it.
+  teardown, and rejected requests leaving the budget available. CI 205 executed all 709 unit tests
+  successfully; the archived XML was downloaded and counted independently.
 - The existing regression control now restores both old defects and requires all four named
   assertions (one recovery, three budget regressions) to fail. Fresh-report deletion, the missing
   report guard and exact source restoration remain mandatory. Full build/game tests follow it.
 - Local worker has Java 17 runtime only, no `/opt/jdk25`; no local Java 25 or game-run result is
-  claimed. The head-matched continuation result is recorded in PR #9 after Actions completes;
-  CI 204 above certifies the inspected baseline, not these edits.
+  claimed. Validation came from CI 205 on the exact implementation head; the final documentation
+  commit's own CI status is maintained in PR #9. CI 204 remains baseline evidence only.
 
 The review is scoped to inventory sequencing and its composition order, plus reconciliation of
 current tests/docs; it is not a new exhaustive audit of all 342 changed files. Peer edits, dedicated
