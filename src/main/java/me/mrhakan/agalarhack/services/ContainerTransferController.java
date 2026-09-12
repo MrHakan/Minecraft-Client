@@ -46,6 +46,11 @@ public final class ContainerTransferController {
     private int step;
     private int cooldown;
     private int delay = 1;
+    // The pacing of the plan currently running. Separate from `delay` because pacing belongs to the
+    // plan, not to the channel: AutoArmor and AutoRefill set a click delay to be gentle, and while
+    // it lived on the controller alone an emergency totem equip - which asks for no delay at all -
+    // ran at whichever of them happened to touch the setting last.
+    private int planDelay = 1;
     private boolean recovering;
     // Ownership may end or change after a click; neither gives the current tick another click.
     private boolean clickedThisTick;
@@ -68,8 +73,10 @@ public final class ContainerTransferController {
         return actions.claimContainer(owner, priority);
     }
 
-    /** Ticks between clicks. One tick is already slower than a player's hand. */
-    public void setDelay(int ticks) { this.delay = Math.max(0, Math.min(20, ticks)); }
+    /** Default ticks between clicks, for plans that do not ask for their own pacing. */
+    public void setDelay(int ticks) { this.delay = clampDelay(ticks); }
+
+    private static int clampDelay(int ticks) { return Math.max(0, Math.min(20, ticks)); }
 
     public boolean busy() { return owner != null; }
     public boolean owns(String owner) { return this.owner != null && this.owner.equals(owner); }
@@ -79,6 +86,15 @@ public final class ContainerTransferController {
      * priority owner, when the client is not in a safe state, or when the cursor is already in use.
      */
     public boolean begin(String owner, int priority, int[] menuSlots) {
+        return begin(owner, priority, menuSlots, delay);
+    }
+
+    /**
+     * As {@link #begin(String, int, int[])}, but paced by this plan rather than by whatever the last
+     * caller left on the controller. A module with a click delay passes its own; one that wants the
+     * channel as fast as it is allowed passes zero and is not slowed by someone else's setting.
+     */
+    public boolean begin(String owner, int priority, int[] menuSlots, int delayTicks) {
         if (owner == null || owner.isBlank() || menuSlots == null || menuSlots.length == 0 || menuSlots.length > MAX_PLAN) return false;
         // Negative PICKUP ids include vanilla's outside-window drop sentinel. Reject the whole
         // plan before acquiring ownership or issuing any click, including a bad final slot.
@@ -90,6 +106,7 @@ public final class ContainerTransferController {
         this.plan = menuSlots.clone();
         this.step = 0;
         this.cooldown = 0;
+        this.planDelay = clampDelay(delayTicks);
         this.recovering = false;
         return true;
     }
@@ -141,12 +158,12 @@ public final class ContainerTransferController {
         if (step < plan.length) {
             clickedThisTick = true;
             controls.pickup(plan[step++]);
-            cooldown = delay;
+            cooldown = planDelay;
             return;
         }
         if (!controls.cursorEmpty()) {
             int free = controls.emptyStorageMenuSlot();
-            if (free >= 0) { clickedThisTick = true; controls.pickup(free); cooldown = delay; recovering = true; return; }
+            if (free >= 0) { clickedThisTick = true; controls.pickup(free); cooldown = planDelay; recovering = true; return; }
             // Inventory is full and the stack cannot be put down safely. Hold the channel rather
             // than dropping the item; the next free slot completes the recovery.
             recovering = true;

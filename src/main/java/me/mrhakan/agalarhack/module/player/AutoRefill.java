@@ -46,7 +46,7 @@ public class AutoRefill extends Module {
         if (transfers.busy()) return;
         if (cooldown > 0) { cooldown--; return; }
 
-        transfers.setDelay((int) Math.round(getNumberSetting("clickDelay", 1)));
+        int clickDelay = (int) Math.round(getNumberSetting("clickDelay", 1));
         int threshold = (int) Math.round(getNumberSetting("threshold", 8));
         boolean preserveNamed = getBooleanSetting("preserveNamed", true);
         boolean selectedOnly = getBooleanSetting("selectedOnly", false);
@@ -60,7 +60,7 @@ public class AutoRefill extends Module {
             if (source < 0) continue;
             // Clicking a slot that already holds the same item merges into it, so the standard
             // three-click plan tops the hotbar stack up and returns any remainder to the source.
-            if (transfers.begin(OWNER, PRIORITY, InventoryTransfers.equipPlan(source, InventoryTransfers.menuSlot(hotbar)))) {
+            if (transfers.begin(OWNER, PRIORITY, InventoryTransfers.equipPlan(source, InventoryTransfers.menuSlot(hotbar)), clickDelay)) {
                 cooldown = (int) Math.round(getNumberSetting("delay", 4));
             }
             return;

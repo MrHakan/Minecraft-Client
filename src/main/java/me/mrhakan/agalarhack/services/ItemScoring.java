@@ -106,10 +106,24 @@ public final class ItemScoring {
      * delta so automation does not thrash between two nearly identical pieces.
      */
     public static boolean isUpgrade(double candidate, double current, double minimumImprovement) {
-        if (!Double.isFinite(candidate)) return false;
-        double baseline = Double.isFinite(current) ? current : Double.NEGATIVE_INFINITY;
+        return Double.isFinite(candidate) && candidate > upgradeBaseline(current, minimumImprovement);
+    }
+
+    /**
+     * The score a candidate has to beat, as one number, so a selection loop and {@link #isUpgrade}
+     * cannot disagree about the same rule.
+     *
+     * <p><strong>An empty slot floors at zero rather than at negative infinity, and that is the
+     * whole point of this method.</strong> {@link InventorySelection#best} takes this as its
+     * baseline and picks anything strictly above it, while the scorers it calls refuse a candidate
+     * by returning -1. A baseline of negative infinity therefore makes "no thanks" the winning
+     * answer: with an empty armour slot and nothing wearable in the bag, every slot refused and the
+     * first refusal was selected. AutoArmor then built an equip plan for whatever sat in inventory
+     * slot zero and, because it returns after the first slot it acts on, never looked at the chest,
+     * legs or feet at all.
+     */
+    public static double upgradeBaseline(double current, double minimumImprovement) {
         double threshold = Double.isFinite(minimumImprovement) ? Math.max(0, minimumImprovement) : 0;
-        if (baseline == Double.NEGATIVE_INFINITY) return candidate > 0;
-        return candidate - baseline > threshold;
+        return Double.isFinite(current) ? current + threshold : 0;
     }
 }

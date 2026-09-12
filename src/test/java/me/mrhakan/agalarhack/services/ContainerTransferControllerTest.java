@@ -52,6 +52,35 @@ class ContainerTransferControllerTest {
         assertEquals(2, controls.clicks.size());
     }
 
+    /**
+     * One module's click delay must not pace another module's plan.
+     *
+     * <p>The delay lived on the controller and outlived the plan that set it, and only AutoArmor and
+     * AutoRefill ever set it - both every tick, to be gentle. AutoTotem shares the same channel and
+     * sets nothing, so an emergency totem equip ran at whichever of the two touched the setting
+     * last: three clicks stretched from three ticks to twenty-one, which is a long time to be one
+     * hit from dead.
+     */
+    @Test void aPlansPacingIsItsOwnAndNotTheLastCallersS() {
+        var controls = new FakeControls();
+        var actions = new UtilityActionManager();
+        var controller = new ContainerTransferController(controls, actions);
+
+        // AutoArmor, being gentle on the server.
+        controller.setDelay(20);
+        assertTrue(controller.begin("autoarmor", 50, new int[] { 10, 6 }, 20));
+        controller.tick();
+        assertEquals(1, controls.clicks.size());
+        controller.release("autoarmor");
+        controls.clicks.clear();
+
+        // AutoTotem, which asks for no pacing at all and must not inherit the twenty above.
+        assertTrue(controller.begin("autototem", 90, new int[] { 10, 45, 10 }, 0));
+        controller.tick(); controller.tick(); controller.tick();
+        assertEquals(List.of("pickup:10", "pickup:45", "pickup:10"), controls.clicks,
+                "the emergency plan was paced by another module's click delay");
+    }
+
     @Test void aPlanNeverStartsWithAStackOnTheCursor() {
         var controls = new FakeControls();
         controls.cursorEmpty = false;

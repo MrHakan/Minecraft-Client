@@ -81,4 +81,48 @@ class ItemScoringTest {
         assertEquals(255, absurd.sharpness());
         assertTrue(Double.isFinite(ItemScoring.weaponScore(absurd, TargetFamily.GENERIC, 0.5)));
     }
+
+    /**
+     * An empty slot must not turn a refusal into the winning candidate.
+     *
+     * <p>{@link InventorySelection#best} picks anything strictly above its baseline, and the scorers
+     * that feed it say "not this one" by returning -1. So a baseline below -1 selects a refusal.
+     * That is exactly what an empty armour slot used to produce: findBestArmor floored at negative
+     * infinity, so with nothing wearable in the bag it answered "inventory slot 0" instead of
+     * "nothing", and AutoArmor tried to wear whatever happened to be there.
+     *
+     * <p>The first assertion is the trap itself, kept so the mechanism stays visible; the second is
+     * the rule that closes it.
+     */
+    @Test void anEmptySlotIsFlooredAboveTheRefusalSentinel() {
+        assertEquals(0, InventorySelection.best(5, Double.NEGATIVE_INFINITY, slot -> -1),
+                "the trap: with no floor, every slot refusing still selects the first one");
+
+        double baseline = ItemScoring.upgradeBaseline(Double.NEGATIVE_INFINITY, 0);
+        assertTrue(baseline >= 0, "an empty slot must floor at zero, not below the sentinel");
+        assertEquals(-1, InventorySelection.best(5, baseline, slot -> -1),
+                "every slot refused, so nothing may be selected");
+    }
+
+    /** A real candidate still wins from an empty slot, which is the case the floor must not break. */
+    @Test void anEmptySlotStillAcceptsSomethingWearable() {
+        double baseline = ItemScoring.upgradeBaseline(Double.NEGATIVE_INFINITY, 0);
+        assertEquals(2, InventorySelection.best(5, baseline, slot -> slot == 2 ? 7.5 : -1));
+    }
+
+    /** The extracted rule and the predicate that used to own it must not drift apart. */
+    @Test void theBaselineAndTheUpgradeRuleAgree() {
+        double[] currents = { Double.NEGATIVE_INFINITY, 0, 3.25, 10 };
+        double[] improvements = { 0, 0.5, 5 };
+        double[] candidates = { -1, 0, 0.5, 3.24, 3.26, 10.4, 10.6, 99 };
+        for (double current : currents) {
+            for (double improvement : improvements) {
+                for (double candidate : candidates) {
+                    assertEquals(candidate > ItemScoring.upgradeBaseline(current, improvement),
+                            ItemScoring.isUpgrade(candidate, current, improvement),
+                            "candidate=" + candidate + " current=" + current + " min=" + improvement);
+                }
+            }
+        }
+    }
 }

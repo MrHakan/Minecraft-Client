@@ -132,15 +132,24 @@ public final class InventoryService {
         LocalPlayer player = observedPlayer;
         for (int slot = 0; slot < 36; slot++) {
             var change = observed.update(slot, player.getInventory().getItem(slot));
-            if (change != null) events.post(new me.mrhakan.agalarhack.events.ClientEvents.InventoryUpdated(player, slot,
-                    change.previous() == null ? ItemStack.EMPTY : change.previous(), change.current()));
+            // A null previous means this slot has not been looked at yet for this player, which
+            // happens on every respawn, dimension change and reconnect. Starting to watch is not a
+            // change, so it is seeded rather than announced: reporting it invented a previous value
+            // of EMPTY and posted thirty-six events, most of them EMPTY -> EMPTY, which is an event
+            // whose own two fields say nothing happened.
+            if (change != null && change.previous() != null) {
+                events.post(new me.mrhakan.agalarhack.events.ClientEvents.InventoryUpdated(
+                        player, slot, change.previous(), change.current()));
+            }
             if (observedPlayer != player || mc.player != player) return;
         }
         for (int index = 0; index < EQUIPMENT.length; index++) {
             var slot = EQUIPMENT[index];
             var change = equipment.update(index, player.getItemBySlot(slot));
-            if (change != null) events.post(new me.mrhakan.agalarhack.events.ClientEvents.EquipmentUpdated(player, slot,
-                    change.previous() == null ? ItemStack.EMPTY : change.previous(), change.current()));
+            if (change != null && change.previous() != null) {
+                events.post(new me.mrhakan.agalarhack.events.ClientEvents.EquipmentUpdated(
+                        player, slot, change.previous(), change.current()));
+            }
             if (observedPlayer != player || mc.player != player) return;
         }
         int selected = selectedSlot();
@@ -281,7 +290,10 @@ public final class InventoryService {
     public int findBestArmor(EquipmentSlot slot, double minimumImprovement, boolean preserveNamed, boolean storageOnly) {
         if (mc.player == null || slot == null) return -1;
         double current = armorScore(mc.player.getItemBySlot(slot), slot);
-        double baseline = Double.isFinite(current) ? current + Math.max(0, minimumImprovement) : Double.NEGATIVE_INFINITY;
+        // The same rule isUpgrade applies, taken from it rather than written out again here. The
+        // second copy is what was wrong: it floored an empty slot at negative infinity, which the
+        // -1 refusals below clear.
+        double baseline = ItemScoring.upgradeBaseline(current, minimumImprovement);
         return InventorySelection.best(InventoryTransfers.INVENTORY_SIZE, baseline, index -> {
             if (storageOnly && InventoryTransfers.isHotbarIndex(index)) return -1;
             ItemStack stack = mc.player.getInventory().getItem(index);

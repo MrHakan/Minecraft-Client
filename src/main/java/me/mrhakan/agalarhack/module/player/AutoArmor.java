@@ -50,7 +50,7 @@ public class AutoArmor extends Module {
         if (transfers.busy()) return;
         if (cooldown > 0) { cooldown--; return; }
 
-        transfers.setDelay((int) Math.round(getNumberSetting("clickDelay", 1)));
+        int clickDelay = (int) Math.round(getNumberSetting("clickDelay", 1));
         double minimum = getNumberSetting("minImprovement", 0.5);
         boolean preserveNamed = getBooleanSetting("preserveNamed", true);
         boolean storageOnly = getBooleanSetting("storageOnly", false);
@@ -60,7 +60,7 @@ public class AutoArmor extends Module {
             if (source < 0) continue;
             int target = armorMenuSlot(slot);
             if (target < 0) continue;
-            if (transfers.begin(OWNER, PRIORITY, InventoryTransfers.equipPlan(source, target))) {
+            if (transfers.begin(OWNER, PRIORITY, InventoryTransfers.equipPlan(source, target), clickDelay)) {
                 cooldown = (int) Math.round(getNumberSetting("delay", 4));
             }
             return;
