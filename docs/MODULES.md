@@ -12,7 +12,7 @@ Every module here is enabled, ticked and disabled inside a real world on every p
 request, so an UNTESTED one is known not to crash; what is missing is a check that it
 does the thing it exists to do. The badge is cleared in the commit that adds that check.
 
-53 modules across 6 categories; 17 marked UNTESTED.
+53 modules across 6 categories; 15 marked UNTESTED.
 
 ## Combat
 
@@ -568,7 +568,7 @@ Style, sort and align the enabled-module HUD
 | `animationSpeed` | `0.25` | `0.05..1` | How quickly rows settle; 1 is instant |
 | `slideDistance` | `14` | `0..60` | How far a row slides in from, in pixels |
 
-### Nametags — UNTESTED
+### Nametags
 
 Compact single-line nametags with health, armour and held item
 
@@ -686,7 +686,7 @@ Shows the active combat target with health, gear and status effects
 | `hurtIndicator` | `true` | `true/false or on/off` | Tint the bar while the target is taking damage |
 | `timeout` | `3` | `0.5..10` | How long a stale target remains visible in seconds |
 
-### Tracers — UNTESTED
+### Tracers
 
 Draws lines toward chosen entity groups, independent of ESP filters
 

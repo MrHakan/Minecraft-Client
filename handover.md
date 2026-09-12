@@ -273,7 +273,7 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 84 | Error reporting | Reviewed. Module tick, render, scanner, command, macro and HUD boundaries were already guarded. The one real gap was the shared chat callback: the bus detaches a listener that throws, so one chat module's bug disabled all three for the session. `ModuleGuard` now contains each module separately and reports once per failure episode, and ChatFilter fails open so a broken filter cannot hide chat |
 | 85 | Structured logging | Implemented SLF4J replacement for raw stderr. One `System.out.println` survived in the profile auto-load path and has now been replaced; the rest of the audit remains |
 | 86 | Module documentation | Implemented: `docs/MODULES.md` is generated from the live settings registry and a test fails when it and the code disagree, rewriting the file as it fails |
-| 87 | Experimental flags | Implemented: `markExperimental()` plus an UNTESTED badge in the ClickGUI, surfaced in the generated module reference. 17 of the original 31 remain; a source-level test stops a new module shipping unmarked **and** refuses a cleared flag that does not name a game test scenario that still exists |
+| 87 | Experimental flags | Implemented: `markExperimental()` plus an UNTESTED badge in the ClickGUI, surfaced in the generated module reference. 15 of the original 31 remain; a source-level test stops a new module shipping unmarked **and** refuses a cleared flag that does not name a game test scenario that still exists |
 
 ## Recommended next development batch
 
@@ -501,7 +501,7 @@ by editing a list — which is the only thing that makes the badge worth anythin
 
 Cleared so far: AutoTotem, AutoArmor, AutoWalk, SafeWalk, Parkour, CameraTweaks, AutoRefill,
 InventoryCleaner, AutoWeapon, BetterChat, ChatFilter, ChatMentions, AutoAccept, HoleESP,
-SafeWalk.
+SafeWalk, Tracers, Nametags.
 
 Write the control half of every scenario first. Each one asserts the effect is *absent* before the
 module is switched on; without that, an assertion that passes because the game does it anyway looks
@@ -955,10 +955,11 @@ scenario then measures an empty field and blames the module. This was made four 
 SafeWalk pit (which is what turned CI red twice), the tracer target, the hole, and AutoWeapon's
 armour stand. Teleport, `waitForChunksRender()`, wait ~40 ticks, *then* build. It is worth a helper.
 
-### Tracers and Nametags: what is known, for whoever picks them up
+### Tracers and Nametags: solved, and what it took
 
-Both were built and then taken back out, because they were not passing and should never have been
-committed in that state. The scenario is recoverable from commit `e1c0b74`. What it cost to learn:
+Both pass now - Tracers at 119 changed pixels and Nametags at 675, each against a noise floor of
+exactly zero, identical across three local runs and CI run 179. Neither module was ever at fault. Six
+separate wrong turns, all of them the scenario:
 
 * An **armour stand does qualify** as a Tracers target - `group()` files any `LivingEntity` that is
   not a player or item as `PASSIVE`. My first reading said otherwise and was wrong.
@@ -973,13 +974,18 @@ committed in that state. The scenario is recoverable from commit `e1c0b74`. What
 * `lookAt(pos.above())` on an armour stand sends the ray **over its head** - it is just under two
   blocks tall - and the hit comes back a miss, which reads like a module ignoring the target.
 
-With all of that right, the measurements were: HoleESP mean 1.334 / 1528 changed pixels, Tracers
-0.102 / 108, Nametags 0.013 / 27, each against a noise floor of exactly zero. So all three do draw.
-The open question is the threshold. A mean floor of 0.5 was picked from HoleESP's box and wrongly
-rejects a one-pixel tracer line; counting changed pixels is the better metric, but 27 pixels for a
-distant nametag is thin enough that any floor clearing it looks chosen to clear it. Frame the tag
-larger - closer target, aimed so the animating body falls outside the measured crop - rather than
-lowering the bar to fit.
+* A **pig is about nine tenths of a block tall**. Aiming two blocks above it, as for something
+  person-sized, puts the crosshair above the nametag entirely. Entity height decides aim geometry.
+
+Two measurement changes came out of it, and both generalise:
+
+**Count changed pixels, do not average them.** A mean over the frame reports a one-pixel line as 0.10
+and a small label as 0.013, while both are plainly drawings. The alternative on the table was picking
+a mean threshold low enough to clear 27, which is choosing a bar to fit the answer.
+
+**Measure the band where the module draws.** A nametag sits above the entity, so measuring that strip
+excludes the animating body underneath rather than letting the body's noise decide. Knowing where an
+overlay draws is what lets noise be excluded instead of tolerated.
 
 Three rules the HoleESP scenario paid for, all of them ways to read a number that means nothing:
 
