@@ -91,15 +91,14 @@ selector does not promise globally nearest results outside its bounded observed 
 
 Aura rotation defaults to None. Client/Smooth requests share one service, with yaw wrapping,
 pitch clamps, speed/step limits, priority arbitration and optional conditional return.
-Return does not overwrite a manually changed view. Silent rotation is not exposed until a
-verified appropriate movement/interaction adapter exists. No packet exploit chains are added.
+Return does not overwrite a manually changed view. Hidden/silent rotation is deliberately omitted; visible aiming is shared by Aura and `.look`. No packet exploit chains are added.
 
 ## Notifications and configuration
 
 Notifications render status/error toasts, with duration, queue bound, corner and animation
 controls under the Notifications module. Module-toggle notices can be disabled separately.
 Profile load, friend add, reconnect attempts and config recovery are connected. Queue size
-is capped at 10, text at 180 characters; repeated immediate duplicates are coalesced. Notifications are registered as a draggable HUD component. Sound remains pending.
+is capped at 10, text at 180 characters; repeated immediate duplicates are coalesced. Notifications are registered as a draggable HUD component. Optional severity-filtered sound is implemented in Notifications/NotificationSounds.
 
 The module config migrates from a legacy bare module map (v0) to:
 
@@ -134,7 +133,7 @@ the new settings. This boundary is covered by pure parsing tests.
 Fabric API 26.2 provides chunk, block-entity and player-break events but no general server-sent block
 update, so `ClientPacketListenerMixin` is the producer: TAIL injections on `handleBlockUpdate` and
 `handleChunkBlocksUpdate`, which never alter or cancel vanilla handling and run on the client thread.
-This is the mod's only mixin. `agalarhack.mixins.json` is client-only and its `compatibilityLevel` must
+The client now has six mixin classes; this is the block-update producer. `agalarhack.mixins.json` is client-only and its `compatibilityLevel` must
 remain **JAVA_25**: the mod compiles to class version 69, and a lower level is rejected at load time
 even though the build succeeds.
 
@@ -162,11 +161,9 @@ chunks. `scanInterval` now means ticks between completed passes. Undyed shulker 
 included. Chunk unload removes markers and releases active iterators. World/player changes,
 disable and config changes reset the applicable state.
 
-This is not a completed persistent chunk-result cache: lookup references live only for one
-scheduler tick; discovery still refreshes periodically. Block-update invalidation and shared
-budgets for other entity consumers remain pending. Storage scans may take multiple ticks and
-omit block entities beyond their bounded per-chunk/result caps. The submit-node pipeline is
-unchanged; rendering uses bounded snapshots and skips unloaded storage/block positions.
+BlockESP now uses the persistent bounded ChunkScanCache described below, with block/chunk/config
+invalidation. StorageESP maintains its bounded event-updated pass; it does not use that cache.
+Rendering consumes bounded snapshots and preserves the current submit-node pipeline.
 
 ## Waypoints
 
@@ -255,18 +252,13 @@ replace the branch-head CI run recorded in the PR.
   change dimension. Verify no stale world references or unloaded markers survive.
 - Check undyed/colored shulkers and storage distance culling. In-game timing and visuals remain unverified.
 
-## Remaining roadmap
+## Current scope and acceptance
 
-Phase A remains in progress: lossless gameplay input/block-update producers, specialized weapon/armor
-scoring and inventory transfers, rotation integration hardening, notification sound, further scanner/cache
-integration and additional lifecycle integration tests. Equipment has a distinct event contract from main inventory slots.
-
-Phase B now includes reusable sliders with exact entry, choices/toggles, keyboard/mouse/modifier
-bind capture, RGB/HSV/alpha colors, six independently persisted themes, dynamic HUD registration,
-inventory/information widgets and multi-selection/locking/z-order/alignment tools. Full animation,
-typography/blur/full accessibility controls, Module List transitions and richer TargetHUD remain pending. Phases C–G (deeper rendering, player utilities, movement,
-information/social, ecosystem/localization) remain pending. Phase H applies continuously;
-no phase is marked complete without its review and required validation.
+Use the authoritative CURRENT STATE at the top of handover.md. Inventory scoring/transfers, block
+updates, sound, HUD history/scale, addons, optional Baritone and most Phase C–F modules already exist.
+Remaining work is predominantly adversarial lifecycle and release acceptance, standalone addon
+packaging, dedicated-server verification, visual correctness and selected partial UI/localization depth.
+Historical build runs below/above are provenance; PR #9 records the current head-matched full CI.
 
 ## API sources inspected
 
@@ -297,7 +289,7 @@ ModuleList controls the existing `modules` HUD ID and preserves saved positions.
 hides itself; modules have a showInHud setting. The renderer supports stable width/name/category sorting,
 left/right/anchor alignment, case/display modes, rainbow/accent/category colors, background/edge/shadow
 and bounded rows. The pure ModuleListModel formats with Locale.ROOT and caps custom labels at 128 chars.
-No module-list transition animation or artificial suffix data is introduced.
+RowAnimations now supplies bounded slide/fade transitions; suffix text still comes from real module state.
 
 HUD registration is capped at 256 with non-null callbacks and validated IDs/titles. Render/measurement
 failures suspend the component and emit one error without persisting hidden state. The editor's Retry

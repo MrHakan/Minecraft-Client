@@ -1,8 +1,79 @@
 # Agalar Hack — AI agent handover
 
-Last updated: 2026-09-11 (inventory scoring / container transfer batch). Read this before implementing more features.
+## CURRENT STATE — authoritative checkpoint (2026-09-12)
 
-## Goal and current checkpoint
+Read this section first. Everything under **Historical development record** is chronological history:
+its percentages, TODOs, UNTESTED lists and claims about absent runtime tests are NOT current instructions.
+Authority: current source > current tests > live PR description > latest handover notes > generated docs.
+
+- **PR:** [#9](https://github.com/MrHakan/Minecraft-Client/pull/9), open/draft; continue
+  `codex/foundation-services-26.2`. Do not merge, force-push or open a duplicate PR.
+- **Live head inspected:** `c4e4113e626c212cc79a6e80ede7a1cfe190622c`.
+  **Main:** `19f83ab888a55d9b459f84fbae27dffe39036f71`. Only #9 was open.
+  Baseline diff: 190 commits, 329 files, +28,321/-867 lines. These numbers describe the inspected
+  checkpoint; re-fetch before publishing, and see PR #9 for this continuation's resulting head/CI.
+- **Version:** Minecraft 26.2, Loader 0.19.3, Fabric API 0.157.0+26.2, Java 25.
+- **Modules:** 53 built-ins, 0 UNTESTED; 22 baseline exemptions plus 31 behaviour-mapped modules.
+  The runtime lifecycle log says **54**, because the game-test addon registers one extra module.
+  A zero badge count does not prove every baseline module has a dedicated behaviour scenario.
+- **Unit suite:** 700 test methods in 97 test source files (699 short `@Test` annotations plus one
+  fully qualified annotation). This count is corroborated by source; CI passed the suite but did
+  not publish a per-test XML count in its console. New CI reporting will expose actual totals.
+- **Behaviour suite:** 36 existing scenarios, including command/addon paths; four Fabric game-test
+  entrypoints cover screens, world lifecycle, behaviour and swallowed failures. No existing
+  behaviour scenario or experimental-flag mapping is being removed or renamed in this continuation.
+- **Observed CI:** [34688661603](https://github.com/MrHakan/Minecraft-Client/actions/runs/34688661603),
+  job 103539994863, successful on the inspected head. Logs inspected: JDK 25 build passed in 33s;
+  real client/world game tests, behaviour scenarios, swallowed-error scan, all six mixin targets
+  and artifact creation passed. This is **integrated-server** evidence, not dedicated multiplayer.
+- **Roadmap estimate:** roughly **80–85% of the useful original feature scope**, based on re-reading
+  implementation and remaining requested depth across the 87 items. This is a qualitative estimate,
+  not measured effort, an average of old percentages, or a release-readiness score. Some whole systems
+  are implemented with deliberately narrower interfaces/presentation. Acceptance is tracked separately.
+
+### What is now established
+
+Shared event/service architecture, inventory scoring/leases/container transfers, target/rotation
+arbitration, input overrides, bounded scanners/chunk cache, projectile simulator, most utility/world/
+combat/social modules, profile selections/diffs/bindings, themes/HUD history/scale/accessibility,
+Fabric-entrypoint addons, optional reflective Baritone, and English/Turkish localization infrastructure
+exist in current code. Do not recreate them. `docs/MODULES.md` is generated; do not hand-edit it.
+
+Preserve the KeyboardInput TAIL override, per-tick use pulses with physical-input preservation,
+total/default-safe HUD placement, `.look` transition cleanup, and narrow client mixins. Netty hooks
+must not access client registries/world state. Addon API v1 is provisional and intentionally small;
+never replace Fabric entrypoints with a folder scanner/class loader.
+
+### Acceptance and remaining scope
+
+1. Independent external addon **JAR** packaging, persistence/restart/removal, failure/collision and
+   missing-client dependency checks. The in-tree addon entrypoint scenario is not this test.
+2. Real dimension/player/reconnect transitions; adversarial container cursor/full-inventory/screen
+   interruption and ownership. This continuation prioritizes a concrete release/recovery defect
+   found during independent review, with real client scenarios rather than synthetic event posts.
+3. Controlled dedicated-server/network-latency tests, real fishing bites and AutoAccept trust/cooldown;
+   installed Baritone success path. Existing integrated-server evidence does not cover these.
+4. Visual correctness: TargetHUD face, depth-tested ESP placement/colours, nametags, frustum edges,
+   waypoint beams, trajectory landing and potion/XP arcs, HUD/GUI scales and theme contrast.
+   Changed pixels prove rendering activity, not correct appearance.
+5. Remaining worthwhile depth: broader settings/command localization, optional ESP presentations,
+   legacy HUD bounds, additional suffixes and cache consumers. Cosmetic modes rank below correctness.
+
+Deliberate omissions: flooding/crashes/malformed packets/dupes/bypass presets, hidden rotation,
+server-hidden chunk classification, redundant AutoJump/use variants, cloud-required translation.
+No claim that every original sub-bullet is implemented. A separate addon template repository is still
+pending; earlier environment access claims are historical, so check actual capabilities when needed.
+
+Next: finish the current audit/regressions, run the **full** pipeline, then prioritize standalone addon
+packaging and dedicated-server acceptance. Keep the mature behaviour suite intact; splitting its large
+file is optional and should not consume this batch at the expense of regression evidence.
+
+## Historical development record
+
+> All sections below predate the authoritative checkpoint above. Earlier estimates and recommended
+> batches are preserved for provenance, not instructions to reimplement completed features.
+
+## HISTORICAL — goal and earlier checkpoint
 
 Repository: `MrHakan/Minecraft-Client`. Build a polished, maintainable Minecraft **26.2**
 Fabric utility/anarchy client with deep useful modules, predictable restoration, bounded
@@ -275,7 +346,7 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 86 | Module documentation | Implemented: `docs/MODULES.md` is generated from the live settings registry and a test fails when it and the code disagree, rewriting the file as it fails |
 | 87 | Experimental flags | Implemented: `markExperimental()` plus an UNTESTED badge in the ClickGUI, surfaced in the generated module reference. none of the original 31 remain; a source-level test stops a new module shipping unmarked **and** refuses a cleared flag that does not name a game test scenario that still exists |
 
-## Recommended next development batch
+## HISTORICAL — recommended next development batch
 
 1. Verify a **real 26.2 block-update producer** against current sources. Do not invent an event without a producer
    or paste an old-version mixin. Preserve Fabric hooks; add a narrowly scoped mixin only if necessary and verified.
@@ -955,7 +1026,7 @@ helpers this replaced had no callers left and are gone.
 mixin whose whole job is that field, and writing it from a module tick is writing to a field vanilla
 overwrites before reading.
 
-### Where to go next
+### HISTORICAL — where to go next
 
 No badges remain. Chat, render and state modules all have scenarios. `ChatView` in the game test source set
 reads `ChatComponent.allMessages` by reflection - the field is private with no accessor, and the

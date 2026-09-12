@@ -18,7 +18,7 @@ loaded. `agalarhack.mixins.json` uses `required: true` with `defaultRequire: 1`,
 cannot be applied aborts class load rather than failing quietly — but only once something loads the
 target class. Until the game runs, nothing does.
 
-## Procedure
+## Historical manual procedure (not the current acceptance gate)
 
 The client runs headless under `xvfb-run` with Mesa's software rasteriser. Minecraft 26.2 needs an
 OpenGL 3.3 core context, so the overrides below are not optional; asking llvmpipe for 3.2 makes the
@@ -75,7 +75,7 @@ which is what proves the `@At` resolved where it was meant to.
 
 Mixin 0.8.7 (sponge-mixin 0.17.3) accepted `Compatibility level set to JAVA_25`. The run reached
 `Minecraft.runTick`, past the resource reload and texture atlas stitching, with **zero mixin
-failures**. All five target classes were transformed, and all nine injections were present and
+failures**. At that historical checkpoint, five target classes were transformed and nine injections were present and
 invoked from the correct target method:
 
 | Target | Method | Injected call |
@@ -119,3 +119,17 @@ It establishes that the bytecode the game runs contains our injections, in the r
 26.2. It establishes nothing about behaviour: nobody walked off a ledge to see `SafeWalk` hold the
 edge, and nobody took damage to see `CameraTweaks` suppress the shake. The `UNTESTED` badge stays on
 every module for that reason — it tracks in-game testing, not bytecode presence.
+
+
+## Current evidence (2026-09-12)
+
+The config now contains **six classes and ten injections**, including KeyboardInput.tick's TAIL
+movement override. CI run 34688661603 starts the client, creates worlds and passes the behaviour suite;
+its six target checks passed. The timeout procedure above only records how early injection inspection
+was done and must never be treated as proof of a successful startup. SafeWalk, AutoWalk/Parkour,
+chat transformation and visible totem activations now have behaviour evidence. The old UNTESTED
+statement above is historical: there are 0 badges, with limitations described in CLIENT_GAME_TESTS.md.
+
+`tools/smoke-client.sh` currently checks an exported target contains an Agalar injection; it does not
+individually disassemble every injection call site. Source/bytecode target tests and required Mixin
+injections add coverage, but do not overstate this check as ten separate observed handler executions.

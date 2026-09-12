@@ -116,10 +116,11 @@ state - rather than widening a tolerance until CI goes quiet.
 
 ## What this does *not* prove
 
-It proves a module **runs**. It does not prove a module **works**. Nothing here asserts that AutoTotem
-actually moved a totem, that Flight actually left the ground, or that an ESP drew anything where it
-should have. Those need per-module assertions, and a module's `markExperimental()` flag should only be
-cleared in the commit that adds the assertion justifying it — not on the strength of this file.
+Lifecycle checks prove callbacks run without detected failures. The separate behaviour scenarios
+also assert player-visible effects (including actual AutoTotem/AutoArmor transfers and render activity).
+Neither proves general correctness: scene assertions cover their explicit controls and conditions only.
+Pixel differences do not establish face UVs, box placement or trajectory accuracy. The 0 UNTESTED count
+includes 22 baseline exemptions; do not interpret it as 53 independently comprehensive scenarios.
 
 Two more limits worth knowing. The world is superflat, so there are no natural ores, structures or
 caves beyond what `TestScene` places. And the run is single-player against an integrated server, so
