@@ -24,8 +24,10 @@ Authority: current source > current tests > live PR description > latest handove
   addon packaging. **Three further dedicated-server checks are NOT in that count** because they are
   off by default - see below. No existing scenario or experimental-flag mapping has been removed or
   renamed by either continuation.
-- **Observed CI:** run **199** ([34704562001](https://github.com/MrHakan/Minecraft-Client/actions/runs/34704562001))
-  succeeded on `d86db4c`; Astra's run **198** succeeded on `5b69fc2`. Both ran the inventory
+- **Observed CI:** run **202** ([34706598196](https://github.com/MrHakan/Minecraft-Client/actions/runs/34706598196))
+  succeeded on `8a27ed4`, the last commit in this continuation that changes code. Run **201** on
+  `d47d690` **failed** - see the AutoFish note below - and runs 199 and 200 succeeded on `d86db4c`
+  and `1e0c00f`; Astra's run **198** succeeded on `5b69fc2`. These ran the inventory
   regression control, the JDK 25 build, the unit suite with XML totals, the headless client game
   tests, the runtime mixin check and artifact creation. Default CI is **client plus
   integrated-server** evidence; the dedicated-server scenarios are opt-in and were **not** part of
@@ -158,6 +160,19 @@ current-state format are kept.
   Behaviour unchanged, evidenced by identical scenario numbers: HoleESP 1.335, SpawnESP 5110,
   Parkour 1.25 blocks. Together with the registry change, `./gradlew build` no longer reports any
   deprecated API use.
+
+- **A local pass is not a CI pass, and this batch proved it.** Run 201 failed on the AutoFish
+  scenario after three consecutive local passes of the same code. The cause was real rather than a
+  flake: the scenario pushed the bobber down on the server exactly **once**, and the client's own
+  hook physics then damp that with water drag and buoyancy, so the module only reels if it samples a
+  tick still descending faster than its 0.08 threshold. The run logs the steepest descent the client
+  actually saw as **-0.27 b/t**, already well damped from the -0.4 the server set, and a slower
+  runner can sample after it decays further. The cue is now applied repeatedly until the module
+  reacts - a real bite is a plunge lasting several ticks, which is why the detector suppresses
+  repeats at all - and nothing asserted was relaxed. The second half matters more: two different
+  failures used to produce the same message, so a run that never delivered a cue read as a module
+  bug. The scenario now names which side failed and prints the figure, watched both ways.
+  **Lesson for the next agent: do not publish a CI claim from local runs.**
 
 Evidence discipline for this batch: unit tested = 705 executed from JUnit XML; integrated-server
 tested = the eight-entrypoint client suite in CI; dedicated-server tested = local only, opt-in,
