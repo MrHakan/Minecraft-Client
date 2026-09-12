@@ -81,6 +81,7 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
             autoRefill(context, singleplayer);
             inventoryCleaner(context, singleplayer);
             autoWeapon(context, singleplayer);
+        weaponFamilies(context, singleplayer);
             betterChat(context, singleplayer);
             chatFilter(context, singleplayer);
             chatMentions(context, singleplayer);
@@ -1254,6 +1255,78 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
      * module sits enabled with a zombie in front of it and records nothing until Aura, which is what
      * sets the shared target, is switched on too.
      */
+    /**
+     * Whether the damage-enchantment families are actually recognised on a live client.
+     *
+     * <p>{@code InventoryService.familyOf} decides whether Smite or Bane of Arthropods weighting
+     * applies, and it decides it by asking whether the entity type is in a vanilla tag. Entity-type
+     * tags are data, sent by the server and bound onto the registry holders when they arrive, so the
+     * whole rule can quietly answer GENERIC for everything if that binding is not there on the
+     * client - with no exception and no log line. Nothing tested it: AutoWeapon's own scenario aims
+     * at an armour stand, which is GENERIC, so both tagged branches were unexercised.
+     *
+     * <p>This spawns the two mobs the tags exist for and asserts the classification directly, which
+     * also makes the migration of the deprecated registry accessor behind it a change with a test
+     * under it rather than a hopeful edit.
+     */
+    private void weaponFamilies(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        moveThere(context, singleplayer, sceneBase.offset(0, 0, 200));
+        int[] ids = singleplayer.getServer().computeOnServer(server -> {
+            ServerPlayer player = singleplayer.getConnection().getServerPlayer();
+            clearEntities(player.level());
+            BlockPos here = player.blockPosition();
+            var zombie = EntityTypes.ZOMBIE.spawn(player.level(), here.offset(2, 0, 0),
+                    EntitySpawnReason.COMMAND);
+            var spider = EntityTypes.SPIDER.spawn(player.level(), here.offset(-2, 0, 0),
+                    EntitySpawnReason.COMMAND);
+            var pig = EntityTypes.PIG.spawn(player.level(), here.offset(0, 0, 2),
+                    EntitySpawnReason.COMMAND);
+            if (zombie == null || spider == null || pig == null) {
+                throw new AssertionError("could not spawn the three mobs this scenario classifies");
+            }
+            zombie.setNoAi(true);
+            spider.setNoAi(true);
+            pig.setNoAi(true);
+            return new int[]{zombie.getId(), spider.getId(), pig.getId()};
+        });
+        context.waitTicks(20);
+
+        String families = context.computeOnClient(client -> {
+            StringBuilder seen = new StringBuilder();
+            for (int id : ids) {
+                var entity = client.level.getEntity(id);
+                if (!(entity instanceof net.minecraft.world.entity.LivingEntity living)) {
+                    return "the client has no living entity for id " + id;
+                }
+                seen.append(entity.getType().getDescriptionId()).append('=')
+                        .append(me.mrhakan.agalarhack.services.InventoryService.familyOf(living))
+                        .append(' ');
+            }
+            return seen.toString().strip();
+        });
+
+        var expected = context.computeOnClient(client -> {
+            var zombie = (net.minecraft.world.entity.LivingEntity) client.level.getEntity(ids[0]);
+            var spider = (net.minecraft.world.entity.LivingEntity) client.level.getEntity(ids[1]);
+            var pig = (net.minecraft.world.entity.LivingEntity) client.level.getEntity(ids[2]);
+            return me.mrhakan.agalarhack.services.InventoryService.familyOf(zombie)
+                    == me.mrhakan.agalarhack.services.ItemScoring.TargetFamily.UNDEAD
+                    && me.mrhakan.agalarhack.services.InventoryService.familyOf(spider)
+                    == me.mrhakan.agalarhack.services.ItemScoring.TargetFamily.ARTHROPOD
+                    && me.mrhakan.agalarhack.services.InventoryService.familyOf(pig)
+                    == me.mrhakan.agalarhack.services.ItemScoring.TargetFamily.GENERIC;
+        });
+        if (!expected) {
+            throw new AssertionError("the damage families came back as [" + families + "]. A zombie "
+                    + "must be UNDEAD and a spider ARTHROPOD; all-GENERIC means the entity-type tags "
+                    + "are not bound on the client, so Smite and Bane of Arthropods weighting never "
+                    + "applies and AutoWeapon silently ignores both enchantments");
+        }
+        singleplayer.getServer().runOnServer(server ->
+                clearEntities(singleplayer.getConnection().getServerPlayer().level()));
+        LOGGER.info("  weapon families: {}", families);
+    }
+
     private void combatHistory(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
         moveThere(context, singleplayer, sceneBase.offset(0, 0, 240));
         BlockPos where = singleplayer.getServer().computeOnServer(server -> {

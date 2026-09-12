@@ -226,10 +226,26 @@ public final class InventoryService {
                 stack.has(DataComponents.CUSTOM_NAME));
     }
 
-    /** Which damage-enchantment family applies to this target, using the vanilla entity-type tags. */
+    /**
+     * Which damage-enchantment family applies to this target, using the vanilla entity-type tags.
+     *
+     * <p>Asked through the registry rather than through {@code EntityType.builtInRegistryHolder()},
+     * which is deprecated: an intrusive holder is an implementation detail of how built-in registries
+     * are populated, and the registry is the supported way to get a holder for a value. It is the
+     * same holder object either way for a registered type - {@code wrapAsHolder} returns the
+     * registry's own reference - so the tag test is unchanged, and an unregistered type now yields a
+     * direct holder that simply has no tags instead of relying on the intrusive one being empty.
+     *
+     * <p>The tags themselves are data the server sends, bound onto those holders when it arrives. If
+     * that binding were missing this would answer GENERIC for everything, with no exception and no
+     * log line, and Smite and Bane of Arthropods weighting would silently never apply. That is why
+     * the {@code weaponFamilies} game test classifies a real zombie, spider and pig rather than
+     * trusting it.
+     */
     public static ItemScoring.TargetFamily familyOf(LivingEntity target) {
         if (target == null) return ItemScoring.TargetFamily.GENERIC;
-        var type = target.getType().builtInRegistryHolder();
+        var type = net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE
+                .wrapAsHolder(target.getType());
         if (type.is(EntityTypeTags.SENSITIVE_TO_SMITE)) return ItemScoring.TargetFamily.UNDEAD;
         if (type.is(EntityTypeTags.SENSITIVE_TO_BANE_OF_ARTHROPODS)) return ItemScoring.TargetFamily.ARTHROPOD;
         return ItemScoring.TargetFamily.GENERIC;
