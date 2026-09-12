@@ -99,6 +99,7 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
             clickGuiTransition(context);
             freecam(context, singleplayer);
             lookCommand(context, singleplayer);
+            baritoneAbsent(context, singleplayer);
             quietFrames(context, true);
             holeEsp(context, singleplayer);
             tracersAndNametags(context, singleplayer);
@@ -1967,6 +1968,53 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
                     + "\"; the highlight is on the wrong characters");
         }
         LOGGER.info("  BetterChat coloured \"{}\" inside the line and left the rest of it alone", coloured);
+    }
+
+    /**
+     * What happens when Baritone is not installed, which is the case this client ships in.
+     *
+     * <p>The danger the bridge exists to avoid is one line long: sending {@code #goto 100 64 -200}
+     * as a chat message puts a player's base coordinates in front of the whole server the moment
+     * Baritone is missing or its prefix is off. So the assertion is not only that the player is told
+     * something useful — it is that <em>no</em> line beginning with the Baritone prefix ever reached
+     * the chat, and that the server never echoed one back.
+     *
+     * <p>The other half, a Baritone that is present, cannot be tested here: the client under test
+     * has no Baritone. That half is covered by the unit tests, which run the bridge's reflection
+     * against a stub carrying the documented API names and shapes.
+     */
+    private void baritoneAbsent(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        moveThere(context, singleplayer, sceneBase.offset(0, 0, 510));
+        boolean installed = context.computeOnClient(client ->
+                me.mrhakan.agalarhack.services.ClientServices.require(
+                        me.mrhakan.agalarhack.services.BaritoneBridge.class).available());
+        if (installed) {
+            throw new AssertionError("Baritone turned out to be on the test classpath, so this "
+                    + "scenario is measuring the wrong half; it asserts the absent behaviour");
+        }
+
+        context.runOnClient(client -> me.mrhakan.agalarhack.managers.CommandManager.handleChat(
+                me.mrhakan.agalarhack.AgalarHackClient.prefix + "goto 1000 64 -2000"));
+        context.waitTicks(20);
+
+        boolean told = context.computeOnClient(client ->
+                ChatView.contains(client, "Baritone is not installed"));
+        // The coordinates must not appear anywhere except inside the client's own refusal.
+        java.util.List<String> leaked = context.computeOnClient(client ->
+                ChatView.lines(client).stream()
+                        .filter(line -> line.contains("#goto") || line.contains("1000")
+                                && !line.contains("Baritone is not installed"))
+                        .toList());
+
+        if (!told) {
+            throw new AssertionError("the goto command said nothing about Baritone being missing; "
+                    + "a command that silently does nothing is how a player ends up typing it again");
+        }
+        if (!leaked.isEmpty()) {
+            throw new AssertionError("something reached the chat that should not have: " + leaked
+                    + "; this is exactly the coordinate leak the bridge exists to prevent");
+        }
+        LOGGER.info("  goto refused without Baritone and put nothing in chat");
     }
 
     /**

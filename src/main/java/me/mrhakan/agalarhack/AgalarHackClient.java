@@ -87,6 +87,8 @@ public class AgalarHackClient implements ClientModInitializer {
                 new me.mrhakan.agalarhack.services.RotationService(Minecraft.getInstance()));
         // Between the modules at 40 and the resolve at 20, so a command's aim is arbitrated against
         // a module's on the same tick rather than a tick behind it.
+        services.register(me.mrhakan.agalarhack.services.BaritoneBridge.class,
+                new me.mrhakan.agalarhack.services.BaritoneBridge());
         var look = services.register(me.mrhakan.agalarhack.services.LookController.class,
                 new me.mrhakan.agalarhack.services.LookController());
         EVENTS.subscribe(ClientEvents.ClientTick.class, "look", 35, event -> {

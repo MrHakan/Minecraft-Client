@@ -98,6 +98,7 @@ public class CommandManager {
         commands.add(new MacroCommand());
         commands.add(new Panic());
         commands.add(new me.mrhakan.agalarhack.commands.impl.Look());
+        commands.add(new me.mrhakan.agalarhack.commands.impl.Goto());
     }
 
     private static String firstWord(String line) {

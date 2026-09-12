@@ -260,7 +260,7 @@ increase reflects deeper existing controls, not completion of the whole phase.
 | 71 | Addon API | Internal groundwork only; no external stable API or JAR loading |
 | 72 | Addon metadata | Not started |
 | 73 | Addon template repo | Not created; create MrHakan/AgalarHack-Addon-Template only after API stability |
-| 74 | Baritone | **Deliberately deferred.** Baritone has no 26.2 build, so any bridge would be unverifiable, and the obvious shortcut - sending `#goto` through `sendChat` - leaks the command to public chat whenever Baritone is absent or its prefix is off. Revisit when a 26.2 Baritone exists and its API can actually be called |
+| 74 | Baritone | Implemented as `BaritoneBridge` plus `.goto`. **The earlier deferral was wrong on its facts**: 26.2 Baritone builds do exist for Fabric (loader 0.19.3, Java 25, Mojang mappings - the same as this project), so the bridge is buildable after all. The second objection stood and shaped the design: **nothing here ever sends chat**, because `#goto 100 64 -200` as a chat message broadcasts a player's base the moment Baritone is missing or its prefix is off. Every call is a reflective Java call against the documented `baritone.api` surface, so Baritone stays an optional dependency with no compile-time link, and a moved API produces one log line rather than a crash. Presence is decided by whether the API class loads rather than by a mod id, since Baritone ships under several |
 | 75 | Localization | Partial: `Translations` with English fallback, `en_us`/`tr_tr`, ClickGUI labels and **all 52 module descriptions** translated, guarded by three key tests. Module **names** stay untranslated deliberately - they are the identifiers commands and configs use. Setting descriptions and command output remain English |
 | 76 | Accessibility | Implemented: keyboard controls, paginated themes, high contrast/reduced motion, two colourblind presets, a WCAG contrast guard that raises text a picked or imported theme made unreadable, and a HUD scale from half size to double for readers who need the overlay larger. Screen scale is vanilla's GUI scale, deliberately not duplicated (see 12) |
 | 77 | Unified scheduler | Implemented: all nine scanning modules go through it, and the shared per-tick ceiling is now tunable through `ScanBudgets` and the Performance module. Balanced reproduces the previous constants exactly |
@@ -1086,6 +1086,11 @@ Fabric's 26.2 `ClientChunkCacheMixin`. Do not reintroduce 1.20/1.21 examples bli
 - Themes: edit nested presets/colors, apply/cancel, GUI shortcut close, external screen replacement and disconnect.
   Test page navigation at GUI scales, high contrast on/off with custom colors, reduced-motion precedence,
   preset changes preserving accessibility and theme export/import. Preserve a deliberately unreadable theme file.
+- Baritone: with a 26.2 Baritone actually installed, confirm `.goto <x> <z>`, `.goto <x> <y> <z>`,
+  `.goto <waypoint>` and `.goto stop` each drive it, and that the client still starts and behaves with
+  Baritone absent. The unit tests run the bridge's reflection against a stub carrying the documented
+  API names and shapes, and the game test covers the absent case on a real client; **neither has ever
+  called the real Baritone**, and only this check can.
 - HUD scale: drag a widget in the HUD editor at 0.5, 1.0 and 2.0 and confirm it lands where the editor
   drew it, that a right- or bottom-anchored widget still reaches its edge, and that snapping and the
   safe margin still behave. The game test proves the HUD draws at a different size and that the theme
