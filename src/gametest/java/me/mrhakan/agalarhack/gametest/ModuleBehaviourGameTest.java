@@ -78,6 +78,8 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
             quietFrames(context, true);
             holeEsp(context, singleplayer);
             tracersAndNametags(context, singleplayer);
+            itemEsp(context, singleplayer);
+            breadcrumbs(context, singleplayer);
             quietFrames(context, false);
 
             LOGGER.info("Module behaviour scenarios passed");
@@ -725,7 +727,23 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
         double noise = Frames.difference(before, stillOff);
 
         toggle(context, "HoleESP", true);
-        // The scanner works through its budget over several ticks before anything is marked.
+        // Waited for, not timed. The scanner works through a budget spread over ticks, and how many
+        // it needs is not fixed - a run where sixty were not enough photographed an unmarked hole
+        // and reported that the module had drawn nothing. Polling for the result separates "the
+        // scanner has not finished" from "the module drew nothing", which are different failures.
+        boolean found = false;
+        for (int waited = 0; waited < window * 4 && !found; waited += 10) {
+            context.waitTicks(10);
+            found = context.computeOnClient(client ->
+                    !((me.mrhakan.agalarhack.module.render.HoleESP)
+                            AgalarHackClient.moduleManager.getModule("HoleESP")).results().isEmpty());
+        }
+        if (!found) {
+            toggle(context, "HoleESP", false);
+            throw new AssertionError("HoleESP never reported the hole the scenario dug, so there was "
+                    + "nothing for it to draw; the scan did not finish rather than the module failing");
+        }
+        // The same window as the noise measurement, now that there is something to photograph.
         context.waitTicks(window);
         java.nio.file.Path on = context.takeScreenshot("holeesp-on");
         toggle(context, "HoleESP", false);
@@ -794,6 +812,109 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
         context.getInput().pressKey(options -> options.keyToggleGui);
     }
 
+    /**
+     * A dropped item, measured by the label the module writes above it.
+     *
+     * <p>Same shape as the nametag scenario and for the same reason: a drop bobs and spins by
+     * itself, so measuring the band above it counts the label and excludes the animation rather
+     * than tolerating it. The drop is set never to be picked up, which would otherwise end the
+     * scenario halfway through by removing the thing being looked at.
+     */
+    private void itemEsp(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        configure(context, "ItemESP", module -> {
+            module.settings.setSetting("labels", true);
+            module.settings.setSetting("boxes", true);
+        });
+
+        moveThere(context, singleplayer, sceneBase.offset(0, 0, 90));
+        BlockPos drop = singleplayer.getServer().computeOnServer(server -> {
+            ServerPlayer player = singleplayer.getConnection().getServerPlayer();
+            ServerLevel level = player.level();
+            for (Entity entity : level.getAllEntities()) {
+                if (!(entity instanceof ServerPlayer)) entity.discard();
+            }
+            BlockPos where = player.blockPosition().offset(0, 0, 5);
+            var item = new net.minecraft.world.entity.item.ItemEntity(level,
+                    where.getX() + 0.5, where.getY(), where.getZ() + 0.5,
+                    new ItemStack(Items.DIAMOND, 3));
+            item.setNeverPickUp();
+            item.setUnlimitedLifetime();
+            item.setDeltaMovement(Vec3.ZERO);
+            if (!level.addFreshEntity(item)) {
+                throw new AssertionError("could not drop an item at " + where);
+            }
+            return where;
+        });
+        context.getInput().lookAt(drop);
+        context.waitTicks(40);
+        drawsSomething(context, "ItemESP", "a label over the dropped diamonds", 0.10, 0.50);
+    }
+
+    /**
+     * The trail is built by walking, so this one runs backwards: the module is on while the player
+     * moves, and switched off afterwards to get the frame without it.
+     *
+     * <p>Every other scenario measures off, then on. Here that is impossible - there is nothing to
+     * draw until the player has been somewhere - so the two off frames come last and the comparison
+     * runs the other way. A difference does not care which frame came first.
+     */
+    private void breadcrumbs(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        moveThere(context, singleplayer, sceneBase.offset(0, 0, 120));
+        configure(context, "Breadcrumbs", module -> module.settings.setSetting("minDistance", 0.5));
+
+        toggle(context, "Breadcrumbs", true);
+        context.getInput().holdKeyFor(options -> options.keyUp, 60);
+        context.waitTicks(20);
+        // Turned around, so the trail just walked is in front of the camera rather than behind it.
+        context.getInput().lookAt(0.0f, 10.0f);
+        context.runOnClient(client -> client.player.setYRot(client.player.getYRot() + 180.0f));
+        context.waitTicks(20);
+
+        java.nio.file.Path withTrail = context.takeScreenshot("breadcrumbs-on");
+        toggle(context, "Breadcrumbs", false);
+        context.waitTicks(20);
+        java.nio.file.Path plain = context.takeScreenshot("breadcrumbs-off-1");
+        context.waitTicks(60);
+        java.nio.file.Path plainAgain = context.takeScreenshot("breadcrumbs-off-2");
+
+        int noise = Frames.changedPixels(plain, plainAgain, 0.25, 0.75);
+        int signal = Frames.changedPixels(plainAgain, withTrail, 0.25, 0.75);
+        LOGGER.info("    Breadcrumbs pixels: noise={} signal={}", noise, signal);
+        assertDrew("Breadcrumbs", "trail behind a player that had just walked", noise, signal);
+        LOGGER.info("  Breadcrumbs drew the trail the player had just walked");
+    }
+
+    /**
+     * The verdict, and the reason for it.
+     *
+     * <p>The test is the ratio: the module has to move the picture several times more than the scene
+     * moves on its own, measured over the same number of ticks in the same run. The absolute floor
+     * only rules out a handful of stray pixels when the scene is perfectly still and the noise is
+     * zero, which would otherwise let any difference at all count.
+     *
+     * <p>A high noise floor is not by itself a failure. It was, at first, and that rejected ItemESP
+     * moving 1822 pixels against a drop bobbing through 210 - a margin of nearly nine times. What a
+     * high noise floor does mean is that a *failure* needs a different explanation, so it chooses the
+     * message: a scene that will not hold still cannot tell a module apart from itself, and saying
+     * "it drew nothing" there would be blaming the wrong thing.
+     *
+     * <p>The one case in this session that this would have let through - cloud drift read as a
+     * healthy signal - came from measuring noise over ten ticks and signal over sixty. With equal
+     * windows the drift lands in both numbers and the ratio collapses to about one.
+     */
+    private static void assertDrew(String name, String expected, int noise, int signal) {
+        if (signal >= Math.max(DRAWN_PIXELS, noise * 5)) {
+            return;
+        }
+        if (noise > DRAWN_PIXELS) {
+            throw new AssertionError(name + " changed " + signal + " pixels, against " + noise
+                    + " that change with the module off; the scene will not hold still enough to tell "
+                    + "the module apart from it, so this scenario proves nothing either way");
+        }
+        throw new AssertionError(name + " changed " + signal + " pixels against a noise floor of "
+                + noise + "; it drew no " + expected);
+    }
+
     /** Clean ground, nothing else alive, and one motionless pig the given distance ahead. */
     private BlockPos pigAt(ClientGameTestContext context, TestSingleplayerContext singleplayer,
             int distance) {
@@ -835,14 +956,7 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
         int signal = Frames.changedPixels(second, on, fromHeight, toHeight);
 
         LOGGER.info("    {} pixels: noise={} signal={}", name, noise, signal);
-        if (noise > DRAWN_PIXELS) {
-            throw new AssertionError(name + ": " + noise + " pixels changed with nothing switched "
-                    + "on, so the scene will not hold still and this scenario means nothing");
-        }
-        if (signal < Math.max(DRAWN_PIXELS, noise * 5)) {
-            throw new AssertionError(name + " changed " + signal + " pixels against a noise floor of "
-                    + noise + "; it drew no " + expected);
-        }
+        assertDrew(name, expected, noise, signal);
         LOGGER.info("  {} drew {}", name, expected);
     }
 
