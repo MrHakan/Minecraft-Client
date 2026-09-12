@@ -20,13 +20,14 @@ Authority: current source > current tests > live PR description > latest handove
   game-test addon and the external packaging fixture - and neither ships. It said 54 before the
   external fixture existed. A zero badge count does not prove every baseline module has a dedicated
   behaviour scenario.
-- **Unit suite:** **709 executed**, 0 failures, 0 errors, 0 skipped, read from the JUnit XML by
+- **Unit suite:** **711 executed**, 0 failures, 0 errors, 0 skipped, read from the JUnit XML by
   `tools/summarize-tests.py` rather than counted from source. CI reports the same totals.
 - **Behaviour suite:** **41 grouped scenario checks across eight game-test entrypoints**: 37
   direct scenario calls in `ModuleBehaviourGameTest` (excluding the two `quietFrames` setup calls), Astra's three
   acceptance scenarios (inventory interruption, real Nether transition, disconnect), and external
-  addon packaging. This groups SafeWalk/Parkour and Tracers/Nametags; it is not a count of individual
-  assertions or log lines. **Three further dedicated-server checks are NOT in that count** because they are
+  addon packaging, plus this continuation's mid-plan inventory contention and profile dimension
+  bindings: **43 grouped checks across ten entrypoints**. This groups SafeWalk/Parkour and
+  Tracers/Nametags; it is not a count of individual assertions or log lines. **Three further dedicated-server checks are NOT in that count** because they are
   off by default - see below. No existing scenario or experimental-flag mapping has been removed or
   renamed by either continuation.
 - **Observed CI:** run **205** ([34708097645](https://github.com/MrHakan/Minecraft-Client/actions/runs/34708097645))
@@ -224,6 +225,42 @@ tested = the eight-entrypoint client suite in CI; dedicated-server tested = loca
 never in CI; externally packaged = jar-origin loading in the client suite, not a mods/ folder or a
 remapped production jar; visually inspected = nothing. Pixel-difference scenarios prove rendering
 activity, not appearance.
+
+### Current continuation: bindings, contention and the face
+
+Built on `cb4631c`; nothing from either earlier agent was reverted or rewritten.
+
+- **A real defect in profile bindings** (`8a37964`). Server bindings are rewritten on rename and
+  removed on delete; dimension bindings arrived later and were left out of both. Renaming a profile
+  left its dimension binding naming a profile that no longer existed, and since an auto-load skips a
+  missing profile, the binding silently stopped firing - no error, no log line. Deleting one left the
+  same dangling entry, ready to revive if a later profile reused the name. Both are maintained now.
+  Watched failing first. `ProfileBindingGameTest` drives real teleports (never a posted
+  `WorldChanged`): the first arrival in the Nether is the control, because nothing can be bound there
+  until the player has been there, and then each later arrival loads its own bound profile, tracked
+  through three distinct marker values so a profile that failed to load cannot look like one that
+  loaded and agreed. **Not covered:** server bindings and their precedence, which need
+  `mc.getCurrentServer()` and therefore the gated dedicated-server harness.
+- **Mid-plan inventory contention** (`763c2a2`). A plan is computed once and executed one click per
+  tick; the controller never re-reads the slots it will click. A server-side change landing between
+  clicks is now shown to **fail safe**: nothing created, nothing destroyed, both cursors empty, the
+  channel handed back. The control - the identical change with nothing running - is what makes that
+  verdict mean anything, and it caught three mistakes in the scenario itself before they could be
+  published as a dupe-and-destroy bug: `@s` resolves to nothing from the server console, `/item
+  replace` destroys whatever occupied the slot, and `Inventory.getContainerSize()` already includes
+  the equipment slots so counting those separately double-counts everything worn.
+- **The player face** (`d27256d`). `PlayerFace`'s copy of the skin layout was only ever checked
+  against itself; it is now tied to 26.2's own `PlayerFaceExtractor` constants, so a release that
+  moved the face or hat fails the build. Watched failing with the hat U set to 32, which every
+  pre-existing assertion accepts. The blit argument order was verified by reading the 26.2 signature:
+  `blit(pipeline, texture, x, y, u, v, width, height, srcWidth, srcHeight, texWidth, texHeight,
+  colour)`, and the renderer pairs them correctly - 8x8 sampled, 16x16 drawn.
+
+Evidence discipline: unit tested = 711 executed from JUnit XML; integrated-server tested = the
+ten-entrypoint client suite; dedicated-server tested = nothing in this batch, the gate stayed off;
+externally packaged = unchanged from the previous continuation; visually inspected = nothing. The
+face work narrows manual item 5 to appearance only - position on the card, hat transparency and the
+slim model still need eyes on a screen.
 
 ## Historical development record
 
