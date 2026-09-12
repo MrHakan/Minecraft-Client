@@ -14,8 +14,10 @@ Authority: current source > current tests > live PR description > latest handove
   so never assume the head in a handover note is current.
 - **Version:** Minecraft 26.2, Loader 0.19.3, Fabric API 0.157.0+26.2, Java 25.
 - **Modules:** 53 built-ins, 0 UNTESTED; 22 baseline exemptions plus 31 behaviour-mapped modules.
-  The runtime lifecycle log says **54**, because the game-test addon registers one extra module.
-  A zero badge count does not prove every baseline module has a dedicated behaviour scenario.
+  The runtime lifecycle log says **55**: two test addons each register one module - the in-tree
+  game-test addon and the external packaging fixture - and neither ships. It said 54 before the
+  external fixture existed. A zero badge count does not prove every baseline module has a dedicated
+  behaviour scenario.
 - **Unit suite:** **705 executed**, 0 failures, 0 errors, 0 skipped, read from the JUnit XML by
   `tools/summarize-tests.py` rather than counted from source. CI reports the same totals.
 - **Behaviour suite:** **41 scenario checks across eight game-test entrypoints**, counted one per
