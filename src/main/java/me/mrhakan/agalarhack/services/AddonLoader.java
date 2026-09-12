@@ -17,10 +17,12 @@ import net.fabricmc.loader.api.FabricLoader;
  * {@code agalarhack} entrypoint, so version conflicts, load order and metadata are all handled by
  * something that already does them properly — there is no folder scan and no class loader here.
  *
- * <p>Each addon is called inside its own guard. A broken addon costs its author a bug report and
- * loses its own registrations; it does not stop the client or any other addon. The same applies to
- * an addon that registers a module whose name is already taken: that is its mistake to fix, and it
- * is reported against its own id.
+ * <p>Each addon is called inside its own guard, so a broken addon does not stop the client or any
+ * other addon. Its registrations stop where it threw rather than being undone: a module already
+ * registered stays registered and working, which is better for the player than tearing down
+ * something that functions, and the recorded counts say how far it got. The same applies to an addon
+ * that registers a module whose name is already taken - that is its mistake to fix, and it is
+ * reported against its own id.
  */
 public final class AddonLoader {
     /** What loaded, and what did not, for the {@code .addons} command to report. */

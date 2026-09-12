@@ -51,7 +51,11 @@ public class SwallowedFailureGameTest implements FabricClientGameTest {
             "Failed to apply partial profile state for",
             "Macro failed",
             "Malformed config",
-            "Cannot read config");
+            "Cannot read config",
+            "Command registration failed for",
+            "Could not read addon entrypoints",
+            "failed to load; it has been skipped",
+            "Baritone is installed but this client could not");
 
     @Override
     public void runTest(ClientGameTestContext context) {

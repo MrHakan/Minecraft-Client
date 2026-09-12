@@ -88,38 +88,53 @@ public class CommandManager {
      */
     public static void register(Command command) {
         if (command == null) throw new IllegalArgumentException("Command must not be null");
-        if (getCommand(command.getCommand()) != null) {
-            throw new IllegalStateException("Duplicate command name: " + command.getCommand());
-        }
-        for (String alias : command.getAliases()) {
-            if (getCommand(alias) != null) {
-                throw new IllegalStateException("Duplicate command alias: " + alias);
-            }
+        String taken = me.mrhakan.agalarhack.services.CommandNames.collision(commands, command);
+        if (taken != null) {
+            throw new IllegalStateException("Command \"" + taken + "\" is already registered, so "
+                    + command.getCommand() + " was refused");
         }
         commands.add(command);
     }
 
     public static void init() {
         commands.clear();
-        commands.add(new Help());
-        commands.add(new Modules());
-        commands.add(new Toggle());
-        commands.add(new Bind());
-        commands.add(new Set());
-        commands.add(new ModuleSettings());
-        commands.add(new Friend());
-        commands.add(new Profile());
-        commands.add(new Gui());
-        commands.add(new WaypointCommand());
-        commands.add(new PortalCommand());
+        add(new Help());
+        add(new Modules());
+        add(new Toggle());
+        add(new Bind());
+        add(new Set());
+        add(new ModuleSettings());
+        add(new Friend());
+        add(new Profile());
+        add(new Gui());
+        add(new WaypointCommand());
+        add(new PortalCommand());
         loadAliases();
         loadMacros();
-        commands.add(new Alias());
-        commands.add(new MacroCommand());
-        commands.add(new Panic());
-        commands.add(new me.mrhakan.agalarhack.commands.impl.Look());
-        commands.add(new me.mrhakan.agalarhack.commands.impl.Goto());
-        commands.add(new me.mrhakan.agalarhack.commands.impl.Addons());
+        add(new Alias());
+        add(new MacroCommand());
+        add(new Panic());
+        add(new me.mrhakan.agalarhack.commands.impl.Look());
+        add(new me.mrhakan.agalarhack.commands.impl.Goto());
+        add(new me.mrhakan.agalarhack.commands.impl.Addons());
+    }
+
+    /**
+     * Registers a built-in command through the same duplicate check addons get.
+     *
+     * <p>A collision between two built-ins is a mistake by whoever added the second one, and before
+     * this the list silently kept both and let registration order decide which answered. It is
+     * logged rather than thrown because crashing a player's client over a duplicate alias is the
+     * wrong trade - and the message is in the game test's swallowed-failure list, so a collision
+     * fails CI on the pull request that introduced it instead.
+     */
+    private static void add(Command command) {
+        try {
+            register(command);
+        } catch (IllegalStateException collision) {
+            AgalarHackClient.LOGGER.error("Command registration failed for {}",
+                    command.getCommand(), collision);
+        }
     }
 
     private static String firstWord(String line) {
