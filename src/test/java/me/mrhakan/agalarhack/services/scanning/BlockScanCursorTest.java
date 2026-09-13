@@ -55,4 +55,21 @@ class BlockScanCursorTest {
         assertEquals(100, cursor.x()); assertEquals(-30, cursor.y()); assertEquals(200, cursor.z());
         assertThrows(IllegalArgumentException.class, () -> cursor.reset(0, 0, 0, 65, 0));
     }
+
+    @Test void midPassInvalidationRestartsOnlyTheCurrentChunkBeforeItCanBeCompleted() {
+        var cursor = new BlockScanCursor();
+        cursor.reset(8, 64, 8, 1, 1);
+        int startX = cursor.x(), startY = cursor.y(), startZ = cursor.z();
+        for (int i = 0; i < 10; i++) assertFalse(cursor.advance());
+        cursor.restartChunk();
+        assertEquals(0, cursor.cycle());
+        assertEquals(startX, cursor.x()); assertEquals(startY, cursor.y()); assertEquals(startZ, cursor.z());
+        var revisited = new HashSet<String>();
+        while (cursor.cycle() == 0) {
+            assertTrue(revisited.add(cursor.x() + ":" + cursor.y() + ":" + cursor.z()));
+            cursor.advance();
+        }
+        assertEquals(27, revisited.size(), "every position before the invalidation must be revisited too");
+    }
+
 }

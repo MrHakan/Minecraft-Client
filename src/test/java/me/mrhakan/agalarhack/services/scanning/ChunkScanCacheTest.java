@@ -69,4 +69,83 @@ class ChunkScanCacheTest {
         assertEquals(0, cache.size());
         assertFalse(cache.isClean(4, 4));
     }
+
+    @Test void anOmittedMatchDoesNotSkipTheRestOfAnUnfinishedChunk() {
+        var cache = new ChunkScanCache();
+        cache.recordOmittedMatch(0, 0);
+        assertFalse(cache.isClean(0, 0), "remaining blocks must still be visited for updates/removals");
+        cache.markClean(0, 0);
+        for (int tick = 0; tick < 1000; tick++) assertTrue(cache.isClean(0, 0));
+        assertEquals(1, cache.size(), "static saturation must not create a growing backlog");
+        assertEquals(1, cache.resumeOmitted());
+        assertFalse(cache.isClean(0, 0));
+        assertEquals(0, cache.resumeOmitted(), "one capacity event must not schedule repeated sweeps");
+    }
+
+    @Test void capacityRecoveryWakesOnlyChunksThatLostResults() {
+        var cache = new ChunkScanCache();
+        cache.markClean(0, 0);
+        cache.markClean(1, 0);
+        cache.recordOmittedMatch(1, 0); // block update or cap reduction in an already clean chunk
+        assertTrue(cache.isClean(1, 0), "do not rescan until there is room");
+        assertEquals(1, cache.resumeOmitted());
+        assertTrue(cache.isClean(0, 0), "unaffected static chunks stay asleep");
+        assertFalse(cache.isClean(1, 0));
+        cache.markClean(1, 0); // recovered with no further omissions
+        assertEquals(0, cache.resumeOmitted());
+    }
+
+    @Test void deferredRecordsShareTheCacheBoundAndWorldInvalidation() {
+        var cache = new ChunkScanCache(2);
+        for (int chunk = 0; chunk < 100; chunk++) {
+            cache.recordOmittedMatch(chunk, -chunk);
+            cache.markClean(chunk, -chunk);
+            assertTrue(cache.size() <= 2);
+        }
+        assertFalse(cache.isClean(0, 0), "eviction makes the chunk dirty, never falsely complete");
+        assertTrue(cache.invalidate(99, -99));
+        assertFalse(cache.isClean(99, -99));
+        cache.clear();
+        assertEquals(0, cache.resumeOmitted());
+        assertEquals(0, cache.size());
+    }
+
+    @Test void aCapacityChangeDuringAPassRetiresItsPendingOmission() {
+        var cache = new ChunkScanCache();
+        cache.recordOmittedMatch(2, 3);
+        assertEquals(1, cache.resumeOmitted());
+        // The caller restarts this chunk and supplies all its results; the old pending omission
+        // must not survive completion and provoke another scan the next time capacity changes.
+        cache.markClean(2, 3);
+        assertTrue(cache.isClean(2, 3));
+        assertEquals(0, cache.resumeOmitted());
+    }
+
+    @Test void deferredWorkStillSharesTheSchedulerBudgetWithAPeer() {
+        var cache = new ChunkScanCache();
+        cache.recordOmittedMatch(0, 0); cache.markClean(0, 0);
+        var scheduler = new ScanScheduler<String>((owner, failure) -> fail(failure));
+        int[] scan = {0}, peer = {0};
+        for (int tick = 0; tick < 20; tick++) {
+            if (tick == 10) cache.resumeOmitted();
+            scheduler.offer("block", ScanScheduler.Priority.BACKGROUND, 100, budget -> {
+                if (!budget.take(1, 0, 0)) return ScanScheduler.Result.BLOCKED;
+                if (cache.isClean(0, 0)) return ScanScheduler.Result.DONE;
+                scan[0]++;
+                if (scan[0] == 4) { cache.markClean(0, 0); return ScanScheduler.Result.DONE; }
+                return ScanScheduler.Result.MORE;
+            });
+            scheduler.offer("peer", ScanScheduler.Priority.BACKGROUND, 100, budget -> {
+                if (!budget.take(1, 0, 0)) return ScanScheduler.Result.BLOCKED;
+                peer[0]++;
+                return ScanScheduler.Result.MORE;
+            });
+            int before = peer[0];
+            scheduler.run(2, 0, 0);
+            assertTrue(scheduler.lastUsage().blocks() <= 2);
+            assertTrue(peer[0] > before, "recovering a capped scanner must leave its peer a turn");
+        }
+        assertEquals(4, scan[0], "one bounded recovery, then no more probes");
+    }
+
 }

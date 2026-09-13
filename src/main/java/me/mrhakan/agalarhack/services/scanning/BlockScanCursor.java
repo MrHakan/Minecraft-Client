@@ -46,6 +46,9 @@ public final class BlockScanCursor {
         skipChunk();
         return true;
     }
+    /** Revisit positions before an in-flight invalidation without changing chunk order or cycle. */
+    public void restartChunk() { startChunk(); }
+
     public void skipChunk() {
         chunkIndex = (chunkIndex + 1) % chunks.size();
         if (chunkIndex == 0) cycle++;

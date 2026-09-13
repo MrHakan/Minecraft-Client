@@ -86,7 +86,7 @@ public class BlockESP extends Module {
             if (!withinScanBox(pos)) return;
             String id = BuiltInRegistries.BLOCK.getKey(event.state().getBlock()).toString();
             if (matches(id)) {
-                if (matches.add(pos)) { snapshotDirty = true; trimResults(); }
+                recordMatch(pos);
             } else if (matches.remove(pos)) {
                 snapshotDirty = true;
             }
@@ -113,6 +113,7 @@ public class BlockESP extends Module {
 
     private void forgetChunk(int chunkX, int chunkZ) {
         scanned.invalidate(chunkX, chunkZ);
+        if (anchorSet && cursor.chunkX() == chunkX && cursor.chunkZ() == chunkZ) cursor.restartChunk();
         if (matches.removeIf(pos -> (pos.getX() >> 4) == chunkX && (pos.getZ() >> 4) == chunkZ)) snapshotDirty = true;
     }
 
@@ -158,6 +159,7 @@ public class BlockESP extends Module {
         }
 
         trimResults();
+        if (matches.size() < resultLimit() && scanned.resumeOmitted() != 0) cursor.restartChunk();
         int budget = Math.max(100, Math.min(12000, (int) Math.round(getNumberSetting("scanBudget", 2500.0))));
         scanCycle = cursor.cycle();
         service(ScannerService.class).offer(this, ScanScheduler.Priority.BACKGROUND, budget, this::scanStep);
@@ -188,30 +190,30 @@ public class BlockESP extends Module {
         BlockState state = chunk.getBlockState(probe);
         String id = BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString();
         if (matches(id)) {
-            if (!matches.contains(probe)) {
-                matches.add(new BlockPos(x, y, z));
-                snapshotDirty = true;
-                trimResults();
-            }
+            recordMatch(probe);
         } else if (matches.remove(probe)) snapshotDirty = true;
         completeStep();
         return ScanScheduler.Result.MORE;
     }
 
-    /**
-     * Records a chunk as clean only once the cursor has genuinely walked all of it.
-     *
-     * <p>At the result cap the oldest markers are being dropped, so a chunk's findings are not
-     * fully represented. Marking it clean there would make those drops permanent instead of letting
-     * the next cycle rediscover them, so cleanliness is simply not recorded while the cache is full.
-     */
+    /** Completing a pass lets it sleep, including chunks waiting for result capacity. */
     private void completeStep() {
         int chunkX = cursor.chunkX(), chunkZ = cursor.chunkZ();
-        boolean complete = cursor.advance();
-        if (complete && matches.size() < (int) Math.round(getNumberSetting("maxResults", 1024.0))) {
-            scanned.markClean(chunkX, chunkZ);
-        }
+        if (cursor.advance()) scanned.markClean(chunkX, chunkZ);
     }
+
+    /** Keep stable, near-first results. Remember rejected findings without allocating positions. */
+    private void recordMatch(BlockPos pos) {
+        if (matches.contains(pos)) return;
+        if (matches.size() >= resultLimit()) {
+            scanned.recordOmittedMatch(pos.getX() >> 4, pos.getZ() >> 4);
+            return;
+        }
+        matches.add(pos.immutable());
+        snapshotDirty = true;
+    }
+
+    private int resultLimit() { return (int) Math.round(getNumberSetting("maxResults", 1024.0)); }
 
     @Override
     public void onDisable() {
@@ -314,14 +316,15 @@ public class BlockESP extends Module {
     }
 
     private void trimResults() {
-        int max = (int) Math.round(getNumberSetting("maxResults", 1024.0));
+        int max = resultLimit();
         while (matches.size() > max) {
             Iterator<BlockPos> iterator = matches.iterator();
             if (!iterator.hasNext()) {
                 return;
             }
-            iterator.next();
+            BlockPos removed = iterator.next();
             iterator.remove();
+            scanned.recordOmittedMatch(removed.getX() >> 4, removed.getZ() >> 4);
             snapshotDirty = true;
         }
     }

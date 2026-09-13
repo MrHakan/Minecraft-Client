@@ -18,14 +18,15 @@ public final class ChunkScanCache {
     public static final int DEFAULT_CAPACITY = 1024;
 
     private final int capacity;
-    private final LinkedHashMap<Long, Boolean> clean;
+    private enum State { COMPLETE, OMITTED_PENDING, OMITTED_COMPLETE }
+    private final LinkedHashMap<Long, State> clean;
 
     public ChunkScanCache() { this(DEFAULT_CAPACITY); }
 
     public ChunkScanCache(int capacity) {
         this.capacity = Math.max(1, Math.min(8192, capacity));
         this.clean = new LinkedHashMap<>(16, 0.75f, true) {
-            @Override protected boolean removeEldestEntry(Map.Entry<Long, Boolean> eldest) {
+            @Override protected boolean removeEldestEntry(Map.Entry<Long, State> eldest) {
                 return size() > ChunkScanCache.this.capacity;
             }
         };
@@ -36,20 +37,44 @@ public final class ChunkScanCache {
     }
 
     /**
-     * True when the chunk was fully scanned and nothing has invalidated it since.
+     * True when the chunk was fully scanned and can sleep until a world or capacity change.
+     * Omitted matches wait for capacity rather than causing a continuous rescan at the result cap.
      *
      * <p>Uses {@code get} rather than {@code containsKey} so a lookup counts as an access: a chunk
      * the scanner keeps revisiting stays cached in preference to one it has walked away from.
      */
     public boolean isClean(int chunkX, int chunkZ) {
-        return clean.get(key(chunkX, chunkZ)) != null;
+        State state = clean.get(key(chunkX, chunkZ));
+        return state == State.COMPLETE || state == State.OMITTED_COMPLETE;
     }
 
     public void markClean(int chunkX, int chunkZ) {
-        clean.put(key(chunkX, chunkZ), Boolean.TRUE);
+        long key = key(chunkX, chunkZ);
+        State previous = clean.get(key);
+        clean.put(key, previous == State.OMITTED_PENDING || previous == State.OMITTED_COMPLETE
+                ? State.OMITTED_COMPLETE : State.COMPLETE);
     }
 
-    /** @return true when the chunk was previously clean, so callers can skip redundant work */
+    /** A matching block did not fit. A partially walked chunk must still finish its current pass. */
+    public void recordOmittedMatch(int chunkX, int chunkZ) {
+        long key = key(chunkX, chunkZ);
+        State previous = clean.get(key);
+        clean.put(key, previous == State.COMPLETE || previous == State.OMITTED_COMPLETE
+                ? State.OMITTED_COMPLETE : State.OMITTED_PENDING);
+    }
+
+    /**
+     * Capacity became available: wake only chunks with omitted matches, once. The same bounded map
+     * holds both complete and deferred records; there is no growing secondary backlog.
+     * The caller restarts its current chunk if it was already mid-pass when space became available.
+     */
+    public int resumeOmitted() {
+        int before = clean.size();
+        clean.values().removeIf(state -> state != State.COMPLETE);
+        return before - clean.size();
+    }
+
+    /** @return true when any complete or deferred record was present */
     public boolean invalidate(int chunkX, int chunkZ) {
         return clean.remove(key(chunkX, chunkZ)) != null;
     }
