@@ -6,21 +6,24 @@ Authority: live source > live tests > live PR state/description > current CI > t
 generated docs > historical records. All numbers and next-batch suggestions below the historical
 divider describe their own dates, not the current project.
 
-- **Live head inspected:** `dc24bfa310db9c7cfcfa422e3757ed73083f6ca3`.
+- **Validated code head:** `c75c59bfcd0789fdcf784d3879ac1a71e4e9fad9`.
+  This checkpoint adds a documentation-only commit after that head; resolve the live branch/PR
+  for its current tip and its Actions result rather than assuming a SHA printed here stays current.
   Main: `19f83ab888a55d9b459f84fbae27dffe39036f71`.
   [PR #9](https://github.com/MrHakan/Minecraft-Client/pull/9) is open/draft, mergeable and not merged;
   it is the only open PR. Continue `codex/foundation-services-26.2`; never merge or force-push.
-- **Scale at inspection:** 222 commits against main; 353 changed files, +32,561/-872.
+- **Scale at the validated code head:** 225 commits against main; 353 changed files, +32,740/-872.
+  This evidence-only checkpoint is the fourth continuation commit (226 against main).
   The 16 commits after `cb4631c` are preserved. Fetch again immediately before publishing.
 - **Versions:** Minecraft 26.2, Loader 0.19.3, Fabric API 0.157.0+26.2, Java 25.
 - **Modules:** 53 built-ins; 0 UNTESTED (22 baseline exemptions, 31 behaviour-mapped modules).
   Runtime lifecycle count is 55 because two fixture addon modules do not ship. Zero badges does
   not mean all 53 have distinct behaviour scenarios.
-- **Observed CI:** [run 218](https://github.com/MrHakan/Minecraft-Client/actions/runs/34750912123)
-  succeeded on `dc24bfa`. Its archived JUnit XML was independently downloaded and re-counted:
-  **772 tests, 0 failures/errors/skips, 101 suites**. The four inventory regression controls,
+- **Observed CI:** [run 220](https://github.com/MrHakan/Minecraft-Client/actions/runs/34752612170)
+  succeeded on `c75c59b`. Its archived JUnit XML was independently downloaded and re-counted:
+  **774 tests, 0 failures/errors/skips, 101 suites** (CraftingPlan: 20). The four inventory regression controls,
   Java 25 build, generated docs, runtime client/integrated worlds, six mixin target checks and
-  artifact creation passed. 171 screens opened; the swallowed-failure scan read 877 lines and
+  artifact creation passed. 171 screens opened; the swallowed-failure scan read 878 lines and
   found only the two deliberately expected broken-addon failures.
 - **Scenario count:** 44 grouped checks across 10 entrypoints: 38 direct behaviour calls excluding
   setup, plus inventory recovery, contention, dimension transition, disconnect, profile bindings
@@ -67,8 +70,14 @@ The correction keeps the quantity tally and emits the completed graph in depende
 append-and-merge algorithm, changed recipes, executor or Minecraft API was introduced. Each planned
 node is emitted once; sets bound repeat visits to the finite plan, and cycles are refused. Four
 inventory regression controls and all existing game scenarios remain unchanged. Full corrected CI
-is pending; the exact result will be recorded here and in PR #9 after observation. The local worker
-has no JDK 25, so these are Actions observations, not claimed local runs.
+220 passed, including both new tests; its archived XML was independently parsed. The local worker
+has no JDK 25, so these are Actions observations, not claimed local runs. The documentation-only
+follow-up receives its own full PR CI; the live PR records that result without another self-referential
+documentation commit. CI 218 on the inherited `dc24bfa` baseline also passed (772 tests).
+
+Continuation commits: `bf30949` reconciles the stale checkpoint; `08fe7c4` adds the two failing
+regressions; `c75c59b` corrects dependency ordering; this final evidence commit records the red/green
+results. No gameplay module, schema, settings, rendering API or ownership policy changed.
 
 ### Remaining scope and explicit decisions
 

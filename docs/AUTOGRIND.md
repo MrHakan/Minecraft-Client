@@ -46,6 +46,9 @@ For example, a wooden pickaxe with one log already held still needs a second log
 eight planks. CI 219 reproduced the old impossible order in two inventory-replay unit tests,
 including a separate shared-ingredient recipe graph. These tests consume the ingredients of each
 reported step and check the final goal; they validate plan arithmetic, not an in-game executor.
+The corrected planner passed both tests and the full existing pipeline in
+[CI 220](https://github.com/MrHakan/Minecraft-Client/actions/runs/34752612170): 774 unit tests,
+including 20 in `CraftingPlanTest`, with zero failures/errors/skips.
 
 **A craft step reports items, not crafts.** Asking for five sticks answers "craft 8 stick", not
 "craft 2 stick" - both are true of something, but only one is what you are about to be holding.
