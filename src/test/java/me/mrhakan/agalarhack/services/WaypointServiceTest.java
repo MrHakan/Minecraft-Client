@@ -21,7 +21,7 @@ class WaypointServiceTest {
         assertTrue(service.add(Waypoint.of("home", 10, 64, 20, "overworld")));
         var reloaded = loaded(file);
         assertEquals(1, reloaded.count());
-        assertEquals(10, reloaded.find("home", null).orElseThrow().x());
+        assertEquals(10, reloaded.findAnywhere("home").orElseThrow().x());
     }
 
     @Test void sameNameInTheSameDimensionReplacesRatherThanDuplicates(@TempDir Path dir) {
@@ -40,10 +40,27 @@ class WaypointServiceTest {
         assertEquals(2, service.find("home", "minecraft:the_nether").orElseThrow().x());
     }
 
-    @Test void lookupPrefersTheCurrentDimensionThenFallsBackAnywhere(@TempDir Path dir) {
+    /**
+     * A scoped lookup stays scoped; reaching into another dimension is a separate method.
+     *
+     * <p>find used to fall back to any dimension, which suits removing something by name from
+     * wherever you are and suits nothing else - coordinates do not carry across. `.goto stash` in
+     * the overworld found the end's "stash" and pathed to its raw numbers under a message that said
+     * "in this dimension".
+     */
+    @Test void aScopedLookupDoesNotReachIntoAnotherDimension(@TempDir Path dir) {
         var service = loaded(dir.resolve("w.json"));
         service.add(Waypoint.of("stash", 5, 5, 5, "the_end"));
-        assertEquals(5, service.find("stash", "minecraft:overworld").orElseThrow().x());
+        assertTrue(service.find("stash", "minecraft:overworld").isEmpty());
+        assertEquals(5, service.find("stash", "minecraft:the_end").orElseThrow().x());
+        assertEquals(5, service.findAnywhere("stash").orElseThrow().x(), "the fallback still exists");
+    }
+
+    /** A missing dimension is not a wildcard: it finds nothing rather than everything. */
+    @Test void aMissingDimensionMatchesNothing(@TempDir Path dir) {
+        var service = loaded(dir.resolve("w.json"));
+        service.add(Waypoint.of("stash", 5, 5, 5, "the_end"));
+        assertTrue(service.find("stash", null).isEmpty());
     }
 
     @Test void visibleListIsScopedToOneDimension(@TempDir Path dir) {
@@ -62,8 +79,24 @@ class WaypointServiceTest {
         service.add(Waypoint.of("b", 0, 0, 0, "the_nether"));
         assertEquals(1, service.clear("minecraft:overworld"));
         assertEquals(1, service.count());
-        assertEquals(1, service.clear(null));
+        assertEquals(1, service.clearAll());
         assertEquals(0, service.count());
+    }
+
+    /**
+     * A missing dimension deletes nothing.
+     *
+     * <p>It used to mean "every dimension". `.waypoint clear` passes the dimension the player is
+     * standing in, which is null when there is no level - so the unconfirmed command that clears one
+     * dimension could delete every waypoint the player owned and report it as "in this dimension".
+     * Wiping everything is clearAll, and a caller has to ask for it by name.
+     */
+    @Test void clearingWithNoDimensionRemovesNothing(@TempDir Path dir) {
+        var service = loaded(dir.resolve("w.json"));
+        service.add(Waypoint.of("a", 0, 0, 0, "overworld"));
+        service.add(Waypoint.of("b", 0, 0, 0, "the_nether"));
+        assertEquals(0, service.clear(null));
+        assertEquals(2, service.count(), "nothing may be removed without naming what to remove");
     }
 
     @Test void removalReportsWhetherAnythingMatched(@TempDir Path dir) {
@@ -101,6 +134,6 @@ class WaypointServiceTest {
         assertFalse(service.replace(point));
         service.add(point);
         assertTrue(service.replace(point.withBeam(true)));
-        assertTrue(service.find("a", null).orElseThrow().beam());
+        assertTrue(service.findAnywhere("a").orElseThrow().beam());
     }
 }

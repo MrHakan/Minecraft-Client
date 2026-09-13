@@ -48,17 +48,21 @@ public final class ChatMatcher {
      */
     public static int indexOfWord(String message, String term, int from) {
         if (message == null || term == null || term.isEmpty()) return -1;
-        String haystack = message.toLowerCase(Locale.ROOT);
-        String needle = term.toLowerCase(Locale.ROOT);
+        // Matched against the message itself rather than a lowercased copy of it, so the index that
+        // comes back addresses the string the caller is going to slice. Lowercasing can change a
+        // string's length - a Turkish capital I with a dot becomes two characters - and this used to
+        // search the longer copy and cut the original with the result, which threw out of bounds and
+        // took every decoration on that line with it.
         int at = Math.max(0, from);
-        while (at <= haystack.length() - needle.length()) {
-            int index = haystack.indexOf(needle, at);
-            if (index < 0) return -1;
-            boolean startOk = index == 0 || !isWordCharacter(haystack.charAt(index - 1));
-            int end = index + needle.length();
-            boolean endOk = end >= haystack.length() || !isWordCharacter(haystack.charAt(end));
-            if (startOk && endOk) return index;
-            at = index + 1;
+        int last = message.length() - term.length();
+        while (at <= last) {
+            if (message.regionMatches(true, at, term, 0, term.length())) {
+                boolean startOk = at == 0 || !isWordCharacter(message.charAt(at - 1));
+                int end = at + term.length();
+                boolean endOk = end >= message.length() || !isWordCharacter(message.charAt(end));
+                if (startOk && endOk) return at;
+            }
+            at++;
         }
         return -1;
     }

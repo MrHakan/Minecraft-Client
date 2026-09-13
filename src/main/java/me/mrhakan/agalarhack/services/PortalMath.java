@@ -45,12 +45,18 @@ public final class PortalMath {
     /**
      * Overworld to nether.
      *
-     * <p>Rounds toward zero the way integer division does, because that is what the game does when
-     * it looks for a linked portal — rounding differently would put the suggestion one block off
-     * near an axis, which is exactly where players build.
+     * <p><strong>Floors.</strong> An earlier version divided with {@code /}, which truncates toward
+     * zero, and said in this comment that integer division was what the game did. It is not:
+     * {@code NetherPortalBlock} multiplies the position by the coordinate scale as a double and
+     * passes it to {@code WorldBorder.clampToBounds(double, double, double)}, which is
+     * {@code BlockPos.containing}, which is {@code Mth.floor}. Read from the 26.2 jar.
+     *
+     * <p>The two agree on zero and on positive coordinates and disagree on every negative one that
+     * is not already a multiple of eight, so the suggestion was a block off in exactly the place the
+     * old comment worried about - near an axis, which is where people build.
      */
     public static int divide(int value) {
-        return clamp(value / NETHER_RATIO);
+        return clamp(Math.floorDiv(value, NETHER_RATIO));
     }
 
     private static int clamp(long value) {

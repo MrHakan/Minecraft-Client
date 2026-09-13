@@ -71,4 +71,41 @@ class ChatMatcherHighlightTest {
             assertEquals(ChatMatcher.containsWord(line, "sam"), any, line);
         }
     }
+
+    /**
+     * A character whose lowercase is longer than itself must not break the offsets.
+     *
+     * <p>Matching ran against a lowercased copy of the message and the result was used to slice the
+     * original. Lowercasing a Turkish capital I with a dot above gives two characters, so the copy
+     * is longer than the message and every index past it points somewhere else - far enough along
+     * and it points off the end. `ChatHooks.decorate` swallows what that throws, so the visible
+     * result was not a crash but a chat line that silently lost its timestamp and highlighting,
+     * on a client whose own module descriptions are in Turkish.
+     */
+    @Test void aLetterThatGrowsWhenLowercasedDoesNotBreakTheOffsets() {
+        String line = "\u0130 sam";
+        var segments = ChatMatcher.highlight(line, Set.of("sam"));
+        assertEquals(line, rebuilt(segments), "the message must survive unchanged");
+        assertEquals(1, segments.stream().filter(ChatMatcher.Segment::matched).count());
+        assertEquals("sam", segments.stream().filter(ChatMatcher.Segment::matched)
+                .findFirst().orElseThrow().text());
+    }
+
+    /** The same, further in, where the drift is large enough to run off the end of the message. */
+    @Test void severalGrowingLettersStillLeaveTheMatchInTheRightPlace() {
+        String line = "\u0130\u0130\u0130 ping sam";
+        var segments = ChatMatcher.highlight(line, Set.of("sam"));
+        assertEquals(line, rebuilt(segments));
+        assertEquals("sam", segments.get(segments.size() - 1).text());
+        assertTrue(segments.get(segments.size() - 1).matched());
+    }
+
+    /** An index handed back must address the message itself, not a transformed copy of it. */
+    @Test void theReportedIndexAddressesTheOriginalMessage() {
+        String line = "\u0130 sam";
+        int at = ChatMatcher.indexOfWord(line, "sam", 0);
+        assertTrue(at >= 0, "the word is there");
+        assertEquals("sam", line.substring(at, at + 3),
+                "the index pointed into a lowercased copy rather than the message");
+    }
 }

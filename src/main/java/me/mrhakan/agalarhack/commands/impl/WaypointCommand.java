@@ -120,9 +120,12 @@ public class WaypointCommand extends Command {
                         + "waypoint clear all confirm if you mean it.");
                 return;
             }
+            ok("Removed " + service.clearAll() + " waypoints.");
+            return;
         }
-        int removed = service.clear(everywhere ? null : Waypoints.currentDimension(client));
-        ok("Removed " + removed + (everywhere ? " waypoints." : " waypoints in this dimension."));
+        String dimension = Waypoints.currentDimension(client);
+        if (dimension == null) { error("You need to be in a world to clear this dimension."); return; }
+        ok("Removed " + service.clear(dimension) + " waypoints in this dimension.");
     }
 
     private void toggle(Minecraft client, WaypointService service, String[] args, String action) {

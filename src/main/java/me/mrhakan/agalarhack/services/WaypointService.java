@@ -79,21 +79,35 @@ public final class WaypointService {
     }
 
     public boolean remove(String name, String dimension) {
-        Optional<Waypoint> match = find(name, dimension);
+        // Deliberately the any-dimension lookup: removing "home" by name should work from the nether.
+        Optional<Waypoint> match = find(name, dimension).or(() -> findAnywhere(name));
         if (match.isEmpty()) return false;
         waypoints.remove(match.get().key());
         save();
         return true;
     }
 
-    /** Looks in the given dimension first, then anywhere, so ".waypoint remove home" works from the nether. */
+    /**
+     * The waypoint of that name <strong>in that dimension</strong>, and nowhere else.
+     *
+     * <p>This used to fall back to any dimension when the name was not found locally, which suits
+     * removing something by name from wherever you happen to be and suits nothing else. Coordinates
+     * do not carry across: `.goto base` in the nether found the overworld's "base" and pathed to its
+     * raw numbers, eight times further out than the player meant, under a message that said "in this
+     * dimension". Editing a waypoint's colour or visibility reached across the same way.
+     *
+     * <p>{@link #findAnywhere} is that fallback, for the callers that actually want it.
+     */
     public Optional<Waypoint> find(String name, String dimension) {
+        if (name == null || name.isBlank() || dimension == null) return Optional.empty();
+        Waypoint exact = waypoints.get(dimension + "/" + name.trim().toLowerCase(Locale.ROOT));
+        return Optional.ofNullable(exact);
+    }
+
+    /** The first waypoint of that name in any dimension, so removing one by name works from anywhere. */
+    public Optional<Waypoint> findAnywhere(String name) {
         if (name == null || name.isBlank()) return Optional.empty();
         String wanted = name.trim().toLowerCase(Locale.ROOT);
-        if (dimension != null) {
-            Waypoint exact = waypoints.get(dimension + "/" + wanted);
-            if (exact != null) return Optional.of(exact);
-        }
         return waypoints.values().stream()
                 .filter(point -> point.name().toLowerCase(Locale.ROOT).equals(wanted))
                 .findFirst();
@@ -143,10 +157,28 @@ public final class WaypointService {
         return added;
     }
 
+    /**
+     * Removes every waypoint in one dimension. A null dimension removes <strong>nothing</strong>.
+     *
+     * <p>Null used to mean "every dimension", which is a dangerous thing for a missing value to
+     * mean. `.waypoint clear` passes the dimension the player is standing in, and that is null when
+     * there is no level - so the command that clears one dimension, behind no confirmation, could
+     * delete every waypoint the player had and then report it as "in this dimension". Wiping
+     * everything is {@link #clearAll}, which a caller has to ask for by name.
+     */
     public int clear(String dimension) {
+        if (dimension == null) return 0;
         int before = waypoints.size();
-        waypoints.values().removeIf(point -> dimension == null || point.dimension().equals(dimension));
+        waypoints.values().removeIf(point -> point.dimension().equals(dimension));
         if (waypoints.size() != before) save();
         return before - waypoints.size();
+    }
+
+    /** Removes every waypoint in every dimension. Guarded by an explicit confirmation at the command. */
+    public int clearAll() {
+        int before = waypoints.size();
+        waypoints.clear();
+        if (before != 0) save();
+        return before;
     }
 }

@@ -20,14 +20,26 @@ class PortalMathTest {
                 PortalMath.pair(PortalMath.NETHER, 100, -50));
     }
 
+    /**
+     * The pairing floors, because that is what the game does - checked against 26.2 rather than
+     * assumed.
+     *
+     * <p>`NetherPortalBlock` multiplies the entity's position by the coordinate scale as a double
+     * and hands it to `WorldBorder.clampToBounds(double, double, double)`, which is
+     * `BlockPos.containing`, which is `Mth.floor`. Integer division truncates toward zero instead,
+     * so every negative coordinate not already on a multiple of eight came out one block too high:
+     * -7 paired to 0 rather than -1. This assertion used to require that, with a comment claiming
+     * integer division was what the game did.
+     */
     @Test
-    void divisionRoundsTowardZeroOnBothSidesOfTheAxis() {
-        // Integer division is what the game does; rounding differently is one block off near an
-        // axis, which is exactly where people build.
+    void divisionFloorsOnBothSidesOfTheAxis() {
         assertEquals(0, PortalMath.divide(7));
-        assertEquals(0, PortalMath.divide(-7));
+        assertEquals(-1, PortalMath.divide(-7));
         assertEquals(1, PortalMath.divide(8));
         assertEquals(-1, PortalMath.divide(-8));
+        assertEquals(-2, PortalMath.divide(-9));
+        assertEquals(0, PortalMath.divide(0));
+        assertEquals(-1, PortalMath.divide(-1));
     }
 
     @Test
