@@ -89,9 +89,14 @@ public class PortalCommand extends Command {
             error(badName.getMessage());
             return;
         }
-        if (ClientServices.require(WaypointService.class).add(waypoint)) {
-            MessageManager.sendMessagePrefix(ChatFormatting.GREEN + "Saved waypoint " + waypoint.name()
-                    + " in the " + PortalMath.shortName(link.dimension()));
+        // Through the shared rule rather than its own green line. This is the second place that
+        // claimed a waypoint was stored, and the write is refused here exactly as it is there, so
+        // fixing only `.waypoint` would have left `.portal` still promising a durable save.
+        WaypointService service = ClientServices.require(WaypointService.class);
+        if (service.add(waypoint)) {
+            MessageManager.sendMessagePrefix((service.hasUnsavedChanges() ? ChatFormatting.YELLOW : ChatFormatting.GREEN)
+                    + WaypointCommand.persistenceFeedback(service, "Saved waypoint " + waypoint.name()
+                            + " in the " + PortalMath.shortName(link.dimension())));
         } else {
             error("The waypoint store is full.");
         }
