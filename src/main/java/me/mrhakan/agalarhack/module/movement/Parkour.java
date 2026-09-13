@@ -1,11 +1,9 @@
 package me.mrhakan.agalarhack.module.movement;
 
-import me.mrhakan.agalarhack.services.BlockPresence;
-import me.mrhakan.agalarhack.AgalarHackClient;
 import me.mrhakan.agalarhack.module.Category;
 import me.mrhakan.agalarhack.module.Module;
 import me.mrhakan.agalarhack.services.PlayerInputOverrides;
-import net.minecraft.core.BlockPos;
+import net.minecraft.world.phys.AABB;
 
 /**
  * Jumps at the edge of a block instead of walking off it.
@@ -52,10 +50,21 @@ public class Parkour extends Module {
         PlayerInputOverrides.request(false, false, true, false);
     }
 
-    /** True when there is nothing to stand on just beyond the current position. */
+    /**
+     * Probe the player's projected footprint just below their feet, using vanilla block collision
+     * shapes. A fence/wall reaches into the air block above its own position, so classifying the
+     * block at y-0.2 cannot tell whether the player actually has support. This is a small local
+     * collision query on a moving, grounded player, never a scanner or an entity-collision query.
+     */
     private boolean wouldFall(double x, double y, double z) {
-        BlockPos below = BlockPos.containing(x, y - 0.2, z);
-        return BlockPresence.isPassable(mc.level.getBlockState(below));
+        var player = mc.player;
+        var box = player.getBoundingBox();
+        double dx = x - player.getX(), dz = z - player.getZ();
+        // Exclude zero-area contact at the outside edge, while keeping the existing 0.2 drop depth.
+        double inset = 1.0E-4;
+        AABB feet = new AABB(box.minX + dx + inset, y - 0.2, box.minZ + dz + inset,
+                box.maxX + dx - inset, y, box.maxZ + dz - inset);
+        return !mc.level.getBlockCollisions(player, feet).iterator().hasNext();
     }
 
 }
