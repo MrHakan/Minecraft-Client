@@ -1,12 +1,19 @@
 package me.mrhakan.agalarhack.gametest;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.stream.Stream;
+import java.util.zip.GZIPInputStream;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -71,31 +78,36 @@ public class SwallowedFailureGameTest implements FabricClientGameTest {
 
     @Override
     public void runTest(ClientGameTestContext context) {
-        Path log = context.computeOnClient(client -> client.gameDirectory.toPath().resolve("logs/latest.log"));
+        Path logs = context.computeOnClient(client -> client.gameDirectory.toPath().resolve("logs"));
+        Path log = logs.resolve("latest.log");
         if (!Files.isRegularFile(log)) {
             // Not a soft pass: if the log moved, this check silently stops checking anything, which is
             // the failure mode that let a startup crash live on this branch for several commits.
             throw new AssertionError("No client log at " + log + "; the swallowed-failure check cannot run");
         }
 
+        List<Path> files = runLogs(logs);
         List<String> offenders = new ArrayList<>();
         int scanned = 0;
         int expected = 0;
-        try {
-            for (String line : Files.readAllLines(log, StandardCharsets.UTF_8)) {
-                scanned++;
-                for (String marker : SWALLOWED) {
-                    if (!line.contains(marker)) continue;
-                    if (line.contains(EXPECTED_FAILING_ADDON)) {
-                        expected++;
+        for (Path file : files) {
+            try (BufferedReader reader = open(file)) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    scanned++;
+                    for (String marker : SWALLOWED) {
+                        if (!line.contains(marker)) continue;
+                        if (line.contains(EXPECTED_FAILING_ADDON)) {
+                            expected++;
+                            break;
+                        }
+                        offenders.add(line.strip());
                         break;
                     }
-                    offenders.add(line.strip());
-                    break;
                 }
+            } catch (IOException unreadable) {
+                throw new UncheckedIOException("Could not read " + file, unreadable);
             }
-        } catch (IOException unreadable) {
-            throw new UncheckedIOException("Could not read " + log, unreadable);
         }
 
         if (!offenders.isEmpty()) {
@@ -109,7 +121,59 @@ public class SwallowedFailureGameTest implements FabricClientGameTest {
                     + "in which case the containment checks in ExternalAddonGameTest are testing "
                     + "nothing - or it was never installed in this run.");
         }
-        LOGGER.info("Scanned {} log lines for swallowed failures; found none beyond the {} expected "
-                + "from the deliberately broken addon fixture", scanned, expected);
+        LOGGER.info("Scanned {} log lines across {} file(s) for swallowed failures; found none beyond "
+                + "the {} expected from the deliberately broken addon fixture", scanned, files.size(), expected);
+    }
+
+    /**
+     * Every log file this run wrote, not just the one it is writing now.
+     *
+     * <p>Reading only {@code latest.log} assumes the client writes one file for the whole run, and it
+     * does not: the logger rolls on a date change, so a run that crosses midnight leaves everything
+     * before it in an archive and starts {@code latest.log} again from empty. CI run 212 did exactly
+     * that - the game tests ran from 23:54 to 00:00 - and the scan came up empty.
+     *
+     * <p><strong>The visible result was a failure, but the real risk was the opposite.</strong> The
+     * scan would have gone on "passing" while reading almost nothing; what actually failed was the
+     * assertion that the deliberately broken fixture's failure is still present, which exists to
+     * catch precisely the case of this check testing nothing. It earned its keep.
+     *
+     * <p>Files are selected by modification time against this JVM's start, so an archive left by an
+     * earlier run cannot contribute a failure that already happened and was already dealt with.
+     */
+    private static List<Path> runLogs(Path logs) {
+        Instant started = ProcessHandle.current().info().startInstant().orElse(Instant.EPOCH);
+        try (Stream<Path> entries = Files.list(logs)) {
+            return entries
+                    .filter(Files::isRegularFile)
+                    .filter(file -> {
+                        String name = file.getFileName().toString();
+                        // debug.log is the same run at a finer level, so reading it as well would
+                        // count every failure twice and say nothing new.
+                        if (name.equals("debug.log")) return false;
+                        return name.equals("latest.log") || name.endsWith(".log.gz") || name.endsWith(".log");
+                    })
+                    .filter(file -> !modifiedBefore(file, started))
+                    .sorted(Comparator.comparing(Path::toString))
+                    .toList();
+        } catch (IOException unreadable) {
+            throw new UncheckedIOException("Could not list " + logs, unreadable);
+        }
+    }
+
+    private static boolean modifiedBefore(Path file, Instant cutoff) {
+        try {
+            return Files.getLastModifiedTime(file).toInstant().isBefore(cutoff);
+        } catch (IOException unreadable) {
+            // Unreadable timestamps are included rather than skipped: a file this check cannot date
+            // is a file it should read, not one it should quietly leave out.
+            return false;
+        }
+    }
+
+    private static BufferedReader open(Path file) throws IOException {
+        InputStream stream = Files.newInputStream(file);
+        if (file.getFileName().toString().endsWith(".gz")) stream = new GZIPInputStream(stream);
+        return new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8));
     }
 }
