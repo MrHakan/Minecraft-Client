@@ -13,6 +13,7 @@ public class Module {
 	private String description;
 	private Category category;
 	private boolean toggled;
+	private boolean experimental;
 	public Settings settings = new Settings();
 
 	public Module(String name, Category category) {
@@ -26,10 +27,33 @@ public class Module {
 		toggled = false;
 	}
 
+	/**
+	 * Marks a module as not yet validated in a running game.
+	 *
+	 * <p>The criterion is deliberately blunt: anything that manipulates the player's inventory,
+	 * depends on a mixin, or has otherwise never been exercised in Minecraft is experimental until
+	 * someone confirms it works there. Compiling and passing unit tests is not that confirmation.
+	 * Clearing a flag is a statement that the module was actually used in game.
+	 */
+	protected final Module markExperimental() {
+		this.experimental = true;
+		return this;
+	}
+
+	public boolean isExperimental() { return experimental; }
+
 	public void registerSettings() {
 		settings.addSetting("enabled", false);
 		settings.addSetting("keybind", String.valueOf(InputConstants.UNKNOWN.getValue()));
+		settings.addNumberSetting("keyModifiers", 0, 0, 15, "Keyboard modifier mask for the captured binding");
+        settings.addBooleanSetting("showInHud", true, "Include this module in the enabled-module HUD");
+        settings.addBooleanSetting("favorite", false, "Pin in the module browser");
+        settings.addNumberSetting("lastUsed", 0, 0, 9007199254740991d, "Last module toggle time");
 		selfSettings();
+	}
+
+	protected final <T> T service(Class<T> type) {
+		return me.mrhakan.agalarhack.services.ClientServices.require(type);
 	}
 
 	public void onEnable() {
@@ -42,8 +66,15 @@ public class Module {
 	}
 
 	/** Called after the play connection closes, including before menu-only ticks. */
-	public void onDisconnect() {
-	}
+    public void onDisconnect() {
+        if (!runsWithoutWorld()) onDisable();
+    }
+
+    /** Preserve enabled preference while rebuilding world-scoped state. */
+    public void onWorldChanged(boolean ready) {
+        onDisable();
+        if (ready) onEnable();
+    }
 
 	/** Override for modules such as AutoReconnect that must tick without a loaded world. */
 	public boolean runsWithoutWorld() {
@@ -69,14 +100,38 @@ public class Module {
 			return;
 		}
 
+        if (persist) settings.setSetting("lastUsed", (double)System.currentTimeMillis());
 		toggled = enabled;
 		settings.setSetting("enabled", toggled);
-		onToggle();
-		if (toggled) {
-			onEnable();
-		} else {
-			onDisable();
-		}
+        try {
+            onToggle();
+            if (toggled) onEnable(); else onDisable();
+        } catch (RuntimeException failure) {
+            // `toggled` already holds the state we were moving to, so this says which direction
+            // failed. Cleanup only belongs to a failed switch-on: the module may have taken a lease
+            // or changed player state before it threw, and forcing it off has to undo that. A failed
+            // switch-off is already off, and calling onDisable a second time only re-runs whatever
+            // part of it ran before it threw. Every onDisable here happens to be idempotent, so that
+            // was harmless rather than a bug - but it is a requirement nothing states and nothing
+            // checks, and not needing it is better than writing it down.
+            boolean failedWhileEnabling = toggled;
+            toggled = false;
+            settings.setSetting("enabled", false);
+            if (failedWhileEnabling) {
+                try { onDisable(); } catch (RuntimeException cleanup) { failure.addSuppressed(cleanup); }
+            }
+            AgalarHackClient.LOGGER.error("Module lifecycle failed: {}", name, failure);
+            me.mrhakan.agalarhack.services.ClientServices.registry().find(me.mrhakan.agalarhack.services.NotificationService.class)
+                    .ifPresent(service -> service.publish(me.mrhakan.agalarhack.services.NotificationService.Type.ERROR, name + " disabled after an error"));
+        }
+        if (persist) {
+            Module notifications = AgalarHackClient.moduleManager.getModule("Notifications");
+            if (notifications != null && notifications.getBooleanSetting("moduleToggles", true)) {
+                me.mrhakan.agalarhack.services.ClientServices.registry().find(me.mrhakan.agalarhack.services.NotificationService.class)
+                        .ifPresent(service -> service.publish(me.mrhakan.agalarhack.services.NotificationService.Type.INFO,
+                                name + (toggled ? " enabled" : " disabled")));
+            }
+        }
 
 		if (persist) {
 			AgalarHackClient.SETTINGS_MANAGER.updateSettings();
@@ -99,17 +154,18 @@ public class Module {
 		settings.addChoiceSetting(name, defaultValue, description, choices);
 	}
 
-	public int getKey() {
-		Object key = settings.getSetting("keybind");
-		if (key == null) {
-			return InputConstants.UNKNOWN.getValue();
-		}
-		try {
-			return (int) Double.parseDouble(key.toString());
-		} catch (NumberFormatException e) {
-			return InputConstants.UNKNOWN.getValue();
-		}
-	}
+    public me.mrhakan.agalarhack.input.KeyChord getChord() {
+        return me.mrhakan.agalarhack.input.KeyChord.parse(settings.getSetting("keybind"), (int)getNumberSetting("keyModifiers",0));
+    }
+    public int getKey() { return getChord().key(); }
+    public String getBindLabel() {
+        var chord = getChord();
+        if (chord.key() == -1) return "Unbound";
+        String prefix = ((chord.modifiers() & 2) != 0 ? "Ctrl+" : "") + ((chord.modifiers() & 1) != 0 ? "Shift+" : "")
+                + ((chord.modifiers() & 4) != 0 ? "Alt+" : "") + ((chord.modifiers() & 8) != 0 ? "Super+" : "");
+        return prefix + (chord.mouse() ? "Mouse " + (chord.mouseButton()+1)
+                : InputConstants.Type.KEYSYM.getOrCreate(chord.key()).getDisplayName().getString());
+    }
 
 	public double getNumberSetting(String settingName, double defaultValue) {
 		Object value = settings.getSetting(settingName);
@@ -157,7 +213,25 @@ public class Module {
 		this.name = name;
 	}
 
+	/**
+	 * The description a player reads, translated when a translation exists.
+	 *
+	 * <p>Keyed by the module's name, which is stable because the name is also the identifier used by
+	 * commands and the config. A missing translation renders the English text passed to the
+	 * constructor, so this is safe to translate one module at a time.
+	 */
 	public String getDescription() {
+		return me.mrhakan.agalarhack.services.Translations.string(
+				"module." + name.toLowerCase(java.util.Locale.ROOT) + ".description", description);
+	}
+
+	/**
+	 * The untranslated English text.
+	 *
+	 * <p>Used by the generated module reference, which must read the same on every machine: a page
+	 * regenerated on a Turkish client would otherwise come out half-translated and fail its guard.
+	 */
+	public String rawDescription() {
 		return description;
 	}
 

@@ -55,7 +55,7 @@ public class TargetPolicyManager {
                 settings.sanitizeLoadedValues();
             }
         } catch (Exception e) {
-            System.err.println("[Agalar Hack] Failed to load target policy: " + e.getMessage());
+            me.mrhakan.agalarhack.AgalarHackClient.LOGGER.warn("[Agalar Hack] Failed to load target policy: " + e.getMessage());
         }
         save();
     }
@@ -67,7 +67,7 @@ public class TargetPolicyManager {
                 gson.toJson(settings, writer);
             }
         } catch (IOException e) {
-            System.err.println("[Agalar Hack] Failed to save target policy: " + e.getMessage());
+            me.mrhakan.agalarhack.AgalarHackClient.LOGGER.warn("[Agalar Hack] Failed to save target policy: " + e.getMessage());
         }
     }
 

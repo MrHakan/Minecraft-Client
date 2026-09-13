@@ -13,38 +13,47 @@ import java.util.Map;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import com.google.gson.JsonSyntaxException;
-import com.google.gson.reflect.TypeToken;
 
 import me.mrhakan.agalarhack.AgalarHackClient;
 import me.mrhakan.agalarhack.module.Module;
 import net.fabricmc.loader.api.FabricLoader;
 
 public class SettingsManager {
+    private boolean writable = true;
     private final Gson gson = new GsonBuilder().setPrettyPrinting().create();
     private final Path configPath = FabricLoader.getInstance().getConfigDir().resolve("agalarhack.json");
 
     public Map<String, Settings> readSettings() {
+        writable = true;
         Map<String, Settings> settingsArray = new LinkedHashMap<>();
         if (!Files.isRegularFile(configPath)) {
             return settingsArray;
         }
 
         try (Reader reader = Files.newBufferedReader(configPath, StandardCharsets.UTF_8)) {
-            Map<String, Settings> loaded = gson.fromJson(reader, new TypeToken<Map<String, Settings>>(){}.getType());
+            if (Files.size(configPath) > 4 * 1024 * 1024) throw new IOException("Config exceeds 4 MiB limit");
+            Map<String, Settings> loaded = ConfigCodec.decode(com.google.gson.JsonParser.parseReader(reader), gson);
             if (loaded != null) {
                 settingsArray = loaded;
             }
-        } catch (JsonSyntaxException e) {
-            System.err.println("[Agalar Hack] Config JSON is malformed: " + e.getMessage());
-            backupBrokenConfig();
+        } catch (ConfigCodec.UnsupportedVersionException e) {
+            writable = false;
+            AgalarHackClient.LOGGER.error("Cannot load config", e);
+            notifyRecovery(e.getMessage());
+        } catch (com.google.gson.JsonParseException | IllegalArgumentException e) {
+            AgalarHackClient.LOGGER.error("Malformed config", e);
+            writable = backupBrokenConfig();
+            notifyRecovery(writable ? "Config recovered; damaged file was backed up" : "Config recovery failed; original file retained");
         } catch (IOException e) {
-            System.err.println("[Agalar Hack] Failed to read config: " + e.getMessage());
+            writable = false;
+            AgalarHackClient.LOGGER.error("Cannot read config; writes are disabled to preserve it", e);
+            notifyRecovery("Config could not be read; original file retained");
         }
         return settingsArray;
     }
 
     public void writeSettings(Map<String, Settings> settingsArray) {
+        if (!writable) return;
         Path parent = configPath.getParent();
         if (parent == null) {
             return;
@@ -55,12 +64,12 @@ public class SettingsManager {
             Files.createDirectories(parent);
             tempFile = Files.createTempFile(parent, "agalarhack-", ".tmp");
             try (Writer writer = Files.newBufferedWriter(tempFile, StandardCharsets.UTF_8)) {
-                gson.toJson(settingsArray, writer);
+                gson.toJson(ConfigCodec.encode(settingsArray, gson), writer);
             }
             replaceConfig(tempFile);
             tempFile = null;
         } catch (IOException e) {
-            System.err.println("[Agalar Hack] Failed to write config: " + e.getMessage());
+            me.mrhakan.agalarhack.AgalarHackClient.LOGGER.warn("[Agalar Hack] Failed to write config: " + e.getMessage());
         } finally {
             if (tempFile != null) {
                 try {
@@ -79,17 +88,22 @@ public class SettingsManager {
         }
     }
 
-    private void backupBrokenConfig() {
-        if (!Files.isRegularFile(configPath)) {
-            return;
-        }
+    private boolean backupBrokenConfig() {
+        if (!Files.isRegularFile(configPath)) return true;
         Path backup = configPath.resolveSibling("agalarhack.json.broken-" + System.currentTimeMillis());
         try {
             Files.move(configPath, backup, StandardCopyOption.REPLACE_EXISTING);
-            System.err.println("[Agalar Hack] Broken config backed up to " + backup.getFileName());
+            AgalarHackClient.LOGGER.warn("Broken config backed up to {}", backup.getFileName());
+            return true;
         } catch (IOException backupError) {
-            System.err.println("[Agalar Hack] Could not back up broken config: " + backupError.getMessage());
+            AgalarHackClient.LOGGER.error("Could not back up broken config", backupError);
+            return false;
         }
+    }
+
+    private void notifyRecovery(String message) {
+        me.mrhakan.agalarhack.services.ClientServices.registry().find(me.mrhakan.agalarhack.services.NotificationService.class)
+                .ifPresent(service -> service.publish(me.mrhakan.agalarhack.services.NotificationService.Type.WARNING, message));
     }
 
     public Map<String, Settings> captureSettings() {
@@ -116,7 +130,46 @@ public class SettingsManager {
         updateSettings();
     }
 
+    /**
+     * Applies only the modules a selection names, leaving every other module untouched.
+     *
+     * <p>Deliberately not routed through {@link #applyValues}: a whole-profile load resets every
+     * module to defaults first, because a complete snapshot must not leak values from whichever
+     * profile was active before it. A partial load is the opposite promise — everything outside the
+     * selection has to survive — so the reset would be exactly the wrong behaviour.
+     *
+     * @return the names of the modules that were actually changed
+     */
+    public java.util.List<String> applyPartialSettings(Map<String, Settings> snapshot,
+            me.mrhakan.agalarhack.config.ProfileSelection selection) {
+        java.util.List<String> applied = new java.util.ArrayList<>();
+        if (snapshot == null || selection == null) return java.util.List.of();
+        for (Module module : AgalarHackClient.moduleManager.getModuleList()) {
+            if (!selection.includesModule(module.getName(), module.getCategory().name)) continue;
+            Settings saved = snapshot.get(module.getName());
+            if (saved == null || saved.settings == null) continue;
+            module.settings.settings.putAll(saved.settings);
+            module.settings.sanitizeLoadedValues();
+            applied.add(module.getName());
+            boolean desired = Boolean.TRUE.equals(module.settings.getSetting("enabled"));
+            if (module.isToggled() == desired) continue;
+            try {
+                module.setToggled(desired, false);
+            } catch (RuntimeException failure) {
+                AgalarHackClient.LOGGER.error("Failed to apply partial profile state for {}", module.getName(), failure);
+                module.settings.setSetting("enabled", false);
+            }
+        }
+        updateSettings();
+        return java.util.List.copyOf(applied);
+    }
+
     private void applyValues(Map<String, Settings> values, boolean syncEnabledState) {
+        if (syncEnabledState) {
+            for (Module module : AgalarHackClient.moduleManager.getModuleList()) {
+                if (module.isToggled()) module.setToggled(false, false);
+            }
+        }
         for (Module module : AgalarHackClient.moduleManager.getModuleList()) {
             if (syncEnabledState) {
                 // A named profile is a complete snapshot: modules/settings not present
@@ -144,8 +197,8 @@ public class SettingsManager {
             try {
                 module.setToggled(desired, false);
             } catch (RuntimeException e) {
-                System.err.println("[Agalar Hack] Failed to apply profile state for " + module.getName());
-                e.printStackTrace();
+                me.mrhakan.agalarhack.AgalarHackClient.LOGGER.warn("[Agalar Hack] Failed to apply profile state for " + module.getName());
+                me.mrhakan.agalarhack.AgalarHackClient.LOGGER.error("Operation failed", e);
                 module.settings.setSetting("enabled", false);
             }
         }

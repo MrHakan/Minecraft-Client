@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "id": "agalarhack-broken-fixture",
+  "version": "1.0.0",
+  "name": "Agalar Hack Broken Fixture",
+  "description": "A separately packaged addon that collides on purpose, never shipped.",
+  "environment": "client",
+  "entrypoints": {
+    "agalarhack": [
+      "com.example.brokenfixture.BrokenAddon",
+      "com.example.brokenfixture.CollidingCommandAddon"
+    ]
+  },
+  "depends": {
+    "agalarhack": "*"
+  }
+}

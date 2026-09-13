@@ -5,7 +5,7 @@ import me.mrhakan.agalarhack.module.Module;
 
 public class Flight extends Module {
 
-	private boolean captured;
+	private net.minecraft.client.player.LocalPlayer capturedPlayer;
 	private boolean previousMayfly;
 	private boolean previousFlying;
 	private float previousFlyingSpeed;
@@ -29,7 +29,7 @@ public class Flight extends Module {
 		if (mc.player == null) {
 			return;
 		}
-		if (!captured) {
+		if (capturedPlayer != mc.player) {
 			captureState();
 		}
 		mc.player.getAbilities().mayfly = true;
@@ -39,21 +39,21 @@ public class Flight extends Module {
 
 	@Override
 	public void onDisable() {
-		if (mc.player != null && captured) {
-			mc.player.getAbilities().mayfly = previousMayfly;
-			mc.player.getAbilities().flying = previousFlying;
-			mc.player.getAbilities().setFlyingSpeed(previousFlyingSpeed);
+		if (capturedPlayer != null) {
+			capturedPlayer.getAbilities().mayfly = previousMayfly;
+			capturedPlayer.getAbilities().flying = previousFlying;
+			capturedPlayer.getAbilities().setFlyingSpeed(previousFlyingSpeed);
 		}
-		captured = false;
+		capturedPlayer = null;
 	}
 
 	private void captureState() {
-		if (mc.player == null || captured) {
+		if (mc.player == null || capturedPlayer != null) {
 			return;
 		}
 		previousMayfly = mc.player.getAbilities().mayfly;
 		previousFlying = mc.player.getAbilities().flying;
 		previousFlyingSpeed = mc.player.getAbilities().getFlyingSpeed();
-		captured = true;
+		capturedPlayer = mc.player;
 	}
 }

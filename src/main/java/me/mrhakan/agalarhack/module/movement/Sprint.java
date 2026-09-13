@@ -4,6 +4,9 @@ import me.mrhakan.agalarhack.module.Category;
 import me.mrhakan.agalarhack.module.Module;
 
 public class Sprint extends Module {
+    private net.minecraft.client.player.LocalPlayer capturedPlayer;
+    private boolean previousSprint;
+    private boolean appliedSprint;
 
 	public Sprint() {
 		super("Sprint", Category.MOVEMENT, "Automatically sprints forward while respecting vanilla sprint eligibility");
@@ -21,6 +24,9 @@ public class Sprint extends Module {
 			return;
 		}
 
+        if (capturedPlayer != mc.player) {
+            onDisable(); capturedPlayer = mc.player; previousSprint = mc.player.isSprinting();
+        }
 		boolean forward = mc.player.input.hasForwardImpulse();
 		boolean allowedUsing = getBooleanSetting("whileUsing", false) || !mc.player.isUsingItem();
 		boolean allowedSneaking = getBooleanSetting("whileSneaking", false) || !mc.player.isShiftKeyDown();
@@ -31,12 +37,12 @@ public class Sprint extends Module {
 				&& mc.player.canSprint();
 
 		mc.player.setSprinting(shouldSprint);
+        appliedSprint = shouldSprint;
 	}
 
 	@Override
 	public void onDisable() {
-		if (mc.player != null) {
-			mc.player.setSprinting(false);
-		}
+        if (capturedPlayer != null && capturedPlayer.isSprinting() == appliedSprint) capturedPlayer.setSprinting(previousSprint);
+        capturedPlayer = null;
 	}
 }

@@ -13,6 +13,8 @@
 > [!NOTE]
 > The original 1.12.2 Forge client is retained on the [`og` branch](../../tree/og).
 
+AI contributors: read [handover.md](handover.md) for current progress, architecture, remaining work and validation requirements.
+
 ## Requirements
 
 | Dependency | Version |
@@ -67,6 +69,7 @@ Profiles store complete module state/settings/keybinds, Global Target Policy and
 | `.profile save|load|delete|list|bind|unbind [name]` | Core profile lifecycle |
 | `.profile duplicate|rename <source> <target>` | Copies/renames profiles |
 | `.profile export|import <name>` | Clipboard profile JSON |
+| `.grind <item> [count]` | Plans what it would take to obtain an item, counting what you already carry (plans only; gathers nothing) |
 | `.gui` | Opens the Control Center |
 | `.panic` | Disables all active modules |
 
@@ -130,6 +133,20 @@ Minecraft 26.2 multiplayer does not always synchronize complete active-effect st
 ### Earlier 26.2.x work
 
 26.2.4 added drag-and-drop HUD positioning, ESP tracers/name labels, collision-aware Trajectories, richer TargetHUD, Freecam smoothing/body marker and full profile import/export/duplicate/rename. 26.2.3 introduced profiles/per-server configs, the HUD layout manager, shared target policy/tracker and utility/render modules. 26.2.2 established typed settings, friends, Aura/TriggerBot improvements, safer module lifecycle and modern CI.
+
+## Addons
+
+This client can be extended by other Fabric mods: declare an `agalarhack` entrypoint and you get a
+module and a command registered alongside the built-in ones. The published surface, the rules the
+loader enforces and a complete minimal example are in [Writing an addon](docs/ADDONS.md). The API is
+version 1 and still marked provisional.
+
+## Foundation development branch
+
+The shared service foundation and its current limitations are documented in
+[Foundation services](docs/FOUNDATION_SERVICES.md). This branch introduces an internal event
+bridge, inventory/target/rotation services, notifications, lifecycle cleanup and explicit
+module-config migration while preserving the existing 26.2 rendering pipeline.
 
 ## Building
 

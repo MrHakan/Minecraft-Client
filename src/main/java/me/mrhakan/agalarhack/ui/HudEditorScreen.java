@@ -15,19 +15,29 @@ import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 
 /** Drag-and-drop HUD editor with grid snapping and overlap diagnostics. */
-public class HudEditorScreen extends Screen {
-    private static final List<String> WIDGETS = List.of("branding", "modules", "info", "target");
-    private static final int GRID_SIZE = 10;
-    private static final int SNAP_THRESHOLD = 6;
+public class HudEditorScreen extends Screen implements me.mrhakan.agalarhack.ui.ClientScreen {
+    @Override public Screen parentScreen() { return parent; }
+    private List<String> widgetOrder=List.of();
+    private List<String> widgets(){return widgetOrder;}
+    private int gridSize(){return AgalarHackClient.HUD_LAYOUT.editorOptions().gridSize;}
+    private int snapThreshold(){return AgalarHackClient.HUD_LAYOUT.editorOptions().snapStrength;}
+    private int safeMargin(){return AgalarHackClient.HUD_LAYOUT.editorOptions().safeMargin;}
+    private int toolbarTop;
+    private final Set<String> selection=new LinkedHashSet<>();
 
     private final Screen parent;
     private String selected;
     private String dragging;
     private double grabX;
     private double grabY;
-    private boolean gridVisible = true;
-    private boolean snapping = true;
+
     private final Map<String, Bounds> bounds = new LinkedHashMap<>();
+    /**
+     * Whole-layout snapshots. Arranging a HUD is an experiment, and reset is not an undo: it throws
+     * away the entire layout rather than the last thing you did.
+     */
+    private final me.mrhakan.agalarhack.ui.state.LayoutHistory<WidgetState> history =
+            new me.mrhakan.agalarhack.ui.state.LayoutHistory<>(WidgetState::copy);
 
     public HudEditorScreen(Screen parent) {
         this(parent, "branding");
@@ -36,45 +46,52 @@ public class HudEditorScreen extends Screen {
     private HudEditorScreen(Screen parent, String selected) {
         super(Component.literal("HUD Editor"));
         this.parent = parent;
-        this.selected = WIDGETS.contains(selected) ? selected : "branding";
+        this.selected = widgets().contains(selected) ? selected : "branding";
+        selection.add(this.selected);
     }
 
     @Override
     public void init() {
         super.init();
-        int bottom = height - 28;
-        addRenderableWidget(Button.builder(Component.literal("Anchor"), button ->
-                AgalarHackClient.HUD_LAYOUT.cycleAnchor(selected))
-                .bounds(8, bottom, 54, 20).build());
-        addRenderableWidget(Button.builder(Component.literal("Visible"), button ->
-                AgalarHackClient.HUD_LAYOUT.toggleVisible(selected))
-                .bounds(66, bottom, 54, 20).build());
-        addRenderableWidget(Button.builder(Component.literal("Grid"), button -> gridVisible = !gridVisible)
-                .bounds(124, bottom, 44, 20).build());
-        addRenderableWidget(Button.builder(Component.literal("Snap"), button -> snapping = !snapping)
-                .bounds(172, bottom, 44, 20).build());
-        addRenderableWidget(Button.builder(Component.literal("Reset"), button ->
-                AgalarHackClient.HUD_LAYOUT.reset(selected))
-                .bounds(220, bottom, 50, 20).build());
-        addRenderableWidget(Button.builder(Component.literal("All"), button ->
-                AgalarHackClient.HUD_LAYOUT.resetAll())
-                .bounds(274, bottom, 38, 20).build());
-        addRenderableWidget(Button.builder(Component.literal("Back"), button -> onClose())
-                .bounds(width - 58, bottom, 50, 20).build());
+        widgetOrder=me.mrhakan.agalarhack.services.ClientServices.require(me.mrhakan.agalarhack.ui.hud.HudRegistry.class).ids();
+        String[] labels={"Select","Anchor","Visible","Lock","Front","Grid","Grid size","Snap","Magnet","Margin","Reset","Back","Retry"};
+        int columns=Math.max(1,width/66),rows=(labels.length+columns-1)/columns;
+        toolbarTop=height-rows*24-8;
+        for(int i=0;i<labels.length;i++){
+            final int action=i;
+            addRenderableWidget(Button.builder(Component.literal(labels[i]),button->{
+                var layout=AgalarHackClient.HUD_LAYOUT;var options=layout.editorOptions();
+                switch(action){
+                    case 0->minecraft.gui.setScreen(new me.mrhakan.agalarhack.ui.components.ChoiceScreen(this,"HUD component",widgets(),id->{selected=id;selection.clear();selection.add(id);}));
+                    case 1->layout.cycleAnchor(selected);
+                    case 2->layout.toggleVisible(selected);
+                    case 3->{layout.get(selected).locked=!layout.get(selected).locked;layout.save();}
+                    case 4->{int index=0;for(String id:widgets())layout.get(id).zOrder=index++;layout.get(selected).zOrder=index;layout.save();}
+                    case 5->{options.gridVisible=!options.gridVisible;layout.saveEditorOptions();}
+                    case 6->{options.gridSize=options.gridSize>=20?5:options.gridSize+5;layout.saveEditorOptions();}
+                    case 7->{options.snapping=!options.snapping;layout.saveEditorOptions();}
+                    case 8->{options.snapStrength=(options.snapStrength+2)%14;layout.saveEditorOptions();}
+                    case 9->{options.safeMargin=(options.safeMargin+4)%20;layout.saveEditorOptions();}
+                    case 10->layout.reset(selected);
+                    case 11->onClose();
+                    case 12->me.mrhakan.agalarhack.services.ClientServices.require(me.mrhakan.agalarhack.ui.hud.HudRegistry.class).retry(selected);
+                }
+            }).bounds(4+(i%columns)*66,toolbarTop+(i/columns)*24,62,20).build());
+        }
     }
 
     @Override
     public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
         graphics.fill(0, 0, width, height, 0xE010141C);
-        if (!gridVisible) {
+        if (!AgalarHackClient.HUD_LAYOUT.editorOptions().gridVisible) {
             return;
         }
-        int limit = Math.max(0, height - 34);
-        for (int x = 0; x < width; x += GRID_SIZE) {
-            graphics.fill(x, 0, x + 1, limit, x % (GRID_SIZE * 5) == 0 ? 0x303E526B : 0x182C394A);
+        int limit = Math.max(0, toolbarTop - 6);
+        for (int x = 0; x < width; x += gridSize()) {
+            graphics.fill(x, 0, x + 1, limit, x % (gridSize() * 5) == 0 ? 0x303E526B : 0x182C394A);
         }
-        for (int y = 0; y < limit; y += GRID_SIZE) {
-            graphics.fill(0, y, width, y + 1, y % (GRID_SIZE * 5) == 0 ? 0x303E526B : 0x182C394A);
+        for (int y = 0; y < limit; y += gridSize()) {
+            graphics.fill(0, y, width, y + 1, y % (gridSize() * 5) == 0 ? 0x303E526B : 0x182C394A);
         }
     }
 
@@ -83,19 +100,27 @@ public class HudEditorScreen extends Screen {
         if (super.mouseClicked(event, doubleClick)) {
             return true;
         }
-        if (event.button() != 0 || event.y() >= height - 34) {
+        if (event.button() != 0 || event.y() >= toolbarTop - 6) {
             return false;
         }
 
         updateBounds();
-        for (int i = WIDGETS.size() - 1; i >= 0; i--) {
-            String id = WIDGETS.get(i);
+        for (int i = widgets().size() - 1; i >= 0; i--) {
+            String id = widgets().get(i);
             Bounds b = bounds.get(id);
-            if (b != null && b.contains(event.x(), event.y())) {
+            if (b != null && b.contains(toHud(event.x()), toHud(event.y()))) {
+                boolean shift=me.mrhakan.agalarhack.services.ClientServices.require(me.mrhakan.agalarhack.services.InputStateService.class).keyDown(340)
+                        ||me.mrhakan.agalarhack.services.ClientServices.require(me.mrhakan.agalarhack.services.InputStateService.class).keyDown(344);
                 selected = id;
+                if(shift){if(!selection.add(id))selection.remove(id);return true;}
+                if(!selection.contains(id)){selection.clear();selection.add(id);}
+                if(AgalarHackClient.HUD_LAYOUT.get(id).locked)return true;
+                // Recorded before the first pixel moves: a snapshot taken afterwards would restore
+                // the change it is meant to undo. One drag is one undo step, not one per pixel.
+                history.record(AgalarHackClient.HUD_LAYOUT.snapshot());
                 dragging = id;
-                grabX = event.x() - b.x;
-                grabY = event.y() - b.y;
+                grabX = toHud(event.x()) - b.x;
+                grabY = toHud(event.y()) - b.y;
                 return true;
             }
         }
@@ -109,11 +134,10 @@ public class HudEditorScreen extends Screen {
         }
         Bounds b = boundsFor(dragging);
         Point snapped = snapPosition(dragging,
-                (int) Math.round(event.x() - grabX),
-                (int) Math.round(event.y() - grabY),
+                (int) Math.round(toHud(event.x()) - grabX),
+                (int) Math.round(toHud(event.y()) - grabY),
                 b.width, b.height);
-        AgalarHackClient.HUD_LAYOUT.moveTo(dragging, snapped.x, snapped.y,
-                width, height, b.width, b.height, false, false);
+        moveSelection(snapped.x-b.x,snapped.y-b.y,false);
         updateBounds();
         return true;
     }
@@ -123,11 +147,11 @@ public class HudEditorScreen extends Screen {
         if (dragging != null && event.button() == 0) {
             Bounds b = boundsFor(dragging);
             Point snapped = snapPosition(dragging,
-                    (int) Math.round(event.x() - grabX),
-                    (int) Math.round(event.y() - grabY),
+                    (int) Math.round(toHud(event.x()) - grabX),
+                    (int) Math.round(toHud(event.y()) - grabY),
                     b.width, b.height);
-            AgalarHackClient.HUD_LAYOUT.moveTo(dragging, snapped.x, snapped.y,
-                    width, height, b.width, b.height, true, true);
+            moveSelection(snapped.x-b.x,snapped.y-b.y,true);
+            AgalarHackClient.HUD_LAYOUT.save();
             dragging = null;
             updateBounds();
             return true;
@@ -149,17 +173,32 @@ public class HudEditorScreen extends Screen {
         super.extractRenderState(graphics, mouseX, mouseY, delta);
         updateBounds();
         Set<String> overlaps = overlappingWidgets();
+        // Everything from here to the matching pop is drawn in the HUD's own space. An editor that
+        // drew widget boxes at screen scale while the HUD drew at another would be showing a layout
+        // nobody is going to see.
+        graphics.pose().pushMatrix();
+        graphics.pose().scale(hudScale(), hudScale());
+        if(dragging!=null){
+            graphics.fill(hudWidth()/2,0,hudWidth()/2+1,hudBottom(),0x8058a6ff);
+            graphics.fill(0,hudBottom()/2,hudWidth(),hudBottom()/2+1,0x8058a6ff);
+            Bounds moving=bounds.get(dragging);
+            for(var entry:bounds.entrySet())if(!selection.contains(entry.getKey())){
+                Bounds other=entry.getValue();
+                if(moving.x==other.x)graphics.fill(other.x,0,other.x+1,hudBottom(),0x8080ffb0);
+                if(moving.y==other.y)graphics.fill(0,other.y,hudWidth(),other.y+1,0x8080ffb0);
+            }
+        }
 
         graphics.centeredText(font, "HUD EDITOR", width / 2, 7, 0xFFFFFFFF);
         graphics.centeredText(font,
-                "Drag • grid " + (gridVisible ? "ON" : "OFF") + " • snap " + (snapping ? "ON" : "OFF")
+                "Drag • grid " + (AgalarHackClient.HUD_LAYOUT.editorOptions().gridVisible ? "ON" : "OFF") + " • snap " + (AgalarHackClient.HUD_LAYOUT.editorOptions().snapping ? "ON" : "OFF")
                         + " • selected " + title(selected),
                 width / 2, 20, 0xFF9FB1C7);
 
-        for (String id : WIDGETS) {
+        for (String id : widgets()) {
             Bounds b = bounds.get(id);
             WidgetState state = AgalarHackClient.HUD_LAYOUT.get(id);
-            boolean active = id.equals(selected);
+            boolean active = selection.contains(id);
             boolean collision = overlaps.contains(id);
             int fill = active ? 0x90425E7A : 0x70303A48;
             if (!state.visible) {
@@ -168,44 +207,128 @@ public class HudEditorScreen extends Screen {
             int border = collision ? 0xFFFF5E6C : active ? 0xFF74B9FF : 0xFF617185;
             graphics.fill(b.x, b.y, b.x + b.width, b.y + b.height, fill);
             graphics.outline(b.x, b.y, b.width, b.height, border);
-            graphics.text(font, title(id) + (state.visible ? "" : " [hidden]"), b.x + 5, b.y + 5, 0xFFFFFFFF, true);
-            graphics.text(font, state.anchor.name(), b.x + 5, b.y + 5 + font.lineHeight, 0xFFB8C5D6, true);
-            if (collision) {
+            if(b.height>=font.lineHeight)graphics.text(font,font.plainSubstrByWidth(title(id)+(state.visible?"":" [hidden]")+(state.locked?" [locked]":""),Math.max(0,b.width-2)),b.x+1,b.y,0xFFFFFFFF,true);
+            if(b.height>=font.lineHeight*2+6)graphics.text(font,font.plainSubstrByWidth(state.anchor.name(),Math.max(0,b.width-10)),b.x+5,b.y+5+font.lineHeight,0xFFB8C5D6,true);
+            if (collision && b.height>=font.lineHeight*3+6 && b.width>=font.width("OVERLAP")+10) {
                 graphics.text(font, "OVERLAP", b.x + 5, b.y + 5 + font.lineHeight * 2, 0xFFFF8A94, true);
             }
         }
+        graphics.pose().popMatrix();
 
         WidgetState state = AgalarHackClient.HUD_LAYOUT.get(selected);
-        String status = state.anchor.name() + "  offset " + state.offsetX + ", " + state.offsetY;
+        String status = title(selected)+" • "+state.anchor.name() + "  offset " + state.offsetX + ", " + state.offsetY;
+        status += " • grid " + gridSize() + " • magnet " + snapThreshold() + " • margin " + safeMargin();
         if (!overlaps.isEmpty()) {
             status += "  • overlap detected: " + String.join(", ", overlaps);
         }
-        graphics.centeredText(font, status, width / 2, height - 42,
+        graphics.centeredText(font, status, width / 2, toolbarTop - 12,
                 overlaps.isEmpty() ? 0xFFB8C5D6 : 0xFFFF8A94);
+        // Shortcuts that exist but are invisible get used by nobody, so the editor says so.
+        String hints = "Ctrl+Z undo" + (history.canUndo() ? " (" + history.undoDepth() + ")" : "")
+                + " • Ctrl+Shift+Z redo" + (history.canRedo() ? " (" + history.redoDepth() + ")" : "")
+                + " • Ctrl+D match placement to selection";
+        graphics.centeredText(font, hints, width / 2, toolbarTop - 22, 0xFF6E7E90);
+    }
+
+    private void moveSelection(int dx,int dy,boolean anchor){
+        updateBounds();
+        int minDx=Integer.MIN_VALUE,maxDx=Integer.MAX_VALUE,minDy=Integer.MIN_VALUE,maxDy=Integer.MAX_VALUE;
+        for(String id:selection){if(AgalarHackClient.HUD_LAYOUT.get(id).locked)continue;Bounds b=bounds.get(id);
+            minDx=Math.max(minDx,safeMargin()-b.x);maxDx=Math.min(maxDx,hudWidth()-safeMargin()-b.width-b.x);
+            minDy=Math.max(minDy,safeMargin()-b.y);maxDy=Math.min(maxDy,hudBottom()-safeMargin()-b.height-b.y);
+        }
+        if(minDx==Integer.MIN_VALUE)return;
+        if(maxDx<minDx){minDx=0;maxDx=0;}
+        if(maxDy<minDy){minDy=0;maxDy=0;}
+        dx=me.mrhakan.agalarhack.ui.hud.HudGeometry.clamp(dx,minDx,maxDx);dy=me.mrhakan.agalarhack.ui.hud.HudGeometry.clamp(dy,minDy,maxDy);
+        for(String id:selection){if(AgalarHackClient.HUD_LAYOUT.get(id).locked)continue;Bounds b=bounds.get(id);
+            AgalarHackClient.HUD_LAYOUT.moveTo(id,b.x+dx,b.y+dy,width,height,b.width,b.height,anchor,false);
+        }
+    }
+    @Override public boolean keyPressed(net.minecraft.client.input.KeyEvent event){
+        boolean control=(event.modifiers()&2)!=0;
+        boolean shift=(event.modifiers()&1)!=0;
+        // Ctrl+Z and Ctrl+Shift+Z / Ctrl+Y, which is what every editor uses.
+        if(control && event.key()==90 && !shift){ return applyHistory(history.undo(AgalarHackClient.HUD_LAYOUT.snapshot()),"Undo"); }
+        if(control && ((event.key()==90 && shift) || event.key()==89)){
+            return applyHistory(history.redo(AgalarHackClient.HUD_LAYOUT.snapshot()),"Redo");
+        }
+        if(control && event.key()==68){ return duplicateSelection(); }
+        if(control && event.key()>=262 && event.key()<=265){
+            int step=shift?10:1;
+            history.record(AgalarHackClient.HUD_LAYOUT.snapshot());
+            moveSelection(event.key()==262?step:event.key()==263?-step:0,event.key()==264?step:event.key()==265?-step:0,false);
+            AgalarHackClient.HUD_LAYOUT.save();return true;
+        }
+        return super.keyPressed(event);
+    }
+
+    /** @return true when something was restored, so the key is only swallowed when it did something */
+    private boolean applyHistory(Map<String,WidgetState> restored,String what){
+        if(restored==null) return false;
+        AgalarHackClient.HUD_LAYOUT.applySnapshot(restored);
+        AgalarHackClient.HUD_LAYOUT.save();
+        updateBounds();
+        // Selection can name a widget the restored layout no longer has.
+        selection.removeIf(id->AgalarHackClient.HUD_LAYOUT.get(id)==null);
+        me.mrhakan.agalarhack.services.ClientServices.registry()
+                .find(me.mrhakan.agalarhack.services.NotificationService.class)
+                .ifPresent(notifications->notifications.publish(
+                        me.mrhakan.agalarhack.services.NotificationService.Type.INFO,what+" layout change"));
+        return true;
+    }
+
+    /**
+     * Places the selected widgets slightly offset from where they are.
+     *
+     * <p>HUD widgets are a fixed registry, not user-created objects, so there is nothing to clone -
+     * duplicating a widget id would produce a second widget nothing knows how to draw. What is
+     * actually useful is copying one widget's placement onto the others in the selection, which is
+     * the tedious part of lining a HUD up by hand.
+     */
+    private boolean duplicateSelection(){
+        if(selected==null||selection.size()<2) return false;
+        WidgetState source=AgalarHackClient.HUD_LAYOUT.get(selected);
+        if(source==null) return false;
+        history.record(AgalarHackClient.HUD_LAYOUT.snapshot());
+        int step=Math.max(1,gridSize());
+        int index=1;
+        for(String id:selection){
+            if(id.equals(selected)) continue;
+            WidgetState target=AgalarHackClient.HUD_LAYOUT.get(id);
+            if(target==null||target.locked) continue;
+            target.anchor=source.anchor;
+            target.offsetX=source.offsetX+step*index;
+            target.offsetY=source.offsetY+step*index;
+            index++;
+        }
+        AgalarHackClient.HUD_LAYOUT.save();
+        updateBounds();
+        return true;
     }
 
     private Point snapPosition(String id, int x, int y, int contentWidth, int contentHeight) {
-        int maxX = Math.max(0, width - contentWidth);
-        int maxY = Math.max(0, height - 34 - contentHeight);
+        int maxX = Math.max(0, hudWidth() - contentWidth);
+        int maxY = Math.max(0, hudBottom() - contentHeight);
         int snappedX = Math.max(0, Math.min(maxX, x));
         int snappedY = Math.max(0, Math.min(maxY, y));
-        if (!snapping) {
+        if (!AgalarHackClient.HUD_LAYOUT.editorOptions().snapping) {
             return new Point(snappedX, snappedY);
         }
 
-        snappedX = Math.max(0, Math.min(maxX, Math.round(snappedX / (float) GRID_SIZE) * GRID_SIZE));
-        snappedY = Math.max(0, Math.min(maxY, Math.round(snappedY / (float) GRID_SIZE) * GRID_SIZE));
+        snappedX = Math.max(0, Math.min(maxX, Math.round(snappedX / (float) gridSize()) * gridSize()));
+        snappedY = Math.max(0, Math.min(maxY, Math.round(snappedY / (float) gridSize()) * gridSize()));
         updateBounds();
 
         int bestX = snappedX;
-        int bestXDistance = SNAP_THRESHOLD + 1;
+        int bestXDistance = snapThreshold() + 1;
         int bestY = snappedY;
-        int bestYDistance = SNAP_THRESHOLD + 1;
+        int bestYDistance = snapThreshold() + 1;
         int[] ownX = {0, contentWidth / 2, contentWidth};
         int[] ownY = {0, contentHeight / 2, contentHeight};
 
         for (Map.Entry<String, Bounds> entry : bounds.entrySet()) {
-            if (entry.getKey().equals(id)) {
+            if (selection.contains(entry.getKey()) || !AgalarHackClient.HUD_LAYOUT.get(entry.getKey()).visible) {
                 continue;
             }
             Bounds other = entry.getValue();
@@ -215,7 +338,7 @@ public class HudEditorScreen extends Screen {
                 for (int target : targetsX) {
                     int candidate = target - ownOffset;
                     int distance = Math.abs(candidate - snappedX);
-                    if (distance <= SNAP_THRESHOLD && distance < bestXDistance) {
+                    if (distance <= snapThreshold() && distance < bestXDistance) {
                         bestXDistance = distance;
                         bestX = candidate;
                     }
@@ -225,76 +348,72 @@ public class HudEditorScreen extends Screen {
                 for (int target : targetsY) {
                     int candidate = target - ownOffset;
                     int distance = Math.abs(candidate - snappedY);
-                    if (distance <= SNAP_THRESHOLD && distance < bestYDistance) {
+                    if (distance <= snapThreshold() && distance < bestYDistance) {
                         bestYDistance = distance;
                         bestY = candidate;
                     }
                 }
             }
         }
-        return new Point(Math.max(0, Math.min(maxX, bestX)), Math.max(0, Math.min(maxY, bestY)));
+        if(Math.abs(bestX+contentWidth/2-hudWidth()/2)<=snapThreshold())bestX=hudWidth()/2-contentWidth/2;
+        if(Math.abs(bestY+contentHeight/2-hudBottom()/2)<=snapThreshold())bestY=hudBottom()/2-contentHeight/2;
+        return new Point(Math.max(safeMargin(), Math.min(maxX-safeMargin(), bestX)), Math.max(safeMargin(), Math.min(maxY-safeMargin(), bestY)));
     }
 
     private Set<String> overlappingWidgets() {
         Set<String> overlaps = new LinkedHashSet<>();
-        for (int i = 0; i < WIDGETS.size(); i++) {
-            Bounds a = bounds.get(WIDGETS.get(i));
-            for (int j = i + 1; j < WIDGETS.size(); j++) {
-                Bounds b = bounds.get(WIDGETS.get(j));
-                if (a != null && b != null && a.intersects(b)) {
-                    overlaps.add(WIDGETS.get(i));
-                    overlaps.add(WIDGETS.get(j));
+        for (int i = 0; i < widgets().size(); i++) {
+            Bounds a = bounds.get(widgets().get(i));
+            for (int j = i + 1; j < widgets().size(); j++) {
+                Bounds b = bounds.get(widgets().get(j));
+                if (AgalarHackClient.HUD_LAYOUT.get(widgets().get(i)).visible && AgalarHackClient.HUD_LAYOUT.get(widgets().get(j)).visible && a != null && b != null && a.intersects(b)) {
+                    overlaps.add(widgets().get(i));
+                    overlaps.add(widgets().get(j));
                 }
             }
         }
         return overlaps;
     }
 
+    /**
+     * The editor works in the same logical space the HUD draws in.
+     *
+     * <p>Widget boxes, guides, snapping and the mouse all go through these; the editor's own chrome
+     * — title, status line, toolbar, grid — stays in screen coordinates, because it is the editor's
+     * furniture rather than part of the HUD being arranged.
+     */
+    private int hudWidth() { return AgalarHackClient.HUD_LAYOUT.logicalWidth(width); }
+
+    private int hudHeight() { return AgalarHackClient.HUD_LAYOUT.logicalHeight(height); }
+
+    private float hudScale() { return (float) AgalarHackClient.HUD_LAYOUT.scale(); }
+
+    /** The toolbar's top edge in logical space: the bottom of the area widgets may be dragged in. */
+    private int hudBottom() { return (int) toHud(toolbarTop - 6); }
+
+    private double toHud(double physical) {
+        return me.mrhakan.agalarhack.services.HudScale.toLogical(physical, AgalarHackClient.HUD_LAYOUT.scale());
+    }
+
     private void updateBounds() {
+        widgetOrder=me.mrhakan.agalarhack.services.ClientServices.require(me.mrhakan.agalarhack.ui.hud.HudRegistry.class).ids();
         bounds.clear();
-        for (String id : WIDGETS) {
+        for (String id : widgets()) {
             bounds.put(id, boundsFor(id));
         }
     }
 
     private Bounds boundsFor(String id) {
-        int w;
-        int h;
-        switch (id) {
-            case "branding" -> {
-                w = Math.max(110, font.width(AgalarHackClient.NAME + " " + AgalarHackClient.VERSION) + 10);
-                h = 34;
-            }
-            case "modules" -> {
-                w = 125;
-                h = 70;
-            }
-            case "info" -> {
-                w = 130;
-                h = 48;
-            }
-            case "target" -> {
-                w = 155;
-                h = 82;
-            }
-            default -> {
-                w = 100;
-                h = 40;
-            }
-        }
+        var measured=me.mrhakan.agalarhack.services.ClientServices.require(me.mrhakan.agalarhack.ui.hud.HudRegistry.class).measure(id,hudWidth(),hudHeight());
+        int w=measured.width(),h=measured.height();
         int x = AgalarHackClient.HUD_LAYOUT.resolveX(id, width, w);
         int y = AgalarHackClient.HUD_LAYOUT.resolveY(id, height, h);
         return new Bounds(x, y, w, h);
     }
 
     private String title(String id) {
-        return switch (id) {
-            case "branding" -> "Branding";
-            case "modules" -> "Module List";
-            case "info" -> "Info";
-            case "target" -> "Target HUD";
-            default -> id;
-        };
+        var component=me.mrhakan.agalarhack.services.ClientServices.require(me.mrhakan.agalarhack.ui.hud.HudRegistry.class).get(id);
+        return (component==null?id:component.title())+(me.mrhakan.agalarhack.services.ClientServices.require(me.mrhakan.agalarhack.ui.hud.HudRegistry.class).failed(id)?" [ERROR]":"");
     }
 
     private record Point(int x, int y) {
@@ -306,8 +425,7 @@ public class HudEditorScreen extends Screen {
         }
 
         boolean intersects(Bounds other) {
-            return x < other.x + other.width && x + width > other.x
-                    && y < other.y + other.height && y + height > other.y;
+            return me.mrhakan.agalarhack.ui.hud.HudGeometry.overlaps(x,y,width,height,other.x,other.y,other.width,other.height);
         }
     }
 }

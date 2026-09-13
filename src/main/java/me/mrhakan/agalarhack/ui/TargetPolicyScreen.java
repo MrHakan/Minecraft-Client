@@ -14,7 +14,8 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
 /** Editor for the shared target filter consumed by combat and target-aware render modules. */
-public class TargetPolicyScreen extends Screen {
+public class TargetPolicyScreen extends Screen implements me.mrhakan.agalarhack.ui.ClientScreen {
+    @Override public Screen parentScreen() { return parent; }
     private final Screen parent;
     private String feedback = "";
     private int feedbackColor = ClientUiTheme.MUTED;

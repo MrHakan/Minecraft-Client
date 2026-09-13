@@ -9,6 +9,7 @@ import com.mojang.blaze3d.vertex.VertexConsumer;
 import me.mrhakan.agalarhack.AgalarHackClient;
 import me.mrhakan.agalarhack.module.Module;
 import me.mrhakan.agalarhack.module.render.BlockESP;
+import me.mrhakan.agalarhack.module.render.EntityESP;
 import me.mrhakan.agalarhack.module.render.Freecam;
 import me.mrhakan.agalarhack.module.render.StorageESP;
 import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext;
@@ -50,6 +51,30 @@ public final class WorldOverlayRenderer {
         Module freecamModule = AgalarHackClient.moduleManager.getModule("Freecam");
         Module storageModule = AgalarHackClient.moduleManager.getModule("StorageESP");
         Module blockModule = AgalarHackClient.moduleManager.getModule("BlockESP");
+        Module spawnModule = AgalarHackClient.moduleManager.getModule("SpawnESP");
+        me.mrhakan.agalarhack.module.render.SpawnESP spawns =
+                spawnModule instanceof me.mrhakan.agalarhack.module.render.SpawnESP sp ? sp : null;
+        Module holeModule = AgalarHackClient.moduleManager.getModule("HoleESP");
+        me.mrhakan.agalarhack.module.render.HoleESP holes =
+                holeModule instanceof me.mrhakan.agalarhack.module.render.HoleESP h ? h : null;
+        Module projectileModule = AgalarHackClient.moduleManager.getModule("ProjectileESP");
+        me.mrhakan.agalarhack.module.render.ProjectileESP projectiles =
+                projectileModule instanceof me.mrhakan.agalarhack.module.render.ProjectileESP p ? p : null;
+        Module tracerModule = AgalarHackClient.moduleManager.getModule("Tracers");
+        me.mrhakan.agalarhack.module.render.Tracers tracers =
+                tracerModule instanceof me.mrhakan.agalarhack.module.render.Tracers t ? t : null;
+        Module breadcrumbModule = AgalarHackClient.moduleManager.getModule("Breadcrumbs");
+        me.mrhakan.agalarhack.module.render.Breadcrumbs breadcrumbs =
+                breadcrumbModule instanceof me.mrhakan.agalarhack.module.render.Breadcrumbs b ? b : null;
+        Module nametagModule = AgalarHackClient.moduleManager.getModule("Nametags");
+        me.mrhakan.agalarhack.module.render.Nametags nametags =
+                nametagModule instanceof me.mrhakan.agalarhack.module.render.Nametags n ? n : null;
+        Module itemModule = AgalarHackClient.moduleManager.getModule("ItemESP");
+        me.mrhakan.agalarhack.module.render.ItemESP itemEsp =
+                itemModule instanceof me.mrhakan.agalarhack.module.render.ItemESP i ? i : null;
+        Module waypointModule = AgalarHackClient.moduleManager.getModule("Waypoints");
+        me.mrhakan.agalarhack.module.render.Waypoints waypoints =
+                waypointModule instanceof me.mrhakan.agalarhack.module.render.Waypoints w ? w : null;
         Freecam freecam = freecamModule instanceof Freecam f ? f : null;
         StorageESP storage = storageModule instanceof StorageESP s ? s : null;
         BlockESP blockEsp = blockModule instanceof BlockESP b ? b : null;
@@ -58,44 +83,73 @@ public final class WorldOverlayRenderer {
         boolean storageEnabled = storage != null && storage.isToggled();
         boolean blockEnabled = blockEsp != null && blockEsp.isToggled();
         boolean bodyMarker = freecam != null && freecam.shouldRenderBodyMarker();
-        if (!espEnabled && !trajectoriesEnabled && !storageEnabled && !blockEnabled && !bodyMarker) return;
+        boolean waypointsEnabled = waypoints != null && waypoints.isToggled();
+        boolean itemsEnabled = itemEsp != null && itemEsp.isToggled();
+        boolean nametagsEnabled = nametags != null && nametags.isToggled();
+        boolean breadcrumbsEnabled = breadcrumbs != null && breadcrumbs.isToggled();
+        boolean tracersEnabled = tracers != null && tracers.isToggled();
+        boolean projectilesEnabled = projectiles != null && projectiles.isToggled();
+        boolean holesEnabled = holes != null && holes.isToggled();
+        boolean spawnsEnabled = spawns != null && spawns.isToggled();
+        if (!spawnsEnabled && !holesEnabled && !projectilesEnabled && !tracersEnabled && !breadcrumbsEnabled && !espEnabled && !trajectoriesEnabled && !storageEnabled && !blockEnabled && !bodyMarker
+                && !waypointsEnabled && !itemsEnabled && !nametagsEnabled) return;
 
+        var renderService = me.mrhakan.agalarhack.services.ClientServices.require(me.mrhakan.agalarhack.services.RenderService.class);
         Vec3 camera = ctx.levelState().cameraRenderState.pos;
-        List<LivingEntity> espTargets = espEnabled ? collectEspTargets(mc, esp) : List.of();
-        if (espEnabled && esp.getBooleanSetting("labels", true)) renderEspLabels(ctx, mc, esp, espTargets, camera);
-        if (storageEnabled && storage.getBooleanSetting("labels", false)) renderStorageLabels(ctx, mc, storage, camera);
+        // Built once per frame from the frustum the game already prepared, then shared by every
+        // box-shaped overlay below. Line overlays deliberately do not use it; see ViewCulling.
+        ViewCulling culling = ViewCulling.of(ctx);
+        List<LivingEntity> espTargets = espEnabled && esp instanceof EntityESP entityEsp ? entityEsp.targets() : List.of();
+        if (espEnabled && esp.getBooleanSetting("labels", true)) renderService.guard(esp, () -> renderEspLabels(ctx, mc, esp, espTargets, camera));
+        if (storageEnabled && storage.getBooleanSetting("labels", false)) renderService.guard(storage, () -> renderStorageLabels(ctx, mc, storage, camera));
+        if (nametagsEnabled) {
+            var tagged = nametags;
+            renderService.guard(tagged, () -> renderNametags(ctx, mc, tagged, camera));
+        }
+        if (itemsEnabled && itemEsp.getBooleanSetting("labels", true)) {
+            var labelledItems = itemEsp;
+            renderService.guard(labelledItems, () -> renderItemLabels(ctx, mc, labelledItems, camera));
+        }
+        if (waypointsEnabled && waypoints.getBooleanSetting("labels", true)) {
+            var labelled = waypoints;
+            renderService.guard(labelled, () -> renderWaypointLabels(ctx, mc, labelled, camera));
+        }
 
+        var submittedLevel = mc.level;
+        var submittedPlayer = mc.player;
         ctx.submitNodeCollector().submitCustomGeometry(ctx.poseStack(), RenderTypes.lines(), (pose, buffer) -> {
-            if (espEnabled) renderEspGeometry(mc, esp, espTargets, camera, pose, buffer);
-            if (storageEnabled) renderStorageEsp(mc, storage, camera, pose, buffer);
-            if (blockEnabled) renderBlockEsp(mc, blockEsp, camera, pose, buffer);
-            if (trajectoriesEnabled) renderTrajectory(mc, trajectories, camera, pose, buffer);
-            if (bodyMarker) renderFreecamBodyMarker(mc, freecam, camera, pose, buffer);
+            if (mc.level != submittedLevel || mc.player != submittedPlayer || mc.player == null) return;
+            if (espEnabled) renderService.guard(esp, () -> renderEspGeometry(mc, esp, espTargets, camera, pose, buffer));
+            if (storageEnabled) renderService.guard(storage, () -> renderStorageEsp(mc, storage, camera, pose, buffer, culling));
+            if (storageEnabled && storage.getBooleanSetting("tracers", false)) {
+                renderService.guard(storage, () -> renderStorageTracers(mc, storage, camera, pose, buffer));
+            }
+            if (blockEnabled) renderService.guard(blockEsp, () -> renderBlockEsp(mc, blockEsp, camera, pose, buffer, culling));
+            if (trajectoriesEnabled) renderService.guard(trajectories, () -> renderTrajectory(mc, trajectories, camera, pose, buffer));
+            if (spawnsEnabled) renderService.guard(spawns, () -> renderSpawns(spawns, camera, pose, buffer, culling));
+            if (holesEnabled) renderService.guard(holes, () -> renderHoles(holes, camera, pose, buffer, culling));
+            if (projectilesEnabled) renderService.guard(projectiles, () -> renderProjectiles(projectiles, camera, pose, buffer));
+            if (tracersEnabled) renderService.guard(tracers, () -> renderTracers(tracers, camera, pose, buffer));
+            if (breadcrumbsEnabled) renderService.guard(breadcrumbs, () -> renderBreadcrumbs(breadcrumbs, camera, pose, buffer));
+            if (itemsEnabled && itemEsp.getBooleanSetting("boxes", true)) {
+                renderService.guard(itemEsp, () -> renderItemEsp(mc, itemEsp, camera, pose, buffer, culling));
+            }
+            if (waypointsEnabled) renderService.guard(waypoints, () -> renderWaypoints(mc, waypoints, camera, pose, buffer, culling));
+            if (bodyMarker) renderService.guard(freecam, () -> renderFreecamBodyMarker(mc, freecam, camera, pose, buffer));
         });
     }
 
-    private static List<LivingEntity> collectEspTargets(Minecraft mc, Module esp) {
-        List<LivingEntity> targets = new ArrayList<>();
-        double range = esp.getNumberSetting("range", 96.0);
-        double rangeSq = range * range;
-        boolean respectPolicy = esp.getBooleanSetting("respectTargetPolicy", true);
-        for (Entity entity : mc.level.entitiesForRendering()) {
-            if (!(entity instanceof LivingEntity living) || entity == mc.player || !living.isAlive()) continue;
-            if (mc.player.distanceToSqr(entity) > rangeSq) continue;
-            if (respectPolicy) {
-                if (!AgalarHackClient.TARGET_POLICY.allows(living)) continue;
-            } else if (living instanceof Player) {
-                if (!esp.getBooleanSetting("players", true)) continue;
-            } else if (!esp.getBooleanSetting("mobs", true)) continue;
-            targets.add(living);
-        }
-        return targets;
+    private static boolean currentEspTarget(Minecraft mc, Module esp, LivingEntity target) {
+        double range = esp.getNumberSetting("range", 96);
+        return mc.level != null && mc.player != null && target.level() == mc.level && target.isAlive()
+                && mc.level.getEntity(target.getId()) == target && mc.player.distanceToSqr(target) <= range * range;
     }
 
     private static void renderEspGeometry(Minecraft mc, Module esp, List<LivingEntity> targets, Vec3 camera, PoseStack.Pose pose, VertexConsumer buffer) {
         boolean boxes = esp.getBooleanSetting("boxes", true);
         boolean tracers = esp.getBooleanSetting("tracers", false);
         for (LivingEntity living : targets) {
+            if (!currentEspTarget(mc, esp, living)) continue;
             int color = entityEspColor(mc, esp, living);
             if (boxes) box(buffer, pose, living.getBoundingBox().inflate(0.03).move(-camera.x, -camera.y, -camera.z), color);
             if (tracers) {
@@ -107,7 +161,9 @@ public final class WorldOverlayRenderer {
 
     private static void renderEspLabels(LevelRenderContext ctx, Minecraft mc, Module esp, List<LivingEntity> targets, Vec3 camera) {
         PoseStack stack = ctx.poseStack();
+        double labelRange = esp.getNumberSetting("labelRange", 64);
         for (LivingEntity living : targets) {
+            if (!currentEspTarget(mc, esp, living) || mc.player.distanceToSqr(living) > labelRange * labelRange) continue;
             StringBuilder label = new StringBuilder(living.getName().getString());
             if (esp.getBooleanSetting("showDistance", true)) label.append(String.format(Locale.ROOT, " [%.1fm]", mc.player.distanceTo(living)));
             if (esp.getBooleanSetting("showHealth", false)) label.append(String.format(Locale.ROOT, " [%.1f HP]", living.getHealth()));
@@ -115,15 +171,16 @@ public final class WorldOverlayRenderer {
             int labelRgb = dimRgb(styled & 0xFFFFFF, 0.55 + 0.45 * espFadeFactor(mc, esp, living));
             Component text = Component.literal(label.toString()).withStyle(Style.EMPTY.withColor(TextColor.fromRgb(labelRgb)));
             stack.pushPose();
+            try {
             stack.translate(living.getX() - camera.x, living.getY() - camera.y, living.getZ() - camera.z);
             ctx.submitNodeCollector().submitNameTag(stack, new Vec3(0.0, living.getBbHeight() + 0.35, 0.0), 0, text, true,
                     LightCoordsUtil.FULL_BRIGHT, ctx.levelState().cameraRenderState);
-            stack.popPose();
+            } finally { stack.popPose(); }
         }
     }
 
     private static int entityEspColor(Minecraft mc, Module esp, LivingEntity living) {
-        int rgb = rgb(esp.getNumberSetting("red", 85.0), esp.getNumberSetting("green", 170.0), esp.getNumberSetting("blue", 255.0));
+        int rgb = moduleRgb(esp, esp.getNumberSetting("red", 85.0), esp.getNumberSetting("green", 170.0), esp.getNumberSetting("blue", 255.0), 0.0);
         if (living instanceof Player) {
             boolean friend = AgalarHackClient.FRIEND_MANAGER.isFriend(living.getName().getString());
             if (friend && esp.getBooleanSetting("friendColors", true)) {
@@ -160,9 +217,12 @@ public final class WorldOverlayRenderer {
         return (r << 16) | (g << 8) | b;
     }
 
-    private static void renderStorageEsp(Minecraft mc, StorageESP module, Vec3 camera, PoseStack.Pose pose, VertexConsumer buffer) {
+    private static void renderStorageEsp(Minecraft mc, StorageESP module, Vec3 camera, PoseStack.Pose pose, VertexConsumer buffer, ViewCulling culling) {
         double range = module.getNumberSetting("range", 64.0);
         for (BlockPos pos : module.getCachedPositions()) {
+            if (!culling.isVisible(pos)) continue;
+            if (blockDistance(mc, pos) > module.getNumberSetting("range", 64.0)
+                    || !mc.level.hasChunk(pos.getX() >> 4, pos.getZ() >> 4)) continue;
             String id = blockId(mc, pos);
             if (!module.matches(id)) continue;
             int alpha = fadedAlpha(module.getNumberSetting("alpha", 220.0), blockDistance(mc, pos), range, module.getBooleanSetting("distanceFade", true));
@@ -172,31 +232,265 @@ public final class WorldOverlayRenderer {
         }
     }
 
+    /**
+     * Lines from the view to each container, in that container's own colour.
+     *
+     * <p>Not culled, for the same reason the other tracers are not: the far end is usually off screen
+     * - that is what makes a tracer useful for finding a stash - while the line itself crosses the
+     * view.
+     */
+    private static void renderStorageTracers(Minecraft mc, StorageESP module, Vec3 camera,
+            PoseStack.Pose pose, VertexConsumer buffer) {
+        double range = module.getNumberSetting("range", 64.0);
+        int alpha = (int) Math.max(32, Math.min(255, module.getNumberSetting("tracerAlpha", 150.0))) << 24;
+        for (BlockPos pos : module.getCachedPositions()) {
+            if (blockDistance(mc, pos) > range || !mc.level.hasChunk(pos.getX() >> 4, pos.getZ() >> 4)) continue;
+            String id = blockId(mc, pos);
+            if (!module.matches(id)) continue;
+            line(buffer, pose, 0.0, -0.12, 0.0,
+                    pos.getX() + 0.5 - camera.x, pos.getY() + 0.5 - camera.y, pos.getZ() + 0.5 - camera.z,
+                    alpha | storageRgb(id));
+        }
+    }
+
     private static void renderStorageLabels(LevelRenderContext ctx, Minecraft mc, StorageESP module, Vec3 camera) {
         PoseStack stack = ctx.poseStack();
         for (BlockPos pos : module.getCachedPositions()) {
+            if (blockDistance(mc, pos) > module.getNumberSetting("range", 64.0)
+                    || !mc.level.hasChunk(pos.getX() >> 4, pos.getZ() >> 4)) continue;
             String id = blockId(mc, pos);
             if (!module.matches(id)) continue;
             int rgb = storageRgb(id);
             stack.pushPose();
+            try {
             stack.translate(pos.getX() + 0.5 - camera.x, pos.getY() + 0.5 - camera.y, pos.getZ() + 0.5 - camera.z);
             ctx.submitNodeCollector().submitNameTag(stack, new Vec3(0.0, 0.8, 0.0), 0,
                     Component.literal(prettyBlockName(id)).withStyle(Style.EMPTY.withColor(TextColor.fromRgb(rgb))), true,
                     LightCoordsUtil.FULL_BRIGHT, ctx.levelState().cameraRenderState);
-            stack.popPose();
+            } finally { stack.popPose(); }
         }
     }
 
-    private static void renderBlockEsp(Minecraft mc, BlockESP module, Vec3 camera, PoseStack.Pose pose, VertexConsumer buffer) {
+    private static void renderBlockEsp(Minecraft mc, BlockESP module, Vec3 camera, PoseStack.Pose pose, VertexConsumer buffer, ViewCulling culling) {
         double range = module.getNumberSetting("horizontalRange", 24.0);
-        int rgb = rgb(module.getNumberSetting("red", 255.0), module.getNumberSetting("green", 100.0), module.getNumberSetting("blue", 220.0));
+        int rgb = moduleRgb(module, module.getNumberSetting("red", 255.0), module.getNumberSetting("green", 100.0), module.getNumberSetting("blue", 220.0), 0.0);
         for (BlockPos pos : module.getMatches()) {
+            if (!culling.isVisible(pos)) continue;
+            if (!mc.level.hasChunk(pos.getX() >> 4, pos.getZ() >> 4)) continue;
             String id = blockId(mc, pos);
             if (!module.matches(id)) continue;
             int alpha = fadedAlpha(module.getNumberSetting("alpha", 220.0), blockDistance(mc, pos), range, module.getBooleanSetting("distanceFade", true));
             AABB block = new AABB(pos.getX(), pos.getY(), pos.getZ(), pos.getX() + 1.0, pos.getY() + 1.0, pos.getZ() + 1.0)
                     .inflate(0.015).move(-camera.x, -camera.y, -camera.z);
-            box(buffer, pose, block, (alpha << 24) | rgb);
+            box(buffer, pose, block, (alpha << 24) | module.colorFor(id, rgb));
+        }
+    }
+
+    private static void renderSpawns(me.mrhakan.agalarhack.module.render.SpawnESP module,
+            Vec3 camera, PoseStack.Pose pose, VertexConsumer buffer, ViewCulling culling) {
+        int alpha = (int) Math.max(32, Math.min(255, module.getNumberSetting("alpha", 120.0))) << 24;
+        for (var entry : module.results()) {
+            BlockPos pos = entry.getKey();
+            if (!culling.isVisible(pos)) continue;
+            // Red for always-spawnable, amber for night-only: the distinction is what the player acts on.
+            int rgb = entry.getValue() == me.mrhakan.agalarhack.services.scanning.SpawnLightRules.Spawnable.ALWAYS
+                    ? 0xFF4444 : 0xFFBB44;
+            AABB box = new AABB(pos.getX() + 0.02, pos.getY(), pos.getZ() + 0.02,
+                    pos.getX() + 0.98, pos.getY() + 0.02, pos.getZ() + 0.98)
+                    .move(-camera.x, -camera.y, -camera.z);
+            box(buffer, pose, box, alpha | rgb);
+        }
+    }
+
+    private static void renderHoles(me.mrhakan.agalarhack.module.render.HoleESP module,
+            Vec3 camera, PoseStack.Pose pose, VertexConsumer buffer, ViewCulling culling) {
+        int alpha = (int) Math.max(32, Math.min(255, module.getNumberSetting("alpha", 150.0))) << 24;
+        for (var entry : module.results()) {
+            BlockPos pos = entry.getKey();
+            if (!culling.isVisible(pos)) continue;
+            // Green reads as safe and orange as "encloses you but will not hold"; the distinction
+            // is the whole point of the module, so it is carried by colour rather than a label.
+            int rgb = entry.getValue() == me.mrhakan.agalarhack.services.scanning.HoleDetector.Hole.SAFE
+                    ? 0x55FF88 : 0xFFAA33;
+            AABB box = new AABB(pos.getX(), pos.getY(), pos.getZ(),
+                    pos.getX() + 1.0, pos.getY() + 0.12, pos.getZ() + 1.0)
+                    .move(-camera.x, -camera.y, -camera.z);
+            box(buffer, pose, box, alpha | rgb);
+        }
+    }
+
+    private static void renderProjectiles(me.mrhakan.agalarhack.module.render.ProjectileESP module,
+            Vec3 camera, PoseStack.Pose pose, VertexConsumer buffer) {
+        int color = (clampChannel(module.getNumberSetting("alpha", 220.0)) << 24)
+                | moduleRgb(module, module.getNumberSetting("red", 255.0), module.getNumberSetting("green", 90.0),
+                        module.getNumberSetting("blue", 90.0), 0.0);
+        boolean boxes = module.getBooleanSetting("boxes", true);
+        boolean velocity = module.getBooleanSetting("velocity", true);
+        double scale = module.getNumberSetting("velocityScale", 8.0);
+        for (var projectile : module.projectiles()) {
+            if (!projectile.isAlive()) continue;
+            if (boxes) box(buffer, pose, projectile.getBoundingBox().inflate(0.08).move(-camera.x, -camera.y, -camera.z), color);
+            if (!velocity) continue;
+            Vec3 motion = projectile.getDeltaMovement();
+            if (motion.lengthSqr() < 1.0E-4) continue;
+            Vec3 from = projectile.getBoundingBox().getCenter();
+            // Direction of travel over the next few ticks, ignoring gravity: a heading, not a path.
+            Vec3 to = from.add(motion.scale(scale));
+            line(buffer, pose, from.x - camera.x, from.y - camera.y, from.z - camera.z,
+                    to.x - camera.x, to.y - camera.y, to.z - camera.z, color);
+        }
+    }
+
+    private static void renderTracers(me.mrhakan.agalarhack.module.render.Tracers module,
+            Vec3 camera, PoseStack.Pose pose, VertexConsumer buffer) {
+        // Origins are camera-relative; the ESP tracer's -0.12 sits just under the crosshair.
+        double originY = switch (module.getStringSetting("origin", "center")) {
+            case "bottom" -> -0.8;
+            case "crosshair" -> -0.12;
+            default -> 0.0;
+        };
+        int alpha = (int) Math.max(32, Math.min(255, module.getNumberSetting("alpha", 180.0))) << 24;
+        var drawn = module.targets();
+        for (int index = 0; index < drawn.size(); index++) {
+            var entity = drawn.get(index);
+            if (!entity.isAlive()) continue;
+            var group = me.mrhakan.agalarhack.module.render.Tracers.group(entity);
+            if (!module.enabled(group)) continue;
+            Vec3 center = entity.getBoundingBox().getCenter();
+            line(buffer, pose, 0.0, originY, 0.0,
+                    center.x - camera.x, center.y - camera.y, center.z - camera.z,
+                    alpha | module.colorFor(group, index / (double) Math.max(1, drawn.size())));
+        }
+    }
+
+    private static void renderBreadcrumbs(me.mrhakan.agalarhack.module.render.Breadcrumbs module,
+            Vec3 camera, PoseStack.Pose pose, VertexConsumer buffer) {
+        var points = module.points();
+        if (points.size() < 2) return;
+        int maxAlpha = (int) Math.max(32, Math.min(255, module.getNumberSetting("alpha", 200.0)));
+        boolean fade = module.getBooleanSetting("fade", true);
+        for (int index = 1; index < points.size(); index++) {
+            var from = points.get(index - 1);
+            var to = points.get(index);
+            // Spread along the cycle by position in the trail: without the offset every segment is
+            // the same colour at the same moment and the rainbow reads as a flashing line.
+            int rgb = moduleRgb(module, module.getNumberSetting("red", 120.0), module.getNumberSetting("green", 220.0),
+                    module.getNumberSetting("blue", 255.0), index / (double) points.size());
+            // Older segments sit nearer the start of the list, so fade by position in the trail.
+            int alpha = fade ? Math.max(16, (int) (maxAlpha * (index / (double) points.size()))) : maxAlpha;
+            line(buffer, pose,
+                    from.x() - camera.x, from.y() - camera.y, from.z() - camera.z,
+                    to.x() - camera.x, to.y() - camera.y, to.z() - camera.z,
+                    (alpha << 24) | rgb);
+        }
+    }
+
+    private static void renderNametags(LevelRenderContext ctx, Minecraft mc,
+            me.mrhakan.agalarhack.module.render.Nametags module, Vec3 camera) {
+        PoseStack stack = ctx.poseStack();
+        var friends = AgalarHackClient.FRIEND_MANAGER;
+        for (LivingEntity entity : module.targets()) {
+            if (!entity.isAlive()) continue;
+            double distance = mc.player.distanceTo(entity);
+            boolean friend = entity instanceof net.minecraft.world.entity.player.Player
+                    && friends != null && friends.isFriend(entity.getName().getString());
+            String label = module.label(entity, distance, friend);
+            if (label.isBlank()) continue;
+            stack.pushPose();
+            try {
+                stack.translate(entity.getX() - camera.x,
+                        entity.getY() + entity.getBbHeight() - camera.y, entity.getZ() - camera.z);
+                ctx.submitNodeCollector().submitNameTag(stack, new Vec3(0.0, 0.5, 0.0), 0,
+                        Component.literal(label).withStyle(Style.EMPTY.withColor(
+                                TextColor.fromRgb(friend ? 0x55FF78 : 0xFFFFFF))),
+                        true, LightCoordsUtil.FULL_BRIGHT, ctx.levelState().cameraRenderState);
+            } finally { stack.popPose(); }
+        }
+    }
+
+    private static int itemColor(me.mrhakan.agalarhack.module.render.ItemESP module,
+            net.minecraft.world.entity.item.ItemEntity drop) {
+        return module.getBooleanSetting("rarityColors", true)
+                ? me.mrhakan.agalarhack.module.render.ItemESP.rarityRgb(drop.getItem().getRarity())
+                : moduleRgb(module, module.getNumberSetting("red", 255.0), module.getNumberSetting("green", 220.0),
+                        module.getNumberSetting("blue", 60.0), 0.0);
+    }
+
+    private static void renderItemEsp(Minecraft mc, me.mrhakan.agalarhack.module.render.ItemESP module,
+            Vec3 camera, PoseStack.Pose pose, VertexConsumer buffer, ViewCulling culling) {
+        int alpha = (int) module.getNumberSetting("alpha", 220.0);
+        for (var drop : module.items()) {
+            if (!drop.isAlive()) continue;
+            AABB world = drop.getBoundingBox().inflate(0.08);
+            if (!culling.isVisible(world)) continue;
+            AABB box = world.move(-camera.x, -camera.y, -camera.z);
+            box(buffer, pose, box, (Math.max(32, Math.min(255, alpha)) << 24) | itemColor(module, drop));
+        }
+    }
+
+    private static void renderItemLabels(LevelRenderContext ctx, Minecraft mc,
+            me.mrhakan.agalarhack.module.render.ItemESP module, Vec3 camera) {
+        boolean count = module.getBooleanSetting("showCount", true);
+        boolean distance = module.getBooleanSetting("showDistance", false);
+        PoseStack stack = ctx.poseStack();
+        for (var drop : module.items()) {
+            if (!drop.isAlive()) continue;
+            var item = drop.getItem();
+            StringBuilder label = new StringBuilder(item.getHoverName().getString());
+            if (count && item.getCount() > 1) label.append(" x").append(item.getCount());
+            if (distance) label.append(' ').append(Math.round(mc.player.distanceTo(drop))).append('m');
+            stack.pushPose();
+            try {
+                stack.translate(drop.getX() - camera.x, drop.getY() + 0.6 - camera.y, drop.getZ() - camera.z);
+                ctx.submitNodeCollector().submitNameTag(stack, new Vec3(0.0, 0.0, 0.0), 0,
+                        Component.literal(label.toString()).withStyle(Style.EMPTY.withColor(TextColor.fromRgb(itemColor(module, drop)))),
+                        true, LightCoordsUtil.FULL_BRIGHT, ctx.levelState().cameraRenderState);
+            } finally { stack.popPose(); }
+        }
+    }
+
+    private static void renderWaypoints(Minecraft mc, me.mrhakan.agalarhack.module.render.Waypoints module,
+            Vec3 camera, PoseStack.Pose pose, VertexConsumer buffer, ViewCulling culling) {
+        double limit = module.getNumberSetting("renderDistance", 512);
+        double size = module.getNumberSetting("markerSize", 1.0);
+        boolean beams = module.getBooleanSetting("beams", true);
+        double beamHeight = module.getNumberSetting("beamHeight", 256);
+        for (var point : module.visible()) {
+            if (point.horizontalDistanceTo(mc.player.getX(), mc.player.getZ()) > limit) continue;
+            double half = size / 2.0;
+            // Marker and beam are tested separately: a beam reaches hundreds of blocks above its
+            // marker, so one of the two is very often on screen while the other is not.
+            AABB marker = new AABB(point.x() + 0.5 - half, point.y(), point.z() + 0.5 - half,
+                    point.x() + 0.5 + half, point.y() + size, point.z() + 0.5 + half);
+            if (culling.isVisible(marker)) {
+                box(buffer, pose, marker.move(-camera.x, -camera.y, -camera.z), point.color());
+            }
+            if (!beams || !point.beam()) continue;
+            // A thin tall box reads as a beam and reuses the same line geometry as every other overlay.
+            AABB beam = new AABB(point.x() + 0.45, point.y(), point.z() + 0.45,
+                    point.x() + 0.55, point.y() + beamHeight, point.z() + 0.55);
+            if (!culling.isVisible(beam)) continue;
+            box(buffer, pose, beam.move(-camera.x, -camera.y, -camera.z), (point.color() & 0x00FFFFFF) | 0x60000000);
+        }
+    }
+
+    private static void renderWaypointLabels(LevelRenderContext ctx, Minecraft mc,
+            me.mrhakan.agalarhack.module.render.Waypoints module, Vec3 camera) {
+        double limit = module.getNumberSetting("renderDistance", 512);
+        boolean withDistance = module.getBooleanSetting("distanceInLabel", true);
+        double size = module.getNumberSetting("markerSize", 1.0);
+        PoseStack stack = ctx.poseStack();
+        for (var point : module.visible()) {
+            double distance = point.horizontalDistanceTo(mc.player.getX(), mc.player.getZ());
+            if (distance > limit) continue;
+            String label = withDistance ? point.name() + " " + Math.round(distance) + "m" : point.name();
+            stack.pushPose();
+            try {
+                stack.translate(point.x() + 0.5 - camera.x, point.y() + size - camera.y, point.z() + 0.5 - camera.z);
+                ctx.submitNodeCollector().submitNameTag(stack, new Vec3(0.0, 0.4, 0.0), 0,
+                        Component.literal(label).withStyle(Style.EMPTY.withColor(TextColor.fromRgb(point.color() & 0x00FFFFFF))),
+                        true, LightCoordsUtil.FULL_BRIGHT, ctx.levelState().cameraRenderState);
+            } finally { stack.popPose(); }
         }
     }
 
@@ -220,7 +514,7 @@ public final class WorldOverlayRenderer {
 
     private static int storageRgb(String id) {
         if (id.endsWith(":ender_chest")) return 0xAA55FF;
-        if (id.endsWith("_shulker_box")) return 0xFF55FF;
+        if (me.mrhakan.agalarhack.services.scanning.StorageKind.of(id) == me.mrhakan.agalarhack.services.scanning.StorageKind.SHULKER) return 0xFF55FF;
         if (id.endsWith(":barrel")) return 0xD89A55;
         if (StorageESP.isUtilityStorage(id)) return 0x55CCFF;
         return 0xFFAA33;
@@ -245,16 +539,22 @@ public final class WorldOverlayRenderer {
         LaunchSpec launch = launchSpec(mc, module, stack);
         if (launch == null) return;
 
-        Vec3 pos = mc.player.getEyePosition().add(0.0, -0.1, 0.0);
-        Vec3 velocity = launch.velocity;
+        Vec3 eye = mc.player.getEyePosition().add(0.0, -0.1, 0.0);
+        var physics = new me.mrhakan.agalarhack.services.projectile.ProjectilePhysics(
+                1.0, launch.gravity, launch.drag, 0.0, launch.gravityBeforeDrag);
+        var state = new me.mrhakan.agalarhack.services.projectile.ProjectileSimulator.State(
+                eye.x, eye.y, eye.z, launch.velocity.x, launch.velocity.y, launch.velocity.z);
         int steps = (int) Math.round(module.getNumberSetting("steps", 100.0));
         boolean collisionEnabled = module.getBooleanSetting("collision", true);
         boolean landingMarker = module.getBooleanSetting("landingMarker", true);
-        int color = color(module.getNumberSetting("red", 255.0), module.getNumberSetting("green", 220.0), module.getNumberSetting("blue", 80.0), 240.0);
+        int color = (clampChannel(240.0) << 24) | moduleRgb(module, module.getNumberSetting("red", 255.0),
+                module.getNumberSetting("green", 220.0), module.getNumberSetting("blue", 80.0), 0.0);
 
         for (int i = 0; i < steps; i++) {
-            if (launch.gravityBeforeDrag) velocity = new Vec3(velocity.x, velocity.y - launch.gravity, velocity.z).scale(launch.drag);
-            Vec3 next = pos.add(velocity);
+            // Stepping is the shared simulator; only collision stays here, because it needs the world.
+            var stepped = me.mrhakan.agalarhack.services.projectile.ProjectileSimulator.advance(state, physics);
+            Vec3 pos = new Vec3(state.x(), state.y(), state.z());
+            Vec3 next = new Vec3(stepped.x(), stepped.y(), stepped.z());
             Vec3 end = next;
             boolean collided = false;
             if (collisionEnabled) {
@@ -277,9 +577,8 @@ public final class WorldOverlayRenderer {
                 if (landingMarker) marker(buffer, pose, end.subtract(camera), module.getNumberSetting("markerSize", 0.22), color);
                 break;
             }
-            pos = next;
-            if (!launch.gravityBeforeDrag) velocity = new Vec3(velocity.x * launch.drag, velocity.y * launch.drag - launch.gravity, velocity.z * launch.drag);
-            if (pos.y < mc.level.getMinY() - 16) break;
+            state = stepped;
+            if (state.y() < mc.level.getMinY() - 16) break;
         }
     }
 
@@ -417,6 +716,19 @@ public final class WorldOverlayRenderer {
         if (len > 0.0001f) { nx /= len; ny /= len; nz /= len; }
         buffer.addVertex(pose, (float) ax, (float) ay, (float) az).setColor(r, g, b, a).setNormal(pose, nx, ny, nz).setLineWidth(1.0f);
         buffer.addVertex(pose, (float) bx, (float) by, (float) bz).setColor(r, g, b, a).setNormal(pose, nx, ny, nz).setLineWidth(1.0f);
+    }
+
+    /**
+     * The module's configured colour, cycling through the hues when it asked to.
+     *
+     * <p>{@code nanoTime} rather than wall-clock time: a clock adjustment mid-session would make the
+     * cycle jump, and nothing here needs to agree with any other machine. The phase lets one trail
+     * or one set of tracers spread along the cycle instead of every segment flashing together.
+     */
+    private static int moduleRgb(Module module, double red, double green, double blue, double phase) {
+        int base = rgb(red, green, blue);
+        if (!me.mrhakan.agalarhack.services.RainbowColors.enabled(module)) return base;
+        return me.mrhakan.agalarhack.services.RainbowColors.cycle(module, System.nanoTime() / 1_000_000L, base, phase);
     }
 
     private static int rgb(double red, double green, double blue) {

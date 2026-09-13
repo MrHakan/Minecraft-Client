@@ -57,6 +57,9 @@ public class Settings {
             return description;
         }
 
+        public Double getMin() { return min; }
+        public Double getMax() { return max; }
+
         public List<String> getChoices() {
             return choices;
         }

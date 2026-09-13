@@ -1,0 +1,17 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "me.mrhakan.agalarhack.mixin",
+  "compatibilityLevel": "JAVA_25",
+  "client": [
+    "ChatComponentMixin",
+    "ClientPacketListenerMixin",
+    "ConnectionMixin",
+    "GameRendererMixin",
+    "KeyboardInputMixin",
+    "PlayerEdgeMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

@@ -35,8 +35,43 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x ./gradlew
 
+      - name: Prove inventory regression control
+        run: bash tools/inventory-regression-control.sh
+
       - name: Build
         run: ./gradlew build --stacktrace
+
+      - name: Report unit-test totals
+        run: python3 tools/summarize-tests.py
+
+      # `./gradlew build` passes whether or not the client can start: a mixin target is
+      # named in an annotation string, so a missing one compiles fine and fails at launch,
+      # a null dereference during client initialisation is a crash no unit test reaches,
+      # and a module that throws on its first tick in a real world is neither. This branch
+      # shipped the second of those for several commits.
+      #
+      # The client drives itself: it creates a world, opens every screen, toggles every
+      # module, and fails the build if any of that throws or if the mod caught and logged a
+      # failure on the way. Only on pull requests, since it costs a few minutes and main is
+      # only reached through one.
+      - name: Client game tests
+        if: github.event_name == 'pull_request'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends xvfb mesa-utils libgl1-mesa-dri
+          ./tools/smoke-client.sh
+
+      - name: Upload game test log
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-client-log
+          path: |
+            build/smoke-client.log
+            build/run/clientGameTest/logs/latest.log
+            build/inventory-regression-control.log
+            build/test-results/test/*.xml
+          if-no-files-found: ignore
 
       - name: Read mod version
         id: getModVersion

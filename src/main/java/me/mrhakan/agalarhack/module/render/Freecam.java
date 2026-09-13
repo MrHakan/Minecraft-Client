@@ -30,6 +30,9 @@ public class Freecam extends Module {
         addNumberSetting("smoothing", 0.45, 0.05, 1.0, "Final position response; 1 follows the eased movement target immediately");
         addBooleanSetting("freezePlayer", true, "Keep the real player's position anchored while freecam is active");
         addBooleanSetting("bodyMarker", true, "Draw a marker around the real player body while the camera is detached");
+        addNumberSetting("maxDistance", me.mrhakan.agalarhack.services.CameraLeash.DEFAULT_DISTANCE,
+                0.0, me.mrhakan.agalarhack.services.CameraLeash.MAXIMUM_DISTANCE,
+                "How far the camera may travel from your body in blocks; 0 removes the limit");
     }
 
     @Override
@@ -94,10 +97,36 @@ public class Freecam extends Module {
         if (cameraTarget == null) {
             cameraTarget = current;
         }
-        cameraTarget = cameraTarget.add(cameraVelocity);
+        cameraTarget = leash(cameraTarget.add(cameraVelocity));
         double smoothing = getNumberSetting("smoothing", 0.45);
-        Vec3 next = current.lerp(cameraTarget, smoothing);
+        // Leashed again after smoothing: the eased position sits between two points that are both
+        // inside the radius, so this only matters while a shortened limit is still being eased into.
+        Vec3 next = leash(current.lerp(cameraTarget, smoothing));
         camera.setPos(next.x, next.y, next.z);
+    }
+
+    /**
+     * Holds the camera within the configured radius of the body.
+     *
+     * <p>An unlimited freecam is a scouting tool rather than a camera: far enough out it reads a
+     * base you could not otherwise see. The limit is a setting rather than a rule, and zero restores
+     * the old behaviour for anyone who wants it.
+     */
+    private Vec3 leash(Vec3 position) {
+        if (playerAnchor == null) return position;
+        var clamped = me.mrhakan.agalarhack.services.CameraLeash.clamp(
+                new me.mrhakan.agalarhack.services.CameraLeash.Point(playerAnchor.x, playerAnchor.y, playerAnchor.z),
+                new me.mrhakan.agalarhack.services.CameraLeash.Point(position.x, position.y, position.z),
+                getNumberSetting("maxDistance", me.mrhakan.agalarhack.services.CameraLeash.DEFAULT_DISTANCE));
+        return new Vec3(clamped.x(), clamped.y(), clamped.z());
+    }
+
+    /** How far the camera has travelled from the body, for the HUD and the game test. */
+    public double distanceFromBody() {
+        if (playerAnchor == null || camera == null) return 0;
+        return me.mrhakan.agalarhack.services.CameraLeash.distance(
+                new me.mrhakan.agalarhack.services.CameraLeash.Point(playerAnchor.x, playerAnchor.y, playerAnchor.z),
+                new me.mrhakan.agalarhack.services.CameraLeash.Point(camera.getX(), camera.getY(), camera.getZ()));
     }
 
     public Vec3 getBodyAnchor() {
@@ -114,8 +143,10 @@ public class Freecam extends Module {
 
     @Override
     public void onDisable() {
-        if (mc.player != null) {
-            mc.setCameraEntity(previousCamera != null ? previousCamera : mc.player);
+        if (camera != null && mc.getCameraEntity() == camera) {
+            Entity restore = previousCamera != null && previousCamera.level() == mc.level && previousCamera.isAlive()
+                    ? previousCamera : mc.player;
+            mc.setCameraEntity(restore);
         }
         camera = null;
         previousCamera = null;

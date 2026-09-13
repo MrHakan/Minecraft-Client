@@ -1,0 +1,2460 @@
+package me.mrhakan.agalarhack.gametest;
+
+import java.util.function.Predicate;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import me.mrhakan.agalarhack.AgalarHackClient;
+import me.mrhakan.agalarhack.module.Module;
+import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
+import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
+import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.chat.ChatType;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.PlayerChatMessage;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntitySpawnReason;
+import net.minecraft.world.entity.EntityTypes;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.gamerules.GameRules;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.phys.Vec3;
+
+/**
+ * Checks that individual modules do the thing they exist to do.
+ *
+ * <p>{@link ModuleLifecycleGameTest} proves a module runs. It cannot tell a module that works from
+ * one whose entire body is behind a condition that is never true, because both tick quietly for
+ * twenty ticks. This is where a module earns its {@code markExperimental()} flag being cleared: one
+ * scenario per module, asserting the effect a player would actually notice.
+ *
+ * <p>Every scenario asserts the effect is <em>absent</em> before enabling the module. Without that,
+ * an assertion that passes because the game does it anyway looks exactly like one the module earned.
+ */
+public class ModuleBehaviourGameTest implements FabricClientGameTest {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger("agalarhack-gametest");
+
+    /** Generous: an inventory transfer is several server round trips, each with its own delay. */
+    private static final int SETTLE_TICKS = 80;
+
+    /** Set by the SafeWalk scenario: known-solid ground, and which way the pit lies. */
+    private BlockPos ledge;
+
+    /** Where the scene was built. Fixed for the run, unlike wherever a scenario left the player. */
+    private BlockPos sceneBase;
+
+    @Override
+    public void runTest(ClientGameTestContext context) {
+        try (TestSingleplayerContext singleplayer = context.worldBuilder()
+                .setUseConsistentSettings(true)
+                .create()) {
+            singleplayer.getConnection().waitForChunksRender();
+            singleplayer.getServer().runOnServer(server -> {
+                // Random ticks are the one thing in an empty superflat world that still changes
+                // blocks, and every scanning module restarts its sweep when a block near it
+                // changes. Grass dying under a roof is enough to empty a result set between the
+                // scan and the screenshot, which reads exactly like a module that drew nothing.
+                server.getGameRules().set(GameRules.RANDOM_TICK_SPEED, 0, server);
+                // The sun moves otherwise, and a sky that is a shade different sixty ticks later is
+                // noise in every frame comparison that can see any of it.
+                server.getGameRules().set(GameRules.ADVANCE_TIME, false, server);
+                TestScene.build(singleplayer.getConnection().getServerPlayer());
+            });
+            context.waitTicks(20);
+            sceneBase = singleplayer.getServer().computeOnServer(server ->
+                    singleplayer.getConnection().getServerPlayer().blockPosition());
+
+            autoTotem(context);
+            autoArmor(context);
+            cameraTweaks(context);
+            autoWalk(context, singleplayer);
+            safeWalk(context, singleplayer);
+            autoRefill(context, singleplayer);
+            inventoryCleaner(context, singleplayer);
+            autoWeapon(context, singleplayer);
+        weaponFamilies(context, singleplayer);
+            betterChat(context, singleplayer);
+            chatFilter(context, singleplayer);
+            chatMentions(context, singleplayer);
+            chatHighlight(context, singleplayer);
+            autoAccept(context, singleplayer);
+            performance(context);
+            serverInfo(context);
+            critInfo(context, singleplayer);
+            elytraInfo(context, singleplayer);
+            totemTracker(context, singleplayer);
+            combatHistory(context, singleplayer);
+            baseFinder(context, singleplayer);
+            projectileWarning(context, singleplayer);
+            autoFish(context, singleplayer);
+            hudScale(context, singleplayer);
+            clickGuiTransition(context);
+            freecam(context, singleplayer);
+            lookCommand(context, singleplayer);
+            baritoneAbsent(context, singleplayer);
+            grindPlan(context, singleplayer);
+            addonLoaded(context);
+            quietFrames(context, true);
+            holeEsp(context, singleplayer);
+            tracersAndNametags(context, singleplayer);
+            itemEsp(context, singleplayer);
+            breadcrumbs(context, singleplayer);
+            waypoints(context, singleplayer);
+            spawnEsp(context, singleplayer);
+            projectileEsp(context, singleplayer);
+            quietFrames(context, false);
+            autoRespawn(context, singleplayer);
+
+            LOGGER.info("Module behaviour scenarios passed");
+        }
+    }
+
+    /** A totem in the inventory and nothing in the offhand should end with the totem in the offhand. */
+    private void autoTotem(ClientGameTestContext context) {
+        Predicate<Minecraft> holdingTotem =
+                client -> client.player.getItemBySlot(EquipmentSlot.OFFHAND).is(Items.TOTEM_OF_UNDYING);
+
+        // "always" rather than the health default, because a test player at full health is exactly
+        // the case the default is written to skip.
+        configure(context, "AutoTotem", module -> module.settings.setSetting("mode", "always"));
+        assertNotYet(context, holdingTotem, "the offhand already held a totem before AutoTotem ran");
+
+        toggle(context, "AutoTotem", true);
+        boolean equipped = settle(context, holdingTotem);
+        toggle(context, "AutoTotem", false);
+        if (!equipped) {
+            throw new AssertionError("AutoTotem did not move a totem into the offhand within "
+                    + SETTLE_TICKS + " ticks, with two in the inventory and the slot empty");
+        }
+        LOGGER.info("  AutoTotem put a totem in the offhand");
+    }
+
+    /** A full diamond set in the inventory and a bare player should end with the set worn. */
+    private void autoArmor(ClientGameTestContext context) {
+        Predicate<Minecraft> fullyArmoured = client -> {
+            for (EquipmentSlot slot : new EquipmentSlot[]{
+                    EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET}) {
+                if (client.player.getItemBySlot(slot).isEmpty()) return false;
+            }
+            return true;
+        };
+
+        assertNotYet(context, fullyArmoured, "the player was already wearing armour before AutoArmor ran");
+
+        toggle(context, "AutoArmor", true);
+        // Four pieces, each its own transfer with its own delay between swaps.
+        boolean worn = settle(context, fullyArmoured, SETTLE_TICKS * 2);
+        toggle(context, "AutoArmor", false);
+        if (!worn) {
+            throw new AssertionError("AutoArmor did not equip all four armour slots within "
+                    + (SETTLE_TICKS * 2) + " ticks, with a full diamond set in the inventory");
+        }
+        LOGGER.info("  AutoArmor equipped a full set");
+    }
+
+    /**
+     * A borrowed vanilla option must come back. The restore path is the half that breaks quietly:
+     * nobody notices a field of view that was never restored until the next session looks wrong.
+     */
+    private void cameraTweaks(ClientGameTestContext context) {
+        int original = context.computeOnClient(client -> client.options.fov().get());
+        int forced = original == 45 ? 70 : 45;
+
+        configure(context, "CameraTweaks", module -> {
+            module.settings.setSetting("overrideFov", true);
+            module.settings.setSetting("fov", (double) forced);
+        });
+
+        toggle(context, "CameraTweaks", true);
+        boolean applied = settle(context, client -> client.options.fov().get() == forced);
+        toggle(context, "CameraTweaks", false);
+        if (!applied) {
+            throw new AssertionError("CameraTweaks did not force the field of view to " + forced);
+        }
+
+        context.waitTicks(4);
+        int after = context.computeOnClient(client -> client.options.fov().get());
+        if (after != original) {
+            throw new AssertionError("CameraTweaks left the field of view at " + after
+                    + " after being disabled; it was " + original + " before");
+        }
+        LOGGER.info("  CameraTweaks forced the field of view and gave it back");
+    }
+
+    /** The module holds the movement key; the assertion is that the player actually goes somewhere. */
+    private void autoWalk(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        settleOnGround(context, singleplayer);
+
+        Vec3 before = position(context);
+        context.waitTicks(20);
+        if (position(context).distanceTo(before) > 0.5) {
+            throw new AssertionError("the player was already moving before AutoWalk was enabled");
+        }
+
+        toggle(context, "AutoWalk", true);
+        Vec3 start = position(context);
+        boolean moved = settle(context, client -> client.player.position().distanceTo(start) > 2.0);
+        toggle(context, "AutoWalk", false);
+        if (!moved) {
+            throw new AssertionError("AutoWalk did not move the player more than 2 blocks in "
+                    + SETTLE_TICKS + " ticks");
+        }
+        LOGGER.info("  AutoWalk walked the player forward");
+    }
+
+    /**
+     * The one scenario here that proves a mixin rather than a module. It runs the same walk twice -
+     * once with the module off, once on - because "the player did not fall" means nothing unless the
+     * same walk without the module does.
+     */
+    private void safeWalk(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        this.ledge = digPit(context, singleplayer);
+        BlockPos ledge = this.ledge;
+
+        // The claim under test is "SafeWalk holds the edge", not "SafeWalk's ground gate is right".
+        // Left on, that gate is checked afresh every tick, and a single tick where the walking player
+        // is momentarily not on the ground lets them off - which is a race this scenario lost about
+        // one run in eight. Turning it off removes the race without weakening what is asserted.
+        configure(context, "SafeWalk", module -> module.settings.setSetting("onlyOnGround", false));
+
+        toggle(context, "SafeWalk", false);
+        toggle(context, "Parkour", false);
+        Walk control = walkOffAndReport(context, singleplayer, ledge);
+        if (control.drop() > -1.0) {
+            throw new AssertionError("the control walk did not fall off the ledge (dropped only "
+                    + control.drop() + " blocks), so neither scenario below can tell a module apart "
+                    + "from nothing");
+        }
+        // A drop deeper than the pit means the player went through its floor and is falling through
+        // the world, which is a broken scene rather than a walk off a ledge. Left unchecked that
+        // reads as a healthy control and quietly invalidates both scenarios below.
+        if (control.drop() < -(PIT_DEPTH + 2.0)) {
+            throw new AssertionError("the control walk fell " + control.drop() + " blocks into a pit "
+                    + PIT_DEPTH + " deep; the scene is broken, not the module");
+        }
+
+        toggle(context, "SafeWalk", true);
+        Walk held = walkOffAndReport(context, singleplayer, ledge);
+        // A walk that rises before it falls is a walk where the player left the ground before the
+        // edge, and vanilla only clamps a player who is above ground - Player.maybeBackOffFromEdge
+        // tests isAboveGround(maxUpStep) alongside the sneak gate this module forces. So SafeWalk
+        // cannot hold an already-airborne player, by vanilla's rule rather than as a defect, and a
+        // walk like that tells nothing apart. It is taken again rather than reported either way.
+        // Seen locally at rise=0.60, exactly maxUpStep, on a machine running four Gradle daemons;
+        // the same commit was green on CI.
+        if (held.drop() < -0.5 && held.rise() > 0.25) {
+            LOGGER.info("    retaking the SafeWalk walk: the player rose {} before falling, so they "
+                    + "were airborne at the edge and vanilla's clamp never applied",
+                    String.format("%.2f", held.rise()));
+            held = walkOffAndReport(context, singleplayer, ledge);
+        }
+        toggle(context, "SafeWalk", false);
+        if (held.drop() < -0.5) {
+            throw new AssertionError("SafeWalk let the player drop " + held.drop()
+                    + " blocks (rising " + held.rise() + " first) off a ledge the control walk also "
+                    + "fell from");
+        }
+        LOGGER.info("  SafeWalk held the edge the control walk fell off");
+
+        parkour(context, singleplayer, ledge, control);
+    }
+
+    /**
+     * Parkour jumps at the edge rather than holding it, so the tell is upward movement.
+     *
+     * <p>Measured against the control walk rather than against a fixed number. Walking into the pit
+     * raises the player a little all by itself - landing on the floor pushes them up around a third
+     * of a block - and that figure is not something to hardcode, because it is exactly the kind of
+     * incidental physics that changes with the scene. A vanilla jump is about 1.25 blocks, so the
+     * difference between the two walks is unambiguous without needing to know either number.
+     */
+    private void parkour(ClientGameTestContext context, TestSingleplayerContext singleplayer,
+            BlockPos ledge, Walk control) {
+        toggle(context, "Parkour", true);
+        Walk jumped = walkOffAndReport(context, singleplayer, ledge);
+        toggle(context, "Parkour", false);
+
+        double extra = jumped.rise() - control.rise();
+        if (extra < 0.5 || jumped.rise() < 0.8) {
+            throw new AssertionError("Parkour did not jump at the edge: the player rose "
+                    + jumped.rise() + " blocks against the control walk's " + control.rise()
+                    + ", a difference of " + extra + " where a jump is about 1.25");
+        }
+        LOGGER.info("  Parkour jumped {} blocks at the edge the control walk stepped off with {}",
+                String.format("%.2f", jumped.rise()), String.format("%.2f", control.rise()));
+    }
+
+    /** How deep the pit is. Deep enough that falling in is unmistakable, shallow enough to survive. */
+    private static final int PIT_DEPTH = 3;
+
+    /**
+     * The smallest number of changed pixels worth calling a drawing.
+     *
+     * <p>The real test is the ratio to the noise measured in the same run; this rules out a handful
+     * of stray pixels when the scene is perfectly still and that floor is zero. Sixty is about a
+     * short line or a few characters of text - small enough not to demand a particular size of
+     * marker, large enough that nothing arrives there by accident.
+     */
+    private static final int DRAWN_PIXELS = 60;
+
+    /**
+     * Clears a 5x5 pit two blocks away and returns the standing spot facing it.
+     *
+     * <p>The pit gets a floor. A superflat world is four blocks thick, so digging even this far
+     * without one punches straight through the bedrock and the "pit" becomes the void - which is
+     * exactly what the first version did. It passed locally, because the player was still falling
+     * when the sampling window closed, and failed on a slower CI runner where they fell far enough
+     * to die. A test whose meaning depends on how fast the machine is has no meaning.
+     */
+    private BlockPos digPit(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        // Clean ground a fixed distance from the scene, not wherever the player happens to be.
+        // AutoWalk runs immediately before this and stops somewhere different every time, so the pit
+        // used to be dug on top of whatever TestScene had built there - and a chest or an ore block
+        // at the ledge gives the player a 0.6 step up and a completely different walk. That is the
+        // whole of the intermittent SafeWalk failure: roughly one run in ten the scenario was not
+        // testing the thing it describes.
+        BlockPos stand = sceneBase.offset(0, 0, -30);
+
+        // Moved and dug in two steps, with a wait between. Doing both in one server call wrote the
+        // pit into a chunk that was not loaded yet - fine on this machine, where the chunk was
+        // already there, and not on a runner, where it was not.
+        singleplayer.getServer().runOnServer(server -> {
+            ServerPlayer player = singleplayer.getConnection().getServerPlayer();
+            player.teleportTo(stand.getX() + 0.5, stand.getY(), stand.getZ() + 0.5);
+            player.setDeltaMovement(Vec3.ZERO);
+            player.fallDistance = 0;
+        });
+        singleplayer.getConnection().waitForChunksRender();
+        context.waitTicks(40);
+
+        BlockPos dug = singleplayer.getServer().computeOnServer(server -> {
+            ServerPlayer player = singleplayer.getConnection().getServerPlayer();
+            ServerLevel level = player.level();
+            for (int dx = 2; dx <= 6; dx++) {
+                for (int dz = -2; dz <= 2; dz++) {
+                    level.setBlockAndUpdate(stand.offset(dx, -PIT_DEPTH - 1, dz), Blocks.STONE.defaultBlockState());
+                    for (int dy = -1; dy >= -PIT_DEPTH; dy--) {
+                        level.setBlockAndUpdate(stand.offset(dx, dy, dz), Blocks.AIR.defaultBlockState());
+                    }
+                }
+            }
+            return stand;
+        });
+        singleplayer.getConnection().waitForChunksRender();
+        context.waitTicks(20);
+        return dug;
+    }
+
+    /** How the player's height changed during one walk at the pit, relative to where they started. */
+    private record Walk(double drop, double rise) { }
+
+    /**
+     * Puts the player back on the ledge and walks them into the pit.
+     *
+     * <p>The height is sampled throughout rather than only at the end, because a jump and a fall are
+     * told apart by what happened in between: a player who jumps the gap and one who never moved
+     * both finish level with where they started.
+     */
+    private static Walk walkOffAndReport(ClientGameTestContext context, TestSingleplayerContext singleplayer,
+            BlockPos ledge) {
+        singleplayer.getServer().runOnServer(server -> {
+            ServerPlayer player = singleplayer.getConnection().getServerPlayer();
+            player.setGameMode(GameType.SURVIVAL);
+            player.teleportTo(ledge.getX() + 0.5, ledge.getY(), ledge.getZ() + 0.5);
+            // Each walk is its own experiment: a player carrying damage or momentum from the last
+            // one is a different player, and three walks in a row would eventually kill them.
+            player.setHealth(player.getMaxHealth());
+            player.setDeltaMovement(Vec3.ZERO);
+            player.fallDistance = 0;
+        });
+        context.waitTicks(20);
+        context.getInput().lookAt(ledge.offset(4, 0, 0));
+        context.waitTicks(5);
+
+        double startY = position(context).y;
+        double lowest = startY;
+        double highest = startY;
+        context.getInput().holdKey(options -> options.keyUp);
+        for (int tick = 0; tick < 50; tick += 2) {
+            context.waitTicks(2);
+            double y = position(context).y;
+            lowest = Math.min(lowest, y);
+            highest = Math.max(highest, y);
+        }
+        context.getInput().releaseKey(options -> options.keyUp);
+        context.waitTicks(10);
+        // Logged for every walk: when one of these scenarios fails, the three walks' numbers side by
+        // side are the difference between a diagnosis and a guess.
+        LOGGER.info("    walk from y={} drop={} rise={} onGround={}",
+                String.format("%.2f", startY), String.format("%.2f", lowest - startY),
+                String.format("%.2f", highest - startY),
+                context.computeOnClient(client -> client.player.onGround()));
+
+        singleplayer.getServer().runOnServer(server ->
+                singleplayer.getConnection().getServerPlayer().setGameMode(GameType.CREATIVE));
+        return new Walk(lowest - startY, highest - startY);
+    }
+
+    /** Creative flight leaves the player drifting; several modules only act with both feet down. */
+    private static void settleOnGround(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        singleplayer.getServer().runOnServer(server ->
+                singleplayer.getConnection().getServerPlayer().setGameMode(GameType.CREATIVE));
+        context.waitTicks(10);
+    }
+
+    private static Vec3 position(ClientGameTestContext context) {
+        return context.computeOnClient(client -> client.player.position());
+    }
+
+    /** A low hotbar stack with a full one behind it in the inventory should be topped up. */
+    private void autoRefill(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        final int hotbarSlot = 0;
+        final int storageSlot = 20;
+        setInventory(singleplayer, slots -> {
+            slots.setItem(hotbarSlot, new ItemStack(Items.COBBLESTONE, 4));
+            slots.setItem(storageSlot, new ItemStack(Items.COBBLESTONE, 64));
+        });
+        context.waitTicks(10);
+
+        Predicate<Minecraft> toppedUp =
+                client -> client.player.getInventory().getItem(hotbarSlot).getCount() > 4;
+        assertNotYet(context, toppedUp, "the hotbar stack was already above the refill threshold");
+
+        toggle(context, "AutoRefill", true);
+        boolean refilled = settle(context, toppedUp, SETTLE_TICKS * 2);
+        toggle(context, "AutoRefill", false);
+        if (!refilled) {
+            throw new AssertionError("AutoRefill left a 4-item hotbar stack alone with a full stack "
+                    + "of the same item in the inventory");
+        }
+        LOGGER.info("  AutoRefill topped up a low hotbar stack");
+    }
+
+    /**
+     * The one automation here that destroys property, so the scenario cares as much about what
+     * survives as about what goes. An unlisted item in the next slot must still be there afterwards.
+     */
+    private void inventoryCleaner(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        final int junkSlot = 20;
+        final int keepSlot = 21;
+        setInventory(singleplayer, slots -> {
+            slots.setItem(junkSlot, new ItemStack(Items.ROTTEN_FLESH, 8));
+            slots.setItem(keepSlot, new ItemStack(Items.DIAMOND, 8));
+        });
+        context.waitTicks(10);
+
+        Predicate<Minecraft> junkGone =
+                client -> !client.player.getInventory().getItem(junkSlot).is(Items.ROTTEN_FLESH);
+        assertNotYet(context, junkGone, "the junk slot did not contain the junk the scenario placed");
+
+        toggle(context, "InventoryCleaner", true);
+        boolean dropped = settle(context, junkGone, SETTLE_TICKS * 2);
+        toggle(context, "InventoryCleaner", false);
+        if (!dropped) {
+            throw new AssertionError("InventoryCleaner did not drop rotten flesh, which is in its "
+                    + "default junk list");
+        }
+
+        boolean kept = context.computeOnClient(client ->
+                client.player.getInventory().getItem(keepSlot).is(Items.DIAMOND));
+        if (!kept) {
+            throw new AssertionError("InventoryCleaner dropped a diamond, which is not in any junk "
+                    + "list; this module must never remove something nobody listed");
+        }
+        LOGGER.info("  InventoryCleaner dropped the listed junk and left the diamonds alone");
+    }
+
+    /**
+     * With a weapon in the hotbar and something to hit, the selected slot should become the weapon.
+     *
+     * <p>The target is an armour stand rather than the scene's zombie. It is a living entity, which
+     * is all the module asks for, and it does not walk away - a target that moves turns "the module
+     * did not switch" and "the crosshair missed" into the same failure.
+     */
+    private void autoWeapon(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        final int swordSlot = 3;
+        setInventory(singleplayer, slots -> {
+            slots.setItem(0, new ItemStack(Items.COBBLESTONE, 16));
+            slots.setItem(swordSlot, new ItemStack(Items.DIAMOND_SWORD));
+            slots.setSelectedSlot(0);
+        });
+
+        // Away from the pit, on ground the earlier scenarios did not dig out. Spawning the stand
+        // where the player happened to be left it standing in the pit, three blocks below the
+        // crosshair, which the guard below caught but which is the scenario's fault to avoid.
+        BlockPos stand = singleplayer.getServer().computeOnServer(server -> {
+            ServerPlayer player = singleplayer.getConnection().getServerPlayer();
+            BlockPos footing = ledge.offset(-10, 0, 0);
+            player.teleportTo(footing.getX() + 0.5, footing.getY(), footing.getZ() + 0.5);
+            BlockPos spot = footing.offset(2, 0, 0);
+            if (EntityTypes.ARMOR_STAND.spawn(player.level(), spot, EntitySpawnReason.COMMAND) == null) {
+                throw new AssertionError("could not spawn the armour stand at " + spot);
+            }
+            return spot;
+        });
+        context.waitTicks(20);
+        // Its upper half, not its feet: a block-centre aim at the lower block looks below the body.
+        context.getInput().lookAt(stand.above());
+        context.waitTicks(10);
+
+        // Aiming is this scenario's setup, not its claim. If the crosshair is not on the stand the
+        // module is correct to do nothing, and reporting that as a module failure would be a lie.
+        boolean aimed = context.computeOnClient(client ->
+                client.hitResult instanceof net.minecraft.world.phys.EntityHitResult);
+        if (!aimed) {
+            throw new AssertionError("the crosshair is not on the armour stand, so AutoWeapon has "
+                    + "nothing to react to; the scenario is broken, not the module");
+        }
+
+        Predicate<Minecraft> holdingSword =
+                client -> client.player.getInventory().getSelectedSlot() == swordSlot;
+        assertNotYet(context, holdingSword, "the sword slot was already selected before AutoWeapon ran");
+
+        toggle(context, "AutoWeapon", true);
+        boolean switched = settle(context, holdingSword);
+        toggle(context, "AutoWeapon", false);
+        if (!switched) {
+            throw new AssertionError("AutoWeapon did not select the diamond sword with a living "
+                    + "target under the crosshair");
+        }
+        LOGGER.info("  AutoWeapon selected the sword for the target under the crosshair");
+    }
+
+    /** Sends a line from the server so it arrives the way a real one does, and waits for it. */
+    private static void say(ClientGameTestContext context, TestSingleplayerContext singleplayer, String text) {
+        singleplayer.getServer().runOnServer(server ->
+                server.getPlayerList().broadcastSystemMessage(Component.literal(text), false));
+        context.waitTicks(10);
+    }
+
+    /** A timestamp is a prefix on the line, so the line has to be read back to see it. */
+    private void betterChat(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        configure(context, "BetterChat", module -> {
+            module.settings.setSetting("timestamps", true);
+            module.settings.setSetting("seconds", true);
+        });
+
+        String plain = "betterchat control line";
+        say(context, singleplayer, plain);
+        boolean stampedWhileOff = context.computeOnClient(client ->
+                ChatView.lines(client).stream().anyMatch(line -> line.contains(plain) && line.matches("^\\[\\d\\d:.*")));
+        if (stampedWhileOff) {
+            throw new AssertionError("a chat line was already timestamped before BetterChat was on");
+        }
+
+        toggle(context, "BetterChat", true);
+        String stamped = "betterchat stamped line";
+        say(context, singleplayer, stamped);
+        toggle(context, "BetterChat", false);
+
+        String line = context.computeOnClient(client -> ChatView.lines(client).stream()
+                .filter(text -> text.contains(stamped)).findFirst().orElse(""));
+        // HH:mm:ss in brackets, ahead of the server's own text.
+        if (!line.matches("^\\[\\d\\d:\\d\\d:\\d\\d\\] .*" + java.util.regex.Pattern.quote(stamped) + ".*")) {
+            throw new AssertionError("BetterChat did not timestamp the line; chat shows: " + line);
+        }
+        LOGGER.info("  BetterChat timestamped an arriving line");
+    }
+
+    /**
+     * The filter hides a listed phrase and nothing else. The second half is the half that matters:
+     * a filter that swallows everything would pass an assertion that only checks the listed line.
+     */
+    private void chatFilter(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        // Deliberately disjoint: none of these three is a substring of another. The first draft used
+        // a control line that contained the hidden one, so the leak check found the control and
+        // reported the module had failed to hide anything.
+        String listed = "quidnunc";
+        String control = "chatfilter control carries quidnunc while off";
+        String hidden = "chatfilter later message also carrying quidnunc";
+        String kept = "chatfilter innocent line";
+        configure(context, "ChatFilter", module -> {
+            module.settings.setSetting("hide", listed);
+            // The scenario speaks through the server console, which arrives as a game message; the
+            // module leaves those alone by default.
+            module.settings.setSetting("gameMessages", true);
+        });
+
+        // Absence is only evidence if presence was possible. Without this, a broadcast that never
+        // arrived at all would read exactly like a line the filter hid.
+        say(context, singleplayer, control);
+        boolean arrives = context.computeOnClient(client -> ChatView.contains(client, control));
+        if (!arrives) {
+            throw new AssertionError("a server line does not reach chat at all, so hiding one proves "
+                    + "nothing; the scenario is broken, not the module");
+        }
+
+        toggle(context, "ChatFilter", true);
+        say(context, singleplayer, hidden);
+        say(context, singleplayer, kept);
+        toggle(context, "ChatFilter", false);
+
+        boolean leaked = context.computeOnClient(client -> ChatView.contains(client, hidden));
+        if (leaked) {
+            throw new AssertionError("ChatFilter did not hide a line matching a listed phrase");
+        }
+        boolean survived = context.computeOnClient(client -> ChatView.contains(client, kept));
+        if (!survived) {
+            throw new AssertionError("ChatFilter hid a line that matches nothing in its list; a "
+                    + "filter that swallows everything is worse than no filter");
+        }
+        LOGGER.info("  ChatFilter hid the listed line and left the other alone");
+    }
+
+    /**
+     * A mention is a notification, so the notification service is where the effect shows up.
+     *
+     * <p>Sent as player chat rather than from the server console, because the client deliberately
+     * offers this module player chat only - a system line is a plugin talking, not someone
+     * addressing you. The first draft used a server broadcast and the module was right to ignore it.
+     *
+     * <p>The trigger is a keyword from another speaker. Both halves are forced: the module ignores
+     * your own messages, so the line cannot come from the local player, and with only one real
+     * player in the world the server has to speak for a second one.
+     */
+    private void chatMentions(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        String keyword = "zarfblat";
+        configure(context, "ChatMentions", module -> {
+            module.settings.setSetting("keywords", keyword);
+            module.settings.setSetting("ownName", false);
+            // The cue would reach for an audio device this machine does not have.
+            module.settings.setSetting("sound", false);
+            module.settings.setSetting("cooldown", 0.0);
+        });
+
+        // A mention surfaces as a toast, and the Notifications module is what makes toasts exist:
+        // its onDisable switches the whole notification service off, and the lifecycle test toggled
+        // it off earlier in this run. Without this the service silently drops every publish.
+        toggle(context, "Notifications", true);
+
+        somebodySays(context, singleplayer, "Someone", "control line mentioning " + keyword);
+        if (mentionNotified(context)) {
+            throw new AssertionError("a mention was reported before ChatMentions was enabled");
+        }
+
+        toggle(context, "ChatMentions", true);
+        somebodySays(context, singleplayer, "Someone", "second line mentioning " + keyword);
+        boolean noticed = mentionNotified(context);
+        toggle(context, "ChatMentions", false);
+        toggle(context, "Notifications", false);
+        if (!noticed) {
+            throw new AssertionError("ChatMentions did not report a chat line containing its "
+                    + "configured keyword");
+        }
+        LOGGER.info("  ChatMentions reported a keyword in player chat");
+    }
+
+    /**
+     * Chat attributed to somebody who is not the local player.
+     *
+     * <p>Sending it from the player instead does not work, and the module is right about that: a
+     * player chat line arrives rendered as {@code <Player0> ...}, which contains the player's own
+     * name, and ChatMentions deliberately refuses to treat your own message as a mention of you.
+     * There is only one real player in a test world, so the server speaks for a second one.
+     */
+    private static void somebodySays(ClientGameTestContext context, TestSingleplayerContext singleplayer,
+            String speaker, String text) {
+        singleplayer.getServer().runOnServer(server -> server.getPlayerList().broadcastChatMessage(
+                // The real player's id, with somebody else's name bound to the line. A made-up id is
+                // rejected by the client as a chat validation error - it only accepts messages from
+                // senders it knows about - and the display name is all the module reads anyway.
+                PlayerChatMessage.unsigned(singleplayer.getConnection().getServerPlayer().getUUID(), text),
+                server.createCommandSourceStack(),
+                ChatType.bind(ChatType.CHAT, server.registryAccess(), Component.literal(speaker))));
+        context.waitTicks(10);
+    }
+
+    private static boolean mentionNotified(ClientGameTestContext context) {
+        return context.computeOnClient(notice("mentioned in chat")::test);
+    }
+
+    /** A toast is showing whose text contains this fragment. */
+    private static Predicate<Minecraft> notice(String fragment) {
+        return client -> me.mrhakan.agalarhack.services.ClientServices.require(
+                        me.mrhakan.agalarhack.services.NotificationService.class)
+                .visible().stream().anyMatch(showing -> showing.text().contains(fragment));
+    }
+
+    /**
+     * The strongest end-to-end check here: the module answers by sending a real command, so the
+     * assertion is that the server echoed it back. Nothing about that can be faked client-side.
+     *
+     * <p>The reply is {@code /me} rather than {@code /say} because it needs no permission level - a
+     * reply the server refuses would look exactly like a module that never fired.
+     */
+    private void autoAccept(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        String requester = "Requester";
+        String echo = "autoaccept answered a request";
+        configure(context, "AutoAccept", module -> {
+            module.settings.setSetting("phrases", "wants to teleport");
+            module.settings.setSetting("reply", "/me " + echo);
+            module.settings.setSetting("friendsOnly", false);
+            module.settings.setSetting("allowedNames", requester);
+            module.settings.setSetting("cooldownSeconds", 1.0);
+        });
+
+        String request = requester + " wants to teleport to you";
+        say(context, singleplayer, request);
+        if (context.computeOnClient(client -> ChatView.contains(client, echo))) {
+            throw new AssertionError("the reply appeared in chat before AutoAccept was enabled");
+        }
+
+        toggle(context, "AutoAccept", true);
+        say(context, singleplayer, request);
+        context.waitTicks(20);
+        boolean answered = context.computeOnClient(client -> ChatView.contains(client, echo));
+        toggle(context, "AutoAccept", false);
+        if (!answered) {
+            throw new AssertionError("AutoAccept did not send its reply; the server never echoed \""
+                    + echo + "\" back into chat");
+        }
+        LOGGER.info("  AutoAccept answered a listed requester and the server echoed the command");
+    }
+
+    /**
+     * Everything that moves the picture without a module doing it.
+     *
+     * <p>Clouds drift whatever the world clock does; on their own they put the noise floor at 1.77.
+     * The HUD is worse than noise: the enabled-module list changes whenever a module is toggled, so
+     * leaving it on would let every render scenario pass with nothing drawn in the world at all.
+     *
+     * <p>This is shared setup rather than per-scenario because the first version toggled the HUD
+     * inside one scenario and restored it at the end, which left every later one measuring the HUD.
+     * That showed up as a noise floor of 0.85 against a signal of 0.87 - the control refusing to
+     * call it evidence, correctly.
+     */
+    private static void quietFrames(ClientGameTestContext context, boolean quiet) {
+        if (quiet) {
+            context.runOnClient(client ->
+                    client.options.cloudStatus().set(net.minecraft.client.CloudStatus.OFF));
+        }
+        // The theme animates its own colours continuously, which is a moving picture behind every
+        // frame comparison. This used to be switched off by the HUD scale scenario and left that
+        // way, so every render scenario below silently depended on a scenario above it having run -
+        // delete or reorder that one and these get noisier for no visible reason. Stillness is owned
+        // here now, by the helper whose whole job is holding the scene still.
+        stillTheme(context, quiet);
+        // F1 toggles; pressing it again on the way out puts the HUD back.
+        context.getInput().pressKey(options -> options.keyToggleGui);
+        context.waitTicks(20);
+    }
+
+    /**
+     * Stops, or restarts, everything the theme animates.
+     *
+     * <p>Through the theme's own reduced-motion switch rather than anything test-only, so what is
+     * being held still is a state a player can also be in.
+     */
+    private static void stillTheme(ClientGameTestContext context, boolean still) {
+        context.runOnClient(client -> {
+            var service = me.mrhakan.agalarhack.services.ClientServices.require(
+                    me.mrhakan.agalarhack.services.ThemeService.class);
+            var theme = service.copy();
+            theme.reducedMotion = still;
+            theme.uiAnimations = !still;
+            theme.animationSpeed = 1.0;
+            service.preview(theme);
+        });
+    }
+
+    /**
+     * The first render module checked by what it draws rather than by what it stores.
+     *
+     * <p>An overlay leaves nothing behind to assert on, so the evidence is the picture. See
+     * {@link Frames} for why nothing is compared against a stored reference image. The noise
+     * measurement here is the control, and it is a real one: if the scene will not hold still, two
+     * frames taken under identical conditions differ as much as the module does and the scenario
+     * reports that instead of passing.
+     *
+     * <p>What this proves is that HoleESP draws something where a hole is. It does not prove the
+     * marker is the right shape, colour or place.
+     *
+     * <p>The camera is inside the hole for a reason that cost several runs to find. These overlays
+     * are depth tested: seen from outside, the marker lies behind the near rim and the frame does
+     * not change by a single pixel, which reads exactly like a module that draws nothing. Looking
+     * down the shaft at it is the difference between measuring the module and measuring occlusion.
+     */
+    private void holeEsp(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        BlockPos hole = stillSceneWithHole(context, singleplayer);
+        // Straight down the shaft at the marker on the floor.
+        context.getInput().lookAt(0.0f, 89.0f);
+
+        context.waitTicks(40);
+
+        // Both windows are the same length on purpose. Measuring noise over ten ticks and signal
+        // over sixty compares unequal things: anything that drifts with time - clouds, most
+        // obviously - scales with the window, and the first version of this read six times the
+        // cloud drift as a healthy signal from a module that was in fact drawing nothing.
+        final int window = 60;
+        java.nio.file.Path before = context.takeScreenshot("holeesp-off-1");
+        context.waitTicks(window);
+        java.nio.file.Path stillOff = context.takeScreenshot("holeesp-off-2");
+        double noise = Frames.difference(before, stillOff);
+
+        toggle(context, "HoleESP", true);
+        // Waited for, not timed. The scanner works through a budget spread over ticks, and how many
+        // it needs is not fixed - a run where sixty were not enough photographed an unmarked hole
+        // and reported that the module had drawn nothing. Polling for the result separates "the
+        // scanner has not finished" from "the module drew nothing", which are different failures.
+        boolean found = false;
+        for (int waited = 0; waited < window * 4 && !found; waited += 10) {
+            context.waitTicks(10);
+            found = context.computeOnClient(client ->
+                    !((me.mrhakan.agalarhack.module.render.HoleESP)
+                            AgalarHackClient.moduleManager.getModule("HoleESP")).results().isEmpty());
+        }
+        if (!found) {
+            toggle(context, "HoleESP", false);
+            throw new AssertionError("HoleESP never reported the hole the scenario dug, so there was "
+                    + "nothing for it to draw; the scan did not finish rather than the module failing");
+        }
+        // The same window as the noise measurement, now that there is something to photograph.
+        context.waitTicks(window);
+        java.nio.file.Path on = context.takeScreenshot("holeesp-on");
+        toggle(context, "HoleESP", false);
+        double signal = Frames.difference(stillOff, on);
+
+        LOGGER.info("    HoleESP frames: noise={} signal={}",
+                String.format("%.3f", noise), String.format("%.3f", signal));
+        if (noise > 1.0) {
+            throw new AssertionError("two frames taken with nothing changed differ by " + noise
+                    + "; the scene will not hold still, so no screenshot scenario here means anything");
+        }
+        if (signal < Math.max(0.5, noise * 5)) {
+            throw new AssertionError("HoleESP changed the picture by " + signal + " against a noise "
+                    + "floor of " + noise + "; it drew nothing over a hole it should have marked");
+        }
+        LOGGER.info("  HoleESP drew over the hole");
+    }
+
+    /**
+     * Two overlays with something to point at, each measured where it actually draws.
+     *
+     * <p>Both need a Mob - the groups these modules select on are player, item and Mob, and nothing
+     * else - that stays put and does not burn in daylight, so a pig with its AI switched off. It
+     * cannot be made invisible to stop the model animating: the mod never offers invisible entities
+     * to these overlays at all, and the target count drops to zero.
+     *
+     * <p>The two are framed differently on purpose, because they draw in different places. A tracer
+     * is a line from the edge of the screen to the target, so the target goes far away where its
+     * animation is a handful of pixels and the line is still full length. A nametag is a small label
+     * directly above the entity, so the target comes close where the label is large, and only the
+     * band above the crosshair is measured - which is where the label is and where the animating
+     * body is not.
+     */
+    private void tracersAndNametags(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        configure(context, "Tracers", module -> {
+            module.settings.setSetting("players", true);
+            module.settings.setSetting("hostiles", true);
+            module.settings.setSetting("passives", true);
+            // Lines start at the bottom of the screen. With the default centre origin and the camera
+            // pointed at the target, a tracer runs from the middle of the screen to the middle of
+            // the screen: no length, and a signal of nothing.
+            module.settings.setSetting("origin", "bottom");
+        });
+        configure(context, "Nametags", module -> {
+            module.settings.setSetting("players", true);
+            module.settings.setSetting("mobs", true);
+        });
+
+        BlockPos far = pigAt(context, singleplayer, 30);
+        context.getInput().lookAt(far);
+        context.waitTicks(40);
+        drawsSomething(context, "Tracers", "a line to the pig", 0.25, 0.75);
+
+        BlockPos near = pigAt(context, singleplayer, 6);
+        // At the pig itself. A pig is about nine tenths of a block tall, so its tag sits barely
+        // above its back - aiming two blocks up, as for something person-sized, puts the crosshair
+        // above the tag and the tag below the band being measured.
+        context.getInput().lookAt(near);
+        // HUD back on for this one. Nametags are labels rather than world geometry, and F1 takes
+        // them with it - with the HUD hidden the module draws nothing measurable at all. The band
+        // measured here is the middle of the screen above the crosshair, which no HUD element
+        // occupies: the module list is top right, the hotbar bottom centre, both outside it.
+        context.getInput().pressKey(options -> options.keyToggleGui);
+        context.waitTicks(40);
+        drawsSomething(context, "Nametags", "a tag above the pig", 0.10, 0.50);
+        context.getInput().pressKey(options -> options.keyToggleGui);
+    }
+
+    /**
+     * A dropped item, measured by the label the module writes above it.
+     *
+     * <p>Same shape as the nametag scenario and for the same reason: a drop bobs and spins by
+     * itself, so measuring the band above it counts the label and excludes the animation rather
+     * than tolerating it. The drop is set never to be picked up, which would otherwise end the
+     * scenario halfway through by removing the thing being looked at.
+     */
+    private void itemEsp(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        configure(context, "ItemESP", module -> {
+            module.settings.setSetting("labels", true);
+            module.settings.setSetting("boxes", true);
+        });
+
+        moveThere(context, singleplayer, sceneBase.offset(0, 0, 90));
+        BlockPos drop = singleplayer.getServer().computeOnServer(server -> {
+            ServerPlayer player = singleplayer.getConnection().getServerPlayer();
+            ServerLevel level = player.level();
+            clearEntities(level);
+            BlockPos where = player.blockPosition().offset(0, 0, 5);
+            var item = new net.minecraft.world.entity.item.ItemEntity(level,
+                    where.getX() + 0.5, where.getY(), where.getZ() + 0.5,
+                    new ItemStack(Items.DIAMOND, 3));
+            item.setNeverPickUp();
+            item.setUnlimitedLifetime();
+            item.setDeltaMovement(Vec3.ZERO);
+            if (!level.addFreshEntity(item)) {
+                throw new AssertionError("could not drop an item at " + where);
+            }
+            return where;
+        });
+        context.getInput().lookAt(drop);
+        context.waitTicks(40);
+        drawsSomething(context, "ItemESP", "a label over the dropped diamonds", 0.10, 0.50);
+    }
+
+    /**
+     * The trail is built by walking, so this one runs backwards: the module is on while the player
+     * moves, and switched off afterwards to get the frame without it.
+     *
+     * <p>Every other scenario measures off, then on. Here that is impossible - there is nothing to
+     * draw until the player has been somewhere - so the two off frames come last and the comparison
+     * runs the other way. A difference does not care which frame came first.
+     */
+    private void breadcrumbs(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        moveThere(context, singleplayer, sceneBase.offset(0, 0, 120));
+        configure(context, "Breadcrumbs", module -> module.settings.setSetting("minDistance", 0.5));
+
+        toggle(context, "Breadcrumbs", true);
+        context.getInput().holdKeyFor(options -> options.keyUp, 60);
+        context.waitTicks(20);
+        // Turned around, so the trail just walked is in front of the camera rather than behind it.
+        context.getInput().lookAt(0.0f, 10.0f);
+        context.runOnClient(client -> client.player.setYRot(client.player.getYRot() + 180.0f));
+        context.waitTicks(20);
+
+        java.nio.file.Path withTrail = context.takeScreenshot("breadcrumbs-on");
+        toggle(context, "Breadcrumbs", false);
+        context.waitTicks(20);
+        java.nio.file.Path plain = context.takeScreenshot("breadcrumbs-off-1");
+        context.waitTicks(60);
+        java.nio.file.Path plainAgain = context.takeScreenshot("breadcrumbs-off-2");
+
+        int noise = Frames.changedPixels(plain, plainAgain, 0.25, 0.75);
+        int signal = Frames.changedPixels(plainAgain, withTrail, 0.25, 0.75);
+        LOGGER.info("    Breadcrumbs pixels: noise={} signal={}", noise, signal);
+        assertDrew("Breadcrumbs", "trail behind a player that had just walked", noise, signal);
+        LOGGER.info("  Breadcrumbs drew the trail the player had just walked");
+    }
+
+    /**
+     * A waypoint marker, with its beam, twenty blocks ahead.
+     *
+     * <p>The beam is a column two hundred blocks tall, which makes this the least ambiguous drawing
+     * any of these modules produce. The waypoint is added through the service the command uses, so
+     * the scenario exercises the same path a player would.
+     */
+    private void waypoints(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        configure(context, "Waypoints", module -> {
+            module.settings.setSetting("beams", true);
+            module.settings.setSetting("labels", true);
+        });
+
+        moveThere(context, singleplayer, sceneBase.offset(0, 0, 150));
+        BlockPos marker = singleplayer.getServer().computeOnServer(server -> {
+            ServerPlayer player = singleplayer.getConnection().getServerPlayer();
+            clearEntities(player.level());
+            return player.blockPosition().offset(0, 0, 20);
+        });
+        context.runOnClient(client -> {
+            var service = me.mrhakan.agalarhack.services.ClientServices.require(
+                    me.mrhakan.agalarhack.services.WaypointService.class);
+            service.remove("gametest", me.mrhakan.agalarhack.module.render.Waypoints.currentDimension(client));
+            service.add(me.mrhakan.agalarhack.services.Waypoint.of("gametest",
+                            marker.getX(), marker.getY(), marker.getZ(),
+                            me.mrhakan.agalarhack.module.render.Waypoints.currentDimension(client))
+                    .withBeam(true));
+        });
+        context.getInput().lookAt(marker);
+        context.waitTicks(40);
+        drawsSomething(context, "Waypoints", "a marker or beam at the saved position", 0.25, 0.75);
+    }
+
+    /**
+     * SpawnESP marks where light allows a spawn, so the scenario has to make somewhere dark.
+     *
+     * <p>A superflat world at noon has no such place: the surface is lit everywhere and the module
+     * would correctly mark nothing. The player is sealed into a roofed box instead, which is the
+     * one situation this module exists for.
+     */
+    private void spawnEsp(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        // A short sweep on purpose. The default radius is forty thousand positions, which is several
+        // ticks of a shared budget the other enabled scanners are also drawing on, and the frame is
+        // taken at a fixed moment rather than when the sweep happens to finish.
+        configure(context, "SpawnESP", module -> {
+            module.settings.setSetting("horizontalRange", 12.0);
+            module.settings.setSetting("verticalRange", 4.0);
+        });
+
+        moveThere(context, singleplayer, sceneBase.offset(0, 0, 180));
+        singleplayer.getServer().runOnServer(server -> {
+            ServerPlayer player = singleplayer.getConnection().getServerPlayer();
+            ServerLevel level = player.level();
+            clearEntities(level);
+            BlockPos centre = player.blockPosition();
+            // A sealed shell: walls, and a roof three blocks up so there is standing room under it.
+            // The floor is replaced too, because superflat's grass dies once it is roofed over and
+            // each death is a block update that sends the scan back to the start.
+            for (int dx = -4; dx <= 4; dx++) {
+                for (int dz = -4; dz <= 4; dz++) {
+                    level.setBlockAndUpdate(centre.offset(dx, -1, dz), Blocks.STONE.defaultBlockState());
+                    level.setBlockAndUpdate(centre.offset(dx, 3, dz), Blocks.OBSIDIAN.defaultBlockState());
+                    for (int dy = 0; dy <= 2; dy++) {
+                        boolean wall = Math.abs(dx) == 4 || Math.abs(dz) == 4;
+                        level.setBlockAndUpdate(centre.offset(dx, dy, dz), wall
+                                ? Blocks.OBSIDIAN.defaultBlockState() : Blocks.AIR.defaultBlockState());
+                    }
+                }
+            }
+        });
+        singleplayer.getConnection().waitForChunksRender();
+        // Long enough for the light engine to darken the sealed volume before anything is scanned.
+        context.waitTicks(80);
+        // At the floor, where the markers go.
+        context.getInput().lookAt(0.0f, 60.0f);
+        context.waitTicks(20);
+        drawsSomething(context, "SpawnESP", "markers on a dark floor", 0.25, 0.75,
+                client -> AgalarHackClient.moduleManager.getModule("SpawnESP")
+                        instanceof me.mrhakan.agalarhack.module.render.SpawnESP spawn
+                        && !spawn.results().isEmpty());
+    }
+
+    /**
+     * A module whose whole job is to reconfigure a shared service, so the service is the evidence.
+     *
+     * <p>The restore half is the one worth asserting. A client left on the low profile after the
+     * module was switched off would scan slowly for the rest of the session, and nothing on screen
+     * would say why.
+     */
+    private void performance(ClientGameTestContext context) {
+        var builtIn = me.mrhakan.agalarhack.services.scanning.ScanBudgets.BALANCED;
+        var wanted = me.mrhakan.agalarhack.services.scanning.ScanBudgets.forProfile("low");
+        var before = scanBudgets(context);
+        if (!builtIn.equals(before)) {
+            throw new AssertionError("the shared scanner was already off its built-in ceiling (" + before
+                    + ") before Performance ran; the scenario proves nothing in that state");
+        }
+
+        configure(context, "Performance", module -> module.settings.setSetting("scanBudget", "low"));
+        toggle(context, "Performance", true);
+        context.waitTicks(8);
+        var applied = scanBudgets(context);
+        toggle(context, "Performance", false);
+        context.waitTicks(8);
+        var restored = scanBudgets(context);
+
+        if (!wanted.equals(applied)) {
+            throw new AssertionError("Performance on the low profile left the shared scanner at "
+                    + applied + " instead of " + wanted);
+        }
+        if (!builtIn.equals(restored)) {
+            throw new AssertionError("Performance left the shared scanner at " + restored
+                    + " after being disabled instead of restoring " + builtIn);
+        }
+        LOGGER.info("  Performance lowered the shared scanning ceiling and gave it back");
+    }
+
+    private static me.mrhakan.agalarhack.services.scanning.ScanBudgets scanBudgets(ClientGameTestContext context) {
+        return context.computeOnClient(client -> me.mrhakan.agalarhack.services.ClientServices.require(
+                me.mrhakan.agalarhack.services.ScannerService.class).budgets());
+    }
+
+    /**
+     * The tick figure is an estimate built from how far apart the server's world-time packets
+     * arrive, so the scenario waits for real packets rather than feeding the module anything.
+     *
+     * <p>Ping is deliberately not asserted: the integrated server reports a latency of zero, which
+     * the module correctly declines to record as a sample.
+     */
+    private void serverInfo(ClientGameTestContext context) {
+        Predicate<Minecraft> estimating = client ->
+                AgalarHackClient.moduleManager.getModule("ServerInfo")
+                        instanceof me.mrhakan.agalarhack.module.misc.ServerInfo info
+                        && info.tickEstimate().hasEstimate()
+                        && info.getDisplayName().startsWith("ServerInfo [");
+        assertNotYet(context, estimating, "ServerInfo already had a tick estimate before it was enabled");
+
+        toggle(context, "ServerInfo", true);
+        // World time arrives once every twenty ticks and two of them make the first interval.
+        boolean estimated = settle(context, estimating, 200);
+        double tps = context.computeOnClient(client ->
+                ((me.mrhakan.agalarhack.module.misc.ServerInfo) AgalarHackClient.moduleManager
+                        .getModule("ServerInfo")).tickEstimate().average());
+        toggle(context, "ServerInfo", false);
+
+        if (!estimated) {
+            throw new AssertionError("ServerInfo produced no tick estimate within 200 ticks of a running server");
+        }
+        // Wide on purpose: this asserts the estimate is a rate rather than nonsense, not that a
+        // headless CI runner hits twenty.
+        if (tps < 1.0 || tps > 60.0) {
+            throw new AssertionError("ServerInfo estimated " + tps + " tps for an idle integrated server");
+        }
+        LOGGER.info("  ServerInfo estimated {} tps from the server's own time packets",
+                String.format(java.util.Locale.ROOT, "%.1f", tps));
+    }
+
+    /**
+     * The crit rule read against the player's real state: no crit with both feet on the ground, a
+     * crit on the way down. Nothing is fed to the module — it reads the same player the game does,
+     * which is the only way to tell a correct rule from one that always answers the same.
+     */
+    private void critInfo(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        Predicate<Minecraft> critting = client ->
+                AgalarHackClient.moduleManager.getModule("CritInfo")
+                        instanceof me.mrhakan.agalarhack.module.combat.CritInfo crit
+                        && crit.critReady()
+                        && "CritInfo [ready]".equals(crit.getDisplayName());
+
+        moveThere(context, singleplayer, sceneBase.offset(0, 0, 210));
+        toggle(context, "CritInfo", true);
+        context.waitTicks(20);
+        if (context.computeOnClient(critting::test)) {
+            toggle(context, "CritInfo", false);
+            throw new AssertionError("CritInfo said a hit would crit while the player stood still on the ground");
+        }
+
+        // Creative, so thirty blocks is a fall rather than a death.
+        BlockPos above = sceneBase.offset(0, 30, 210);
+        singleplayer.getServer().runOnServer(server -> {
+            ServerPlayer player = singleplayer.getConnection().getServerPlayer();
+            player.teleportTo(above.getX() + 0.5, above.getY(), above.getZ() + 0.5);
+            player.setDeltaMovement(Vec3.ZERO);
+        });
+        boolean crits = settle(context, critting, 60);
+        toggle(context, "CritInfo", false);
+        if (!crits) {
+            throw new AssertionError("CritInfo never reported a critical while the player was falling "
+                    + "thirty blocks, which is exactly the state 26.2 crits in");
+        }
+        context.waitTicks(40);
+        LOGGER.info("  CritInfo told a grounded player from a falling one");
+    }
+
+    /**
+     * A nearly worn-out elytra should be news before the flight, not during it.
+     *
+     * <p>The durability figure is read off the worn item rather than guessed, so the assertion is on
+     * the exact number: a module that warned with the right text and the wrong count would be no
+     * use to somebody deciding whether to launch.
+     */
+    private void elytraInfo(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        // Toasts only exist while the Notifications module is on; the lifecycle test left it off.
+        toggle(context, "Notifications", true);
+
+        singleplayer.getServer().runOnServer(server -> {
+            ServerPlayer player = singleplayer.getConnection().getServerPlayer();
+            ItemStack elytra = new ItemStack(Items.ELYTRA);
+            // Ten uses left, well under the twenty-use default threshold.
+            elytra.setDamageValue(elytra.getMaxDamage() - 10);
+            player.setItemSlot(EquipmentSlot.CHEST, elytra);
+        });
+        context.waitTicks(20);
+        assertNotYet(context, notice("Elytra at "), "a worn elytra was reported before ElytraInfo was enabled");
+
+        toggle(context, "ElytraInfo", true);
+        boolean warned = settle(context, notice("Elytra at 10 uses"));
+        String label = context.computeOnClient(client ->
+                AgalarHackClient.moduleManager.getModule("ElytraInfo").getDisplayName());
+        toggle(context, "ElytraInfo", false);
+        singleplayer.getServer().runOnServer(server -> singleplayer.getConnection().getServerPlayer()
+                .setItemSlot(EquipmentSlot.CHEST, ItemStack.EMPTY));
+
+        if (!warned) {
+            throw new AssertionError("ElytraInfo did not warn about an elytra with ten uses left within "
+                    + SETTLE_TICKS + " ticks");
+        }
+        if (!label.startsWith("ElytraInfo [10 dur")) {
+            throw new AssertionError("ElytraInfo warned but its module-list label read " + label
+                    + " rather than the ten uses left on the worn elytra");
+        }
+        LOGGER.info("  ElytraInfo warned about a worn elytra and counted its uses");
+    }
+
+    /**
+     * A totem is popped for real: the player is put in survival, handed one, and dealt more damage
+     * than they have health.
+     *
+     * <p>Ordinary magic damage rather than {@code kill()}, which is tagged as bypassing
+     * invulnerability and would take the player straight past the totem the scenario is about.
+     */
+    private void totemTracker(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        toggle(context, "Notifications", true);
+        moveThere(context, singleplayer, sceneBase.offset(0, 0, 360));
+        String who = context.computeOnClient(client -> client.player.getName().getString());
+
+        singleplayer.getServer().runOnServer(server -> {
+            ServerPlayer player = singleplayer.getConnection().getServerPlayer();
+            player.setGameMode(GameType.SURVIVAL);
+            player.setHealth(player.getMaxHealth());
+            player.setItemSlot(EquipmentSlot.OFFHAND, new ItemStack(Items.TOTEM_OF_UNDYING));
+        });
+        context.waitTicks(20);
+
+        toggle(context, "TotemTracker", true);
+        Predicate<Minecraft> counted = client ->
+                AgalarHackClient.moduleManager.getModule("TotemTracker")
+                        instanceof me.mrhakan.agalarhack.module.combat.TotemTracker tracker
+                        && tracker.popsFor(who) == 1
+                        && "TotemTracker [1]".equals(tracker.getDisplayName());
+        if (context.computeOnClient(counted::test)) {
+            toggle(context, "TotemTracker", false);
+            throw new AssertionError("TotemTracker counted a pop before any totem had been used");
+        }
+
+        singleplayer.getServer().runOnServer(server -> {
+            ServerPlayer player = singleplayer.getConnection().getServerPlayer();
+            player.hurtServer(player.level(), player.level().damageSources().magic(), 1000.0f);
+        });
+        boolean sawPop = settle(context, counted);
+        boolean announced = context.computeOnClient(notice("popped 1 totem (seen)")::test);
+        toggle(context, "TotemTracker", false);
+
+        singleplayer.getServer().runOnServer(server -> {
+            ServerPlayer player = singleplayer.getConnection().getServerPlayer();
+            player.setItemSlot(EquipmentSlot.OFFHAND, ItemStack.EMPTY);
+            player.setHealth(player.getMaxHealth());
+            player.setGameMode(GameType.CREATIVE);
+            // A totem leaves regeneration and absorption running for the next forty-five seconds,
+            // and their particles drift through the camera. The render scenarios that follow
+            // measure a still frame against a still frame, and that is not still.
+            player.removeAllEffects();
+        });
+        context.waitTicks(10);
+
+        if (!sawPop) {
+            throw new AssertionError("TotemTracker did not count the totem the player just popped within "
+                    + SETTLE_TICKS + " ticks");
+        }
+        if (!announced) {
+            throw new AssertionError("TotemTracker counted the pop but published no notification about it");
+        }
+        LOGGER.info("  TotemTracker counted a totem the player actually popped");
+    }
+
+    /**
+     * The log fills from combat, not from being switched on. The control half is the point: the
+     * module sits enabled with a zombie in front of it and records nothing until Aura, which is what
+     * sets the shared target, is switched on too.
+     */
+    /**
+     * Whether the damage-enchantment families are actually recognised on a live client.
+     *
+     * <p>{@code InventoryService.familyOf} decides whether Smite or Bane of Arthropods weighting
+     * applies, and it decides it by asking whether the entity type is in a vanilla tag. Entity-type
+     * tags are data, sent by the server and bound onto the registry holders when they arrive, so the
+     * whole rule can quietly answer GENERIC for everything if that binding is not there on the
+     * client - with no exception and no log line. Nothing tested it: AutoWeapon's own scenario aims
+     * at an armour stand, which is GENERIC, so both tagged branches were unexercised.
+     *
+     * <p>This spawns the two mobs the tags exist for and asserts the classification directly, which
+     * also makes the migration of the deprecated registry accessor behind it a change with a test
+     * under it rather than a hopeful edit.
+     */
+    private void weaponFamilies(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        moveThere(context, singleplayer, sceneBase.offset(0, 0, 200));
+        int[] ids = singleplayer.getServer().computeOnServer(server -> {
+            ServerPlayer player = singleplayer.getConnection().getServerPlayer();
+            clearEntities(player.level());
+            BlockPos here = player.blockPosition();
+            var zombie = EntityTypes.ZOMBIE.spawn(player.level(), here.offset(2, 0, 0),
+                    EntitySpawnReason.COMMAND);
+            var spider = EntityTypes.SPIDER.spawn(player.level(), here.offset(-2, 0, 0),
+                    EntitySpawnReason.COMMAND);
+            var pig = EntityTypes.PIG.spawn(player.level(), here.offset(0, 0, 2),
+                    EntitySpawnReason.COMMAND);
+            if (zombie == null || spider == null || pig == null) {
+                throw new AssertionError("could not spawn the three mobs this scenario classifies");
+            }
+            zombie.setNoAi(true);
+            spider.setNoAi(true);
+            pig.setNoAi(true);
+            return new int[]{zombie.getId(), spider.getId(), pig.getId()};
+        });
+        context.waitTicks(20);
+
+        String families = context.computeOnClient(client -> {
+            StringBuilder seen = new StringBuilder();
+            for (int id : ids) {
+                var entity = client.level.getEntity(id);
+                if (!(entity instanceof net.minecraft.world.entity.LivingEntity living)) {
+                    return "the client has no living entity for id " + id;
+                }
+                seen.append(entity.getType().getDescriptionId()).append('=')
+                        .append(me.mrhakan.agalarhack.services.InventoryService.familyOf(living))
+                        .append(' ');
+            }
+            return seen.toString().strip();
+        });
+
+        var expected = context.computeOnClient(client -> {
+            var zombie = (net.minecraft.world.entity.LivingEntity) client.level.getEntity(ids[0]);
+            var spider = (net.minecraft.world.entity.LivingEntity) client.level.getEntity(ids[1]);
+            var pig = (net.minecraft.world.entity.LivingEntity) client.level.getEntity(ids[2]);
+            return me.mrhakan.agalarhack.services.InventoryService.familyOf(zombie)
+                    == me.mrhakan.agalarhack.services.ItemScoring.TargetFamily.UNDEAD
+                    && me.mrhakan.agalarhack.services.InventoryService.familyOf(spider)
+                    == me.mrhakan.agalarhack.services.ItemScoring.TargetFamily.ARTHROPOD
+                    && me.mrhakan.agalarhack.services.InventoryService.familyOf(pig)
+                    == me.mrhakan.agalarhack.services.ItemScoring.TargetFamily.GENERIC;
+        });
+        if (!expected) {
+            throw new AssertionError("the damage families came back as [" + families + "]. A zombie "
+                    + "must be UNDEAD and a spider ARTHROPOD; all-GENERIC means the entity-type tags "
+                    + "are not bound on the client, so Smite and Bane of Arthropods weighting never "
+                    + "applies and AutoWeapon silently ignores both enchantments");
+        }
+        singleplayer.getServer().runOnServer(server ->
+                clearEntities(singleplayer.getConnection().getServerPlayer().level()));
+        LOGGER.info("  weapon families: {}", families);
+    }
+
+    private void combatHistory(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        moveThere(context, singleplayer, sceneBase.offset(0, 0, 240));
+        BlockPos where = singleplayer.getServer().computeOnServer(server -> {
+            ServerPlayer player = singleplayer.getConnection().getServerPlayer();
+            clearEntities(player.level());
+            BlockPos spot = player.blockPosition().offset(3, 0, 0);
+            var zombie = EntityTypes.ZOMBIE.spawn(player.level(), spot, EntitySpawnReason.COMMAND);
+            if (zombie == null) throw new AssertionError("could not spawn the zombie at " + spot);
+            // Mobs never target a creative player - that is what EntitySelector.NO_CREATIVE_OR_SPECTATOR
+            // is for - so a zombie with its AI on does not walk towards the player, it wanders, and
+            // roughly one run in five it wanders outside Aura's four-block reach before the window
+            // closes. Standing still is the whole of its job here.
+            zombie.setNoAi(true);
+            return spot;
+        });
+        context.waitTicks(20);
+        context.getInput().lookAt(where.above());
+
+        Predicate<Minecraft> remembered = client ->
+                AgalarHackClient.moduleManager.getModule("CombatHistory")
+                        instanceof me.mrhakan.agalarhack.module.combat.CombatHistory history
+                        && history.log().size() > 0
+                        && history.getDisplayName().startsWith("CombatHistory [");
+
+        toggle(context, "CombatHistory", true);
+        context.waitTicks(40);
+        if (context.computeOnClient(remembered::test)) {
+            toggle(context, "CombatHistory", false);
+            throw new AssertionError("CombatHistory recorded a target with nothing attacking; it is "
+                    + "logging something other than combat");
+        }
+
+        // Aura reaches four blocks. If the zombie is not inside that, Aura is right to do nothing and
+        // reporting it as CombatHistory's failure would be a lie about which half broke.
+        double gap = singleplayer.getServer().computeOnServer(server -> {
+            ServerPlayer player = singleplayer.getConnection().getServerPlayer();
+            double nearest = Double.MAX_VALUE;
+            // Read-only, so nothing is being removed under the iterator here; the null guard is
+            // for consistency with clearEntities rather than because this one has ever seen one.
+            for (Entity entity : player.level().getAllEntities()) {
+                if (entity == null || entity instanceof ServerPlayer) continue;
+                nearest = Math.min(nearest, player.distanceTo(entity));
+            }
+            return nearest;
+        });
+        if (gap > 4.0) {
+            toggle(context, "CombatHistory", false);
+            throw new AssertionError("the nearest thing to fight is " + gap + " blocks away, outside "
+                    + "Aura's reach, so there is nothing for CombatHistory to record; the scenario is "
+                    + "broken, not the module");
+        }
+
+        toggle(context, "Aura", true);
+        boolean logged = settle(context, remembered);
+        toggle(context, "Aura", false);
+        toggle(context, "CombatHistory", false);
+        singleplayer.getServer().runOnServer(server -> {
+            clearEntities(singleplayer.getConnection().getServerPlayer().level());
+        });
+
+        if (!logged) {
+            throw new AssertionError("CombatHistory logged nothing while Aura was attacking a zombie "
+                    + "three blocks away");
+        }
+        LOGGER.info("  CombatHistory remembered the target Aura fought");
+    }
+
+    /**
+     * A cluster of storage is built and BaseFinder is asked to notice it.
+     *
+     * <p>The module draws on StorageESP's cache rather than scanning itself, and the first half of
+     * this checks it says so plainly instead of looking broken when that module is off.
+     */
+    private void baseFinder(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        toggle(context, "Notifications", true);
+        moveThere(context, singleplayer, sceneBase.offset(0, 0, 270));
+        singleplayer.getServer().runOnServer(server -> {
+            ServerPlayer player = singleplayer.getConnection().getServerPlayer();
+            ServerLevel level = player.level();
+            BlockPos centre = player.blockPosition().offset(6, 0, 0);
+            // Spaced two apart so they stay nine separate chests rather than merging into doubles,
+            // and well inside the twelve-block default cluster radius.
+            for (int dx = -2; dx <= 2; dx += 2) {
+                for (int dz = -2; dz <= 2; dz += 2) {
+                    level.setBlockAndUpdate(centre.offset(dx, 0, dz), Blocks.CHEST.defaultBlockState());
+                }
+            }
+        });
+        singleplayer.getConnection().waitForChunksRender();
+        context.waitTicks(20);
+
+        configure(context, "BaseFinder", module -> {
+            module.settings.setSetting("interval", 5.0);
+            module.settings.setSetting("minimumStorage", 6.0);
+        });
+        toggle(context, "BaseFinder", true);
+        context.waitTicks(20);
+        String withoutStorage = context.computeOnClient(client ->
+                AgalarHackClient.moduleManager.getModule("BaseFinder").getDisplayName());
+        if (!"BaseFinder [needs StorageESP]".equals(withoutStorage)) {
+            toggle(context, "BaseFinder", false);
+            throw new AssertionError("BaseFinder read " + withoutStorage + " with StorageESP off, rather "
+                    + "than saying what it is waiting for");
+        }
+
+        toggle(context, "StorageESP", true);
+        Predicate<Minecraft> found = client ->
+                AgalarHackClient.moduleManager.getModule("BaseFinder")
+                        instanceof me.mrhakan.agalarhack.module.world.BaseFinder finder
+                        && !finder.clusters().isEmpty()
+                        && finder.clusters().get(0).size() >= 6;
+        boolean reported = settle(context, found, SETTLE_TICKS * 2);
+        boolean announced = context.computeOnClient(notice("Likely base:")::test);
+        int size = context.computeOnClient(client -> {
+            var finder = (me.mrhakan.agalarhack.module.world.BaseFinder)
+                    AgalarHackClient.moduleManager.getModule("BaseFinder");
+            return finder.clusters().isEmpty() ? 0 : finder.clusters().get(0).size();
+        });
+        toggle(context, "StorageESP", false);
+        toggle(context, "BaseFinder", false);
+
+        if (!reported) {
+            throw new AssertionError("BaseFinder found no cluster in nine chests within six blocks of "
+                    + "the player, with StorageESP on");
+        }
+        if (!announced) {
+            throw new AssertionError("BaseFinder found a cluster of " + size
+                    + " but published no notification about it");
+        }
+        LOGGER.info("  BaseFinder reported a cluster of {} storage blocks as a likely base", size);
+    }
+
+    /**
+     * Arrows are put in the air on a course that passes through the player, and the module is asked
+     * to see them coming.
+     *
+     * <p>Several rather than one, spread over a range of distances: the tracked list this reads is
+     * filled by a scheduled scan, and a single arrow can be past the player before the scan that
+     * would have found it runs. The claim is unaffected — one warning is one warning.
+     */
+    private void projectileWarning(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        toggle(context, "Notifications", true);
+        moveThere(context, singleplayer, sceneBase.offset(0, 0, 300));
+        singleplayer.getServer().runOnServer(server -> {
+            clearEntities(singleplayer.getConnection().getServerPlayer().level());
+        });
+        context.waitTicks(10);
+
+        toggle(context, "ProjectileWarning", true);
+        context.waitTicks(20);
+        String alone = context.computeOnClient(client ->
+                AgalarHackClient.moduleManager.getModule("ProjectileWarning").getDisplayName());
+        if (!"ProjectileWarning [needs ProjectileESP]".equals(alone)) {
+            toggle(context, "ProjectileWarning", false);
+            throw new AssertionError("ProjectileWarning read " + alone + " with ProjectileESP off, rather "
+                    + "than saying what it is waiting for");
+        }
+
+        toggle(context, "ProjectileESP", true);
+        context.waitTicks(20);
+        assertNotYet(context, notice("Incoming"), "an incoming projectile was reported before one existed");
+
+        // Volleys rather than one salvo. An arrow crosses the twenty blocks in about seven ticks,
+        // and the list this module reads is filled by a scheduled scan that may not have run in
+        // that window; firing again costs a few ticks and removes the race.
+        boolean warned = false;
+        int tracked = 0;
+        for (int volley = 0; volley < 8 && !warned; volley++) {
+            singleplayer.getServer().runOnServer(server -> {
+                ServerPlayer player = singleplayer.getConnection().getServerPlayer();
+                ServerLevel level = player.level();
+                double eye = player.getEyeY();
+                for (int step = 0; step < 3; step++) {
+                    Entity arrow = EntityTypes.ARROW.create(level, EntitySpawnReason.COMMAND);
+                    if (arrow == null) throw new AssertionError("could not create an arrow");
+                    arrow.setPos(player.getX() + 14 + step * 4, eye, player.getZ());
+                    // A bow shoots at three blocks per tick. Anything slower falls into the ground
+                    // long before it arrives, which is a scenario that proves nothing rather than a
+                    // module that missed something.
+                    arrow.setDeltaMovement(new Vec3(-3.0, 0.0, 0.0));
+                    level.addFreshEntity(arrow);
+                }
+            });
+            warned = settle(context, notice("Incoming"), 20);
+            tracked = Math.max(tracked, context.computeOnClient(client ->
+                    AgalarHackClient.moduleManager.getModule("ProjectileESP")
+                            instanceof me.mrhakan.agalarhack.module.render.ProjectileESP esp
+                            ? esp.projectiles().size() : 0));
+        }
+        toggle(context, "ProjectileWarning", false);
+        toggle(context, "ProjectileESP", false);
+        singleplayer.getServer().runOnServer(server -> {
+            clearEntities(singleplayer.getConnection().getServerPlayer().level());
+        });
+
+        if (!warned) {
+            // Which half broke: nothing tracked is a scene or discovery problem, a tracked list with
+            // no warning is this module's.
+            throw new AssertionError("ProjectileWarning said nothing about arrows flying straight at "
+                    + "the player's head; ProjectileESP had tracked at most " + tracked + " of them");
+        }
+        LOGGER.info("  ProjectileWarning saw an arrow coming and said so");
+    }
+
+    /**
+     * A dozen arrows stuck in the ground in front of the camera, which is the one way to hold a
+     * projectile still long enough to photograph what the module draws around it.
+     *
+     * <p>They are spent arrows rather than arrows in flight on purpose: an arrow crossing the frame
+     * moves the picture by itself, which is exactly the noise the measurement is trying to exclude.
+     */
+    private void projectileEsp(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        moveThere(context, singleplayer, sceneBase.offset(0, 0, 330));
+        BlockPos cluster = singleplayer.getServer().computeOnServer(server -> {
+            ServerPlayer player = singleplayer.getConnection().getServerPlayer();
+            ServerLevel level = player.level();
+            clearEntities(level);
+            BlockPos centre = player.blockPosition().offset(5, 0, 0);
+            for (int dz = -1; dz <= 1; dz++) {
+                for (int dx = -1; dx <= 2; dx++) {
+                    Entity arrow = EntityTypes.ARROW.create(level, EntitySpawnReason.COMMAND);
+                    if (arrow == null) throw new AssertionError("could not create an arrow");
+                    // A block up with no motion: it drops, sticks, and stays put from then on.
+                    arrow.setPos(centre.getX() + dx + 0.5, centre.getY() + 1.0, centre.getZ() + dz + 0.5);
+                    arrow.setDeltaMovement(Vec3.ZERO);
+                    level.addFreshEntity(arrow);
+                }
+            }
+            return centre;
+        });
+        singleplayer.getConnection().waitForChunksRender();
+        context.waitTicks(40);
+        context.getInput().lookAt(cluster);
+        context.waitTicks(20);
+
+        int arrows = context.computeOnClient(client -> {
+            int seen = 0;
+            for (Entity entity : client.level.entitiesForRendering()) {
+                if (entity instanceof net.minecraft.world.entity.projectile.Projectile) seen++;
+            }
+            return seen;
+        });
+        if (arrows == 0) {
+            throw new AssertionError("no arrow reached the client, so ProjectileESP has nothing to draw; "
+                    + "the scenario is broken, not the module");
+        }
+
+        drawsSomething(context, "ProjectileESP", "boxes around the spent arrows", 0.25, 0.75,
+                client -> AgalarHackClient.moduleManager.getModule("ProjectileESP")
+                        instanceof me.mrhakan.agalarhack.module.render.ProjectileESP esp
+                        && !esp.projectiles().isEmpty());
+        singleplayer.getServer().runOnServer(server -> {
+            clearEntities(singleplayer.getConnection().getServerPlayer().level());
+        });
+    }
+
+    /**
+     * Last, because it ends with the player somewhere the world builder chose rather than where the
+     * scenario left them.
+     *
+     * <p>The control is a real wait on a real death screen: sixty ticks with the module off, which
+     * is six times its default delay, and the screen is still there. Without that, a test that
+     * enabled the module and saw the screen close could be watching the game do it.
+     */
+    private void autoRespawn(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        Predicate<Minecraft> onDeathScreen =
+                client -> client.gui.screen() instanceof net.minecraft.client.gui.screens.DeathScreen;
+
+        singleplayer.getServer().runOnServer(server -> {
+            ServerPlayer player = singleplayer.getConnection().getServerPlayer();
+            player.setGameMode(GameType.SURVIVAL);
+            player.setHealth(player.getMaxHealth());
+        });
+        context.waitTicks(20);
+        singleplayer.getServer().runOnServer(server ->
+                singleplayer.getConnection().getServerPlayer().kill(
+                        singleplayer.getConnection().getServerPlayer().level()));
+
+        if (!settle(context, onDeathScreen)) {
+            throw new AssertionError("the player did not reach a death screen after being killed in "
+                    + "survival; the scenario is broken, not the module");
+        }
+        context.waitTicks(60);
+        if (!context.computeOnClient(onDeathScreen::test)) {
+            throw new AssertionError("the death screen closed on its own with AutoRespawn off; "
+                    + "the scenario proves nothing in that state");
+        }
+
+        toggle(context, "AutoRespawn", true);
+        boolean respawned = settle(context, onDeathScreen.negate(), SETTLE_TICKS * 2);
+        toggle(context, "AutoRespawn", false);
+        singleplayer.getServer().runOnServer(server ->
+                singleplayer.getConnection().getServerPlayer().setGameMode(GameType.CREATIVE));
+
+        if (!respawned) {
+            throw new AssertionError("AutoRespawn left the player on the death screen for "
+                    + (SETTLE_TICKS * 2) + " ticks");
+        }
+        LOGGER.info("  AutoRespawn cleared a death screen the game left standing");
+    }
+
+    /**
+     * The cast is real and the bite is not.
+     *
+     * <p>Casting is asserted end to end: a rod goes in the hotbar, the module is switched on, and a
+     * fishing hook appears because the module selected the slot and pressed use. Nothing about that
+     * is simulated.
+     *
+     * <p>The bite is. A server picks its own moment between five and thirty seconds, which is a long
+     * time to hold a test open for a result that is a coin toss on a slow runner. What the module
+     * actually watches for is the bobber being pulled under — it says so, and it cannot know a fish
+     * is there — so the bobber is pulled under on the server instead. That is the cue reproduced,
+     * not the module's decision: whether it reels in, how long it waits and whether it casts again
+     * are still entirely the module's. Fishing against a real server on a real catch stays on the
+     * manual acceptance list.
+     */
+    private void autoFish(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        moveThere(context, singleplayer, sceneBase.offset(0, 0, 390));
+        BlockPos pool = singleplayer.getServer().computeOnServer(server -> {
+            ServerPlayer player = singleplayer.getConnection().getServerPlayer();
+            ServerLevel level = player.level();
+            clearEntities(level);
+            // A wide pool starting three blocks ahead, two deep so a bobber floats rather than
+            // resting on the bottom. No wall is built around it: the untouched superflat terrain at
+            // the same depth already holds the water in. The first version raised a stone lip and
+            // the lip stood at head height between the player and the water, so every cast hit it -
+            // which the scenario reported as the bobber never reaching the water, correctly.
+            BlockPos centre = player.blockPosition().offset(8, 0, 0);
+            for (int dx = -7; dx <= 7; dx++) {
+                for (int dz = -7; dz <= 7; dz++) {
+                    level.setBlockAndUpdate(centre.offset(dx, 0, dz), Blocks.AIR.defaultBlockState());
+                    for (int dy = -2; dy <= -1; dy++) {
+                        level.setBlockAndUpdate(centre.offset(dx, dy, dz), Blocks.WATER.defaultBlockState());
+                    }
+                }
+            }
+            return centre;
+        });
+        singleplayer.getConnection().waitForChunksRender();
+        setInventory(singleplayer, slots -> {
+            slots.setItem(0, new ItemStack(Items.FISHING_ROD));
+            slots.setSelectedSlot(0);
+        });
+        // At the middle of the pool. It is thirteen blocks across, so any ordinary cast lands in it.
+        context.getInput().lookAt(pool);
+        context.waitTicks(20);
+
+        Predicate<Minecraft> hooked = client -> client.player.fishing != null && client.player.fishing.isAlive();
+        assertNotYet(context, hooked, "a fishing hook was already out before AutoFish ran");
+
+        toggle(context, "AutoFish", true);
+        boolean cast = settle(context, hooked);
+        if (!cast) {
+            toggle(context, "AutoFish", false);
+            throw new AssertionError("AutoFish never cast with a rod in the selected hotbar slot");
+        }
+        // Waiting for the bobber to settle in the water: the detector ignores a hook that is not in it.
+        Vec3 start = position(context);
+        boolean floating = settle(context, client -> client.player.fishing != null
+                && client.player.fishing.isInWater());
+        String bobber = context.computeOnClient(client -> client.player.fishing == null ? "gone"
+                : "at " + client.player.fishing.position() + " inWater="
+                        + client.player.fishing.isInWater() + " onGround="
+                        + client.player.fishing.onGround());
+        int firstHook = context.computeOnClient(client -> client.player.fishing.getId());
+
+        // Keep pulling the bobber under until the module reacts, rather than pushing it once.
+        //
+        // One impulse was a coin toss, and it lost a CI run: the server sets the velocity, the
+        // client's own hook physics then apply water drag and buoyancy on top of it, and the module
+        // only reels if it happens to sample a tick where the client's copy is still descending
+        // faster than the detector's threshold. A real bite is a plunge lasting several ticks - that
+        // is why the detector suppresses repeats at all - so this reproduces a plunge instead of a
+        // single frame of one. It does not relax what is asserted: the cue is still only a bobber
+        // moving down, and whether to reel is still entirely the module's decision.
+        double deepest = 0;
+        boolean reeled = false;
+        if (floating) {
+            for (int round = 0; round < 10 && !reeled; round++) {
+                singleplayer.getServer().runOnServer(server -> {
+                    var hook = singleplayer.getConnection().getServerPlayer().fishing;
+                    // Well past the default threshold of eight hundredths of a block per tick.
+                    if (hook != null) hook.setDeltaMovement(0.0, -0.4, 0.0);
+                });
+                context.waitTicks(2);
+                deepest = Math.min(deepest, context.computeOnClient(client ->
+                        client.player.fishing == null ? 0.0
+                                : client.player.fishing.getDeltaMovement().y));
+                reeled = context.computeOnClient(client -> client.player.fishing == null
+                        || client.player.fishing.getId() != firstHook);
+            }
+            // The reel itself waits `reelDelay` ticks after the pull is recognised, so give the
+            // module that long once the cue has stopped being applied.
+            if (!reeled) {
+                reeled = settle(context, client -> client.player.fishing == null
+                        || client.player.fishing.getId() != firstHook);
+            }
+        }
+        toggle(context, "AutoFish", false);
+        singleplayer.getServer().runOnServer(server -> {
+            var hook = singleplayer.getConnection().getServerPlayer().fishing;
+            if (hook != null) hook.discard();
+        });
+
+        if (!floating) {
+            throw new AssertionError("the bobber never reached the water, so there was no bite cue to "
+                    + "give AutoFish; the scenario is broken, not the module. The hook ended " + bobber
+                    + ", with the player at " + start + " and water from x=" + (pool.getX() - 7)
+                    + " to x=" + (pool.getX() + 7));
+        }
+        if (!reeled) {
+            // Two different failures used to produce the same message, and telling them apart is
+            // the difference between a module bug and a scenario that never delivered its cue.
+            if (deepest > -me.mrhakan.agalarhack.services.BobberBite.DEFAULT_THRESHOLD) {
+                throw new AssertionError("the client never saw the bobber pulled under - the "
+                        + "steepest descent it observed was " + deepest + " blocks per tick against "
+                        + "a threshold of -" + me.mrhakan.agalarhack.services.BobberBite.DEFAULT_THRESHOLD
+                        + " - so AutoFish was never given the cue. The scenario is broken, not the "
+                        + "module: the server-side pull is not reaching the client's copy of the hook.");
+            }
+            throw new AssertionError("AutoFish left the same hook out although the client saw the "
+                    + "bobber pulled under at " + deepest + " blocks per tick, which is the one cue "
+                    + "it reels in on");
+        }
+        LOGGER.info("  AutoFish cast, then reeled in when the bobber went under at {} b/t", deepest);
+    }
+
+    /**
+     * The HUD drawn at a different size, which is the one thing a scale control has to actually do.
+     *
+     * <p>Measured over the top-left corner rather than the middle band the other render scenarios
+     * use, because that is where the branding widget draws and the middle band excludes it. Narrow
+     * on purpose: a wider band takes in widgets whose text changes by itself — a frame counter, a
+     * ping figure — and their noise is indistinguishable from a size change.
+     *
+     * <p>Set through {@code ThemeService.preview}, the same call the slider makes, so this covers the
+     * path from the stored theme to the layout rather than poking the layout directly.
+     */
+    private void hudScale(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        moveThere(context, singleplayer, sceneBase.offset(0, 0, 420));
+        singleplayer.getServer().runOnServer(server -> {
+            clearEntities(singleplayer.getConnection().getServerPlayer().level());
+        });
+        context.runOnClient(client -> client.options.cloudStatus().set(net.minecraft.client.CloudStatus.OFF));
+        // Up at empty sky. The previous scenario leaves the camera angled down at a pool, and water
+        // animates, so the corner being measured had a moving picture behind it.
+        context.getInput().lookAt(0.0f, -40.0f);
+        context.waitTicks(40);
+
+        // The HUD animates its colours continuously, which showed up as a noise floor of 964 changed
+        // pixels between any two frames however far apart - a moving picture rather than jitter.
+        // Switched off here and back on at the end, so this scenario leaves the theme as it found it.
+        stillTheme(context, true);
+
+        final int window = 60;
+        setHudScale(context, me.mrhakan.agalarhack.services.HudScale.DEFAULT);
+        java.nio.file.Path first = context.takeScreenshot("hud-scale-1");
+        context.waitTicks(window);
+        java.nio.file.Path second = context.takeScreenshot("hud-scale-2");
+        int noise = Frames.changedPixels(first, second, BRAND_TOP, BRAND_BOTTOM, 0.0, BRAND_RIGHT);
+
+        setHudScale(context, 1.6);
+        context.waitTicks(window);
+        java.nio.file.Path larger = context.takeScreenshot("hud-scale-3");
+        int signal = Frames.changedPixels(second, larger, BRAND_TOP, BRAND_BOTTOM, 0.0, BRAND_RIGHT);
+        double applied = context.computeOnClient(client -> AgalarHackClient.HUD_LAYOUT.scale());
+        setHudScale(context, me.mrhakan.agalarhack.services.HudScale.DEFAULT);
+        double restored = context.computeOnClient(client -> AgalarHackClient.HUD_LAYOUT.scale());
+
+        stillTheme(context, false);
+        LOGGER.info("    HUD scale pixels: noise={} signal={}", noise, signal);
+        if (applied != 1.6) {
+            throw new AssertionError("the theme's HUD scale of 1.6 reached the layout as " + applied
+                    + ", so nothing below measures a scaled HUD");
+        }
+        if (restored != me.mrhakan.agalarhack.services.HudScale.DEFAULT) {
+            throw new AssertionError("the HUD scale stayed at " + restored + " after being set back");
+        }
+        assertDrew("HUD scale", "a HUD any different in size", noise, signal);
+    }
+
+    /** The corner the branding widget occupies, as a fraction of the frame. */
+    private static final double BRAND_TOP = 0.0, BRAND_BOTTOM = 0.06, BRAND_RIGHT = 0.35;
+
+    private static void setHudScale(ClientGameTestContext context, double scale) {
+        context.runOnClient(client -> {
+            var service = me.mrhakan.agalarhack.services.ClientServices.require(
+                    me.mrhakan.agalarhack.services.ThemeService.class);
+            var theme = service.copy();
+            theme.hudScale = scale;
+            service.preview(theme);
+        });
+    }
+
+    /**
+     * The ClickGUI's category transition, driven by a real click on a real button.
+     *
+     * <p>Asserted on the stripe's position rather than on pixels: what the transition does is move
+     * something from one row to another, and reading where it is says that directly. The control is
+     * the theme's own reduced-motion switch — with it on the stripe is at its destination on the
+     * first frame, which is the whole promise of that setting.
+     *
+     * <p>The animation is slowed for the measurement, not shortened: at the default speed it lasts
+     * about three and a half ticks, which is too close to the sampling interval to read reliably.
+     */
+    private void clickGuiTransition(ClientGameTestContext context) {
+        int target = 3;
+        int travelled = categoryStripeTravel(context, target, true);
+        int still = categoryStripeTravel(context, target, false);
+
+        // It drives motion on and off to make its point, so it hands the theme back unchanged.
+        stillTheme(context, false);
+
+        if (travelled <= 0) {
+            throw new AssertionError("the ClickGUI's category transition was already finished on the "
+                    + "first frame with motion on, so nothing was animated");
+        }
+        if (still != 0) {
+            throw new AssertionError("the ClickGUI transition still had " + still + " to run with the "
+                    + "theme's reduced motion on; that switch is supposed to leave nothing animating");
+        }
+        LOGGER.info("  ClickGUI animated its category change ({} to go a tick in), and not at all "
+                + "with reduced motion", travelled);
+    }
+
+    /**
+     * Opens the ClickGUI, clicks a category, and reports how far the stripe still had to travel one
+     * tick later.
+     *
+     * @return how far the transition still had to run a tick after the click: the stripe's remaining
+     *         travel in pixels plus the content veil in hundredths, so one number covers both
+     */
+    private int categoryStripeTravel(ClientGameTestContext context, int category, boolean motion) {
+        context.runOnClient(client -> {
+            var service = me.mrhakan.agalarhack.services.ClientServices.require(
+                    me.mrhakan.agalarhack.services.ThemeService.class);
+            var theme = service.copy();
+            theme.uiAnimations = motion;
+            theme.reducedMotion = !motion;
+            // Quarter speed: long enough that a tick of sampling lands inside the transition.
+            theme.animationSpeed = 0.25;
+            service.preview(theme);
+            client.gui.setScreen(new me.mrhakan.agalarhack.ui.ClickGuiScreen());
+        });
+        context.waitTicks(10);
+
+        // Where the category's own button is, in window pixels: the screen is drawn at the GUI scale.
+        double[] spot = context.computeOnClient(client -> {
+            var screen = (me.mrhakan.agalarhack.ui.ClickGuiScreen) client.gui.screen();
+            double scale = client.getWindow().getGuiScale();
+            return new double[]{50 * scale,
+                    (screen.categoryRowY(category) + screen.categoryRowHeight() / 2.0) * scale};
+        });
+        context.getInput().setCursorPos(spot[0], spot[1]);
+        context.waitTicks(2);
+        context.getInput().pressMouse(0);
+        context.waitTicks(1);
+
+        int remaining = context.computeOnClient(client -> {
+            if (!(client.gui.screen() instanceof me.mrhakan.agalarhack.ui.ClickGuiScreen screen)) return -1;
+            // The veil covers the same transition from the other end: the content fading up on
+            // open, on a category and on a page. Counted in the same units so one number carries
+            // both - a hundredth of the veil is a pixel's worth of movement.
+            return Math.abs(screen.categoryRowY(category) - screen.stripeY())
+                    + (int) Math.round(screen.contentVeil() * 100);
+        });
+        context.runOnClient(client -> client.gui.setScreen(null));
+        context.waitTicks(5);
+        if (remaining < 0) {
+            throw new AssertionError("clicking the category at " + spot[1] + " did not leave the "
+                    + "ClickGUI open, so there was no stripe to measure; the scenario is broken");
+        }
+        return remaining;
+    }
+
+    /**
+     * The camera leaves and the player does not, which is the whole of what Freecam promises.
+     *
+     * <p>Three things are asserted because all three can break independently: the camera really
+     * detaches and moves under the movement keys, the body stays exactly where it was, and the
+     * camera is handed back to the player when the module is switched off. That last one is the
+     * quiet failure — a client left looking through an armour stand after Freecam is gone.
+     *
+     * <p>The distance limit is checked here too, with a short radius so a few seconds of holding a
+     * key is enough to reach it.
+     */
+    private void freecam(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        final double radius = 8.0;
+        moveThere(context, singleplayer, sceneBase.offset(0, 0, 450));
+        configure(context, "Freecam", module -> {
+            module.settings.setSetting("maxDistance", radius);
+            // Fast enough to reach the limit inside the window, still eased rather than teleporting.
+            module.settings.setSetting("speed", 1.5);
+        });
+
+        Vec3 body = position(context);
+        assertNotYet(context, client -> client.getCameraEntity() != client.player,
+                "the camera was already detached from the player before Freecam ran");
+
+        toggle(context, "Freecam", true);
+        context.waitTicks(5);
+        boolean detached = context.computeOnClient(client ->
+                client.getCameraEntity() != null && client.getCameraEntity() != client.player);
+
+        context.getInput().holdKeyFor(options -> options.keyUp, 80);
+        context.waitTicks(10);
+        double travelled = context.computeOnClient(client ->
+                AgalarHackClient.moduleManager.getModule("Freecam")
+                        instanceof me.mrhakan.agalarhack.module.render.Freecam freecam
+                        ? freecam.distanceFromBody() : -1.0);
+        Vec3 bodyAfter = position(context);
+
+        toggle(context, "Freecam", false);
+        context.waitTicks(10);
+        boolean restored = context.computeOnClient(client -> client.getCameraEntity() == client.player);
+
+        if (!detached) {
+            throw new AssertionError("Freecam did not detach the camera from the player");
+        }
+        if (travelled < 1.0) {
+            throw new AssertionError("the camera moved " + travelled + " blocks while the forward key "
+                    + "was held for eighty ticks, so Freecam is not flying it");
+        }
+        // A little over, because the position is eased towards a target that is itself on the limit.
+        if (travelled > radius + 0.5) {
+            throw new AssertionError("the camera reached " + travelled + " blocks from the body with "
+                    + "the limit set to " + radius);
+        }
+        if (bodyAfter.distanceTo(body) > 0.5) {
+            throw new AssertionError("the player moved " + bodyAfter.distanceTo(body) + " blocks while "
+                    + "the camera was detached; Freecam is supposed to leave the body where it is");
+        }
+        if (!restored) {
+            throw new AssertionError("the camera was not handed back to the player when Freecam was "
+                    + "switched off, so the client is still looking through the armour stand");
+        }
+        LOGGER.info("  Freecam flew the camera {} blocks, held it inside {}, left the body still and "
+                + "gave the camera back", String.format(java.util.Locale.ROOT, "%.1f", travelled), radius);
+    }
+
+    /**
+     * The rotation service driven by something that is not Aura.
+     *
+     * <p>That was the open half of the rotation work: one arbitrated, step-limited path, with a
+     * single consumer. This drives it from a typed command instead, which is the case the service
+     * was built for and had never been exercised by — a caller that asks once and needs the aim held
+     * across ticks.
+     *
+     * <p>The view really moves, which is the point. A rotation the player cannot see but the server
+     * can is the thing this client refuses to implement, so there is nothing here to hide.
+     */
+    private void lookCommand(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        moveThere(context, singleplayer, sceneBase.offset(0, 0, 480));
+        context.getInput().lookAt(0.0f, 0.0f);
+        context.waitTicks(10);
+
+        float startYaw = context.computeOnClient(client -> client.player.getYRot());
+        // Through the mod's own chat dispatch, alias resolution and all, rather than by calling the
+        // command object directly.
+        context.runOnClient(client -> me.mrhakan.agalarhack.managers.CommandManager.handleChat(
+                me.mrhakan.agalarhack.AgalarHackClient.prefix + "look 90 25"));
+        boolean turned = settle(context, client ->
+                me.mrhakan.agalarhack.services.LookController.arrived(
+                        client.player.getYRot(), client.player.getXRot(), 90.0f, 25.0f));
+        float endYaw = context.computeOnClient(client -> client.player.getYRot());
+        float endPitch = context.computeOnClient(client -> client.player.getXRot());
+
+        if (!turned) {
+            throw new AssertionError("the view did not reach 90, 25 within " + SETTLE_TICKS
+                    + " ticks of the look command; it ended at " + endYaw + ", " + endPitch
+                    + " having started at " + startYaw);
+        }
+
+        // Letting go matters as much as turning: a controller that keeps asking owns the player's
+        // view for the rest of the session.
+        boolean released = settle(context, client ->
+                !me.mrhakan.agalarhack.services.ClientServices.require(
+                        me.mrhakan.agalarhack.services.LookController.class).active());
+        if (!released) {
+            throw new AssertionError("the look controller was still holding the view after arriving");
+        }
+
+        // And the player can still turn their own head afterwards.
+        context.getInput().lookAt(0.0f, 0.0f);
+        context.waitTicks(10);
+        float afterward = context.computeOnClient(client -> client.player.getYRot());
+        if (me.mrhakan.agalarhack.services.LookController.arrived(afterward, 0, 90.0f, 0)) {
+            throw new AssertionError("the view snapped back to the commanded heading, so something "
+                    + "is still steering it");
+        }
+        LOGGER.info("  look turned the view from {} to {}, {} and let go of it",
+                String.format(java.util.Locale.ROOT, "%.0f", startYaw),
+                String.format(java.util.Locale.ROOT, "%.0f", endYaw),
+                String.format(java.util.Locale.ROOT, "%.0f", endPitch));
+    }
+
+    /**
+     * The matched word inside a line, coloured, with the rest of the line untouched.
+     *
+     * <p>Asserted on the drawn component rather than on pixels, because what matters here is which
+     * characters carry the colour. Two things are checked and both can break on their own: the line
+     * still reads exactly as it arrived, and the colour is on the keyword and on nothing else. A
+     * highlighter that colours the whole line would pass the first check and fail the second.
+     */
+    private void chatHighlight(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        String keyword = "kumquat";
+        String line = "the kumquat is not a plum";
+        configure(context, "ChatMentions", module -> {
+            module.settings.setSetting("keywords", keyword);
+            module.settings.setSetting("ownName", false);
+            module.settings.setSetting("sound", false);
+            module.settings.setSetting("cooldown", 0.0);
+        });
+        configure(context, "BetterChat", module -> {
+            module.settings.setSetting("highlightMentions", true);
+            // Off so the assertion below sees the line and nothing prepended to it.
+            module.settings.setSetting("timestamps", false);
+            module.settings.setSetting("markMentions", false);
+        });
+        toggle(context, "ChatMentions", true);
+        toggle(context, "BetterChat", true);
+
+        somebodySays(context, singleplayer, "Someone", line);
+        context.waitTicks(20);
+
+        String coloured = context.computeOnClient(client -> {
+            var drawn = ChatView.find(client, "kumquat is not a plum");
+            if (drawn == null) return "<nothing arrived>";
+            StringBuilder gold = new StringBuilder();
+            drawn.visit((style, text) -> {
+                if (style.getColor() != null
+                        && style.getColor().equals(net.minecraft.network.chat.TextColor.fromLegacyFormat(
+                                net.minecraft.ChatFormatting.GOLD))) {
+                    gold.append(text);
+                }
+                return java.util.Optional.empty();
+            }, net.minecraft.network.chat.Style.EMPTY);
+            return gold.toString();
+        });
+        String whole = context.computeOnClient(client -> {
+            var drawn = ChatView.find(client, "kumquat is not a plum");
+            return drawn == null ? "" : drawn.getString();
+        });
+        toggle(context, "BetterChat", false);
+        toggle(context, "ChatMentions", false);
+
+        if (!whole.contains(line)) {
+            throw new AssertionError("the line was changed by the highlighting: it reads \"" + whole
+                    + "\" rather than containing \"" + line + "\"");
+        }
+        if (!coloured.equals(keyword)) {
+            throw new AssertionError("the gold run reads \"" + coloured + "\" rather than \"" + keyword
+                    + "\"; the highlight is on the wrong characters");
+        }
+        LOGGER.info("  BetterChat coloured \"{}\" inside the line and left the rest of it alone", coloured);
+    }
+
+    /**
+     * What happens when Baritone is not installed, which is the case this client ships in.
+     *
+     * <p>The danger the bridge exists to avoid is one line long: sending {@code #goto 100 64 -200}
+     * as a chat message puts a player's base coordinates in front of the whole server the moment
+     * Baritone is missing or its prefix is off. So the assertion is not only that the player is told
+     * something useful — it is that <em>no</em> line beginning with the Baritone prefix ever reached
+     * the chat, and that the server never echoed one back.
+     *
+     * <p>The other half, a Baritone that is present, cannot be tested here: the client under test
+     * has no Baritone. That half is covered by the unit tests, which run the bridge's reflection
+     * against a stub carrying the documented API names and shapes.
+     */
+    private void baritoneAbsent(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        moveThere(context, singleplayer, sceneBase.offset(0, 0, 510));
+        boolean installed = context.computeOnClient(client ->
+                me.mrhakan.agalarhack.services.ClientServices.require(
+                        me.mrhakan.agalarhack.services.BaritoneBridge.class).available());
+        if (installed) {
+            throw new AssertionError("Baritone turned out to be on the test classpath, so this "
+                    + "scenario is measuring the wrong half; it asserts the absent behaviour");
+        }
+
+        context.runOnClient(client -> me.mrhakan.agalarhack.managers.CommandManager.handleChat(
+                me.mrhakan.agalarhack.AgalarHackClient.prefix + "goto 1000 64 -2000"));
+        context.waitTicks(20);
+
+        boolean told = context.computeOnClient(client ->
+                ChatView.contains(client, "Baritone is not installed"));
+        // The coordinates must not appear anywhere except inside the client's own refusal.
+        java.util.List<String> leaked = context.computeOnClient(client ->
+                ChatView.lines(client).stream()
+                        .filter(line -> line.contains("#goto") || line.contains("1000")
+                                && !line.contains("Baritone is not installed"))
+                        .toList());
+
+        if (!told) {
+            throw new AssertionError("the goto command said nothing about Baritone being missing; "
+                    + "a command that silently does nothing is how a player ends up typing it again");
+        }
+        if (!leaked.isEmpty()) {
+            throw new AssertionError("something reached the chat that should not have: " + leaked
+                    + "; this is exactly the coordinate leak the bridge exists to prevent");
+        }
+        LOGGER.info("  goto refused without Baritone and put nothing in chat");
+    }
+
+    /**
+     * The grind planner against a real inventory, which is the half of it that can be wrong quietly.
+     *
+     * <p>The arithmetic is unit tested; what this adds is the mapping from a real held item onto the
+     * name the book counts. Three oak logs have to cover the one log a stone pickaxe needs - if the
+     * mapping missed that they are "log", the plan would send the player to chop wood they are
+     * already carrying, and every unit test would still pass.
+     */
+    private void grindPlan(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        setInventory(singleplayer, slots -> {
+            slots.setItem(0, new ItemStack(Items.OAK_LOG, 3));
+            slots.setSelectedSlot(0);
+        });
+        context.waitTicks(10);
+        context.runOnClient(client -> me.mrhakan.agalarhack.managers.CommandManager.handleChat(
+                me.mrhakan.agalarhack.AgalarHackClient.prefix + "grind stone_pickaxe"));
+        context.waitTicks(20);
+
+        java.util.List<String> lines = context.computeOnClient(ChatView::lines);
+        boolean asksForStone = lines.stream().anyMatch(line -> line.contains("gather 3 cobblestone"));
+        boolean asksForWood = lines.stream().anyMatch(line -> line.contains("gather")
+                && line.contains("log"));
+        boolean saysItOnlyPlans = lines.stream().anyMatch(line -> line.contains("Planning only"));
+
+        if (!asksForStone) {
+            throw new AssertionError("the plan did not ask for the three cobblestone a stone pickaxe "
+                    + "needs; chat was " + lines);
+        }
+        if (asksForWood) {
+            throw new AssertionError("the plan asked the player to gather wood while they were "
+                    + "holding three oak logs, so a real item id is not being counted under the "
+                    + "book's name for it; chat was " + lines);
+        }
+        if (!saysItOnlyPlans) {
+            throw new AssertionError("the command did not say that it only plans. A command that "
+                    + "looks like it started a grind and did nothing is worse than one that refuses");
+        }
+        LOGGER.info("  grind planned a stone pickaxe around the wood already carried");
+    }
+
+    /**
+     * An addon that the Fabric loader actually loaded, registering a module and a command.
+     *
+     * <p>{@link TestAddon} declares itself under the {@code agalarhack} entrypoint in the game test
+     * mod's own {@code fabric.mod.json} — the same way a third-party addon would. So this exercises
+     * the whole path at once: the loader finding it, the metadata coming from its own mod file, the
+     * context it was handed, and both registrations arriving where a player would see them.
+     *
+     * <p>Checked against the loader's record as well as the client's own registries, because those
+     * are the two things that can disagree: an addon whose module registered but was not recorded,
+     * or recorded but not registered, is broken either way.
+     */
+    private void addonLoaded(ClientGameTestContext context) {
+        if (!TestAddon.ran) {
+            throw new AssertionError("the game test addon was never called, so the agalarhack "
+                    + "entrypoint is not being read - nothing below this tests the API, it tests "
+                    + "whether the entrypoint key matches");
+        }
+
+        boolean moduleThere = context.computeOnClient(client ->
+                AgalarHackClient.moduleManager.getModule(TestAddon.MODULE) != null);
+        boolean commandThere = context.computeOnClient(client ->
+                me.mrhakan.agalarhack.managers.CommandManager.getCommand(TestAddon.COMMAND) != null);
+        var record = context.computeOnClient(client ->
+                me.mrhakan.agalarhack.services.ClientServices.require(
+                        me.mrhakan.agalarhack.services.AddonLoader.class).loaded());
+
+        if (!moduleThere) {
+            throw new AssertionError("the addon's module is not in the catalogue, so addModule does "
+                    + "not reach the module manager");
+        }
+        if (!commandThere) {
+            throw new AssertionError("the addon's command is not registered, so addCommand does not "
+                    + "reach the command manager - most likely it was wiped by the clear() at the "
+                    + "start of CommandManager.init(), which is why addons load after it");
+        }
+        var mine = record.stream().filter(entry -> entry.id().equals(TestAddon.seenId)).findFirst();
+        if (mine.isEmpty()) {
+            throw new AssertionError("the loader kept no record of the addon it just ran; .addons "
+                    + "would not list it and a failure would be invisible. Recorded: " + record);
+        }
+        if (!mine.get().ok() || mine.get().modules() != 1 || mine.get().commands() != 1) {
+            throw new AssertionError("the loader recorded " + mine.get() + ", which does not match "
+                    + "the one module and one command the addon registered");
+        }
+        // The identity handed to the addon has to be its own, not the client's.
+        if (TestAddon.seenId == null || TestAddon.seenId.isBlank()
+                || TestAddon.seenId.equals("agalarhack")) {
+            throw new AssertionError("the addon was told its id is \"" + TestAddon.seenId
+                    + "\"; it should be its own mod id, not the client's");
+        }
+        // The other half of the load order, and the half that would fail silently. registerSettings
+        // is called from nowhere but applyValues, inside loadModules, so a module registered after
+        // it has no settings at all - no keybind, no HUD toggle, nothing saved between sessions -
+        // and nothing about that throws. If this ever fires, addons are loading too late.
+        boolean settingsApplied = context.computeOnClient(client -> {
+            var module = AgalarHackClient.moduleManager.getModule(TestAddon.MODULE);
+            return module != null && module.settings.getSetting("keybind") != null;
+        });
+        if (!settingsApplied) {
+            throw new AssertionError("the addon's module has no settings, so it was registered "
+                    + "after loadModules() and will never keep a keybind or anything else across "
+                    + "restarts");
+        }
+        LOGGER.info("  addon {} loaded through the Fabric entrypoint and registered a module and a "
+                + "command", TestAddon.seenName);
+    }
+
+    /**
+     * The verdict, and the reason for it.
+     *
+     * <p>The test is the ratio: the module has to move the picture several times more than the scene
+     * moves on its own, measured over the same number of ticks in the same run. The absolute floor
+     * only rules out a handful of stray pixels when the scene is perfectly still and the noise is
+     * zero, which would otherwise let any difference at all count.
+     *
+     * <p>A high noise floor is not by itself a failure. It was, at first, and that rejected ItemESP
+     * moving 1822 pixels against a drop bobbing through 210 - a margin of nearly nine times. What a
+     * high noise floor does mean is that a *failure* needs a different explanation, so it chooses the
+     * message: a scene that will not hold still cannot tell a module apart from itself, and saying
+     * "it drew nothing" there would be blaming the wrong thing.
+     *
+     * <p>The one case in this session that this would have let through - cloud drift read as a
+     * healthy signal - came from measuring noise over ten ticks and signal over sixty. With equal
+     * windows the drift lands in both numbers and the ratio collapses to about one.
+     */
+    private static void assertDrew(String name, String expected, int noise, int signal) {
+        if (signal >= Math.max(DRAWN_PIXELS, noise * 5)) {
+            return;
+        }
+        if (noise > DRAWN_PIXELS) {
+            throw new AssertionError(name + " changed " + signal + " pixels, against " + noise
+                    + " that change with the module off; the scene will not hold still enough to tell "
+                    + "the module apart from it, so this scenario proves nothing either way");
+        }
+        throw new AssertionError(name + " changed " + signal + " pixels against a noise floor of "
+                + noise + "; it drew no " + expected);
+    }
+
+    /** Clean ground, nothing else alive, and one motionless pig the given distance ahead. */
+    private BlockPos pigAt(ClientGameTestContext context, TestSingleplayerContext singleplayer,
+            int distance) {
+        moveThere(context, singleplayer, sceneBase.offset(0, 0, 60));
+        return singleplayer.getServer().computeOnServer(server -> {
+            ServerPlayer player = singleplayer.getConnection().getServerPlayer();
+            ServerLevel level = player.level();
+            clearEntities(level);
+            BlockPos target = player.blockPosition().offset(0, 0, distance);
+            var pig = EntityTypes.PIG.spawn(level, target, EntitySpawnReason.COMMAND);
+            if (pig == null) {
+                throw new AssertionError("could not spawn the pig at " + target);
+            }
+            pig.setNoAi(true);
+            pig.setPersistenceRequired();
+            return target;
+        });
+    }
+
+    /**
+     * The shared shape of every render scenario: how still the picture is, then how much the module
+     * moves it. Both windows are the same length, for the reason given in {@link #holeEsp}.
+     */
+    private void drawsSomething(ClientGameTestContext context, String name, String expected,
+            double fromHeight, double toHeight) {
+        drawsSomething(context, name, expected, fromHeight, toHeight, null);
+    }
+
+    /**
+     * As above, with a guard on whether the module had anything to draw when the frame was taken.
+     *
+     * <p>Scanning modules fill their result set on a shared budget, and an empty one produces a
+     * frame identical to the control. Without this the scenario reports that as "drew nothing",
+     * which blames the module for what is really the scene or the schedule. The guard is read
+     * rather than waited on, deliberately: waiting would make the signal window longer than the
+     * noise window, and unequal windows are how drift gets counted as signal.
+     */
+    private void drawsSomething(ClientGameTestContext context, String name, String expected,
+            double fromHeight, double toHeight, Predicate<Minecraft> hadSomethingToDraw) {
+        final int window = 60;
+        String slug = name.toLowerCase(java.util.Locale.ROOT);
+        java.nio.file.Path first = context.takeScreenshot(slug + "-off-1");
+        context.waitTicks(window);
+        java.nio.file.Path second = context.takeScreenshot(slug + "-off-2");
+        int noise = Frames.changedPixels(first, second, fromHeight, toHeight);
+
+        toggle(context, name, true);
+        context.waitTicks(window);
+        java.nio.file.Path on = context.takeScreenshot(slug + "-on");
+        boolean anything = hadSomethingToDraw == null || context.computeOnClient(hadSomethingToDraw::test);
+        toggle(context, name, false);
+        int signal = Frames.changedPixels(second, on, fromHeight, toHeight);
+
+        LOGGER.info("    {} pixels: noise={} signal={}", name, noise, signal);
+        if (!anything) {
+            throw new AssertionError(name + " had found nothing to draw when the frame was taken, so "
+                    + "the comparison would be measuring the scene rather than the module; the "
+                    + "scenario is broken, not the module");
+        }
+        assertDrew(name, expected, noise, signal);
+        LOGGER.info("  {} drew {}", name, expected);
+    }
+
+    /**
+     * Builds a fresh hole on untouched ground and empties the world of everything that moves.
+     *
+     * <p>Both halves matter. A hole left over from an earlier scenario may have been walked through
+     * or built over, and a single wandering mob changes every frame by itself, which would make the
+     * noise floor swallow the signal.
+     */
+    private static BlockPos stillSceneWithHole(ClientGameTestContext context,
+            TestSingleplayerContext singleplayer) {
+        BlockPos hole = singleplayer.getServer().computeOnServer(server -> {
+            ServerPlayer player = singleplayer.getConnection().getServerPlayer();
+            ServerLevel level = player.level();
+            clearEntities(level);
+
+            BlockPos centre = ledgeOrSpawn(player).offset(0, 0, 20);
+            for (int dx = -1; dx <= 1; dx++) {
+                for (int dz = -1; dz <= 1; dz++) {
+                    for (int dy = 0; dy >= -1; dy--) {
+                        level.setBlockAndUpdate(centre.offset(dx, dy, dz), Blocks.OBSIDIAN.defaultBlockState());
+                    }
+                }
+            }
+            level.setBlockAndUpdate(centre, Blocks.AIR.defaultBlockState());
+            level.setBlockAndUpdate(centre.below(), Blocks.AIR.defaultBlockState());
+
+            // Standing in the hole itself. The marker is a slab across its floor, and from
+            // outside the rim occludes it: the sight line enters the obsidian before it
+            // reaches the slab, so the module draws correctly and nothing shows.
+            player.teleportTo(centre.getX() + 0.5, centre.getY(), centre.getZ() + 0.5);
+            player.setDeltaMovement(Vec3.ZERO);
+            return centre;
+        });
+        singleplayer.getConnection().waitForChunksRender();
+        context.waitTicks(40);
+        return hole;
+    }
+
+    /**
+     * Puts the player somewhere and waits until the world there actually exists.
+     *
+     * <p>Every scenario that builds scenery must do this first. Writing blocks or spawning entities
+     * into a chunk the server has not loaded silently does nothing, and what follows is a scenario
+     * measuring an empty field and blaming the module. That mistake was made four times here before
+     * it was worth a helper, and twice it turned CI red.
+     */
+    private static void moveThere(ClientGameTestContext context, TestSingleplayerContext singleplayer,
+            BlockPos where) {
+        singleplayer.getServer().runOnServer(server -> {
+            ServerPlayer player = singleplayer.getConnection().getServerPlayer();
+            player.teleportTo(where.getX() + 0.5, where.getY(), where.getZ() + 0.5);
+            player.setDeltaMovement(Vec3.ZERO);
+            player.fallDistance = 0;
+        });
+        singleplayer.getConnection().waitForChunksRender();
+        context.waitTicks(40);
+    }
+
+    private static BlockPos ledgeOrSpawn(ServerPlayer player) {
+        return player.blockPosition();
+    }
+
+    /**
+     * Replaces the player's inventory so a scenario starts from exactly what it placed. The earlier
+     * scenarios equip and swap things, so whatever is left by then is not a foundation to assert on.
+     */
+    private static void setInventory(TestSingleplayerContext singleplayer,
+            java.util.function.Consumer<net.minecraft.world.entity.player.Inventory> change) {
+        singleplayer.getServer().runOnServer(server -> {
+            ServerPlayer player = singleplayer.getConnection().getServerPlayer();
+            player.getInventory().clearContent();
+            change.accept(player.getInventory());
+            // Without this the client keeps drawing - and the modules keep reading - the old contents.
+            player.containerMenu.broadcastChanges();
+        });
+    }
+
+    /**
+     * Empties the level of everything except the player.
+     *
+     * <p>Snapshotted before anything is discarded. {@code getAllEntities()} is a live view, and
+     * removing from it while iterating hands back a null - which is exactly how this failed: with a
+     * handful of entities the iteration was short enough never to hit it, and once the scenarios
+     * before it left arrows, mobs and a fishing bobber lying around, it did. The same loop had been
+     * copied fourteen times, so it is one method now.
+     */
+    private static void clearEntities(ServerLevel level) {
+        java.util.List<Entity> present = new java.util.ArrayList<>();
+        level.getAllEntities().forEach(present::add);
+        for (Entity entity : present) {
+            if (entity != null && !(entity instanceof ServerPlayer)) entity.discard();
+        }
+    }
+
+    private static void configure(ClientGameTestContext context, String name, java.util.function.Consumer<Module> change) {
+        context.runOnClient(client -> change.accept(AgalarHackClient.moduleManager.getModule(name)));
+    }
+
+    private static void toggle(ClientGameTestContext context, String name, boolean on) {
+        context.runOnClient(client -> AgalarHackClient.moduleManager.getModule(name).setToggled(on, false));
+    }
+
+    /**
+     * The control half of every scenario. A behaviour assertion that was already true before the
+     * module was switched on measures the game, not the mod.
+     */
+    private static void assertNotYet(ClientGameTestContext context, Predicate<Minecraft> effect, String complaint) {
+        if (context.computeOnClient(effect::test)) {
+            throw new AssertionError(complaint + "; the scenario proves nothing in that state");
+        }
+    }
+
+    private static boolean settle(ClientGameTestContext context, Predicate<Minecraft> effect) {
+        return settle(context, effect, SETTLE_TICKS);
+    }
+
+    /** Polls rather than waiting the full budget, so a working module costs a few ticks, not eighty. */
+    private static boolean settle(ClientGameTestContext context, Predicate<Minecraft> effect, int budget) {
+        for (int waited = 0; waited < budget; waited += 4) {
+            context.waitTicks(4);
+            if (context.computeOnClient(effect::test)) return true;
+        }
+        return false;
+    }
+}
