@@ -107,9 +107,19 @@ public class Module {
             onToggle();
             if (toggled) onEnable(); else onDisable();
         } catch (RuntimeException failure) {
+            // `toggled` already holds the state we were moving to, so this says which direction
+            // failed. Cleanup only belongs to a failed switch-on: the module may have taken a lease
+            // or changed player state before it threw, and forcing it off has to undo that. A failed
+            // switch-off is already off, and calling onDisable a second time only re-runs whatever
+            // part of it ran before it threw. Every onDisable here happens to be idempotent, so that
+            // was harmless rather than a bug - but it is a requirement nothing states and nothing
+            // checks, and not needing it is better than writing it down.
+            boolean failedWhileEnabling = toggled;
             toggled = false;
             settings.setSetting("enabled", false);
-            try { onDisable(); } catch (RuntimeException cleanup) { failure.addSuppressed(cleanup); }
+            if (failedWhileEnabling) {
+                try { onDisable(); } catch (RuntimeException cleanup) { failure.addSuppressed(cleanup); }
+            }
             AgalarHackClient.LOGGER.error("Module lifecycle failed: {}", name, failure);
             me.mrhakan.agalarhack.services.ClientServices.registry().find(me.mrhakan.agalarhack.services.NotificationService.class)
                     .ifPresent(service -> service.publish(me.mrhakan.agalarhack.services.NotificationService.Type.ERROR, name + " disabled after an error"));

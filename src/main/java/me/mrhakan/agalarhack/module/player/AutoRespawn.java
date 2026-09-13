@@ -7,6 +7,8 @@ import net.minecraft.client.gui.screens.DeathScreen;
 /** Respawns after death once a configurable delay has passed. */
 public class AutoRespawn extends Module {
     private int waited;
+    /** Set once the packet is away, so a slow reply is not read as "it did not work". */
+    private boolean requested;
 
     public AutoRespawn() {
         super("AutoRespawn", Category.PLAYER, "Respawns automatically after a configurable delay");
@@ -23,18 +25,29 @@ public class AutoRespawn extends Module {
      */
     @Override public boolean runsWithoutWorld() { return true; }
 
-    @Override public void onEnable() { waited = 0; }
-    @Override public void onDisable() { waited = 0; }
-    @Override public void onDisconnect() { waited = 0; }
+    @Override public void onEnable() { reset(); }
+    @Override public void onDisable() { reset(); }
+    @Override public void onDisconnect() { reset(); }
+
+    private void reset() {
+        waited = 0;
+        requested = false;
+    }
 
     @Override
     public void onUpdate() {
         if (mc.player == null || mc.level == null || !(mc.gui.screen() instanceof DeathScreen)) {
-            waited = 0;
+            reset();
             return;
         }
+        // The death screen is still up because the server has not answered yet, not because the
+        // request was lost. Without this the counter simply refilled and the packet went again -
+        // every `delay` ticks while the reply was in flight, and with the delay set to 0, every
+        // single tick. One death, one respawn request.
+        if (requested) return;
         if (waited < (int) Math.round(getNumberSetting("delay", 10))) { waited++; return; }
         waited = 0;
+        requested = true;
         // respawn() sends the packet; Minecraft closes the death screen when the server replies.
         mc.player.respawn();
     }

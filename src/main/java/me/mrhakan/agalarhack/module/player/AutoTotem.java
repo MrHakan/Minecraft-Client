@@ -75,6 +75,13 @@ public class AutoTotem extends Module {
             if (!wanted && recovered()) tryRestore(inventory);
             return;
         }
+        // Our own swap is still running, so the offhand holds no totem yet for a reason we already
+        // know. Without this the module read its own half-finished plan as the player having done
+        // something: with the click delay set to 0 the cooldown expires before the three-click plan
+        // lands, the next tick cleared what to put back, and the restore setting then did nothing at
+        // all - the displaced item simply stayed in the bag. A delay of one or more hid it, because
+        // the second click fills the offhand before the cooldown runs out.
+        if (transfers.owns(OWNER)) return;
         // A totem that leaves the offhand without us moving it was consumed or taken by the player.
         restoreIndex = -1;
         restoreItem = null;
