@@ -168,6 +168,54 @@ class CraftingPlanTest {
         assertEquals(List.of(), plan("stone_pickaxe", 0, Map.of()));
     }
 
+    @Test void oneHeldLogDoesNotPutEightPlanksBeforeTheSecondLog() {
+        var have = Map.of(GrindBook.LOG, 1);
+        var book = GrindBook.recipes();
+        var steps = CraftingPlan.plan(GrindBook.WOODEN_PICKAXE, 1, have, book);
+        // The first planks visit uses the held log. A later visit for sticks needs a second log.
+        // Combining both plank crafts must not leave that gather behind the eight-plank step.
+        assertEquals(1, steps.stream().filter(s -> s.item().equals(GrindBook.PLANKS)).count());
+        assertEquals(1, steps.stream().filter(s -> s.kind() == CraftingPlan.Kind.GATHER)
+                .mapToInt(CraftingPlan.Step::count).sum(), "only one extra log is needed");
+        assertExecutable(steps, have, book, GrindBook.WOODEN_PICKAXE, 1);
+    }
+
+    @Test void sharedCraftsRemainExecutableWhenInitialOreOnlyCoversTheFirstParent() {
+        Map<String, CraftingPlan.Recipe> book = Map.of(
+                "parent", new CraftingPlan.Recipe("parent", 1, Map.of("left", 1, "right", 1), false),
+                "left", new CraftingPlan.Recipe("left", 1, Map.of("core", 1), false),
+                "right", new CraftingPlan.Recipe("right", 1, Map.of("core", 1), false),
+                "core", new CraftingPlan.Recipe("core", 1, Map.of("ore", 1), false));
+        var have = Map.of("ore", 1);
+        var steps = CraftingPlan.plan("parent", 1, have, book);
+        assertEquals(1, steps.stream().filter(s -> s.item().equals("core")).count());
+        assertExecutable(steps, have, book, "parent", 1);
+    }
+
+    /** Replay the returned instructions, without reproducing the planner's dependency traversal. */
+    private static void assertExecutable(List<CraftingPlan.Step> steps, Map<String, Integer> have,
+            Map<String, CraftingPlan.Recipe> book, String target, int wanted) {
+        var stock = new java.util.HashMap<>(have);
+        for (var step : steps) {
+            if (step.kind() == CraftingPlan.Kind.CRAFT) {
+                var recipe = book.get(step.item());
+                assertNotNull(recipe, "craft has no recipe: " + step);
+                assertEquals(0, step.count() % recipe.yield(), "output must be whole crafts");
+                int batches = step.count() / recipe.yield();
+                for (var ingredient : recipe.ingredients().entrySet()) {
+                    int needed = batches * ingredient.getValue();
+                    int available = stock.getOrDefault(ingredient.getKey(), 0);
+                    assertTrue(available >= needed, "Cannot execute " + step + ": needs " + needed
+                            + " " + ingredient.getKey() + " but only " + available
+                            + " available at this point; plan=" + steps);
+                    stock.put(ingredient.getKey(), available - needed);
+                }
+            }
+            stock.merge(step.item(), step.count(), Integer::sum);
+        }
+        assertTrue(stock.getOrDefault(target, 0) >= wanted, "the replay never reached the goal");
+    }
+
     @Test void aRecipeCycleIsRefusedRatherThanLoopingForever() {
         Map<String, CraftingPlan.Recipe> cyclic = Map.of(
                 "a", new CraftingPlan.Recipe("a", 1, Map.of("b", 1), false),
