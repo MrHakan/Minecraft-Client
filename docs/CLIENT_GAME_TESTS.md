@@ -30,6 +30,7 @@ invisible to it:
 | `InventoryContentionGameTest` | Changes the inventory through vanilla commands **between two clicks of a plan** and asserts item conservation, empty cursors and a released channel. Runs the identical change with nothing in flight first, as a control: the accounting has to be shown trustworthy before its verdict means anything. |
 | `ProfileBindingGameTest` | Binds profiles to dimensions and drives a real Nether round trip, asserting each arrival loads its own bound profile. The first arrival is unbound and must change nothing, which is what makes the later ones evidence that the binding caused the load rather than the transition. |
 | `ExternalAddonGameTest` | Installs two **separately packaged addon jars** and checks them from the outside: one registers a module and a command and receives settings, the other collides with a built-in module and a built-in command on purpose and has to be contained. Asserts the good one was loaded from a real `.jar` file, and first asserts the client itself is *not*, so that check separates installed jars from classpath mods rather than passing for everything. |
+| `RemainingSafetyGameTest` | Builds real walkways out of fences, walls and slabs and walks the player along each with Parkour off and on, so support is decided by vanilla's own collision shapes rather than by a block-state guess — a fence is 1.5 blocks tall, so the position below the player's feet is the empty block above it. Then caps BlockESP's results, grows the cap, and removes the blocks behind the markers, checking that the count recovers, that earlier findings are not stranded, and that a finished scan stops probing. |
 | `DedicatedServerGameTest` | **Opt-in; see below.** Starts a real dedicated server and connects to it: observes the packet counters actually counting, equips armour where every click crosses a socket and the server has to agree, then checks the counters reset on disconnect and that a reconnect works. |
 | `SwallowedFailureGameTest` | Reads the log the run just wrote and fails if the mod caught and logged a failure anywhere in it. One exemption, by mod id: the deliberately broken addon fixture, whose failure is *asserted to happen* rather than merely ignored. |
 
@@ -182,10 +183,11 @@ bytes. The previous report is deleted first; a missing new report fails the cont
 failure can never reuse a prior regression result.
 The normal build follows, and `tools/summarize-tests.py` reports observed totals from JUnit XML (archived
 with the client log). This control does not bypass the full game suite or whitelist swallowed failures.
-There are 44 grouped scenario checks: 38 direct behaviour scenario calls (excluding `quietFrames`
+There are 46 grouped scenario checks: 38 direct behaviour scenario calls (excluding `quietFrames`
 setup), inventory interruption, mid-plan inventory contention, dimension replacement, profile
-dimension bindings, disconnect and external addon packaging.
+dimension bindings, disconnect, external addon packaging, real collision surfaces and capped
+BlockESP recovery.
 SafeWalk/Parkour and Tracers/Nametags are grouped; this is not an assertion or log-line count.
-Three dedicated-server checks are excluded while the EULA gate is off. Ten entrypoints include
+Three dedicated-server checks are excluded while the EULA gate is off. Eleven entrypoints include
 screen, lifecycle and swallowed-failure gates; module names and flag mappings remain unchanged. Worlds are integrated-server worlds, including the
 real dimension/disconnect checks. Restarted external addons and dedicated-server latency remain unverified.
