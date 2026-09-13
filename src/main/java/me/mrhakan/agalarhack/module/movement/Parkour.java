@@ -34,7 +34,11 @@ public class Parkour extends Module {
         if (getBooleanSetting("ignoreSneaking", true) && player.isShiftKeyDown()) return;
         if (getBooleanSetting("requireSprint", false) && !player.isSprinting()) return;
         // SafeWalk stops you at the edge; jumping from it would defeat the module the player enabled.
-        if (safeWalkHolding()) return;
+        // Its own predicate, not merely whether it is switched on: SafeWalk has modes, and in
+        // "sneaking" it holds nothing while the player stands up straight. Asking isToggled() meant
+        // that in that mode neither module did anything - SafeWalk correctly stood aside, and
+        // Parkour refused to jump because it believed SafeWalk had the edge.
+        if (SafeWalk.shouldHoldEdge()) return;
 
         var motion = player.getDeltaMovement();
         double speed = Math.hypot(motion.x, motion.z);
@@ -54,9 +58,4 @@ public class Parkour extends Module {
         return BlockPresence.isPassable(mc.level.getBlockState(below));
     }
 
-    private static boolean safeWalkHolding() {
-        var module = AgalarHackClient.moduleManager == null ? null
-                : AgalarHackClient.moduleManager.getModule("SafeWalk");
-        return module != null && module.isToggled();
-    }
 }
