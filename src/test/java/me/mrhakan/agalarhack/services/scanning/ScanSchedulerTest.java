@@ -88,4 +88,32 @@ class ScanSchedulerTest {
         assertEquals(ScanScheduler.MAX_IDLE_STEPS, steps[0],
                 "a huge budget must not buy a spinning task more of the tick");
     }
+
+    /**
+     * The dimension where a per-priority quantum really could starve a peer.
+     *
+     * <p>Block and entity allowances dwarf the quantum in every profile - the smallest is 4,000
+     * blocks against 16 background steps - so the rotation is defence enough there. Chunk lookups
+     * are not: {@link ScanBudgets#forProfile "low"} grants 24 against that same 16, so one scanner
+     * walking chunks could take two thirds of the tick in its first turn.
+     */
+    @Test void noScannerCanTakeTheWholeChunkAllowanceWhilePeersWait() {
+        var scheduler = new ScanScheduler<String>((owner, failure) -> fail(failure));
+        int chunkAllowance = ScanBudgets.forProfile("low").chunkLookups();
+        int[] used = new int[3];
+        for (int scanner = 0; scanner < used.length; scanner++) {
+            int index = scanner;
+            scheduler.offer("scanner" + scanner, ScanScheduler.Priority.BACKGROUND, 1000, budget -> {
+                if (!budget.take(0, 1, 0)) return ScanScheduler.Result.BLOCKED;
+                used[index]++;
+                return ScanScheduler.Result.MORE;
+            });
+        }
+        scheduler.run(0, chunkAllowance, 0);
+        assertEquals(chunkAllowance, used[0] + used[1] + used[2], "the whole allowance was spent");
+        for (int scanner = 0; scanner < used.length; scanner++) {
+            assertTrue(used[scanner] > 0,
+                    "scanner" + scanner + " was starved in a single tick: " + java.util.Arrays.toString(used));
+        }
+    }
 }

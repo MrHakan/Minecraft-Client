@@ -30,6 +30,21 @@ public final class ScanScheduler<K> {
         }
         /** Total units consumed so far, used to tell a working step from a spinning one. */
         int spent() { return blocks + chunks + entities; }
+
+        /**
+         * The tightest remaining allowance across the dimensions this budget actually grants.
+         *
+         * <p>A dimension whose maximum is zero is skipped: nothing can ever be taken from it, so it
+         * says nothing about how scarce the budget is. With every dimension zero there is no work to
+         * share and the answer is zero.
+         */
+        int scarcestRemaining() {
+            int tightest = Integer.MAX_VALUE;
+            if (maxBlocks > 0) tightest = Math.min(tightest, maxBlocks - blocks);
+            if (maxChunks > 0) tightest = Math.min(tightest, maxChunks - chunks);
+            if (maxEntities > 0) tightest = Math.min(tightest, maxEntities - entities);
+            return tightest == Integer.MAX_VALUE ? 0 : tightest;
+        }
     }
 
     /**
@@ -62,6 +77,34 @@ public final class ScanScheduler<K> {
     public void clear() { pending.clear(); lastUsage = new Usage(0, 0, 0, 0); }
     public Usage lastUsage() { return lastUsage; }
 
+    /** How many consecutive steps a priority may take per round when the budget is not scarce. */
+    private static int priorityQuantum(Priority priority) {
+        return switch (priority) { case NEAR -> 64; case FOCUSED -> 32; case BACKGROUND -> 16; };
+    }
+
+    /**
+     * The most steps one task may take this round without being able to starve a peer of budget.
+     *
+     * <p>The per-priority quantum alone is a fairness guarantee only while the budget is large
+     * relative to it. The rotation above spreads the advantage of going first across ticks, which is
+     * enough when a quantum cannot exhaust the tick - with 4,000 blocks even on the "low" profile,
+     * a 16-step background quantum is a two-hundred-and-fiftieth of the budget. Chunk lookups are
+     * the dimension where that stops being true: "low" grants 24 of them against that same quantum
+     * of 16, so one task walking chunks could take two thirds of the tick's allowance in a single
+     * turn and leave the scanners behind it nothing at all.
+     *
+     * <p>Dividing the scarcest remaining allowance between the tasks that still have work bounds
+     * that, and costs nothing when the budget is roomy, where the per-priority quantum stays the
+     * binding limit. Never less than one step, or a nearly spent budget would stop the run early
+     * rather than letting the last taker find out it is empty.
+     */
+    private static int fairShare(Budget budget, java.util.List<?> work, int[] remaining) {
+        int active = 0;
+        for (int index = 0; index < work.size(); index++) if (remaining[index] > 0) active++;
+        if (active <= 1) return Integer.MAX_VALUE;
+        return Math.max(1, budget.scarcestRemaining() / active);
+    }
+
     public void run(int blocks, int chunks, int entities) {
         Budget budget = new Budget(blocks, chunks, entities);
         // Derived from the budget rather than fixed, so the two ceilings cannot contradict each
@@ -83,7 +126,7 @@ public final class ScanScheduler<K> {
                     Request request = entry.getValue();
                     if (remaining[index] == 0 || pending.get(entry.getKey()) != request) continue;
                     // Earlier priorities receive more work per round, while background tasks still get a turn.
-                    int quantum = switch (request.priority()) { case NEAR -> 64; case FOCUSED -> 32; case BACKGROUND -> 16; };
+                    int quantum = Math.min(priorityQuantum(request.priority()), fairShare(budget, work, remaining));
                     for (int i = 0; i < quantum && remaining[index] > 0 && totalSteps < stepCeiling && idleSteps < MAX_IDLE_STEPS; i++) {
                         remaining[index]--; totalSteps++; progress = true;
                         try {
