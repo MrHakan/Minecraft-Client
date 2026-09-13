@@ -31,6 +31,7 @@ public final class WaypointService {
     private final Map<String, Waypoint> waypoints = new LinkedHashMap<>();
     private final BoundedJsonFile<Map<String, Waypoint>> file;
     private boolean loaded;
+    private boolean unsavedChanges;
 
     public WaypointService() {
         this(FabricLoader.getInstance().getConfigDir().resolve("agalarhack-waypoints.json"));
@@ -42,7 +43,9 @@ public final class WaypointService {
 
     public void load() {
         try {
-            file.load().ifPresent(stored -> { waypoints.clear(); waypoints.putAll(stored); });
+            file.load().ifPresent(stored -> {
+                waypoints.clear(); waypoints.putAll(stored); unsavedChanges = false;
+            });
             loaded = true;
         } catch (IOException failure) {
             loaded = false;
@@ -62,6 +65,7 @@ public final class WaypointService {
         if (!loaded) return false;
         try {
             file.save(waypoints);
+            unsavedChanges = false;
             return true;
         } catch (IOException | IllegalArgumentException failure) {
             LOGGER.error("Could not save waypoints", failure);
@@ -69,12 +73,21 @@ public final class WaypointService {
         }
     }
 
+    /** Memory changes remain usable after a refused write; only a successful write/reload clears this. */
+    public boolean hasUnsavedChanges() { return unsavedChanges; }
+
+    private void changed() {
+        unsavedChanges = true;
+        if (!save()) notify(NotificationService.Type.WARNING,
+                "Waypoint changes apply to this session only; the file was not saved");
+    }
+
     /** @return false when the store is full; an existing waypoint with the same key is replaced */
     public boolean add(Waypoint waypoint) {
         if (waypoint == null) return false;
         if (!waypoints.containsKey(waypoint.key()) && waypoints.size() >= WaypointCodec.MAX_WAYPOINTS) return false;
         waypoints.put(waypoint.key(), waypoint);
-        save();
+        changed();
         return true;
     }
 
@@ -83,7 +96,7 @@ public final class WaypointService {
         Optional<Waypoint> match = find(name, dimension).or(() -> findAnywhere(name));
         if (match.isEmpty()) return false;
         waypoints.remove(match.get().key());
-        save();
+        changed();
         return true;
     }
 
@@ -129,7 +142,7 @@ public final class WaypointService {
     public boolean replace(Waypoint waypoint) {
         if (waypoint == null || !waypoints.containsKey(waypoint.key())) return false;
         waypoints.put(waypoint.key(), waypoint);
-        save();
+        changed();
         return true;
     }
 
@@ -153,7 +166,7 @@ public final class WaypointService {
             if (!waypoints.containsKey(add.key()) && waypoints.size() >= WaypointCodec.MAX_WAYPOINTS) added = false;
             else waypoints.put(add.key(), add);
         }
-        save();
+        changed();
         return added;
     }
 
@@ -170,7 +183,7 @@ public final class WaypointService {
         if (dimension == null) return 0;
         int before = waypoints.size();
         waypoints.values().removeIf(point -> point.dimension().equals(dimension));
-        if (waypoints.size() != before) save();
+        if (waypoints.size() != before) changed();
         return before - waypoints.size();
     }
 
@@ -178,7 +191,7 @@ public final class WaypointService {
     public int clearAll() {
         int before = waypoints.size();
         waypoints.clear();
-        if (before != 0) save();
+        if (before != 0) changed();
         return before;
     }
 }

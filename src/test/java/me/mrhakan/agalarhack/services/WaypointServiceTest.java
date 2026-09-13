@@ -167,4 +167,49 @@ class WaypointServiceTest {
         assertEquals(1, service.count());
     }
 
+
+    @Test void failedClearKeepsTheDiskCopyAndRetrySavesWithoutAnotherClear(@TempDir Path dir) throws Exception {
+        Path path = dir.resolve("w.json");
+        var service = loaded(path);
+        service.add(Waypoint.of("home", 0, 64, 0, "overworld"));
+        String stored = Files.readString(path);
+        Files.delete(path);
+        Files.createDirectory(path);
+        Files.writeString(path.resolve("occupied"), stored);
+        assertEquals(1, service.clearAll());
+        assertTrue(service.hasUnsavedChanges());
+        assertEquals(0, service.count());
+        assertEquals(stored, Files.readString(path.resolve("occupied")));
+        assertTrue(me.mrhakan.agalarhack.commands.impl.WaypointCommand.persistenceFeedback(service, "Removed 1")
+                .contains("session only"));
+        Files.delete(path.resolve("occupied"));
+        Files.delete(path);
+        assertTrue(service.save());
+        assertFalse(service.hasUnsavedChanges());
+        assertEquals(0, loaded(path).count());
+    }
+
+    @Test void everyMutationKeepsUnsavedStateUntilAWriteSucceeds(@TempDir Path dir) throws Exception {
+        Path path = dir.resolve("w.json");
+        var service = loaded(path);
+        var a = Waypoint.of("a", 0, 64, 0, "overworld");
+        var b = Waypoint.of("b", 0, 64, 0, "the_nether");
+        service.add(a); service.add(b);
+        Files.writeString(path, "{broken");
+        service.load(); // preserve memory; refuse further writes until a valid reload
+        assertTrue(service.replace(a.withBeam(true)));
+        assertTrue(service.hasUnsavedChanges());
+        assertTrue(service.remove("a", "minecraft:overworld"));
+        assertTrue(service.hasUnsavedChanges());
+        assertTrue(service.apply(java.util.List.of(b), a));
+        assertTrue(service.hasUnsavedChanges());
+        assertEquals(1, service.clear("minecraft:overworld"));
+        assertTrue(service.hasUnsavedChanges());
+        assertEquals("{broken", Files.readString(path));
+        Files.writeString(path, WaypointCodec.encode(java.util.Map.of(b.key(), b)));
+        service.load();
+        assertFalse(service.hasUnsavedChanges());
+        assertEquals(java.util.List.of(b), service.all());
+    }
+
 }

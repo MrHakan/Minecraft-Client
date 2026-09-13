@@ -15,7 +15,7 @@ import net.minecraft.client.Minecraft;
 public class WaypointCommand extends Command {
     public WaypointCommand() {
         super("waypoint", "Saves and manages named positions",
-                "waypoint add <name> [x y z] | remove <name> | list | clear [all confirm] | beam <name> | show <name> | hide <name> | color <name> <rrggbb>",
+                "waypoint add <name> [x y z] | remove <name> | list | clear [all confirm] | save | beam <name> | show <name> | hide <name> | color <name> <rrggbb>",
                 "wp");
     }
 
@@ -29,6 +29,11 @@ public class WaypointCommand extends Command {
             case "add" -> add(client, service, args);
             case "remove", "delete", "del" -> remove(client, service, args);
             case "list" -> list(client, service);
+            case "save" -> {
+                if (args.length != 2) { sendUsage(); return; }
+                if (service.save()) changed(service, "Waypoint file saved.");
+                else error("Waypoint file was not saved. Existing files are preserved; resolve the file problem first.");
+            }
             case "clear" -> clear(client, service, args);
             case "beam" -> toggle(client, service, args, "beam");
             case "show" -> toggle(client, service, args, "show");
@@ -86,7 +91,7 @@ public class WaypointCommand extends Command {
 
     private void list(Minecraft client, WaypointService service) {
         List<Waypoint> all = service.all();
-        if (all.isEmpty()) { MessageManager.sendMessagePrefix(ChatFormatting.GRAY + "No waypoints saved."); return; }
+        if (all.isEmpty()) { MessageManager.sendMessagePrefix(ChatFormatting.GRAY + "No waypoints in this session."); return; }
         String dimension = Waypoints.currentDimension(client);
         MessageManager.sendMessagePrefix(ChatFormatting.GRAY + "Waypoints (" + all.size() + "):");
         for (Waypoint point : all) {
@@ -167,11 +172,15 @@ public class WaypointCommand extends Command {
 
     /** Shared by every mutation so persistence feedback cannot drift between command branches. */
     public static String persistenceFeedback(WaypointService service, String savedMessage) {
-        return savedMessage;
+        return service.hasUnsavedChanges()
+                ? "Waypoint changes apply to this session only; the file was not saved. "
+                        + "Resolve the file problem, then use .waypoint save to retry without repeating the change."
+                : savedMessage;
     }
 
     private static void changed(WaypointService service, String message) {
-        MessageManager.sendMessagePrefix(ChatFormatting.GREEN + persistenceFeedback(service, message));
+        MessageManager.sendMessagePrefix((service.hasUnsavedChanges() ? ChatFormatting.YELLOW : ChatFormatting.GREEN)
+                + persistenceFeedback(service, message));
     }
     private static void error(String message) { MessageManager.sendMessagePrefix(ChatFormatting.RED + message); }
 }
