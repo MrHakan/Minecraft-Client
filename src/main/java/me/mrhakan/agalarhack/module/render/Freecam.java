@@ -58,6 +58,16 @@ public class Freecam extends Module {
             return;
         }
 
+        // Carry this tick's position and rotation into the "previous" fields before changing them.
+        // The renderer draws the camera at Entity.getPosition(partialTick), which lerps from xo, and
+        // xo is only ever updated by Entity.tick - which this armour stand never gets, because it is
+        // deliberately not added to the level. Left alone it stayed at the entity's construction
+        // point, so the drawn camera sat somewhere between there and where it really was, moving
+        // every frame: the game test measured 462 blocks out before this line existed. Doing it here
+        // rather than after the move is what leaves the renderer a real previous position to
+        // interpolate from, which is how a ticked entity behaves.
+        camera.setOldPosAndRot();
+
         camera.setYRot(mc.player.getYRot());
         camera.setXRot(mc.player.getXRot());
 
@@ -67,7 +77,13 @@ public class Freecam extends Module {
         }
 
         double forward = (mc.options.keyUp.isDown() ? 1.0 : 0.0) - (mc.options.keyDown.isDown() ? 1.0 : 0.0);
-        double strafe = (mc.options.keyRight.isDown() ? 1.0 : 0.0) - (mc.options.keyLeft.isDown() ? 1.0 : 0.0);
+        // Left-minus-right, not right-minus-left, because the rotation below is vanilla's own
+        // movementInputToVelocity and that formula expects vanilla's sign: KeyboardInput builds its
+        // strafe with calculateImpulse(left, right), which returns +1 when left is held. Read out of
+        // the 26.2 jar rather than guessed. Computing it the other way round while keeping the
+        // formula flew the camera the opposite way to the key held, and the game test only ever
+        // holds forward, so nothing caught it.
+        double strafe = (mc.options.keyLeft.isDown() ? 1.0 : 0.0) - (mc.options.keyRight.isDown() ? 1.0 : 0.0);
         double vertical = (mc.options.keyJump.isDown() ? 1.0 : 0.0) - (mc.options.keyShift.isDown() ? 1.0 : 0.0);
 
         double yaw = Math.toRadians(camera.getYRot());

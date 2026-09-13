@@ -1932,6 +1932,26 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
         boolean detached = context.computeOnClient(client ->
                 client.getCameraEntity() != null && client.getCameraEntity() != client.player);
 
+        // Strafe, which a forward-only check cannot see. The axis was inverted - the module built
+        // its strafe as right-minus-left while using vanilla's own rotation formula, and vanilla's
+        // strafe impulse is positive for LEFT - so A and D flew the camera the opposite way to the
+        // key held. Held before the forward leg so the distance limit is nowhere near reached.
+        Vec3 beforeStrafe = cameraPosition(context);
+        float facing = context.computeOnClient(client -> client.player.getYRot());
+        context.getInput().holdKeyFor(options -> options.keyRight, 30);
+        context.waitTicks(10);
+        Vec3 strafed = cameraPosition(context).subtract(beforeStrafe);
+        double facingRadians = Math.toRadians(facing);
+        // Right of the player's facing: forward is (-sin, cos), so right is (-cos, -sin).
+        double alongRight = strafed.x * -Math.cos(facingRadians) + strafed.z * -Math.sin(facingRadians);
+        if (alongRight < 0.5) {
+            throw new AssertionError("holding the right key moved the camera " + strafed
+                    + ", which is " + String.format(java.util.Locale.ROOT, "%.2f", alongRight)
+                    + " blocks to the player's right - " + (alongRight < -0.5
+                    ? "it flew left instead, so the strafe axis is inverted"
+                    : "it barely moved sideways at all"));
+        }
+
         context.getInput().holdKeyFor(options -> options.keyUp, 80);
         context.waitTicks(10);
         double travelled = context.computeOnClient(client ->
@@ -1939,6 +1959,20 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
                         instanceof me.mrhakan.agalarhack.module.render.Freecam freecam
                         ? freecam.distanceFromBody() : -1.0);
         Vec3 bodyAfter = position(context);
+
+        // What the renderer actually uses. Camera.setup takes the entity's interpolated position,
+        // and Entity.getPosition(partialTick) lerps from xo - which only a ticked entity updates.
+        // This armour stand is never added to the level, so if nothing keeps xo in step the drawn
+        // camera sits somewhere between where it is and where it once was, every frame.
+        double interpolationGap = context.computeOnClient(client -> {
+            var entity = client.getCameraEntity();
+            return entity == null ? 0.0 : entity.getPosition(0.0f).distanceTo(entity.position());
+        });
+        if (interpolationGap > 1.0) {
+            throw new AssertionError("the camera renders " + String.format(java.util.Locale.ROOT,
+                    "%.2f", interpolationGap) + " blocks from where it actually is, because its "
+                    + "previous position was never brought along; the view would swim every frame");
+        }
 
         toggle(context, "Freecam", false);
         context.waitTicks(10);
@@ -1964,8 +1998,17 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
             throw new AssertionError("the camera was not handed back to the player when Freecam was "
                     + "switched off, so the client is still looking through the armour stand");
         }
-        LOGGER.info("  Freecam flew the camera {} blocks, held it inside {}, left the body still and "
-                + "gave the camera back", String.format(java.util.Locale.ROOT, "%.1f", travelled), radius);
+        LOGGER.info("  Freecam strafed right, flew the camera {} blocks, held it inside {}, left the "
+                + "body still and gave the camera back",
+                String.format(java.util.Locale.ROOT, "%.1f", travelled), radius);
+    }
+
+    /** Where the detached camera actually is, which is the only way to check which way it flew. */
+    private static Vec3 cameraPosition(ClientGameTestContext context) {
+        return context.computeOnClient(client -> {
+            var camera = client.getCameraEntity();
+            return camera == null ? Vec3.ZERO : camera.position();
+        });
     }
 
     /**

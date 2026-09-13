@@ -123,6 +123,15 @@ public class HoleESP extends Module {
         ScannerService scanner = service(ScannerService.class);
         // Five probes per candidate, so reserve accordingly rather than under-reporting the cost.
         if (!scanner.reserveBlock(budget, x >> 4, z >> 4) || !budget.take(5, 0, 0)) return ScanScheduler.Result.BLOCKED;
+        // Actually fetch the chunk the reservation just paid for. reserveBlock charges a chunk
+        // lookup whenever the chunk is not already in the service's per-tick cache, and only
+        // loadedChunk ever puts one there - so skipping this call meant every single probe was
+        // billed another of the 64 lookups, and the scan stopped after about 64 positions out of the
+        // thousands in its radius while starving every peer scanner of the same shared budget.
+        if (scanner.loadedChunk(x >> 4, z >> 4) == null) {
+            cursor.skipChunk();
+            return ScanScheduler.Result.MORE;
+        }
         if (!mc.level.isInsideBuildHeight(y) || !mc.level.isInsideBuildHeight(y + 1)
                 || !mc.level.isInsideBuildHeight(y - 1)) {
             cursor.advance();
@@ -133,8 +142,12 @@ public class HoleESP extends Module {
         boolean wanted = hole != HoleDetector.Hole.NONE
                 && (!getBooleanSetting("safeOnly", false) || hole == HoleDetector.Hole.SAFE);
         if (wanted) {
-            if (holes.size() < (int) Math.round(getNumberSetting("maxResults", 128))
-                    && holes.put(key, hole) != hole) snapshotDirty = true;
+            // The cap blocks new entries, never an update to one already held. Testing it before the
+            // put meant that once the map was full a hole could never be reclassified: mine the
+            // obsidian out of one and it went on being drawn as blast-resistant.
+            if (holes.containsKey(key) || holes.size() < (int) Math.round(getNumberSetting("maxResults", 128))) {
+                if (holes.put(key, hole) != hole) snapshotDirty = true;
+            }
         } else if (holes.remove(key) != null) {
             snapshotDirty = true;
         }

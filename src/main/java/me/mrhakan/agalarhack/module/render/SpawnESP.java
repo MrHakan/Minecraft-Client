@@ -124,6 +124,15 @@ public class SpawnESP extends Module {
         ScannerService scanner = service(ScannerService.class);
         // Three block probes plus two light lookups per candidate.
         if (!scanner.reserveBlock(budget, x >> 4, z >> 4) || !budget.take(3, 0, 0)) return ScanScheduler.Result.BLOCKED;
+        // Actually fetch the chunk the reservation just paid for. reserveBlock charges a chunk
+        // lookup whenever the chunk is not already in the service's per-tick cache, and only
+        // loadedChunk ever puts one there - so skipping this call meant every single probe was
+        // billed another of the 64 lookups, and the scan stopped after about 64 positions out of the
+        // thousands in its radius while starving every peer scanner of the same shared budget.
+        if (scanner.loadedChunk(x >> 4, z >> 4) == null) {
+            cursor.skipChunk();
+            return ScanScheduler.Result.MORE;
+        }
         if (!mc.level.isInsideBuildHeight(y) || !mc.level.isInsideBuildHeight(y + 1)
                 || !mc.level.isInsideBuildHeight(y - 1)) {
             cursor.advance();
@@ -134,8 +143,10 @@ public class SpawnESP extends Module {
         boolean wanted = spawnable != SpawnLightRules.Spawnable.NONE
                 && (!getBooleanSetting("alwaysOnly", false) || spawnable == SpawnLightRules.Spawnable.ALWAYS);
         if (wanted) {
-            if (spots.size() < (int) Math.round(getNumberSetting("maxResults", 512))
-                    && spots.put(key, spawnable) != spawnable) snapshotDirty = true;
+            // As in HoleESP: the cap blocks new spots, not a fresh classification of a known one.
+            if (spots.containsKey(key) || spots.size() < (int) Math.round(getNumberSetting("maxResults", 512))) {
+                if (spots.put(key, spawnable) != spawnable) snapshotDirty = true;
+            }
         } else if (spots.remove(key) != null) {
             snapshotDirty = true;
         }
