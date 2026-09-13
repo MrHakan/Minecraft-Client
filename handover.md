@@ -1,6 +1,98 @@
 # Agalar Hack — AI agent handover
 
-## CURRENT STATE — authoritative checkpoint (2026-09-12)
+## CURRENT STATE — authoritative checkpoint (2026-09-13)
+
+Authority: live source > live tests > live PR state/description > current CI > this checkpoint >
+generated docs > historical records. All numbers and next-batch suggestions below the historical
+divider describe their own dates, not the current project.
+
+- **Live head inspected:** `dc24bfa310db9c7cfcfa422e3757ed73083f6ca3`.
+  Main: `19f83ab888a55d9b459f84fbae27dffe39036f71`.
+  [PR #9](https://github.com/MrHakan/Minecraft-Client/pull/9) is open/draft, mergeable and not merged;
+  it is the only open PR. Continue `codex/foundation-services-26.2`; never merge or force-push.
+- **Scale at inspection:** 222 commits against main; 353 changed files, +32,561/-872.
+  The 16 commits after `cb4631c` are preserved. Fetch again immediately before publishing.
+- **Versions:** Minecraft 26.2, Loader 0.19.3, Fabric API 0.157.0+26.2, Java 25.
+- **Modules:** 53 built-ins; 0 UNTESTED (22 baseline exemptions, 31 behaviour-mapped modules).
+  Runtime lifecycle count is 55 because two fixture addon modules do not ship. Zero badges does
+  not mean all 53 have distinct behaviour scenarios.
+- **Observed CI:** [run 218](https://github.com/MrHakan/Minecraft-Client/actions/runs/34750912123)
+  succeeded on `dc24bfa`. Its archived JUnit XML was independently downloaded and re-counted:
+  **772 tests, 0 failures/errors/skips, 101 suites**. The four inventory regression controls,
+  Java 25 build, generated docs, runtime client/integrated worlds, six mixin target checks and
+  artifact creation passed. 171 screens opened; the swallowed-failure scan read 877 lines and
+  found only the two deliberately expected broken-addon failures.
+- **Scenario count:** 44 grouped checks across 10 entrypoints: 38 direct behaviour calls excluding
+  setup, plus inventory recovery, contention, dimension transition, disconnect, profile bindings
+  and external addon packaging. SafeWalk/Parkour and Tracers/Nametags are grouped; this is not a
+  count of assertions or log lines. Three dedicated-server checks skipped and are excluded.
+- **Scope estimate:** roughly 80–85% of useful original feature scope, a qualitative depth estimate,
+  not measured remaining effort or release readiness. Correctness/acceptance are the priority.
+
+### Latest continuation and evidence limits
+
+Claude's PR reports **42 defects closed** in the preceding adversarial review. That is the prior
+review's classification, not 42 newly reproduced failures in this continuation. The delta includes
+inventory scoring and per-plan pacing; in-flight automation state; target switching; reachable
+warning hysteresis; scanner ceilings and chunk reuse; Unicode matching; scoped waypoint lookup and
+explicit all-dimension deletion; Flight player replacement; Freecam direction/interpolation; movement
+interactions; BaseFinder clustering and reporting. Preserve those implementations.
+
+`ProfileBindingGameTest` now exercises real Overworld → Nether → Overworld → Nether changes and
+profile rename/delete maintenance. It does **not** establish dedicated-server binding precedence or
+partial-profile isolation. `InventoryContentionGameTest` verifies conservation and empty cursors after
+an external mid-plan inventory edit, with a no-transfer accounting control; it does **not** promise
+an exact placement after arbitrary peer edits. Player-face tests pin vanilla UV constants and source
+geometry, not the rendered appearance.
+
+The swallowed-error scan includes current-run rolled/gzip logs and requires the known broken-addon
+failure to be found. Never go back to scanning only `latest.log`, or accepting an empty scan.
+
+### AutoGrind status — plan only
+
+Read `docs/AUTOGRIND.md`. `TaskRunner`, `CraftingPlan`, `GrindBook` and `.grind <item> [count]` exist.
+The command plans against the real inventory; it does not walk, mine, craft or pathfind. Keep already-
+satisfied task skipping, task budgets, deterministic ingredient order, aggregate quantities, leftovers,
+item-count output and furnace-load fuel accounting. No compatible Baritone 26.2 jar was inspected in
+this continuation; no bridge extension or installed-success claim is made.
+
+The delta sanity check identified a candidate ordering defect with held stock: one held log can
+satisfy an intermediate's first dependency visit, while a later visit needs another log after that
+intermediate has already been placed. Aggregating its output can then require gathering that log
+*before* the earlier craft. Next action: an executable-plan regression against the existing book,
+observed failing on unchanged production source before changing emission order. Do not replace the
+quantity tally with naive append-and-merge planning.
+
+### Remaining scope and explicit decisions
+
+- **Waypoint persistence feedback:** mutation methods intentionally report an in-memory change;
+  their `save()` result is ignored by per-operation success text. A failed save can still be labelled
+  "Saved". Preserve corrupt files and avoid retrying a destructive operation to fix its message.
+- **AutoAccept:** current code has no save transaction or retained confirmation token. Its local
+  reply/cooldown is not a server acknowledgement; do not invent a failed-save state machine here.
+- **NoFall:** literal once-per-fall ground report versus the name's broader promise remains a product
+  decision; no packet spam. **Jesus:** water-surface-relative behaviour remains a design task.
+- **Parkour:** fence/wall collision geometry still needs a real scenario before redesigning the probe.
+- **BlockESP:** cap recovery needs bounded invalidation, not continuous rescanning. Keep shared budgets.
+- **Notifications:** HUD placement owns the edited position; do not force the default corner over it.
+- **Baritone:** modifier/accessibility suspicion needs an actual compatible jar, not guessed reflection.
+- **Manual acceptance stays with the owner:** rendered face/skin overlay, ESP/nametag alignment,
+  beams, frustum edges, trajectory/potion/XP landing, themes and GUI/HUD scales; production remapped
+  addon installation, mods-folder discovery, restart/keybind persistence/removal/missing dependency;
+  natural fishing bites, installed Baritone and latency/peer traffic.
+- Dedicated-server harness exists and remains **opt-in**. Do not accept its EULA or count its three
+  skipped checks without explicit owner authorization. Turkish setting-description work remains
+  cancelled; retain the 53 translated module descriptions.
+
+Keep PlayerInputOverrides/KeyboardInput TAIL, physical-use preservation, per-tick click budget,
+carried-stack recovery, total HUD placement, `.look` cleanup, client-thread service access, narrow
+26.2 mixins and Fabric-entrypoint addon loading. This pass reviews the new delta, not the full 32k-line
+PR from scratch. Subsequent findings and CI evidence belong above this divider.
+
+## Historical development record
+
+
+### Checkpoint recorded 2026-09-12 — superseded
 
 Read this section first. Everything under **Historical development record** is chronological history:
 its percentages, TODOs, UNTESTED lists and claims about absent runtime tests are NOT current instructions.
