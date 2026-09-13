@@ -43,7 +43,7 @@ public class AutoAccept extends Module {
         // Empty by default: enabling the module alone must not answer anything.
         settings.addSetting("phrases", "");
         settings.addSetting("reply", "");
-        addBooleanSetting("friendsOnly", true, "Only answer players in the friend list");
+        addBooleanSetting("friendsOnly", true, "Also answer your friends, on top of the allowed names below; off answers only the allowed names");
         settings.addSetting("allowedNames", "");
         addNumberSetting("cooldownSeconds", 5.0, 1.0, 120.0, "Minimum time between replies");
         addBooleanSetting("notify", true, "Say when a request was answered");
@@ -62,7 +62,16 @@ public class AutoAccept extends Module {
         return phrases;
     }
 
-    /** Friends, plus any explicitly listed names; never everyone. */
+    /**
+     * Friends, plus any explicitly listed names; never everyone.
+     *
+     * <p>The {@code friendsOnly} setting adds friends to that list rather than restricting it to
+     * them, which is what the code has always done and the opposite of what its description used to
+     * say. Reading it as written - "only answer players in the friend list" - and switching it on
+     * while stale entries sat in the allowed names would answer teleport requests from strangers
+     * under the belief that it could not. The key is left alone so saved configs keep working; only
+     * the sentence a player reads changed.
+     */
     private List<String> allowedNames() {
         List<String> names = new java.util.ArrayList<>();
         if (getBooleanSetting("friendsOnly", true) && AgalarHackClient.FRIEND_MANAGER != null) {

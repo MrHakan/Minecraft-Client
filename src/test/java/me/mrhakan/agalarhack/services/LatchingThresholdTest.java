@@ -92,4 +92,41 @@ class LatchingThresholdTest {
         assertFalse(threshold.isLatched());
         assertTrue(threshold.update(14.0));
     }
+
+    /**
+     * A release point the value cannot reach latches for good, which is the trap this shape invites.
+     *
+     * <p>Nothing here is wrong: the class does exactly what it is told. It is the caller that has to
+     * pick a margin inside the range its value actually occupies, and ServerInfo did not - the tick
+     * estimate is capped at 20, its lag warning asked for a full tick above a threshold that can be
+     * set to 19.5, and so it warned once and never again. Kept as a test because the failure is
+     * invisible from the outside: a warning that stops arriving looks exactly like a problem that
+     * stopped happening.
+     */
+    @Test void aReleasePointAboveWhatTheValueCanReachNeverReArms() {
+        double cap = 20.0;
+        var unreachable = new LatchingThreshold(LatchingThreshold.Direction.BELOW, 19.5, 1.0);
+        assertTrue(unreachable.update(10.0), "it alarms the first time");
+        unreachable.update(cap);
+        assertFalse(unreachable.update(10.0), "and never again, because 20.5 never arrives");
+
+        var reachable = new LatchingThreshold(LatchingThreshold.Direction.BELOW, 19.5, 0.5);
+        assertTrue(reachable.update(10.0));
+        reachable.update(cap);
+        assertTrue(reachable.update(10.0), "a release point at the cap itself does re-arm");
+    }
+
+    /** The same for a ratio that sits at 1.0 when nothing is wrong. */
+    @Test void aSpikeRatioReleasesSomewhereBetweenSteadyAndAlarming() {
+        double factor = 1.5;
+        var tooStrict = new LatchingThreshold(LatchingThreshold.Direction.ABOVE, factor, factor / 2.0);
+        assertTrue(tooStrict.update(4.0));
+        tooStrict.update(1.0);
+        assertFalse(tooStrict.update(4.0), "recovery wanted 0.75, a quarter below the median");
+
+        var sane = new LatchingThreshold(LatchingThreshold.Direction.ABOVE, factor, (factor - 1.0) / 2.0);
+        assertTrue(sane.update(4.0));
+        sane.update(1.0);
+        assertTrue(sane.update(4.0), "a steady connection clears it");
+    }
 }

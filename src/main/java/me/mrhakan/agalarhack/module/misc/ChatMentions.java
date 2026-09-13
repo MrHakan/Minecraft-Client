@@ -64,7 +64,14 @@ public class ChatMentions extends Module {
      * parse every possible format.
      */
     private static boolean startsWithOwnName(String message, String self) {
-        int index = message.toLowerCase(java.util.Locale.ROOT).indexOf(self.toLowerCase(java.util.Locale.ROOT));
+        // ChatMatcher rather than a second lowercase-and-search written out here, which is what this
+        // was and which carried the same fault the shared one was fixed for: the index came from a
+        // lowercased copy and the slice came from the message. Lowercasing a Turkish capital I with a
+        // dot gives two characters, so on a line like "\u0130\u0130\u0130\u0130 Bob" the copy is longer than the
+        // message and substring ran off the end - and unlike the chat decorator, nothing here
+        // swallows that: ModuleGuard catches it and switches the module off. An ordinary sentence on
+        // a Turkish server disabled mention notifications.
+        int index = ChatMatcher.indexOfWord(message, self, 0);
         if (index < 0) return false;
         String prefix = message.substring(0, index);
         return prefix.length() <= 4 && prefix.chars().noneMatch(Character::isLetterOrDigit);

@@ -47,7 +47,7 @@ public class AutoFish extends Module {
 
     @Override
     public void onEnable() {
-        rebuild();
+        refreshDetector();
         tick = 0;
         clearPending();
     }
@@ -66,6 +66,10 @@ public class AutoFish extends Module {
         super.onWorldChanged(ready);
     }
 
+    /** The settings the current detector was built from, so a change to either rebuilds it. */
+    private int builtGap = -1;
+    private double builtThreshold = Double.NaN;
+
     private void clearPending() {
         if (detector != null) detector.reset();
         waiting = 0;
@@ -73,19 +77,30 @@ public class AutoFish extends Module {
         pendingReel = false;
     }
 
-    private void rebuild() {
+    /**
+     * Builds the detector, and rebuilds it when the settings it was made from change.
+     *
+     * <p>It used to be built once and then only if it was null, so editing the pull threshold or the
+     * cast delay did nothing at all until the module was switched off and on again. Both are
+     * editable from `.set` while it runs, which makes a setting that quietly ignores you worse than
+     * one that is not offered.
+     */
+    private void refreshDetector() {
         // A plunge lasts several ticks, so one bite must not be recognised repeatedly. The gap is
         // tied to the recast wait so it always outlasts the plunge the module is responding to.
         int gap = Math.max(10, (int) Math.round(getNumberSetting("castDelay", 12.0)));
-        detector = new BobberBite.Detector(
-                getNumberSetting("pullThreshold", BobberBite.DEFAULT_THRESHOLD * 100) / 100.0, gap);
+        double threshold = getNumberSetting("pullThreshold", BobberBite.DEFAULT_THRESHOLD * 100) / 100.0;
+        if (detector != null && gap == builtGap && threshold == builtThreshold) return;
+        detector = new BobberBite.Detector(threshold, gap);
+        builtGap = gap;
+        builtThreshold = threshold;
     }
 
     @Override
     public void onUpdate() {
         InventoryService inventory = service(InventoryService.class);
         if (mc.player == null || mc.level == null || mc.gui.screen() != null) { stand(inventory); return; }
-        if (detector == null) rebuild();
+        refreshDetector();
 
         int rod = inventory.findHotbar(stack -> stack.is(Items.FISHING_ROD));
         if (rod < 0) { stand(inventory); return; }
@@ -100,9 +115,15 @@ public class AutoFish extends Module {
 
         if (pendingCast || pendingReel) {
             if (waiting > 0) { waiting--; hold(inventory, rod, false); return; }
-            pendingCast = false;
-            pendingReel = false;
-            hold(inventory, rod, true);
+            // The action is only spent once the lease actually took the pulse. A refusal - the
+            // player using the slot by hand, or a higher-priority claim on the use key - used to
+            // clear the flags anyway, and the detector's gap then refused to offer the same bite
+            // again, so the fish was simply lost. Holding the flag retries on the next tick, and the
+            // checks above still cancel it if the world stops agreeing.
+            if (hold(inventory, rod, true)) {
+                pendingCast = false;
+                pendingReel = false;
+            }
             return;
         }
 
@@ -129,10 +150,10 @@ public class AutoFish extends Module {
      * <p>The lease presses and releases the key for us, so asking for {@code use} on exactly one tick
      * is what turns a held key into a single right-click.
      */
-    private void hold(InventoryService inventory, int rod, boolean pulse) {
-        if (!inventory.select(OWNER, PRIORITY, rod, pulse, getBooleanSetting("swapBack", true))) {
-            inventory.release(OWNER);
-        }
+    private boolean hold(InventoryService inventory, int rod, boolean pulse) {
+        if (inventory.select(OWNER, PRIORITY, rod, pulse, getBooleanSetting("swapBack", true))) return true;
+        inventory.release(OWNER);
+        return false;
     }
 
     private void stand(InventoryService inventory) {

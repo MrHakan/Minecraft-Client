@@ -118,7 +118,7 @@ Answers teleport or party requests from listed players with a command you choose
 | --- | --- | --- | --- |
 | `phrases` | — | `text` | — |
 | `reply` | — | `text` | — |
-| `friendsOnly` | `true` | `true/false or on/off` | Only answer players in the friend list |
+| `friendsOnly` | `true` | `true/false or on/off` | Also answer your friends, on top of the allowed names below; off answers only the allowed names |
 | `allowedNames` | — | `text` | — |
 | `cooldownSeconds` | `5` | `1..120` | Minimum time between replies |
 | `notify` | `true` | `true/false or on/off` | Say when a request was answered |

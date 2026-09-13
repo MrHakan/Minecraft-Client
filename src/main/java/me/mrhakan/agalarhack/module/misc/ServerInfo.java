@@ -109,13 +109,29 @@ public class ServerInfo extends Module {
 
     /**
      * The release margins are what stop a value hovering at its threshold producing a wall of
-     * identical warnings: one tick of the estimate, half a spike, and a full second of silence.
+     * identical warnings - but a margin is only useful if the value can actually reach it again.
+     *
+     * <p>Both of the first two could not. The tick estimate is capped at
+     * {@link ServerTickEstimate#NOMINAL_TPS}, and the lag warning wanted a full tick above its
+     * threshold before it would re-arm: set the threshold to its maximum of 19.5 and recovery needed
+     * 20.5, which never arrives, so the warning fired once and the latch stayed shut for the rest of
+     * the session. The ping spike asked for half its factor, and a ratio against the recent median
+     * sits near 1.0 on a steady connection: at the lowest factor of 1.5 that meant waiting for the
+     * ping to fall a quarter below its own median.
+     *
+     * <p>Each release point is now inside the range its value actually occupies - just under the
+     * cap for the tick rate, and between steady and alarming for the spike ratio.
      */
     private void rebuildThresholds() {
-        lagging = new LatchingThreshold(LatchingThreshold.Direction.BELOW,
-                getNumberSetting("lagThreshold", 15.0), 1.0);
+        double lagThreshold = getNumberSetting("lagThreshold", 15.0);
+        double lagMargin = Math.max(0.1, Math.min(1.0, ServerTickEstimate.NOMINAL_TPS - lagThreshold));
+        lagging = new LatchingThreshold(LatchingThreshold.Direction.BELOW, lagThreshold, lagMargin);
+
         double factor = getNumberSetting("pingSpikeFactor", 3.0);
-        pingSpiking = new LatchingThreshold(LatchingThreshold.Direction.ABOVE, factor, factor / 2.0);
+        // Halfway back from a spike to a steady 1.0, rather than half the factor.
+        double spikeMargin = Math.max(0.1, (factor - 1.0) / 2.0);
+        pingSpiking = new LatchingThreshold(LatchingThreshold.Direction.ABOVE, factor, spikeMargin);
+
         frozen = new LatchingThreshold(LatchingThreshold.Direction.ABOVE,
                 getNumberSetting("frozenSeconds", 5.0), 1.0);
     }

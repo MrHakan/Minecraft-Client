@@ -1,7 +1,9 @@
 package me.mrhakan.agalarhack.module.world;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import me.mrhakan.agalarhack.AgalarHackClient;
 import me.mrhakan.agalarhack.module.Category;
 import me.mrhakan.agalarhack.module.Module;
@@ -24,7 +26,8 @@ import me.mrhakan.agalarhack.services.scanning.PointClusters;
 public class BaseFinder extends Module {
     private List<PointClusters.Cluster> clusters = List.of();
     private int cooldown;
-    private int lastReported;
+    /** Which clusters have already been announced, by rough position rather than by how many there were. */
+    private final Set<Long> announced = new HashSet<>();
 
     public BaseFinder() {
         super("BaseFinder", Category.WORLD,
@@ -43,10 +46,16 @@ public class BaseFinder extends Module {
     public List<PointClusters.Cluster> clusters() { return clusters; }
 
     @Override
-    public void onEnable() { clusters = List.of(); cooldown = 0; lastReported = 0; }
+    public void onEnable() { forget(); }
 
     @Override
-    public void onDisable() { clusters = List.of(); cooldown = 0; lastReported = 0; setDisplayName(null); }
+    public void onDisable() { forget(); setDisplayName(null); }
+
+    private void forget() {
+        clusters = List.of();
+        cooldown = 0;
+        announced.clear();
+    }
 
     @Override public void onDisconnect() { onDisable(); }
 
@@ -56,7 +65,10 @@ public class BaseFinder extends Module {
         var storageModule = AgalarHackClient.moduleManager.getModule("StorageESP");
         if (!(storageModule instanceof StorageESP storage) || !storage.isToggled()) {
             setDisplayName("BaseFinder [needs StorageESP]");
-            clusters = List.of();
+            // Forgotten rather than just emptied: the positions came from a module that is now off,
+            // so when it comes back the same bases are news again. Keeping the record meant that
+            // switching StorageESP off and on left BaseFinder permanently silent about them.
+            forget();
             return;
         }
         if (cooldown-- > 0) return;
@@ -75,20 +87,45 @@ public class BaseFinder extends Module {
         setDisplayName(found.isEmpty() ? null : "BaseFinder [" + found.size() + "]");
     }
 
-    /** Only reports growth, so a stable cluster does not re-notify every interval. */
+    /**
+     * Announces clusters that have not been announced before, so a stable one does not re-notify.
+     *
+     * <p>This used to compare counts and then report {@code found.get(0)} - the largest cluster,
+     * which by then was almost always one already known. Finding a third base told the player the
+     * coordinates of the first, and with waypoints on it saved a marker there too. Clusters are
+     * tracked by where they are instead, rounded to sixteen blocks so a base whose centre shifts as
+     * more of it is discovered is not announced twice.
+     */
     private void report(List<PointClusters.Cluster> found) {
-        if (found.size() <= lastReported) {
-            lastReported = found.size();
-            return;
+        Set<Long> present = new HashSet<>();
+        List<PointClusters.Cluster> fresh = new ArrayList<>();
+        for (var cluster : found) {
+            long key = positionKey(cluster);
+            present.add(key);
+            if (announced.add(key)) fresh.add(cluster);
         }
-        lastReported = found.size();
-        var largest = found.get(0);
+        // A cluster that has gone is forgotten, so it counts as news again if it comes back.
+        announced.retainAll(present);
+        if (fresh.isEmpty()) return;
+
         if (getBooleanSetting("notify", true)) {
+            // `found` is largest first, so the biggest of the new ones leads.
+            var lead = fresh.get(0);
+            String extra = fresh.size() > 1 ? " (+" + (fresh.size() - 1) + " more)" : "";
             service(NotificationService.class).publish(NotificationService.Type.INFO,
-                    "Likely base: " + largest.size() + " storage blocks at "
-                            + largest.centerX() + ", " + largest.centerY() + ", " + largest.centerZ());
+                    "Likely base: " + lead.size() + " storage blocks at "
+                            + lead.centerX() + ", " + lead.centerY() + ", " + lead.centerZ() + extra);
         }
-        if (getBooleanSetting("createWaypoint", false)) saveWaypoint(largest);
+        if (getBooleanSetting("createWaypoint", false)) {
+            // "each newly reported cluster", which is what the setting says and what it now does.
+            for (var cluster : fresh) saveWaypoint(cluster);
+        }
+    }
+
+    private static long positionKey(PointClusters.Cluster cluster) {
+        long x = Math.floorDiv(cluster.centerX(), 16);
+        long z = Math.floorDiv(cluster.centerZ(), 16);
+        return (x << 32) ^ (z & 0xffffffffL);
     }
 
     private void saveWaypoint(PointClusters.Cluster cluster) {

@@ -80,4 +80,43 @@ class PointClustersTest {
         assertEquals(PointClusters.MAX_CLUSTERS, clusters.size());
         assertThrows(UnsupportedOperationException.class, () -> clusters.add(null));
     }
+
+    /**
+     * A full-size input still groups by connectivity, not by how the points are walked.
+     *
+     * <p>The grouping was rewritten to bucket points into cells a radius across, because comparing
+     * every member against every remaining point cost half a client tick at this size. Single-link
+     * clustering produces connected components, so the answer cannot depend on traversal order - but
+     * that is the kind of claim worth holding a test against, and a dense input is where a
+     * neighbourhood search goes wrong if the cell size and the radius ever drift apart.
+     */
+    @Test void aFullSizeInputGroupsByConnectivity() {
+        List<PointClusters.Point> points = new ArrayList<>();
+        // Eight tight blobs far enough apart that nothing bridges them, plus scattered singles.
+        for (int blob = 0; blob < 8; blob++) {
+            for (int member = 0; member < 40; member++) {
+                points.add(new PointClusters.Point(blob * 500 + (member % 7), 64, blob * 500 + (member / 7)));
+            }
+        }
+        for (int stray = 0; stray < 200; stray++) {
+            points.add(new PointClusters.Point(100_000 + stray * 90, 64, 100_000 + stray * 90));
+        }
+
+        var clusters = PointClusters.group(points, 12, 6);
+        assertEquals(8, clusters.size(), "each blob is one cluster and no stray reaches the minimum");
+        for (var cluster : clusters) {
+            assertEquals(40, cluster.size(), "a blob must not be split by the cell boundaries it straddles");
+        }
+    }
+
+    /** A radius wider than a cell must still find neighbours; the cell size is derived from it. */
+    @Test void aLargeRadiusStillJoinsPointsAcrossCells() {
+        List<PointClusters.Point> points = List.of(
+                new PointClusters.Point(0, 64, 0),
+                new PointClusters.Point(40, 64, 0),
+                new PointClusters.Point(80, 64, 0));
+        var clusters = PointClusters.group(points, 45, 3);
+        assertEquals(1, clusters.size());
+        assertEquals(3, clusters.get(0).size());
+    }
 }
