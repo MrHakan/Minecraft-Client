@@ -74,13 +74,13 @@ public class WaypointCommand extends Command {
             error("Waypoint limit reached; remove one first.");
             return;
         }
-        ok((replacing ? "Updated " : "Saved ") + waypoint.name() + " at "
+        changed(service, (replacing ? "Updated " : "Saved ") + waypoint.name() + " at "
                 + waypoint.x() + ", " + waypoint.y() + ", " + waypoint.z());
     }
 
     private void remove(Minecraft client, WaypointService service, String[] args) {
         if (args.length != 3) { sendUsage(); return; }
-        if (service.remove(args[2], Waypoints.currentDimension(client))) ok("Removed " + args[2]);
+        if (service.remove(args[2], Waypoints.currentDimension(client))) changed(service, "Removed " + args[2]);
         else error("No waypoint named " + args[2]);
     }
 
@@ -120,12 +120,12 @@ public class WaypointCommand extends Command {
                         + "waypoint clear all confirm if you mean it.");
                 return;
             }
-            ok("Removed " + service.clearAll() + " waypoints.");
+            changed(service, "Removed " + service.clearAll() + " waypoints.");
             return;
         }
         String dimension = Waypoints.currentDimension(client);
         if (dimension == null) { error("You need to be in a world to clear this dimension."); return; }
-        ok("Removed " + service.clear(dimension) + " waypoints in this dimension.");
+        changed(service, "Removed " + service.clear(dimension) + " waypoints in this dimension.");
     }
 
     private void toggle(Minecraft client, WaypointService service, String[] args, String action) {
@@ -139,7 +139,7 @@ public class WaypointCommand extends Command {
             default -> point.withVisible(false);
         };
         service.replace(updated);
-        ok(point.name() + ": " + (action.equals("beam") ? "beam " + (updated.beam() ? "on" : "off")
+        changed(service, point.name() + ": " + (action.equals("beam") ? "beam " + (updated.beam() ? "on" : "off")
                 : updated.visible() ? "shown" : "hidden"));
     }
 
@@ -157,7 +157,7 @@ public class WaypointCommand extends Command {
             return;
         }
         service.replace(found.get().withColor(rgb));
-        ok(found.get().name() + " colour set.");
+        changed(service, found.get().name() + " colour set.");
     }
 
     private static String shortDimension(String dimension) {
@@ -165,6 +165,13 @@ public class WaypointCommand extends Command {
         return separator < 0 ? dimension : dimension.substring(separator + 1);
     }
 
-    private static void ok(String message) { MessageManager.sendMessagePrefix(ChatFormatting.GREEN + message); }
+    /** Shared by every mutation so persistence feedback cannot drift between command branches. */
+    public static String persistenceFeedback(WaypointService service, String savedMessage) {
+        return savedMessage;
+    }
+
+    private static void changed(WaypointService service, String message) {
+        MessageManager.sendMessagePrefix(ChatFormatting.GREEN + persistenceFeedback(service, message));
+    }
     private static void error(String message) { MessageManager.sendMessagePrefix(ChatFormatting.RED + message); }
 }

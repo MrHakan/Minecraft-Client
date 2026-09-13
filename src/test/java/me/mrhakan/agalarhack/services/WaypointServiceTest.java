@@ -136,4 +136,35 @@ class WaypointServiceTest {
         assertTrue(service.replace(point.withBeam(true)));
         assertTrue(service.findAnywhere("a").orElseThrow().beam());
     }
+
+    @Test void failedWriteIsReportedAsSessionOnlyAndCanBeRetriedWithoutRepeatingTheMutation(@TempDir Path dir)
+            throws Exception {
+        Path parent = dir.resolve("store");
+        Path path = parent.resolve("w.json");
+        var service = loaded(path);
+        // A file in place of the parent directory reliably refuses writes, even as root.
+        Files.writeString(parent, "blocked");
+        assertTrue(service.add(Waypoint.of("home", 1, 64, 2, "overworld")), "memory mutation still succeeds");
+        assertEquals(1, service.count());
+        String feedback = me.mrhakan.agalarhack.commands.impl.WaypointCommand.persistenceFeedback(service, "Saved home");
+        assertTrue(feedback.contains("session only"), "Failed write claimed durable success: " + feedback);
+        assertFalse(feedback.startsWith("Saved"), feedback);
+        assertEquals("blocked", Files.readString(parent));
+        Files.delete(parent);
+        assertTrue(service.save(), "retry the write, not add/remove/clear");
+        assertEquals("Saved home", me.mrhakan.agalarhack.commands.impl.WaypointCommand.persistenceFeedback(service, "Saved home"));
+        assertEquals(1, loaded(path).count());
+    }
+
+    @Test void corruptStoreNeverClaimsANewWaypointWasSaved(@TempDir Path dir) throws Exception {
+        Path path = dir.resolve("w.json");
+        Files.writeString(path, "{broken");
+        var service = loaded(path);
+        assertTrue(service.add(Waypoint.of("temporary", 0, 64, 0, "overworld")));
+        String feedback = me.mrhakan.agalarhack.commands.impl.WaypointCommand.persistenceFeedback(service, "Saved temporary");
+        assertTrue(feedback.contains("session only"), "Protected file claimed durable success: " + feedback);
+        assertEquals("{broken", Files.readString(path));
+        assertEquals(1, service.count());
+    }
+
 }
