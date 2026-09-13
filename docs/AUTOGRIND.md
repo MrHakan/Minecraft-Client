@@ -14,7 +14,7 @@ shows the result to a player. It deliberately stops short of the part that walks
 | Piece | What it is | Tested by |
 | --- | --- | --- |
 | `TaskRunner` | The engine a long run is made of: an ordered plan of tasks, each with a satisfied-check, a tick and a budget. | `TaskRunnerTest` (16) |
-| `CraftingPlan` | The arithmetic: expands a wanted item into the gather/craft steps it needs, subtracting what is already held. | `CraftingPlanTest` (18) |
+| `CraftingPlan` | The arithmetic: expands a wanted item into the gather/craft steps it needs, subtracting what is already held. | `CraftingPlanTest` (20) |
 | `GrindBook` | The early-game recipes, plus the mapping from real item ids onto the generic names those recipes use. | `GrindBookTest` (10) |
 | `.grind <item> [count]` | Shows the plan for a real inventory. **Plans only.** | `ModuleBehaviourGameTest.grindPlan` |
 
@@ -36,9 +36,16 @@ it is doing.
 Merging the duplicates afterwards is the obvious fix and is **unsound**. Moving a repeated step to
 the first of its positions can put a craft before the gather that feeds it; moving it to the last can
 put it after something that already consumed it. Both are easy to write and wrong on trees this code
-already meets. Counting first avoids the question: an item is placed where its requirement *first*
-completed, which is already a valid dependency order, because a requirement completes only after
-every ingredient it named has.
+already meets. Counting first determines quantities, but the first completion position alone does
+not guarantee a valid order: held stock can satisfy an early dependency and run out on a later
+branch. After all requirements are counted, the planner orders the completed dependency graph so
+each planned ingredient precedes its consumer. Ingredients supplied entirely by held stock need
+no extra step.
+
+For example, a wooden pickaxe with one log already held still needs a second log before crafting
+eight planks. CI 219 reproduced the old impossible order in two inventory-replay unit tests,
+including a separate shared-ingredient recipe graph. These tests consume the ingredients of each
+reported step and check the final goal; they validate plan arithmetic, not an in-game executor.
 
 **A craft step reports items, not crafts.** Asking for five sticks answers "craft 8 stick", not
 "craft 2 stick" - both are true of something, but only one is what you are about to be holding.

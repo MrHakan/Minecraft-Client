@@ -56,12 +56,19 @@ satisfied task skipping, task budgets, deterministic ingredient order, aggregate
 item-count output and furnace-load fuel accounting. No compatible Baritone 26.2 jar was inspected in
 this continuation; no bridge extension or installed-success claim is made.
 
-The delta sanity check identified a candidate ordering defect with held stock: one held log can
-satisfy an intermediate's first dependency visit, while a later visit needs another log after that
-intermediate has already been placed. Aggregating its output can then require gathering that log
-*before* the earlier craft. Next action: an executable-plan regression against the existing book,
-observed failing on unchanged production source before changing emission order. Do not replace the
-quantity tally with naive append-and-merge planning.
+The delta sanity check reproduced an ordering defect with held stock. In
+[CI 219](https://github.com/MrHakan/Minecraft-Client/actions/runs/34752359986), production source was
+still identical to `dc24bfa`: 774 unit tests ran, only the two new executable-plan tests failed.
+The archived XML reports eight planks requiring two logs when only one exists at that step, and a
+shared-parent craft requiring two ore when only one exists. The build failed on those assertions;
+client game tests did not run in that red control run.
+
+The correction keeps the quantity tally and emits the completed graph in dependency order. No
+append-and-merge algorithm, changed recipes, executor or Minecraft API was introduced. Each planned
+node is emitted once; sets bound repeat visits to the finite plan, and cycles are refused. Four
+inventory regression controls and all existing game scenarios remain unchanged. Full corrected CI
+is pending; the exact result will be recorded here and in PR #9 after observation. The local worker
+has no JDK 25, so these are Actions observations, not claimed local runs.
 
 ### Remaining scope and explicit decisions
 

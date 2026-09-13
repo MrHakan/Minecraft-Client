@@ -1,9 +1,11 @@
 package me.mrhakan.agalarhack.services;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeSet;
 
 /**
@@ -103,11 +105,11 @@ public final class CraftingPlan {
      * the gather that feeds it; moving it to the last can put it after something that already
      * consumed it. Both are easy to write and wrong on trees this code will meet.
      *
-     * <p>So each item is emitted once, at the position where its requirement <em>first</em>
-     * completed. That position is already a valid dependency order: a requirement completes only
-     * after every ingredient it named has completed, so an item can never be placed before something
-     * it needs. A later requirement for the same item adds to its count and leaves its place alone -
-     * moving it is exactly the unsound step above.
+     * <p>Each item is emitted once, after its planned dependencies in the completed tally. First
+     * completion alone is not sufficient: held stock can satisfy an ingredient on the first visit,
+     * so it has no step yet, while a later visit exhausts that stock and adds a gather or craft.
+     * Combining the consumer's batches then needs that later dependency before the combined craft.
+     * The quantity pass stays separate; emission orders the final graph rather than merging steps.
      */
     private static final class Tally {
         private final Map<String, Integer> stock;
@@ -165,14 +167,37 @@ public final class CraftingPlan {
         }
 
         List<Step> steps(Map<String, Recipe> book) {
-            List<Step> steps = new ArrayList<>();
+            List<String> dependencyOrder = new ArrayList<>();
+            Set<String> complete = new HashSet<>();
+            Set<String> visiting = new HashSet<>();
             for (String item : order) {
+                placeAfterDependencies(item, book, complete, visiting, dependencyOrder);
+            }
+            List<Step> steps = new ArrayList<>();
+            for (String item : dependencyOrder) {
                 Integer gather = toGather.get(item);
                 if (gather != null) steps.add(new Step(Kind.GATHER, item, gather, false));
                 Integer craft = toCraft.get(item);
                 if (craft != null) steps.add(new Step(Kind.CRAFT, item, craft, book.get(item).needsTable()));
             }
             return List.copyOf(steps);
+        }
+
+        private void placeAfterDependencies(String item, Map<String, Recipe> book,
+                Set<String> complete, Set<String> visiting, List<String> result) {
+            if (complete.contains(item)) return;
+            if (!visiting.add(item)) throw new IllegalArgumentException("Planned recipe cycle at " + item);
+            if (toCraft.containsKey(item)) {
+                for (String ingredient : new TreeSet<>(book.get(item).ingredients().keySet())) {
+                    // Held-only ingredients need no step. Visit only work the quantity pass added.
+                    if (toGather.containsKey(ingredient) || toCraft.containsKey(ingredient)) {
+                        placeAfterDependencies(ingredient, book, complete, visiting, result);
+                    }
+                }
+            }
+            visiting.remove(item);
+            complete.add(item);
+            result.add(item);
         }
     }
 
