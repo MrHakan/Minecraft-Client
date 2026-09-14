@@ -115,8 +115,10 @@ before defaults may be written; failed backups also block writes. Atomic replace
 HUD layout and editor files now use bounded reads and temporary-file replacement. Invalid,
 unreadable, oversized or future editor schemas preserve the source and disable writes until a
 successful reload. Layouts retain their legacy map format, bounded to 256 valid component IDs.
-Editor options accept older unversioned objects and now write schemaVersion 1. Other stores
-still require a migration audit.
+Editor options accept older unversioned objects and now write schemaVersion 1. Server and dimension
+profile-binding maps retain their legacy object shape while using bounded, atomic, write-guarded codecs
+(256 entries, validated keys and profile names); malformed or oversized sources are preserved. Other
+stores still require a migration audit.
 
 ## UI session and clipboard boundaries
 

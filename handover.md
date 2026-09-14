@@ -6,46 +6,52 @@ Authority: live source > live tests > live PR state/description > current CI > t
 generated docs > historical records. Re-derive counts from the live branch before publishing; older
 figures and next-batch suggestions are historical context only.
 
-- **Live branch/PR:** `codex/foundation-services-26.2`, [PR #9](https://github.com/MrHakan/Minecraft-Client/pull/9),
+- **Live branch/PR:** `codex/foundation-services-26.2`, [PR #9](https://github.com/Mrhakan/Minecraft-Client/pull/9),
   open, draft, mergeable and not merged. It remains the only open PR. Main is
   `19f83ab888a55d9b459f84fbae27dffe39036f71`. The latest observed remote tip before this
-  documentation checkpoint is `aaf2ab3`, which is also the current code-bearing head; this
-  checkpoint itself is documentation-only. Resolve the live branch and PR for the exact tip before
-  publishing; never merge, force-push or open a second PR.
-- **Scale at the code head:** 246 commits against main; 356 changed files, +33,562/-879.
+  documentation checkpoint is `8da3ca5`, the current code-bearing head; the checkpoint commit
+  itself is documentation-only. Resolve the branch and PR for the exact tip before publishing; never
+  merge, force-push or open a second PR.
+- **Scale at the code head:** 249 commits against main; 358 changed files, +33,720/-891.
 - **Versions:** Minecraft 26.2, Loader 0.19.3, Fabric API 0.157.0+26.2, Java 25.
 - **Modules:** 53 built-ins; 0 UNTESTED (22 baseline exemptions, 31 behaviour-mapped modules).
   Runtime lifecycle count is 55 because two fixture addon modules do not ship. Zero badges do
   not mean all 53 have distinct behaviour scenarios.
-- **Observed CI:** [run #239](https://github.com/Mrhakan/Minecraft-Client/actions/runs/34857624006)
-  succeeded on `aaf2ab3). It ran the inventory regression controls, JDK 25 build, generated docs,
-  client game tests, runtime mixin checks and artifact creation. Archived JUnit XML reported
-  **792 tests, 0 failures, 0 errors, 0 skipped** across 102 suites. The client opened 171 screens;
-  its log recorded the new keybind-only partial-profile assertion, and the swallowed-error scan
-  read 953 lines from one run log, finding only the two deliberately expected broken-addon failures.
-  Dedicated-server checks logged their explicit EULA-gated skip and are not coverage.
+- **Observed CI:** [run #242](https://github.com/Mrhakan/Minecraft-Client/actions/runs/34870002540)
+  succeeded on `8da3ca5`. It ran all four inventory regression controls, the Java 25 build,
+  generated docs, client game tests, runtime mixin checks, swallowed-error scanning and artifact
+  creation. Archived JUnit XML reported **798 tests, 0 failures, 0 errors, 0 skipped** across
+  102 suites. The client opened 171 screens; its game log recorded the keybind-only partial-profile
+  assertion and real Nether profile transition, loaded both addon fixtures, and scanned 951 log
+  lines with only the two deliberately expected broken-addon failures. Dedicated-server checks
+  logged their explicit EULA-gated skip and are not coverage.
 - **Scenario count:** 46 grouped checks across 11 client game-test entrypoints. The existing
-  ProfileBinding scenario now also proves a keybind-only partial load; this adds no separate
-  entrypoint or grouped-count convention. Three dedicated-server checks remain excluded while the
-  EULA property is off; a skipped scenario is not coverage.
+  ProfileBinding scenario also proves keybind-only partial loading; this adds no separate entrypoint
+  or grouped-count convention. Three dedicated-server checks remain excluded while the EULA property
+  is off; a skipped scenario is not coverage.
 - **Scope estimate:** roughly 80–85% of useful original feature scope at meaningful depth. This is
   qualitative product scope, not release readiness; the remaining work is chiefly manual acceptance,
   real multiplayer evidence and deliberately narrow design decisions.
 
-### Latest code batch and safety evidence
+### Applied hardening batch
 
-- `3b29ba5` adds the missing independent `keybinds` partial-profile slice. A selection of
-  `keybinds` copies only each module's `keybind` and `keyModifiers`, never toggles the module,
-  and leaves its normal settings untouched. Combining it with module/category selectors applies
-  those full module snapshots plus the keybind slice.
-- `Settings.sanitizeLoadedValues(Collection)` normalizes only named fields for partial loads;
-  whole config/profile loads retain the existing all-field sanitation path. `ProfileSelection`
-  now rejects unknown keybind selectors like every other typo and keeps deterministic diagnostics.
-- `ProfileSelectionTest`, `SettingsTest` and the real `ProfileBindingGameTest` cover the
-  selector semantics, selective sanitation and player-visible persistence across a real client
-  profile save/load. `aaf2ab3` only corrects the assertion-message quoting found by CI.
-- CI #239 is the branch-head evidence for this batch. Its full client game run passed; no local
-  Java 25 result is claimed. The dedicated-server gate remains off.
+- `7a22baa` adds `ProfileBindingCodec` and routes the legacy server/dimension binding maps
+  through `BoundedJsonFile`. The on-disk object shape stays compatible, while JSON type checks,
+  profile-name checks, 255-character key limits and a 256-entry cap run before data reaches the live
+  map. Atomic replacement and the existing write guard preserve a malformed or oversized source file;
+  a bind cannot silently overwrite it. Binding creation also refuses to exceed the cap.
+- `8da3ca5` corrects the source/test syntax in that batch (and removes obsolete imports). CI #242
+  is the observed evidence for the resulting code; no local Java 25 result is claimed.
+- Pure `ProfileBindingCodecTest` covers legacy round-trip/order, malformed/non-object input,
+  non-string and invalid profile values, control/length-bounded keys, 256+ entry rejection and
+  invalid encode input. Existing integrated client scenarios remain unchanged.
+
+### Release plan
+
+The evidence-driven next work is maintained in
+[docs/RELEASE_PLAN.md](https://github.com/Mrhakan/Minecraft-Client/blob/codex/foundation-services-26.2/docs/RELEASE_PLAN.md).
+It separates implemented systems from partial/manual acceptance and conditional module candidates so a
+future agent does not revive an old TODO or add a duplicate module for count alone.
 
 ### AutoGrind status — intentionally plan-only
 
@@ -60,13 +66,13 @@ been inspected; do not guess reflection signatures or claim installed success.
   waypoint beams, frustum edges, trajectory/potion/XP impact points, rainbow phase, themes and
   ClickGUI/HUD behavior at multiple vanilla GUI scales. Pixel activity tests do not prove appearance.
 - **Real addon installation remains partly manual:** remapped production JAR, `mods/` discovery,
-  restart persistence for settings/keybinds, safe removal/orphaned config and the loader failure
-  when Agalar Hack is absent. Fixture jars prove entrypoint registration and failure containment,
-  not every player-install workflow.
+  restart persistence for settings/keybinds, safe removal/orphaned config and loader failure when
+  Agalar Hack is absent. Fixture jars prove entrypoint registration and failure containment, not every
+  player-install workflow.
 - **Network/lifecycle boundaries:** dedicated-server harness exists but remains opt-in; do not accept
   the EULA in CI without owner approval. Its loopback checks do not cover busy-server latency,
-  contention or peer traffic. Natural fishing bites, installed Baritone, profile binding precedence
-  and partial-profile isolation beyond this keybind case remain unverified.
+  contention or peer traffic. Natural fishing bites, installed Baritone, profile binding precedence and
+  partial-profile isolation beyond the keybind case remain unverified.
 - **Intentional design decisions:** NoFall's once-per-fall ground report, Jesus' water-surface
   semantics, notification placement ownership and the Baritone reflection modifier suspicion need
   product or real-runtime evidence before behavior changes. Do not replace them with packet spam,
@@ -78,8 +84,8 @@ been inspected; do not guess reflection signatures or claim installed success.
 Preserve the proven invariants: `PlayerInputOverrides` through the `KeyboardInput` TAIL injection,
 one-tick use pulses with physical-input preservation, per-tick container click budget and bounded
 recovery, total/default-safe HUD placement, `.look` cleanup on disconnect/world change, client-thread
-service access, narrow 26.2 mixins, rolled-log swallowed-error detection and Fabric-entrypoint addon
-loading without a folder scanner or custom class loader.
+service access, narrow 26.2 mixins, rolled-log swallowed-error detection, Fabric-entrypoint addon
+loading without a folder scanner or custom class loader, and bounded profile-binding persistence.
 
 ### Previous checkpoint context — superseded on 2026-09-14
 
