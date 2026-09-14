@@ -57,6 +57,9 @@ public class Settings {
             return description;
         }
 
+        public Double getMin() { return min; }
+        public Double getMax() { return max; }
+
         public List<String> getChoices() {
             return choices;
         }
@@ -278,9 +281,22 @@ public class Settings {
      * unsafe movement values into a module.
      */
     public void sanitizeLoadedValues() {
-        for (SettingSpec spec : specMap().values()) {
-            Object current = settings.get(spec.getName());
-            settings.put(spec.getName(), spec.normalizeLoaded(current));
+        sanitizeLoadedValues(settings.keySet());
+    }
+
+    /**
+     * Normalizes only the named settings. Partial profile loads use this to avoid changing an
+     * unrelated setting merely because its old value is out of bounds.
+     */
+    public void sanitizeLoadedValues(Collection<String> settingNames) {
+        if (settingNames == null) return;
+        for (String settingName : settingNames) {
+            String actual = getKeyIgnoreCase(settingName);
+            if (actual == null) continue;
+            SettingSpec spec = getSpecIgnoreCase(actual);
+            if (spec != null) {
+                settings.put(actual, spec.normalizeLoaded(settings.get(actual)));
+            }
         }
     }
 

@@ -21,6 +21,20 @@ dependencies {
     testRuntimeOnly "org.junit.platform:junit-platform-launcher:6.1.2"
 }
 
+// Client game tests start the real client, create a world and drive the mod inside it. Unit tests
+// reach none of that: a mixin target that does not exist, a null dereference during client init or a
+// module that throws on its first tick all compile and all pass `test`. This branch shipped exactly
+// such a crash once. Server-side game tests stay off because there are none, and enabling them would
+// wire a Minecraft launch into `check` for every `./gradlew build`.
+fabricApi {
+    configureTests {
+        createSourceSet = true
+        modId = "agalarhack-gametest"
+        enableGameTests = false
+        enableClientGameTests = true
+    }
+}
+
 processResources {
     inputs.property "version", project.version
 
@@ -33,8 +47,81 @@ tasks.withType(JavaCompile).configureEach {
     it.options.release = 25
 }
 
+// Compiling the game tests costs a second. Finding out they no longer compile only when a
+// pull request launches a client does not.
+tasks.named('check') {
+    dependsOn 'gametestClasses'
+}
+
 tasks.withType(Test).configureEach {
     useJUnitPlatform()
+}
+
+// Addon fixtures: real, separately packaged addons used by the client game tests.
+//
+// The in-tree game-test addon proves the `agalarhack` entrypoint is read. It proves nothing about
+// packaging, because its classes sit on the client's own classpath and its entrypoint is declared in
+// the game-test mod's own metadata. These two are built into their own jars with their own
+// fabric.mod.json, and the Fabric loader discovers them from those jars — which is what an installed
+// addon is. They are test fixtures: nothing here reaches the published jar.
+//
+// They are compiled against the main source set's classpath and output, so an addon author's view of
+// the API is exactly what is compiled here — if something only resolves from inside the client's own
+// package, this stops compiling.
+sourceSets {
+    addonFixture {
+        java.srcDir 'fixtures/addon/src/main/java'
+        resources.srcDir 'fixtures/addon/src/main/resources'
+    }
+    brokenAddonFixture {
+        java.srcDir 'fixtures/broken-addon/src/main/java'
+        resources.srcDir 'fixtures/broken-addon/src/main/resources'
+    }
+}
+
+[sourceSets.addonFixture, sourceSets.brokenAddonFixture].each { fixture ->
+    fixture.compileClasspath += sourceSets.main.compileClasspath + sourceSets.main.output
+}
+
+tasks.register('addonFixtureJar', Jar) {
+    description = 'Packages the external addon fixture as its own mod jar.'
+    archiveFileName = 'agalarhack-external-fixture.jar'
+    destinationDirectory = layout.buildDirectory.dir('fixtures')
+    from sourceSets.addonFixture.output
+}
+
+tasks.register('brokenAddonFixtureJar', Jar) {
+    description = 'Packages the deliberately colliding addon fixture as its own mod jar.'
+    archiveFileName = 'agalarhack-broken-fixture.jar'
+    destinationDirectory = layout.buildDirectory.dir('fixtures')
+    from sourceSets.brokenAddonFixture.output
+}
+
+// Compiling the fixtures is part of `check` for the same reason the game tests are: finding out an
+// addon no longer compiles against the published API when a client launches is too late, and this is
+// the only consumer of that API that is not inside the client.
+tasks.named('check') {
+    dependsOn 'addonFixtureJar', 'brokenAddonFixtureJar'
+}
+
+// Hand the fixture jars to the game-test client the way an installed mod arrives: on the launch
+// classpath, carrying their own metadata, for the loader to discover. `fabric.addMods` is the other
+// candidate and is deliberately not used — in a development launch the loader runs added jars
+// through its intermediary remapper, and these are already compiled against named mappings, so it
+// would be remapping something that needs no remapping.
+tasks.matching { it.name == 'runClientGameTest' }.configureEach {
+    dependsOn 'addonFixtureJar', 'brokenAddonFixtureJar'
+    classpath += files(tasks.named('addonFixtureJar'), tasks.named('brokenAddonFixtureJar'))
+
+    // Dedicated-server scenarios need Minecraft's server EULA accepted, and a dedicated server
+    // recreates its run directory every run, so the acceptance has to be written by automation.
+    // Agreeing to https://aka.ms/MinecraftEULA is the repository owner's decision, so it is opt-in
+    // and explicit: without this flag DedicatedServerGameTest logs why it is skipping and asserts
+    // nothing. tools/smoke-client.sh turns AGALARHACK_ACCEPT_SERVER_EULA=true into the flag, since a
+    // long-lived Gradle daemon cannot be relied on to see a newly exported environment variable.
+    if (project.findProperty('acceptServerEula') == 'true') {
+        systemProperty 'agalarhack.acceptServerEula', 'true'
+    }
 }
 
 java {

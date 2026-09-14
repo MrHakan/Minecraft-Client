@@ -42,8 +42,15 @@ public class Speed extends Module {
 		double x = velocity.x * multiplier;
 		double z = velocity.z * multiplier;
 		double horizontal = Math.hypot(x, z);
-		if (horizontal > maxSpeed && horizontal > 0.0) {
-			double scale = maxSpeed / horizontal;
+		// The cap bounds the boost; it must never brake. It applies to the whole horizontal speed,
+		// and its range goes down to 0.1 blocks per tick - below a vanilla sprint at roughly 0.28 -
+		// so a low setting used to leave the player slower with the module on than with it off,
+		// which is a strange thing for something called Speed to do. Never returning less than the
+		// player already had makes the low end of the range harmless instead of a trap.
+		double unboosted = Math.hypot(velocity.x, velocity.z);
+		double target = Math.max(Math.min(horizontal, maxSpeed), unboosted);
+		if (horizontal > 0.0 && target < horizontal) {
+			double scale = target / horizontal;
 			x *= scale;
 			z *= scale;
 		}
