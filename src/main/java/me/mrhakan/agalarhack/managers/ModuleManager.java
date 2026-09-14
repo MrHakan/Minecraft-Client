@@ -23,6 +23,8 @@ import me.mrhakan.agalarhack.module.misc.AutoEat;
 import me.mrhakan.agalarhack.module.misc.AutoReconnect;
 import me.mrhakan.agalarhack.module.misc.ChatFilter;
 import me.mrhakan.agalarhack.module.misc.ChatMentions;
+import me.mrhakan.agalarhack.module.misc.GamemodeAlerts;
+import me.mrhakan.agalarhack.module.misc.PlayerAlerts;
 import me.mrhakan.agalarhack.module.misc.ServerInfo;
 import me.mrhakan.agalarhack.module.movement.Flight;
 import me.mrhakan.agalarhack.module.player.AutoArmor;
@@ -83,6 +85,8 @@ public class ModuleManager {
         register(new AutoAccept());
         register(new BetterChat());
         register(new ChatMentions());
+        register(new GamemodeAlerts());
+        register(new PlayerAlerts());
         register(new ChatFilter());
 
         register(new Speed());

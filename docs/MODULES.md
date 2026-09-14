@@ -12,7 +12,7 @@ Every module here is enabled, ticked and disabled inside a real world on every p
 request, so an UNTESTED one is known not to crash; what is missing is a check that it
 does the thing it exists to do. The badge is cleared in the commit that adds that check.
 
-53 modules across 6 categories; 0 marked UNTESTED.
+55 modules across 6 categories; 2 marked UNTESTED.
 
 ## Combat
 
@@ -179,6 +179,17 @@ Notifies when your name, a friend, or a keyword appears in chat
 | `soundVolume` | `0.6` | `0.05..1` | Mention cue volume |
 | `cooldown` | `1000` | `0..10000` | Milliseconds between mention notifications |
 
+### GamemodeAlerts — UNTESTED
+
+Notifies when a visible player's client-reported game mode changes
+
+| Setting | Default | Values | Description |
+| --- | --- | --- | --- |
+| `self` | `true` | `true/false or on/off` | Notify when your own listed game mode changes |
+| `others` | `true` | `true/false or on/off` | Notify when another listed player's game mode changes |
+| `modes` | `survival,creative,adventure,spectator` | `text` | — |
+| `notifyUnknown` | `false` | `true/false or on/off` | Also report modes outside the configured list |
+
 ### Performance
 
 Sets the shared per-tick scanning ceiling every ESP scanner draws from
@@ -186,6 +197,18 @@ Sets the shared per-tick scanning ceiling every ESP scanner draws from
 | Setting | Default | Values | Description |
 | --- | --- | --- | --- |
 | `scanBudget` | `balanced` | `low\|balanced\|high` | Total scanning work allowed per client tick; balanced is what the client used before this was tunable |
+
+### PlayerAlerts — UNTESTED
+
+Notifies when another player becomes visible or leaves the client render set
+
+| Setting | Default | Values | Description |
+| --- | --- | --- | --- |
+| `enter` | `true` | `true/false or on/off` | Notify when another player becomes visible to this client |
+| `leave` | `false` | `true/false or on/off` | Notify when a tracked player leaves the client render set |
+| `friendsOnly` | `false` | `true/false or on/off` | Only notify for players in the local friend list |
+| `includeDistance` | `true` | `true/false or on/off` | Include the local client distance in the notice |
+| `cooldownMs` | `1500` | `0..10000` | Minimum time before the same player can notify again |
 
 ### ServerInfo
 

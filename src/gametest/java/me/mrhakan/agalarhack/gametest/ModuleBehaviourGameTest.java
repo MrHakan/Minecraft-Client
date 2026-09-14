@@ -89,6 +89,7 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
             autoAccept(context, singleplayer);
             performance(context);
             serverInfo(context);
+            gamemodeAlerts(context, singleplayer);
             critInfo(context, singleplayer);
             elytraInfo(context, singleplayer);
             totemTracker(context, singleplayer);
@@ -1111,6 +1112,51 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
         }
         LOGGER.info("  ServerInfo estimated {} tps from the server's own time packets",
                 String.format(java.util.Locale.ROOT, "%.1f", tps));
+    }
+
+    /**
+     * A real server-side game-mode transition observed through the client's player list.
+     *
+     * <p>The module deliberately polls the client-visible list instead of adding another packet
+     * mixin. That keeps the feature version-safe and limits it to information the client already
+     * has. The baseline is established while the local player is in survival, then the server
+     * changes that same player to creative; a toast proves the change was observed rather than
+     * merely showing the module's enabled notification.
+     */
+    private void gamemodeAlerts(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        toggle(context, "Notifications", true);
+        toggle(context, "GamemodeAlerts", false);
+        configure(context, "GamemodeAlerts", module -> {
+            module.settings.setSetting("self", true);
+            module.settings.setSetting("others", false);
+            module.settings.setSetting("modes", "creative");
+            module.settings.setSetting("notifyUnknown", false);
+        });
+
+        singleplayer.getServer().runOnServer(server ->
+                singleplayer.getConnection().getServerPlayer().setGameMode(GameType.SURVIVAL));
+        context.waitTicks(20);
+
+        toggle(context, "GamemodeAlerts", true);
+        context.waitTicks(20);
+        if (context.computeOnClient(notice("changed gamemode")::test)) {
+            toggle(context, "GamemodeAlerts", false);
+            toggle(context, "Notifications", false);
+            throw new AssertionError("GamemodeAlerts reported a change before the server changed "
+                    + "the local player's game mode");
+        }
+
+        singleplayer.getServer().runOnServer(server ->
+                singleplayer.getConnection().getServerPlayer().setGameMode(GameType.CREATIVE));
+        boolean noticed = settle(context, notice("changed gamemode")::test, SETTLE_TICKS);
+        toggle(context, "GamemodeAlerts", false);
+        toggle(context, "Notifications", false);
+
+        if (!noticed) {
+            throw new AssertionError("GamemodeAlerts did not report the real survival-to-creative "
+                    + "transition from the client-visible player list");
+        }
+        LOGGER.info("  GamemodeAlerts reported a real self game-mode change");
     }
 
     /**
