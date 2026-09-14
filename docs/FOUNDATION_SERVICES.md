@@ -31,7 +31,8 @@ slots and selected slot; separate EquipmentUpdated events cover four armor slots
 SlotSnapshots isolates cached state from source stacks and event payloads; player replacement resets both trackers.
 
 Tick order: context (300), sampled input (200), action reset (100), inventory (90), profiles
-(80), module binds (60), modules (40), scanner execution (30), rotation resolution (20), GUI key (0).
+(80), AutoGrind execution (45), module binds (60), modules (40), scanner execution (30), rotation
+resolution (20), GUI key (0).
 
 World changes clear service leases before enabled modules restore and rebuild world-scoped
 state. Menu-only modules retain their separate lifecycle. RenderService isolates deferred

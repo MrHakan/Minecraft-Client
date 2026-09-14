@@ -40,14 +40,16 @@ public final class GrindExecutor {
 
     private final Minecraft client;
     private final BaritoneBridge baritone;
+    private final InventoryService inventory;
     private final TaskRunner runner = new TaskRunner();
     private LocalPlayer ownerPlayer;
     private ClientLevel ownerLevel;
     private boolean miningOwned;
 
-    public GrindExecutor(Minecraft client, BaritoneBridge baritone) {
+    public GrindExecutor(Minecraft client, BaritoneBridge baritone, InventoryService inventory) {
         this.client = client;
         this.baritone = baritone;
+        this.inventory = inventory;
     }
 
     /**
@@ -66,7 +68,7 @@ public final class GrindExecutor {
 
         List<CraftingPlan.Step> steps;
         try {
-            steps = CraftingPlan.plan(target, wanted, carried(client), GrindBook.recipes());
+            steps = CraftingPlan.plan(target, wanted, carried(), GrindBook.recipes());
         } catch (RuntimeException failure) {
             LOGGER.error("AutoGrind could not plan {} x{}", target, wanted, failure);
             return StartResult.INVALID;
@@ -162,7 +164,7 @@ public final class GrindExecutor {
         @Override
         public boolean satisfied() {
             if (goal < 0) return false;
-            boolean done = count(client, item) >= goal;
+            boolean done = count(item) >= goal;
             if (done && requested) {
                 cancelOwnedMining();
                 requested = false;
@@ -172,7 +174,7 @@ public final class GrindExecutor {
 
         @Override
         public boolean tick() {
-            int current = count(client, item);
+            int current = count(item);
             if (goal < 0) goal = current + quantity;
             if (current >= goal) return true;
 
@@ -207,12 +209,15 @@ public final class GrindExecutor {
         }
     }
 
-    private static Map<String, Integer> carried(Minecraft client) {
+    /**
+     * Counts through the shared inventory snapshot boundary instead of reading live stacks from a
+     * second automation implementation. The client-thread tick makes each 36-slot snapshot coherent.
+     */
+    private Map<String, Integer> carried() {
         Map<String, Integer> have = new LinkedHashMap<>();
         if (client == null || client.player == null) return have;
-        var inventory = client.player.getInventory();
-        for (int slot = 0; slot < inventory.getContainerSize(); slot++) {
-            ItemStack stack = inventory.getItem(slot);
+        for (int slot = 0; slot < InventoryTransfers.INVENTORY_SIZE; slot++) {
+            ItemStack stack = inventory.stackAt(slot);
             if (stack.isEmpty()) continue;
             String id = BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
             have.merge(GrindBook.generic(id), stack.getCount(), Integer::sum);
@@ -220,12 +225,11 @@ public final class GrindExecutor {
         return have;
     }
 
-    private static int count(Minecraft client, String generic) {
+    private int count(String generic) {
         if (client == null || client.player == null) return 0;
         int total = 0;
-        var inventory = client.player.getInventory();
-        for (int slot = 0; slot < inventory.getContainerSize(); slot++) {
-            ItemStack stack = inventory.getItem(slot);
+        for (int slot = 0; slot < InventoryTransfers.INVENTORY_SIZE; slot++) {
+            ItemStack stack = inventory.stackAt(slot);
             if (!stack.isEmpty()
                     && GrindBook.generic(BuiltInRegistries.ITEM.getKey(stack.getItem()).toString()).equals(generic)) {
                 total += stack.getCount();

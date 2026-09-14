@@ -93,7 +93,7 @@ public class AgalarHackClient implements ClientModInitializer {
         var baritone = services.register(me.mrhakan.agalarhack.services.BaritoneBridge.class,
                 new me.mrhakan.agalarhack.services.BaritoneBridge());
         var grind = services.register(me.mrhakan.agalarhack.services.GrindExecutor.class,
-                new me.mrhakan.agalarhack.services.GrindExecutor(Minecraft.getInstance(), baritone));
+                new me.mrhakan.agalarhack.services.GrindExecutor(Minecraft.getInstance(), baritone, inventory));
         EVENTS.subscribe(ClientEvents.ClientTick.class, "autogrind", 45, event -> grind.tick());
         EVENTS.subscribe(ClientEvents.WorldChanged.class, "autogrind-world", 100, event -> grind.reset());
         EVENTS.subscribe(ClientEvents.Disconnected.class, "autogrind-disconnect", 100, event -> grind.reset());
