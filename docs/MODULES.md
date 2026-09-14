@@ -12,7 +12,7 @@ Every module here is enabled, ticked and disabled inside a real world on every p
 request, so an UNTESTED one is known not to crash; what is missing is a check that it
 does the thing it exists to do. The badge is cleared in the commit that adds that check.
 
-55 modules across 6 categories; 2 marked UNTESTED.
+55 modules across 6 categories; 1 marked UNTESTED.
 
 ## Combat
 
@@ -179,7 +179,7 @@ Notifies when your name, a friend, or a keyword appears in chat
 | `soundVolume` | `0.6` | `0.05..1` | Mention cue volume |
 | `cooldown` | `1000` | `0..10000` | Milliseconds between mention notifications |
 
-### GamemodeAlerts — UNTESTED
+### GamemodeAlerts
 
 Notifies when a visible player's client-reported game mode changes
 

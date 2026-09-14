@@ -28,7 +28,6 @@ public final class GamemodeAlerts extends Module {
     public GamemodeAlerts() {
         super("GamemodeAlerts", Category.MISC,
                 "Notifies when a visible player's client-reported game mode changes");
-        markExperimental();
     }
 
     @Override

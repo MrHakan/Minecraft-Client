@@ -32,9 +32,8 @@ not a bulk copy of unrelated or unsafe features.
 
 ## Evidence boundary
 
-Both modules are marked UNTESTED until the running-game scenarios prove their player-visible
-effect. Their pure bounded trackers have unit coverage; ModuleLifecycleGameTest proves they
-enable, tick and disable without taking down the client. GamemodeAlerts has an integrated-server
-scenario in ModuleBehaviourGameTest; after a green CI run its experimental flag may be cleared.
-PlayerAlerts still needs a real second-player/client-visibility acceptance before that claim is
-made.
+GamemodeAlerts is now verified by the integrated-server survival-to-creative scenario in
+ModuleBehaviourGameTest, so its experimental flag is cleared in the same evidence batch. PlayerAlerts
+and its pure bounded tracker have unit coverage; ModuleLifecycleGameTest proves the module enables,
+ticks and disables without taking down the client, but PlayerAlerts still needs a real second-player
+client-visibility acceptance before its flag can be cleared.

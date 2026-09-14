@@ -42,6 +42,7 @@ class ExperimentalFlagTest {
             java.util.Map.entry("BetterChat.java", "betterChat"),
             java.util.Map.entry("ChatFilter.java", "chatFilter"),
             java.util.Map.entry("ChatMentions.java", "chatMentions"),
+            java.util.Map.entry("GamemodeAlerts.java", "gamemodeAlerts"),
             java.util.Map.entry("AutoAccept.java", "autoAccept"),
             java.util.Map.entry("HoleESP.java", "holeEsp"),
             java.util.Map.entry("Tracers.java", "tracersAndNametags"),
