@@ -52,7 +52,7 @@ class ProfileBindingCodecTest {
     @Test
     void tooManyEntriesAreRejectedBeforeTheyReachTheLiveMap() {
         String json = "{" + IntStream.range(0, ProfileBindingCodec.MAX_BINDINGS + 1)
-                .mapToObj(i -> "\\\"server" + i + "\\\":\\\"profile\\\"")
+                .mapToObj(i -> "\"server" + i + "\":\"profile\"")
                 .collect(Collectors.joining(",")) + "}";
         assertThrows(IllegalArgumentException.class, () -> ProfileBindingCodec.decode(json));
 

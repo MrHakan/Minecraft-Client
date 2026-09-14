@@ -1,7 +1,6 @@
 package me.mrhakan.agalarhack.managers;
 
 import java.io.IOException;
-import java.io.Reader;
 import java.io.Writer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -17,7 +16,6 @@ import java.util.Map;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonSyntaxException;
-import com.google.gson.reflect.TypeToken;
 
 import me.mrhakan.agalarhack.AgalarHackClient;
 import me.mrhakan.agalarhack.config.BoundedJsonFile;
@@ -231,7 +229,7 @@ public class ProfileManager {
                 // auto-load checks the profile exists, and then quietly comes back to life the day
                 // somebody creates a profile that happens to reuse the name.
                 if (dimensionBindings.entrySet().removeIf(entry -> entry.getValue().equalsIgnoreCase(name))) {
-                    saveBindingFile(dimensionBindingFile, dimensionBindings)
+                    saveBindingFile(dimensionBindingFile, dimensionBindings);
                 }
                 if (activeProfile.equalsIgnoreCase(name)) {
                     activeProfile = "";
@@ -303,7 +301,7 @@ public class ProfileManager {
         // name any more, and an auto-load skips a profile that does not exist - so a renamed
         // profile's dimension binding simply stopped firing, with no error and no log line.
         dimensionBindings.replaceAll((dimension, profile) -> profile.equalsIgnoreCase(source) ? target : profile);
-        saveBindingFile(dimensionBindingsPath, dimensionBindings);
+        saveBindingFile(dimensionBindingFile, dimensionBindings);
         if (activeProfile.equalsIgnoreCase(source)) {
             activeProfile = target;
         }
@@ -369,7 +367,7 @@ public class ProfileManager {
         }
         ensureBindingCapacity(dimensionBindings, dimension);
         dimensionBindings.put(dimension, profile);
-        saveBindingFile(dimensionBindingsPath, dimensionBindings);
+        saveBindingFile(dimensionBindingFile, dimensionBindings);
     }
 
     public boolean unbindCurrentDimension(Minecraft mc) {
@@ -377,7 +375,7 @@ public class ProfileManager {
         if (dimension == null || dimensionBindings.remove(dimension) == null) {
             return false;
         }
-        saveBindingFile(dimensionBindingsPath, dimensionBindings);
+        saveBindingFile(dimensionBindingFile, dimensionBindings);
         return true;
     }
 
@@ -542,7 +540,7 @@ public class ProfileManager {
     }
 
     private void saveBindings() {
-        saveBindingFile(serverBindingFile, serverBindings)
+        saveBindingFile(serverBindingFile, serverBindings);
     }
 
     private Path profilePath(String name) {
