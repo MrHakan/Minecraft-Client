@@ -20,6 +20,8 @@ import com.google.gson.JsonSyntaxException;
 import com.google.gson.reflect.TypeToken;
 
 import me.mrhakan.agalarhack.AgalarHackClient;
+import me.mrhakan.agalarhack.config.BoundedJsonFile;
+import me.mrhakan.agalarhack.config.ProfileBindingCodec;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Minecraft;
 
@@ -52,36 +54,46 @@ public class ProfileManager {
     private final Map<String, String> dimensionBindings = new LinkedHashMap<>();
     private final Path dimensionBindingsPath =
             FabricLoader.getInstance().getConfigDir().resolve("agalarhack-dimension-profiles.json");
+    /** Binding files retain their legacy JSON map shape but are bounded and write-guarded. */
+    private static final int BINDING_FILE_LIMIT = 128 * 1024;
+    private final BoundedJsonFile<Map<String, String>> serverBindingFile = new BoundedJsonFile<>(
+            bindingsPath, BINDING_FILE_LIMIT, ProfileBindingCodec::decode, ProfileBindingCodec::encode);
+    private final BoundedJsonFile<Map<String, String>> dimensionBindingFile = new BoundedJsonFile<>(
+            dimensionBindingsPath, BINDING_FILE_LIMIT, ProfileBindingCodec::decode, ProfileBindingCodec::encode);
     private String activeProfile = "";
     private String observedServer = "";
     private String observedDimension = "";
 
     public void loadBindings() {
-        loadBindingFile(bindingsPath, serverBindings, true);
-        loadBindingFile(dimensionBindingsPath, dimensionBindings, false);
+        loadBindingFile(serverBindingFile, serverBindings, true);
+        loadBindingFile(dimensionBindingFile, dimensionBindings, false);
     }
 
     /**
      * @param normaliseKeys server addresses need normalising; dimension ids are already canonical
      *                      and lower-casing an id would be wrong for a namespaced key
      */
-    private void loadBindingFile(Path path, Map<String, String> into, boolean normaliseKeys) {
-        into.clear();
-        if (!Files.isRegularFile(path)) {
-            saveBindingFile(path, into);
-            return;
-        }
-        try (Reader reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
-            Map<String, String> loaded = gson.fromJson(reader, new TypeToken<Map<String, String>>(){}.getType());
-            if (loaded != null) {
-                loaded.forEach((key, profile) -> {
-                    if (key != null && profile != null && isValidName(profile)) {
-                        into.put(normaliseKeys ? normalizeServer(key) : key, profile);
-                    }
-                });
+    private void loadBindingFile(BoundedJsonFile<Map<String, String>> file,
+            Map<String, String> into, boolean normaliseKeys) {
+        try {
+            var loaded = file.load();
+            Map<String, String> candidate = new LinkedHashMap<>();
+            loaded.ifPresent(values -> values.forEach((key, profile) -> {
+                String canonical = normaliseKeys ? normalizeServer(key) : key;
+                if (canonical != null && !canonical.isBlank()) {
+                    candidate.put(canonical, profile);
+                }
+            }));
+            // Publish only a successfully decoded snapshot. A malformed or oversized file leaves
+            // the previous in-memory map intact and BoundedJsonFile disables later writes, so a
+            // bind command cannot silently overwrite the user's source of truth.
+            into.clear();
+            into.putAll(candidate);
+            if (loaded.isEmpty()) {
+                file.save(Map.of());
             }
-        } catch (Exception failure) {
-            AgalarHackClient.LOGGER.warn("Failed to load profile bindings from {}", path.getFileName(), failure);
+        } catch (IOException failure) {
+            AgalarHackClient.LOGGER.warn("Failed to load profile bindings", failure);
         }
     }
 
@@ -219,7 +231,7 @@ public class ProfileManager {
                 // auto-load checks the profile exists, and then quietly comes back to life the day
                 // somebody creates a profile that happens to reuse the name.
                 if (dimensionBindings.entrySet().removeIf(entry -> entry.getValue().equalsIgnoreCase(name))) {
-                    saveBindingFile(dimensionBindingsPath, dimensionBindings);
+                    saveBindingFile(dimensionBindingFile, dimensionBindings)
                 }
                 if (activeProfile.equalsIgnoreCase(name)) {
                     activeProfile = "";
@@ -325,6 +337,7 @@ public class ProfileManager {
             throw new IllegalArgumentException("Profile does not exist: " + profile);
         }
         String server = currentServer(mc);
+        ensureBindingCapacity(serverBindings, server);
         serverBindings.put(server, profile);
         saveBindings();
     }
@@ -354,6 +367,7 @@ public class ProfileManager {
         if (dimension == null) {
             throw new IllegalArgumentException("Join a world first.");
         }
+        ensureBindingCapacity(dimensionBindings, dimension);
         dimensionBindings.put(dimension, profile);
         saveBindingFile(dimensionBindingsPath, dimensionBindings);
     }
@@ -511,19 +525,24 @@ public class ProfileManager {
         return normalizeServer(mc.getCurrentServer().ip);
     }
 
-    private void saveBindingFile(Path path, Map<String, String> bindings) {
+    private void saveBindingFile(BoundedJsonFile<Map<String, String>> file,
+            Map<String, String> bindings) {
         try {
-            Files.createDirectories(path.getParent());
-            try (Writer writer = Files.newBufferedWriter(path, StandardCharsets.UTF_8)) {
-                gson.toJson(bindings, writer);
-            }
-        } catch (IOException failure) {
-            AgalarHackClient.LOGGER.warn("Could not save profile bindings to {}", path.getFileName(), failure);
+            file.save(bindings);
+        } catch (IOException | IllegalArgumentException failure) {
+            AgalarHackClient.LOGGER.warn("Could not save profile bindings", failure);
+        }
+    }
+
+    private static void ensureBindingCapacity(Map<String, String> bindings, String key) {
+        if (!bindings.containsKey(key) && bindings.size() >= ProfileBindingCodec.MAX_BINDINGS) {
+            throw new IllegalStateException("Profile binding limit reached ("
+                    + ProfileBindingCodec.MAX_BINDINGS + ")");
         }
     }
 
     private void saveBindings() {
-        saveBindingFile(bindingsPath, serverBindings);
+        saveBindingFile(serverBindingFile, serverBindings)
     }
 
     private Path profilePath(String name) {
