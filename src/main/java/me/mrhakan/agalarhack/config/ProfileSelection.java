@@ -2,6 +2,7 @@ package me.mrhakan.agalarhack.config;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -52,7 +53,10 @@ public final class ProfileSelection {
             if (!token.isEmpty()) parsed.add(token);
         }
         if (parsed.isEmpty() || parsed.contains(ALL)) return everything();
-        return new ProfileSelection(Set.copyOf(parsed));
+        // Keep the user's order: unknown() uses it to report typos, and Set.copyOf is explicitly
+        // free to choose an iteration order. A diagnostic that rearranges three misspellings is
+        // needlessly confusing and makes command output nondeterministic between JDKs.
+        return new ProfileSelection(Collections.unmodifiableSet(parsed));
     }
 
     public boolean isEverything() {

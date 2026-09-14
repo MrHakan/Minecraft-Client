@@ -75,6 +75,12 @@ class ProfileSelectionTest {
     }
 
     @Test
+    void reportsMultipleTyposInTheOrderTheyWereWritten() {
+        assertEquals(List.of("zeta", "alpha", "omega"),
+                ProfileSelection.parse("zeta alpha omega").unknown(MODULES, CATEGORIES));
+    }
+
+    @Test
     void reportsASelectionThatWouldChangeNothing() {
         assertTrue(ProfileSelection.parse("nonsense").isEmpty(MODULES, CATEGORIES));
         assertFalse(ProfileSelection.parse("hud").isEmpty(MODULES, CATEGORIES));
