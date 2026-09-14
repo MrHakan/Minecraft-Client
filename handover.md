@@ -8,28 +8,25 @@ and CI; older figures and next-batch suggestions are historical context only.
 
 - **Live branch/PR:** `codex/foundation-services-26.2`, [PR #9](https://github.com/MrHakan/Minecraft-Client/pull/9),
   open, draft, mergeable and not merged. It is the only open PR. Main is
-  `19f83ab888a55d9b459f84fbae27dffe39036f71`; the latest code-bearing head is
-  `8046a011ace8b19c91c03beb36b9c20049169715` (`8046a01`), followed by documentation-only
-  checkpoints `2cbcc3f`, `c5da2fb`, `5a240fa` and `d214154` and this evidence update. Resolve the live branch before publishing;
+  `19f83ab888a55d9b459f84fbae27dffe39036f71`; the current code-bearing head is
+  `625a8f854d5e89262c06c6e877d1747a644f63e0` (`625a8f8`). It follows the documentation-only
+  checkpoints `2cbcc3f`, `c5da2fb`, `5a240fa`, `d214154` and `3d85b4d`. Resolve the live branch before publishing;
   never merge, force-push, or open a second PR.
-- **Scale at the validated code head:** 235 commits against main; 355 changed files, +33,340/-876.
-  The current branch has additional documentation-only commits; no source or test code changed after
-  `8046a01`.
+- **Scale at the validated code head:** 241 commits against main; 355 changed files, +33,433/-876.
+  The current head adds one source/test topic-level commit; no gameplay or Minecraft API code changed.
 - **Versions:** Minecraft 26.2, Loader 0.19.3, Fabric API 0.157.0+26.2, Java 25.
 - **Modules:** 53 built-ins; 0 UNTESTED (22 baseline exemptions, 31 behaviour-mapped modules).
   Runtime lifecycle count is 55 because two fixture addon modules do not ship. Zero badges does
   not mean all 53 have distinct behaviour scenarios.
-- **Observed CI:** [run #232](https://github.com/MrHakan/Minecraft-Client/actions/runs/34845568638), attempt 2,
-  succeeded on the current documentation checkpoint `d214154`; the first attempt timed out at the
-  900-second client-test guard after `ProfileBindingGameTest` had passed, then the same job rerun
-  completed normally without any source change. [Run #231](https://github.com/MrHakan/Minecraft-Client/actions/runs/34844583986)
-  succeeded on its parent `5a240fa`, and [run #228](https://github.com/MrHakan/Minecraft-Client/actions/runs/34787077090)
-  is the matching code-head validation on `8046a01`. The successful attempt used JDK 25, passed the four inventory regression controls,
+- **Observed CI:** [run #234](https://github.com/Mrhakan/Minecraft-Client/actions/runs/34849712009)
+  succeeded on the current head `625a8f8`. It used JDK 25, passed the four inventory regression controls,
   compiled the client and generated docs, ran client game tests and runtime mixin checks, and produced
-  artifacts. Archived JUnit XML was independently counted as **788 tests, 0 failures, 0 errors,
-  0 skipped across 102 suites**. The client run opened 171 screens and the swallowed-error scan read
-  955 lines from one run log, finding only the two deliberately expected broken-addon failures.
-  Dedicated-server checks logged their explicit EULA-gated skip and are not coverage.
+  artifacts. Archived JUnit XML was independently counted as **789 tests, 0 failures, 0 errors,
+  0 skipped across 102 suites**. [Run #233](https://github.com/Mrhakan/Minecraft-Client/actions/runs/34848344723)
+  on the preceding documentation checkpoint also succeeded with 788 tests. The client run opened 171
+  screens and the swallowed-error scan read 953 lines from one run log, finding only the two deliberately
+  expected broken-addon failures. The earlier #232 first-attempt timeout and successful rerun remain
+  documented below and in the PR. Dedicated-server checks logged their explicit EULA-gated skip and are not coverage.
 - **Scenario count:** 46 grouped checks across 11 client game-test entrypoints. This convention groups
   SafeWalk/Parkour and Tracers/Nametags and is not a count of assertions or log lines. Three
   dedicated-server checks remain excluded while the EULA property is off; a skipped scenario is not
@@ -52,13 +49,15 @@ head then closed the three risks that the older checkpoint still listed as open:
   while peers wait. The reachable low-budget starvation regression is covered by unit tests.
 - `8046a01` records the eleventh client-game entrypoint and the grouped total of 46 in
   `docs/CLIENT_GAME_TESTS.md`.
+- `625a8f8` keeps multiple unknown `.profile load` selectors in the order the player typed them;
+  `ProfileSelectionTest` prevents `Set.copyOf` from making typo diagnostics nondeterministic.
 
 Waypoint persistence feedback is complete in the live source: mutations retain in-memory changes when
 a write is refused, expose unsaved state, warn instead of claiming a green save, and `.waypoint save`
 retries without repeating the mutation. `PortalCommand` shares that feedback rule and `BaseFinder`
 makes no persistence claim. `WaypointServiceTest` covers failed write, clear, and retry paths.
 
-CI #228's observed game output included:
+CI #234's observed game output included:
 
 ```text
 Parkour fence surface: control rise=0.0 enabled rise=0.0
