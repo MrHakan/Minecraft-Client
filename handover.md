@@ -1,38 +1,116 @@
 # Agalar Hack — AI agent handover
 
-## CURRENT STATE — authoritative checkpoint (2026-09-13)
+## CURRENT STATE — authoritative checkpoint (2026-09-14)
 
 Authority: live source > live tests > live PR state/description > current CI > this checkpoint >
-generated docs > historical records. All numbers and next-batch suggestions below the historical
-divider describe their own dates, not the current project.
+generated docs > historical records. The figures in this section were re-derived from the live branch
+and CI; older figures and next-batch suggestions are historical context only.
 
-- **Validated code head:** `c75c59bfcd0789fdcf784d3879ac1a71e4e9fad9`.
-  This checkpoint adds a documentation-only commit after that head; resolve the live branch/PR
-  for its current tip and its Actions result rather than assuming a SHA printed here stays current.
-  Main: `19f83ab888a55d9b459f84fbae27dffe39036f71`.
-  [PR #9](https://github.com/MrHakan/Minecraft-Client/pull/9) is open/draft, mergeable and not merged;
-  it is the only open PR. Continue `codex/foundation-services-26.2`; never merge or force-push.
-- **Scale at the validated code head:** 225 commits against main; 353 changed files, +32,740/-872.
-  This evidence-only checkpoint is the fourth continuation commit (226 against main).
-  The 16 commits after `cb4631c` are preserved. Fetch again immediately before publishing.
+- **Live branch/PR:** `codex/foundation-services-26.2`, [PR #9](https://github.com/MrHakan/Minecraft-Client/pull/9),
+  open, draft, mergeable and not merged. It is the only open PR. Main is
+  `19f83ab888a55d9b459f84fbae27dffe39036f71`; the live head is
+  `8046a011ace8b19c91c03beb36b9c20049169715` (`8046a01`). Re-fetch immediately before publishing;
+  never merge, force-push, or open a second PR.
+- **Scale:** 235 commits against main; 355 changed files, +33,340/-876 at the live head. The latest
+  three commits are Claude's Parkour correction, scanner-turn fairness correction, and game-test
+  documentation count correction; preserve all three.
 - **Versions:** Minecraft 26.2, Loader 0.19.3, Fabric API 0.157.0+26.2, Java 25.
 - **Modules:** 53 built-ins; 0 UNTESTED (22 baseline exemptions, 31 behaviour-mapped modules).
   Runtime lifecycle count is 55 because two fixture addon modules do not ship. Zero badges does
   not mean all 53 have distinct behaviour scenarios.
-- **Observed CI:** [run 220](https://github.com/MrHakan/Minecraft-Client/actions/runs/34752612170)
-  succeeded on `c75c59b`. Its archived JUnit XML was independently downloaded and re-counted:
-  **774 tests, 0 failures/errors/skips, 101 suites** (CraftingPlan: 20). The four inventory regression controls,
-  Java 25 build, generated docs, runtime client/integrated worlds, six mixin target checks and
-  artifact creation passed. 171 screens opened; the swallowed-failure scan read 878 lines and
-  found only the two deliberately expected broken-addon failures.
-- **Scenario count:** 44 grouped checks across 10 entrypoints: 38 direct behaviour calls excluding
-  setup, plus inventory recovery, contention, dimension transition, disconnect, profile bindings
-  and external addon packaging. SafeWalk/Parkour and Tracers/Nametags are grouped; this is not a
-  count of assertions or log lines. Three dedicated-server checks skipped and are excluded.
-- **Scope estimate:** roughly 80–85% of useful original feature scope, a qualitative depth estimate,
-  not measured remaining effort or release readiness. Correctness/acceptance are the priority.
+- **Observed CI:** [run #228](https://github.com/MrHakan/Minecraft-Client/actions/runs/34787077090)
+  succeeded on `8046a01`. The full PR job used JDK 25, passed the four inventory regression controls,
+  compiled the client and generated docs, ran client game tests and runtime mixin checks, and produced
+  artifacts. Archived JUnit XML was independently counted as **788 tests, 0 failures, 0 errors,
+  0 skipped across 102 suites**. The client run opened 171 screens and the swallowed-error scan read
+  953 lines from one run log, finding only the two deliberately expected broken-addon failures.
+  Dedicated-server checks logged their explicit EULA-gated skip and are not coverage.
+- **Scenario count:** 46 grouped checks across 11 client game-test entrypoints. This convention groups
+  SafeWalk/Parkour and Tracers/Nametags and is not a count of assertions or log lines. Three
+  dedicated-server checks remain excluded while the EULA property is off; a skipped scenario is not
+  coverage.
+- **Scope estimate:** roughly 80–85% of useful original feature scope at meaningful depth. This is a
+  qualitative product estimate, not a release-readiness score; remaining work is chiefly evidence
+  and manual acceptance rather than module-count expansion.
 
-### Latest continuation and evidence limits
+### Latest safety continuation and evidence
+
+Claude's preceding review classified **42 concrete defects closed** across the mature branch. The live
+head then closed the three risks that the older checkpoint still listed as open:
+
+- `597374e` fixes Parkour's look-ahead support probe. It now asks vanilla collision geometry through
+  a narrow column at the configured look-ahead point, so continuous fence/wall/slab walkways are not
+  mistaken for ledges. `ParkourProbeTest` pins the geometry and `RemainingSafetyGameTest` reports
+  zero false rise on all three surfaces.
+- `c4f9577` bounds each scanner turn by its share of the scarcest remaining allowance. Priority order
+  is preserved, while a low chunk-lookup budget can no longer let one scanner consume the entire tick
+  while peers wait. The reachable low-budget starvation regression is covered by unit tests.
+- `8046a01` records the eleventh client-game entrypoint and the grouped total of 46 in
+  `docs/CLIENT_GAME_TESTS.md`.
+
+Waypoint persistence feedback is complete in the live source: mutations retain in-memory changes when
+a write is refused, expose unsaved state, warn instead of claiming a green save, and `.waypoint save`
+retries without repeating the mutation. `PortalCommand` shares that feedback rule and `BaseFinder`
+makes no persistence claim. `WaypointServiceTest` covers failed write, clear, and retry paths.
+
+CI #228's observed game output included:
+
+```text
+Parkour fence surface: control rise=0.0 enabled rise=0.0
+Parkour wall surface: control rise=0.0 enabled rise=0.0
+Parkour slab surface: control rise=0.0 enabled rise=0.0
+BlockESP cap recovery: initial=16 grown=30 remaining=5 idle maximum work=9
+Dimension transition passed: real Nether level, held look cancelled and Freecam restored to replacement player
+Inventory contention passed: a mid-plan peer change kept every item and both cursors empty
+SKIPPED: dedicated-server scenarios need Minecraft's server EULA accepted
+Scanned 953 log lines across 1 file(s) for swallowed failures; found none beyond the 2 expected failures
+Smoke check passed: the client runs, every module survives a world, and every mixin is applied.
+```
+
+`ProfileBindingGameTest` uses real server-driven Nether replacement and maintains profile rename/delete
+bindings. It still does not establish dedicated-server precedence or partial-profile isolation.
+`InventoryContentionGameTest` uses a real mid-plan peer edit and proves conservation and empty cursors;
+it does not promise an exact slot placement after arbitrary edits. Player-face tests pin UV constants
+and source geometry, not rendered appearance. The swallowed-error scan includes rolled/archive logs and
+requires the known broken-addon failure to be found; never reduce it to a single `latest.log` check.
+
+### AutoGrind status — intentionally plan-only
+
+Read `docs/AUTOGRIND.md` before extending it. `TaskRunner`, `CraftingPlan`, `GrindBook`, and
+`.grind <item> [count]` are implemented and tested against the player's real inventory, but the
+command deliberately does not walk, mine, craft, or pathfind. Keep already-satisfied task skipping,
+budgets, deterministic dependency ordering, aggregated quantities, cycle refusal, leftovers,
+item-count output, and furnace-load fuel accounting. No compatible Baritone 26.2 jar has been
+inspected, so no reflection signature or installed-success claim is acceptable.
+
+### Remaining scope, manual acceptance, and decisions
+
+- **Visual correctness remains manual-first:** TargetHUD face/skin overlay, ESP and nametag geometry,
+  waypoint beams, frustum edges, trajectory/potion/XP impact points, rainbow phase, themes, and
+  ClickGUI/HUD behavior at multiple vanilla GUI scales. Pixel activity tests do not prove appearance.
+- **Real addon installation remains partly manual:** remapped production JAR, `mods/` discovery,
+  restart persistence for settings/keybinds, safe removal/orphaned config, and the loader failure
+  when Agalar Hack is absent. Fixture jars prove entrypoint registration and failure containment, not
+  every player-install workflow.
+- **Network and lifecycle evidence still has boundaries:** the dedicated-server harness exists but
+  remains opt-in; do not accept the EULA in CI without owner approval. Its loopback checks do not cover
+  busy-server latency, contention, or peer traffic. Natural fishing bites and installed Baritone remain
+  unverified. Profile binding precedence and partial-profile isolation still merit real acceptance.
+- **Intentional design decisions:** NoFall's once-per-fall ground report, Jesus' water-surface
+  semantics, notification placement ownership, and the Baritone reflection modifier suspicion need
+  product or real-runtime evidence before behavior changes. Do not replace them with packet spam,
+  guessed APIs, or speculative refactors.
+- **Language:** the client remains English-first. Turkish setting-description localization was
+  explicitly cancelled by the owner; keep the existing translated module descriptions and do not
+  restart that work.
+
+Preserve the proven invariants: `PlayerInputOverrides` through the `KeyboardInput` TAIL injection,
+one-tick use pulses with physical-input preservation, per-tick container click budget and bounded
+recovery, total/default-safe HUD placement, `.look` cleanup on disconnect/world change, client-thread
+service access, narrow 26.2 mixins, rolled-log swallowed-error detection, and Fabric-entrypoint addon
+loading without a folder scanner or custom class loader.
+
+### Previous checkpoint context — superseded on 2026-09-14
 
 Claude's PR reports **42 defects closed** in the preceding adversarial review. That is the prior
 review's classification, not 42 newly reproduced failures in this continuation. The delta includes
@@ -79,7 +157,7 @@ Continuation commits: `bf30949` reconciles the stale checkpoint; `08fe7c4` adds 
 regressions; `c75c59b` corrects dependency ordering; this final evidence commit records the red/green
 results. No gameplay module, schema, settings, rendering API or ownership policy changed.
 
-### Remaining scope and explicit decisions
+### Previous remaining scope and explicit decisions — historical
 
 - **Waypoint persistence feedback:** mutation methods intentionally report an in-memory change;
   their `save()` result is ignored by per-operation success text. A failed save can still be labelled
