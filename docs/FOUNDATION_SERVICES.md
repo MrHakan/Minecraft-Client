@@ -143,6 +143,15 @@ Section packets can carry up to 4096 changes. `BlockUpdateBatch` reports the fir
 then posts one `ChunkBlocksInvalidated` for the chunk instead. `ClientBlockEntityEvents` supplies block
 entity load/unload directly, with no mixin.
 
+## Partial profile slices
+
+Profile loads accept independent selectors for module/category settings, HUD, target policy and
+`keybinds`. The `keybinds` selector copies only `keybind` and `keyModifiers` for every module;
+it never changes enabled state or normal settings. Combining it with a module/category selector
+applies the selected full modules as well as the keybind slice. Partial application sanitizes only
+the fields it touched, so an invalid unrelated value cannot be rewritten as a side effect. This is
+covered by pure selector/sanitizer tests and the real ProfileBinding client-game scenario.
+
 ## Shared scanner execution
 
 BlockESP, StorageESP and EntityESP offer work to one cooperative scheduler after module updates.

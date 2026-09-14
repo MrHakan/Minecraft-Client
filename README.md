@@ -53,7 +53,7 @@ HUD layout is persisted in `config/agalarhack-hud.json`.
 
 ## Profiles and per-server configs
 
-Profiles store complete module state/settings/keybinds, Global Target Policy and HUD layout. They support save/load/delete, per-server binding, duplicate/rename and clipboard JSON import/export. Rename migrates server bindings; imported maps are sanitized before storage.
+Profiles store complete module state/settings/keybinds, Global Target Policy and HUD layout. They support save/load/delete, per-server binding, duplicate/rename and clipboard JSON import/export. Partial loads can select module/category settings, HUD, targets or the independent keybind slice; imported maps are sanitized before storage. Rename migrates server and dimension bindings.
 
 ## Commands
 
@@ -66,7 +66,7 @@ Profiles store complete module state/settings/keybinds, Global Target Policy and
 | `.bind <module> <key|none>` | Changes a keybind |
 | `.set <module> <setting> <value>` | Changes a typed setting |
 | `.friend add|remove|list|clear [name]` | Manages friends |
-| `.profile save|load|delete|list|bind|unbind [name]` | Core profile lifecycle |
+| `.profile save|load|delete|list|bind|unbind [name] [parts]` | Core profile lifecycle; load parts can include module/category names, `hud`, `targets` or `keybinds` |
 | `.profile duplicate|rename <source> <target>` | Copies/renames profiles |
 | `.profile export|import <name>` | Clipboard profile JSON |
 | `.grind <item> [count]` | Plans what it would take to obtain an item, counting what you already carry (plans only; gathers nothing) |
