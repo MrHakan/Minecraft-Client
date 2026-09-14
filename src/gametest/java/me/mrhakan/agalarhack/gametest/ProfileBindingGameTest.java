@@ -107,7 +107,7 @@ public final class ProfileBindingGameTest implements FabricClientGameTest {
                     ProfileSelection.parse("keybinds"));
 
             require("keybinds".equals(applied),
-                    "keybind-only partial load reported "" + applied + """);
+                    "keybind-only partial load reported '" + applied + "'");
             require("348".equals(module.settings.getSetting("keybind")),
                     "keybind-only load did not restore the saved key");
             require(module.settings.getSetting("keyModifiers") instanceof Number modifiers
