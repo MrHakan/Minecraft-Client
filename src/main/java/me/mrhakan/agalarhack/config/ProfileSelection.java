@@ -27,8 +27,9 @@ public final class ProfileSelection {
     public static final String MODULES = "modules";
     public static final String HUD = "hud";
     public static final String TARGETS = "targets";
+    public static final String KEYBINDS = "keybinds";
 
-    private static final Set<String> RESERVED = Set.of(ALL, MODULES, HUD, TARGETS);
+    private static final Set<String> RESERVED = Set.of(ALL, MODULES, HUD, TARGETS, KEYBINDS);
 
     private final Set<String> tokens;
 
@@ -71,6 +72,20 @@ public final class ProfileSelection {
         return isEverything() || tokens.contains(TARGETS);
     }
 
+    /** Selects the keybind and modifier fields without changing module settings or enabled state. */
+    public boolean includesKeybinds() {
+        return isEverything() || tokens.contains(KEYBINDS);
+    }
+
+    /**
+     * Whether this selection contains a module or category scope in addition to the reserved
+     * non-module slices. Unknown tokens also count here; callers validate them before applying.
+     */
+    public boolean selectsModuleSettings() {
+        if (isEverything() || tokens.contains(MODULES)) return true;
+        return tokens.stream().anyMatch(token -> !RESERVED.contains(token));
+    }
+
     /**
      * @param module the module's own name
      * @param category its category name, so {@code combat} selects every combat module
@@ -83,7 +98,7 @@ public final class ProfileSelection {
 
     /** True when the selection would change nothing at all, which is worth telling the player. */
     public boolean isEmpty(Collection<String> moduleNames, Collection<String> categoryNames) {
-        if (includesHud() || includesTargetPolicy()) return false;
+        if (includesHud() || includesTargetPolicy() || includesKeybinds()) return false;
         if (isEverything() || tokens.contains(MODULES)) return false;
         for (String module : moduleNames) {
             if (tokens.contains(module.toLowerCase(Locale.ROOT))) return false;

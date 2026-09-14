@@ -1,6 +1,7 @@
 package me.mrhakan.agalarhack.gametest;
 
 import me.mrhakan.agalarhack.AgalarHackClient;
+import me.mrhakan.agalarhack.config.ProfileSelection;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
@@ -36,6 +37,7 @@ public final class ProfileBindingGameTest implements FabricClientGameTest {
     private static final String BASELINE = "ah-binding-baseline";
     private static final String NETHER_PROFILE = "ah-binding-nether";
     private static final String OVERWORLD_PROFILE = "ah-binding-overworld";
+    private static final String KEYBINDS_PROFILE = "ah-binding-keybinds";
     private static final String RENAME_BEFORE = "ah-binding-rename1";
     private static final String RENAME_AFTER = "ah-binding-rename2";
 
@@ -53,12 +55,13 @@ public final class ProfileBindingGameTest implements FabricClientGameTest {
                      context.worldBuilder().setUseConsistentSettings(true).create()) {
             singleplayer.getConnection().waitForChunksRender();
             prepare(context, singleplayer);
+            keybindOnlyLoadLeavesModuleSettingsUntouched(context);
             bindingsFollowARenameAndGoWithADelete(context);
             theFirstArrivalHasNothingBound(context, singleplayer);
             arrivingInTheOverworldLoadsItsProfile(context, singleplayer);
             returningToTheNetherLoadsItsProfile(context, singleplayer);
-            LOGGER.info("  Profile bindings passed: real Nether round trip, each arrival loading its "
-                    + "own bound profile, with an unbound first arrival as the control");
+            LOGGER.info("  Profile bindings passed: keybind-only partial load preserved unrelated settings, "
+                    + "then a real Nether round trip loaded each bound profile");
         } finally {
             cleanUp(context);
         }
@@ -82,6 +85,36 @@ public final class ProfileBindingGameTest implements FabricClientGameTest {
             AgalarHackClient.PROFILES.bindCurrentDimension(client, OVERWORLD_PROFILE);
             require(OVERWORLD_PROFILE.equals(AgalarHackClient.PROFILES.getDimensionProfile(client)),
                     "the overworld binding did not take");
+        });
+    }
+
+    /**
+     * A keybind-only partial profile must restore the binding fields without changing a normal module
+     * setting or the module's enabled state.
+     */
+    private void keybindOnlyLoadLeavesModuleSettingsUntouched(ClientGameTestContext context) {
+        context.runOnClient(client -> {
+            var module = AgalarHackClient.moduleManager.getModule(MARKER_MODULE);
+            setMarker(12.0);
+            module.settings.setSetting("keybind", "348");
+            module.settings.setSetting("keyModifiers", 3.0);
+            AgalarHackClient.PROFILES.save(KEYBINDS_PROFILE);
+
+            setMarker(13.0);
+            module.settings.setSetting("keybind", "347");
+            module.settings.setSetting("keyModifiers", 0.0);
+            String applied = AgalarHackClient.PROFILES.loadPartial(KEYBINDS_PROFILE,
+                    ProfileSelection.parse("keybinds"));
+
+            require("keybinds".equals(applied),
+                    "keybind-only partial load reported "" + applied + """);
+            require("348".equals(module.settings.getSetting("keybind")),
+                    "keybind-only load did not restore the saved key");
+            require(module.settings.getSetting("keyModifiers") instanceof Number modifiers
+                    && modifiers.doubleValue() == 3.0,
+                    "keybind-only load did not restore modifiers");
+            require(marker(client) == 13.0,
+                    "keybind-only load changed an unrelated module setting");
         });
     }
 
@@ -211,8 +244,8 @@ public final class ProfileBindingGameTest implements FabricClientGameTest {
         context.runOnClient(client -> {
             if (client.level != null) AgalarHackClient.PROFILES.unbindCurrentDimension(client);
             if (AgalarHackClient.PROFILES.exists(BASELINE)) AgalarHackClient.PROFILES.load(BASELINE);
-            for (String profile : new String[]{NETHER_PROFILE, OVERWORLD_PROFILE, RENAME_BEFORE,
-                    RENAME_AFTER, BASELINE}) {
+            for (String profile : new String[]{NETHER_PROFILE, OVERWORLD_PROFILE, KEYBINDS_PROFILE,
+                    RENAME_BEFORE, RENAME_AFTER, BASELINE}) {
                 if (AgalarHackClient.PROFILES.exists(profile)) AgalarHackClient.PROFILES.delete(profile);
             }
         });

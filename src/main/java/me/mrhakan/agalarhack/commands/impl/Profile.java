@@ -19,7 +19,7 @@ public class Profile extends Command {
 
     public Profile() {
         super("profile", "Manages named client profiles and per-server bindings",
-                "profile <save|load|delete|list|search|describe|bind|unbind|bind-dim|unbind-dim|duplicate|rename|export|import|diff> [name] [args]", "profiles");
+                "profile <save|load|delete|list|search|describe|bind|unbind|bind-dim|unbind-dim|duplicate|rename|export|import|diff> [name] [parts]", "profiles");
     }
 
     @Override
@@ -108,7 +108,7 @@ public class Profile extends Command {
             List<String> unknown = selection.unknown(modules, categories);
             if (!unknown.isEmpty()) {
                 throw new IllegalArgumentException("Unknown selection: " + String.join(", ", unknown)
-                        + ". Use module or category names, or all/modules/hud/targets.");
+                        + ". Use module or category names, or all/modules/hud/targets/keybinds.");
             }
             if (selection.isEmpty(modules, categories)) {
                 throw new IllegalArgumentException("That selection would change nothing.");

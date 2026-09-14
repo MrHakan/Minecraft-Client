@@ -81,6 +81,27 @@ class ProfileSelectionTest {
     }
 
     @Test
+    void keybindsSelectOnlyBindingState() {
+        ProfileSelection selection = ProfileSelection.parse("keybinds");
+        assertTrue(selection.includesKeybinds());
+        assertFalse(selection.selectsModuleSettings());
+        assertFalse(selection.includesHud());
+        assertFalse(selection.includesTargetPolicy());
+        assertFalse(selection.includesModule("KillAura", "Combat"));
+        assertFalse(selection.isEmpty(MODULES, CATEGORIES));
+        assertEquals(List.of(), selection.unknown(MODULES, CATEGORIES));
+    }
+
+    @Test
+    void keybindsCanBeCombinedWithAModuleScope() {
+        ProfileSelection selection = ProfileSelection.parse("combat keybinds");
+        assertTrue(selection.includesKeybinds());
+        assertTrue(selection.selectsModuleSettings());
+        assertTrue(selection.includesModule("KillAura", "Combat"));
+        assertFalse(selection.includesModule("AutoWalk", "Movement"));
+    }
+
+    @Test
     void reportsASelectionThatWouldChangeNothing() {
         assertTrue(ProfileSelection.parse("nonsense").isEmpty(MODULES, CATEGORIES));
         assertFalse(ProfileSelection.parse("hud").isEmpty(MODULES, CATEGORIES));

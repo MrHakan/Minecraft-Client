@@ -145,12 +145,31 @@ public class SettingsManager {
         java.util.List<String> applied = new java.util.ArrayList<>();
         if (snapshot == null || selection == null) return java.util.List.of();
         for (Module module : AgalarHackClient.moduleManager.getModuleList()) {
-            if (!selection.includesModule(module.getName(), module.getCategory().name)) continue;
+            boolean moduleSelected = selection.includesModule(module.getName(), module.getCategory().name);
+            boolean keybindSelected = selection.includesKeybinds();
+            if (!moduleSelected && !keybindSelected) continue;
+
             Settings saved = snapshot.get(module.getName());
             if (saved == null || saved.settings == null) continue;
-            module.settings.settings.putAll(saved.settings);
-            module.settings.sanitizeLoadedValues();
+
+            boolean changed = false;
+            if (moduleSelected) {
+                module.settings.settings.putAll(saved.settings);
+                module.settings.sanitizeLoadedValues();
+                changed = true;
+            } else {
+                changed |= copySetting(saved, module.settings, "keybind");
+                changed |= copySetting(saved, module.settings, "keyModifiers");
+                if (changed) {
+                    module.settings.sanitizeLoadedValues(java.util.List.of("keybind", "keyModifiers"));
+                }
+            }
+            if (!changed) continue;
+
             applied.add(module.getName());
+            // A keybind-only slice must never toggle a module as a side effect.
+            if (!moduleSelected) continue;
+
             boolean desired = Boolean.TRUE.equals(module.settings.getSetting("enabled"));
             if (module.isToggled() == desired) continue;
             try {
@@ -162,6 +181,13 @@ public class SettingsManager {
         }
         updateSettings();
         return java.util.List.copyOf(applied);
+    }
+
+    private static boolean copySetting(Settings source, Settings target, String name) {
+        String sourceKey = source.getKeyIgnoreCase(name);
+        if (sourceKey == null) return false;
+        target.setSetting(name, source.getSetting(sourceKey));
+        return true;
     }
 
     private void applyValues(Map<String, Settings> values, boolean syncEnabledState) {

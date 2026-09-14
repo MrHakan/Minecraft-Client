@@ -168,8 +168,11 @@ public class ProfileManager {
         }
         List<String> parts = new java.util.ArrayList<>();
         List<String> modules = AgalarHackClient.SETTINGS_MANAGER.applyPartialSettings(data.modules, selection);
-        if (!modules.isEmpty()) {
+        if (!modules.isEmpty() && selection.selectsModuleSettings()) {
             parts.add(modules.size() + (modules.size() == 1 ? " module" : " modules"));
+        }
+        if (selection.includesKeybinds()) {
+            parts.add("keybinds");
         }
         if (selection.includesTargetPolicy() && data.targetPolicy != null) {
             AgalarHackClient.TARGET_POLICY.applySnapshot(data.targetPolicy);
