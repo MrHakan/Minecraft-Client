@@ -37,6 +37,19 @@ public final class GrindBook {
 
     private static final Map<String, CraftingPlan.Recipe> RECIPES = build();
 
+    private static final Map<String, String[]> BARITONE_TARGETS = Map.of(
+            LOG, new String[]{
+                    "oak_log", "spruce_log", "birch_log", "jungle_log", "acacia_log", "dark_oak_log",
+                    "mangrove_log", "cherry_log", "pale_oak_log",
+                    "oak_wood", "spruce_wood", "birch_wood", "jungle_wood", "acacia_wood", "dark_oak_wood",
+                    "mangrove_wood", "cherry_wood", "pale_oak_wood",
+                    "crimson_stem", "warped_stem", "crimson_hyphae", "warped_hyphae"
+            },
+            COBBLESTONE, new String[]{"cobblestone", "cobbled_deepslate"},
+            COAL, new String[]{"coal_ore", "deepslate_coal_ore"},
+            RAW_IRON, new String[]{"iron_ore", "deepslate_iron_ore"}
+    );
+
     private static Map<String, CraftingPlan.Recipe> build() {
         Map<String, CraftingPlan.Recipe> book = new LinkedHashMap<>();
         book.put(PLANKS, new CraftingPlan.Recipe(PLANKS, 4, Map.of(LOG, 1), false));
@@ -81,6 +94,19 @@ public final class GrindBook {
      * so a grind holding four birch planks is not sent to chop an oak. An id with no generic name
      * maps to itself, which keeps the planner honest about items this book has never heard of.
      */
+    /**
+     * Returns the real block names accepted by Baritone for a raw resource goal.
+     *
+     * <p>A copy is returned so callers cannot mutate the shared recipe vocabulary. Crafted goals
+     * intentionally return an empty array: the executor must not pretend that mining alone can make
+     * a pickaxe, furnace or other crafted item.
+     */
+    public static String[] baritoneNames(String genericName) {
+        String normalized = generic(genericName);
+        String[] names = BARITONE_TARGETS.get(normalized);
+        return names == null ? new String[0] : names.clone();
+    }
+
     public static String generic(String itemId) {
         if (itemId == null || itemId.isBlank()) return "";
         String id = itemId.toLowerCase(Locale.ROOT);

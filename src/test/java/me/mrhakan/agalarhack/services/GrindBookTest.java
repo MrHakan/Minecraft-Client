@@ -78,6 +78,20 @@ class GrindBookTest {
         assertEquals(64, ore.count(), "the ore is still one for one");
     }
 
+    @Test void rawGoalsResolveToBoundedBaritoneBlockNames() {
+        assertArrayEquals(new String[]{"coal_ore", "deepslate_coal_ore"},
+                GrindBook.baritoneNames(GrindBook.COAL));
+        assertTrue(GrindBook.baritoneNames(GrindBook.LOG).length >= 9);
+        assertArrayEquals(new String[0], GrindBook.baritoneNames(GrindBook.STONE_PICKAXE));
+    }
+
+    @Test void baritoneNamesNormalizeRealIdsAndDoNotExposeMutableState() {
+        String[] names = GrindBook.baritoneNames("minecraft:cobbled_deepslate");
+        assertArrayEquals(new String[]{"cobblestone", "cobbled_deepslate"}, names);
+        names[0] = "not_a_block";
+        assertEquals("cobblestone", GrindBook.baritoneNames(GrindBook.COBBLESTONE)[0]);
+    }
+
     @Test void theBookRecognisesWhatItCanBeAskedFor() {
         assertTrue(GrindBook.knows(GrindBook.IRON_PICKAXE));
         assertTrue(GrindBook.knows(GrindBook.LOG), "a raw material is a legitimate goal on its own");

@@ -3,6 +3,7 @@ package baritone.api;
 import baritone.api.behavior.IPathingBehavior;
 import baritone.api.pathing.goals.Goal;
 import baritone.api.process.ICustomGoalProcess;
+import baritone.api.process.IMineProcess;
 
 /**
  * Stub of Baritone's entry point, recording what the bridge asks it to do.
@@ -20,14 +21,22 @@ import baritone.api.process.ICustomGoalProcess;
 public final class BaritoneAPI {
     public static Goal lastGoal;
     public static int cancels;
+    public static int mineCancels;
+    public static int lastMineQuantity;
+    public static String[] lastMineBlocks;
     public static boolean pathing;
+    public static boolean mining;
 
     private BaritoneAPI() { }
 
     public static void reset() {
         lastGoal = null;
         cancels = 0;
+        mineCancels = 0;
+        lastMineQuantity = 0;
+        lastMineBlocks = null;
         pathing = false;
+        mining = false;
     }
 
     public static Provider getProvider() { return new Provider(); }
@@ -39,6 +48,23 @@ public final class BaritoneAPI {
     public static final class Instance {
         public ICustomGoalProcess getCustomGoalProcess() {
             return goal -> lastGoal = goal;
+        }
+
+        public IMineProcess getMineProcess() {
+            return new IMineProcess() {
+                @Override public void mineByName(int quantity, String... blocks) {
+                    lastMineQuantity = quantity;
+                    lastMineBlocks = blocks.clone();
+                    mining = true;
+                }
+
+                @Override public void cancel() {
+                    mineCancels++;
+                    mining = false;
+                }
+
+                @Override public boolean isActive() { return mining; }
+            };
         }
 
         public IPathingBehavior getPathingBehavior() {

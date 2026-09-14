@@ -2,26 +2,25 @@ package me.mrhakan.agalarhack.commands.impl;
 
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+
 import me.mrhakan.agalarhack.AgalarHackClient;
 import me.mrhakan.agalarhack.commands.Command;
 import me.mrhakan.agalarhack.managers.MessageManager;
+import me.mrhakan.agalarhack.services.ClientServices;
 import me.mrhakan.agalarhack.services.CraftingPlan;
 import me.mrhakan.agalarhack.services.GrindBook;
+import me.mrhakan.agalarhack.services.GrindExecutor;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 
 /**
- * Works out what it would take to obtain something, counting what the player already has.
+ * Plans a deterministic recipe chain, or starts its explicitly bounded raw-resource executor.
  *
- * <p><strong>This plans; it does not yet do.</strong> Saying so in the command itself is the point:
- * the planner is finished and tested, the part that walks to a tree and swings at it is not, and a
- * command that quietly did half of a grind would be worse than one that does none of it. Every
- * reply here is about what a run <em>would</em> need.
- *
- * <p>The counting is the half that is easy to get wrong and easy to check: birch planks count
- * towards planks, charcoal towards coal, and anything already in the bag comes off the list, so
- * asking twice in a row gives a shorter answer the second time.
+ * <p>The short form remains plan-only for compatibility: {@code .grind stone_pickaxe} never starts
+ * automation. Execution is opt-in through {@code .grind run}, and crafted chains are refused rather
+ * than pretending that Baritone can craft them.
  */
 public class Grind extends Command {
 
@@ -29,40 +28,130 @@ public class Grind extends Command {
     private static final int MAX_LINES = 12;
 
     public Grind() {
-        super("grind", "Plans what it would take to obtain an item",
-                "grind <item> [count]", "plan");
+        super("grind", "Plans or executes a bounded resource grind",
+                "grind <item> [count] | grind run <item> [count] | grind stop | grind status", "plan");
     }
 
     @Override
     public void onCommand(String[] args) {
-        // args[0] is the command name itself; the dispatcher passes the whole split line.
         if (args.length < 2 || args[1].isBlank()) {
             sendUsage();
             known();
             return;
         }
-        String target = GrindBook.generic(args[1]);
-        if (!GrindBook.knows(target)) {
-            MessageManager.sendMessagePrefix(ChatFormatting.RED + "Nothing in the book for \""
-                    + args[1] + "\".");
+
+        String selector = args[1].toLowerCase(Locale.ROOT);
+        if ("stop".equals(selector)) {
+            stop();
+            return;
+        }
+        if ("status".equals(selector)) {
+            status();
+            return;
+        }
+
+        boolean explicitPlan = "plan".equals(selector);
+        boolean execute = "run".equals(selector);
+        int itemIndex = explicitPlan || execute ? 2 : 1;
+        if (args.length <= itemIndex || args[itemIndex].isBlank()) {
+            sendUsage();
             known();
             return;
         }
-        int wanted = 1;
-        if (args.length > 2) {
-            try {
-                wanted = Integer.parseInt(args[2]);
-            } catch (NumberFormatException notANumber) {
-                MessageManager.sendMessagePrefix(ChatFormatting.RED + "\"" + args[2]
-                        + "\" is not a number.");
-                return;
-            }
-            if (wanted < 1 || wanted > 512) {
-                MessageManager.sendMessagePrefix(ChatFormatting.RED + "Ask for between 1 and 512.");
-                return;
-            }
+        if (args.length > itemIndex + 2) {
+            sendUsage();
+            return;
         }
 
+        String target = GrindBook.generic(args[itemIndex]);
+        if (!GrindBook.knows(target)) {
+            MessageManager.sendMessagePrefix(ChatFormatting.RED + "Nothing in the book for \""
+                    + args[itemIndex] + "\".");
+            known();
+            return;
+        }
+
+        Integer wanted = count(args, itemIndex + 1);
+        if (wanted == null) return;
+
+        if (execute) {
+            run(target, wanted);
+        } else {
+            plan(target, wanted);
+        }
+    }
+
+    private static Integer count(String[] args, int index) {
+        if (args.length <= index) return 1;
+        try {
+            int wanted = Integer.parseInt(args[index]);
+            if (wanted < 1 || wanted > 512) {
+                MessageManager.sendMessagePrefix(ChatFormatting.RED + "Ask for between 1 and 512.");
+                return null;
+            }
+            return wanted;
+        } catch (NumberFormatException notANumber) {
+            MessageManager.sendMessagePrefix(ChatFormatting.RED + "\"" + args[index]
+                    + "\" is not a number.");
+            return null;
+        }
+    }
+
+    private static void run(String target, int wanted) {
+        GrindExecutor executor = ClientServices.require(GrindExecutor.class);
+        switch (executor.start(target, wanted)) {
+            case STARTED -> MessageManager.sendMessagePrefix(ChatFormatting.GREEN
+                    + "AutoGrind started; gathering " + wanted + " " + target + ".");
+            case ALREADY_SATISFIED -> MessageManager.sendMessagePrefix(ChatFormatting.GREEN
+                    + "You already have " + wanted + " " + target + ".");
+            case BUSY -> MessageManager.sendMessagePrefix(ChatFormatting.RED
+                    + "AutoGrind is already running " + executor.currentTask() + ".");
+            case NO_WORLD -> MessageManager.sendMessagePrefix(ChatFormatting.RED
+                    + "You need to be in a world to run AutoGrind.");
+            case BARITONE_ABSENT -> MessageManager.sendMessagePrefix(ChatFormatting.RED
+                    + "AutoGrind needs Baritone installed; nothing was started.");
+            case UNSUPPORTED -> MessageManager.sendMessagePrefix(ChatFormatting.RED
+                    + "AutoGrind currently executes raw resource goals only; this plan includes "
+                    + "crafting. Use .grind plan to inspect it.");
+            case INVALID -> MessageManager.sendMessagePrefix(ChatFormatting.RED
+                    + "That AutoGrind request is not valid.");
+        }
+    }
+
+    private static void stop() {
+        GrindExecutor executor = ClientServices.require(GrindExecutor.class);
+        MessageManager.sendMessagePrefix(executor.stop() ? ChatFormatting.YELLOW
+                + "AutoGrind stopped." : ChatFormatting.GRAY + "No AutoGrind run is active.");
+    }
+
+    private static void status() {
+        GrindExecutor executor = ClientServices.require(GrindExecutor.class);
+        switch (executor.state()) {
+            case RUNNING -> MessageManager.sendMessagePrefix(ChatFormatting.GREEN + "AutoGrind running: "
+                    + executor.currentTask() + " (" + executor.completed() + "/" + executor.total() + ").");
+            case DONE -> MessageManager.sendMessagePrefix(ChatFormatting.GREEN + "AutoGrind complete.");
+            case FAILED -> MessageManager.sendMessagePrefix(ChatFormatting.RED + "AutoGrind failed: "
+                    + executor.failure());
+            case IDLE -> MessageManager.sendMessagePrefix(ChatFormatting.GRAY + "AutoGrind is idle.");
+        }
+    }
+
+    /** What the player is carrying, counted under the book's names. */
+    private static Map<String, Integer> carried(Minecraft mc) {
+        Map<String, Integer> have = new LinkedHashMap<>();
+        if (mc == null || mc.player == null) return have;
+        var inventory = mc.player.getInventory();
+        for (int slot = 0; slot < inventory.getContainerSize(); slot++) {
+            var stack = inventory.getItem(slot);
+            if (stack.isEmpty()) continue;
+            String name = GrindBook.generic(
+                    net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(stack.getItem()).toString());
+            have.merge(name, stack.getCount(), Integer::sum);
+        }
+        return have;
+    }
+
+    private static void plan(String target, int wanted) {
         Map<String, Integer> have = carried(Minecraft.getInstance());
         List<CraftingPlan.Step> steps;
         try {
@@ -97,21 +186,6 @@ public class Grind extends Command {
         }
         MessageManager.sendMessagePrefix(ChatFormatting.GRAY
                 + "Planning only - nothing is gathered or crafted yet.");
-    }
-
-    /** What the player is carrying, counted under the book's names. */
-    private static Map<String, Integer> carried(Minecraft mc) {
-        Map<String, Integer> have = new LinkedHashMap<>();
-        if (mc == null || mc.player == null) return have;
-        var inventory = mc.player.getInventory();
-        for (int slot = 0; slot < inventory.getContainerSize(); slot++) {
-            var stack = inventory.getItem(slot);
-            if (stack.isEmpty()) continue;
-            String name = GrindBook.generic(
-                    net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(stack.getItem()).toString());
-            have.merge(name, stack.getCount(), Integer::sum);
-        }
-        return have;
     }
 
     private static void known() {

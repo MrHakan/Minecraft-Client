@@ -2213,6 +2213,17 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
                     + "looks like it started a grind and did nothing is worse than one that refuses");
         }
         LOGGER.info("  grind planned a stone pickaxe around the wood already carried");
+
+        context.runOnClient(client -> me.mrhakan.agalarhack.managers.CommandManager.handleChat(
+                me.mrhakan.agalarhack.AgalarHackClient.prefix + "grind run cobblestone 1"));
+        context.waitTicks(10);
+        boolean refusedWithoutBaritone = context.computeOnClient(client ->
+                ChatView.contains(client, "AutoGrind needs Baritone installed"));
+        if (!refusedWithoutBaritone) {
+            throw new AssertionError("AutoGrind started a raw resource run without Baritone or "
+                    + "failed to explain that no mining backend is installed");
+        }
+        LOGGER.info("  AutoGrind refused execution cleanly without Baritone");
     }
 
     /**

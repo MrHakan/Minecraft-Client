@@ -49,6 +49,27 @@ class BaritoneBridgeTest {
         assertEquals(-200, goal.z);
     }
 
+    @Test void miningByNameReachesTheDocumentedMineProcess() {
+        assertEquals(BaritoneBridge.Result.STARTED,
+                bridge.mineByName(3, "oak_log", "birch_log"));
+        assertEquals(3, BaritoneAPI.lastMineQuantity);
+        assertArrayEquals(new String[]{"oak_log", "birch_log"}, BaritoneAPI.lastMineBlocks);
+        assertTrue(bridge.mining());
+    }
+
+    @Test void cancellingMiningUsesTheMiningProcessWithoutCancellingPathing() {
+        bridge.mineByName(1, "coal_ore");
+        assertEquals(BaritoneBridge.Result.STARTED, bridge.cancelMining());
+        assertEquals(1, BaritoneAPI.mineCancels);
+        assertFalse(bridge.mining());
+        assertEquals(0, BaritoneAPI.cancels);
+    }
+
+    @Test void invalidMiningNamesAreRejectedBeforeReflection() {
+        assertEquals(BaritoneBridge.Result.FAILED, bridge.mineByName(1, "oak log"));
+        assertEquals(0, BaritoneAPI.lastMineQuantity);
+    }
+
     @Test void cancellingReachesCancelEverything() {
         assertEquals(BaritoneBridge.Result.STARTED, bridge.cancel());
         assertEquals(1, BaritoneAPI.cancels);

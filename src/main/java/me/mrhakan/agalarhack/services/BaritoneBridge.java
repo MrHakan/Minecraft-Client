@@ -41,6 +41,9 @@ public final class BaritoneBridge {
     private static final String GOAL_BLOCK = "baritone.api.pathing.goals.GoalBlock";
     private static final String GOAL_XZ = "baritone.api.pathing.goals.GoalXZ";
     private static final String GOAL = "baritone.api.pathing.goals.Goal";
+    private static final String MINE_PROCESS = "baritone.api.process.IMineProcess";
+    private static final int MAX_MINE_BLOCKS = 32;
+    private static final int MAX_MINE_QUANTITY = 1_000_000;
 
     /** Resolved once. Null means "not resolved yet"; {@link #missing} records a settled absence. */
     private Class<?> api;
@@ -60,6 +63,62 @@ public final class BaritoneBridge {
     /** Paths to a column, letting Baritone choose the height — what {@code #goto x z} does. */
     public Result pathTo(int x, int z) {
         return path(GOAL_XZ, new Class<?>[]{int.class, int.class}, x, z);
+    }
+
+    /**
+     * Asks Baritone's real 26.2 mining process to collect a bounded quantity of named blocks.
+     * The names are the same registry names accepted by Baritone's documented
+     * {@code IMineProcess.mineByName} method; callers should resolve generic resource names before
+     * reaching this boundary.
+     */
+    public Result mineByName(int quantity, String... blocks) {
+        if (quantity < 0 || quantity > MAX_MINE_QUANTITY || blocks == null
+                || blocks.length == 0 || blocks.length > MAX_MINE_BLOCKS) {
+            return invalidMiningRequest("quantity or block list is outside the safe bounds");
+        }
+        for (String block : blocks) {
+            if (block == null || block.isBlank() || block.length() > 128
+                    || block.indexOf(' ') >= 0 || block.indexOf('\t') >= 0
+                    || block.indexOf('\n') >= 0 || block.indexOf('\r') >= 0) {
+                return invalidMiningRequest("a block name is blank, too long or contains whitespace");
+            }
+        }
+
+        Class<?> loaded = api();
+        if (loaded == null) return Result.ABSENT;
+        try {
+            Object process = mineProcess(loaded);
+            Class.forName(MINE_PROCESS, true, loaded.getClassLoader());
+            findMethod(process.getClass(), "mineByName", int.class, String[].class)
+                    .invoke(process, new Object[]{quantity, blocks});
+            return Result.STARTED;
+        } catch (ReflectiveOperationException | RuntimeException failure) {
+            return report("start mining", failure);
+        }
+    }
+
+    /** Cancels only the mining process owned by AutoGrind, leaving unrelated Baritone goals alone. */
+    public Result cancelMining() {
+        Class<?> loaded = api();
+        if (loaded == null) return Result.ABSENT;
+        try {
+            call(mineProcess(loaded), "cancel");
+            return Result.STARTED;
+        } catch (ReflectiveOperationException | RuntimeException failure) {
+            return report("cancel mining", failure);
+        }
+    }
+
+    /** Whether Baritone's mining process currently wants control. False when absent. */
+    public boolean mining() {
+        Class<?> loaded = api();
+        if (loaded == null) return false;
+        try {
+            return Boolean.TRUE.equals(call(mineProcess(loaded), "isActive"));
+        } catch (ReflectiveOperationException | RuntimeException failure) {
+            report("read the mining state", failure);
+            return false;
+        }
     }
 
     /** Stops pathing and every process that could start it again. */
@@ -111,6 +170,10 @@ public final class BaritoneBridge {
         return call(primaryBaritone(loaded), "getPathingBehavior");
     }
 
+    private Object mineProcess(Class<?> loaded) throws ReflectiveOperationException {
+        return call(primaryBaritone(loaded), "getMineProcess");
+    }
+
     /** Invokes a no-argument method, resolved the same careful way as the rest. */
     private static Object call(Object target, String name) throws ReflectiveOperationException {
         return findMethod(target.getClass(), name).invoke(target);
@@ -139,6 +202,11 @@ public final class BaritoneBridge {
             direct.setAccessible(true);
         }
         return direct;
+    }
+
+    private static Result invalidMiningRequest(String reason) {
+        LOGGER.warn("Refusing Baritone mining request: {}", reason);
+        return Result.FAILED;
     }
 
     private Class<?> api() {
