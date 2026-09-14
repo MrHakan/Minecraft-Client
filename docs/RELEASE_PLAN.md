@@ -8,10 +8,10 @@ player-visible risk or add a behavior that can be proven end-to-end.
 
 - Minecraft 26.2, Fabric Loader 0.19.3, Fabric API 0.157.0+26.2, Java 25.
 - 53 built-in modules, 0 `UNTESTED` badges; two fixture modules exist only during game tests.
-- The latest complete CI run (#245) executes 803 JUnit tests with zero failures/errors/skips, all
+- The latest complete CI run (#246) executes 803 JUnit tests with zero failures/errors/skips, all
   client game-test entrypoints, runtime mixin verification, addon fixture containment, generated docs
-  and artifact creation. The code-bearing commit is 60bd87b; the current branch tip is a documentation
-  checkpoint on the same tree.
+  and artifact creation. The code-bearing commit is 60bd87b; later documentation-only checkpoints
+  use the same tree.
 - 46 grouped client checks across 11 entrypoints and 171 no-world screens are covered. Dedicated
   server checks exist but are opt-in behind the EULA flag and are not part of that count.
 - Useful feature scope is approximately 80–85% at meaningful depth. Release confidence is a separate

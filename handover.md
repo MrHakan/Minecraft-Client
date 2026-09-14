@@ -7,20 +7,21 @@ generated docs > historical records. Re-derive counts from the live branch befor
 figures and next-batch suggestions are historical context only.
 
 - **Live branch/PR:** codex/foundation-services-26.2, PR #9, open, draft, mergeable and not merged.
-  Main is 19f83ab888a55d9b459f84fbae27dffe39036f71. The live branch tip is f70e2d5 (documentation-only);
-  the live code head is 60bd87b. Re-fetch before every publish and never merge, force-push or open
-  a second PR.
-- **Scale:** 252 commits against main; 361 changed files, +34,251/-891.
+  Main is 19f83ab888a55d9b459f84fbae27dffe39036f71. The live code head is 60bd87b; this checkpoint may itself be documentation-only, so resolve the
+  exact live PR head before every publish and never merge, force-push or open a second PR.
+- **Code-head scale:** 251 commits against main; 361 changed files, +34,251/-891. Resolve the
+  current PR commit/file scale from GitHub because documentation-only checkpoints follow this code.
 - **Versions:** Minecraft 26.2, Loader 0.19.3, Fabric API 0.157.0+26.2, Java 25.
 - **Modules:** 53 built-ins; 0 UNTESTED. Runtime lifecycle count is 55 because two fixture addon
   modules exist only during game tests.
-- **Observed CI:** run #245 (34877807695) succeeded on f70e2d5. It ran all four inventory regression
+- **Observed CI:** run #246 (34879007922) succeeded on the documentation-equivalent head 33d964f. It ran all four inventory regression
   controls, Java 25 compilation, generated docs, client game tests, runtime mixin verification,
   rolled-log swallowed-error scanning and artifact creation. Archived JUnit XML reported
   **803 tests, 0 failures, 0 errors, 0 skipped** across 102 suites. The game log opened 171 screens,
   passed the real profile transition and inventory-contention scenarios, loaded both addon fixtures,
   recorded "AutoGrind refused execution cleanly without Baritone", and scanned 957 log lines with
-  only the two deliberately expected broken-addon failures. Dedicated-server checks explicitly
+  only the two deliberately expected broken-addon failures. A later docs-only checkpoint does not
+  change this code evidence. Dedicated-server checks explicitly
   skipped behind the EULA gate and are not coverage.
 - **Scenario count:** 46 grouped checks across 11 client game-test entrypoints; the new AutoGrind
   assertion is inside the existing grind scenario.
