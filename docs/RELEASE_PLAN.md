@@ -27,18 +27,18 @@ player-visible risk or add a behavior that can be proven end-to-end.
 | P1 | Scanner/render performance | **Substantial** | Shared budgets, chunk-aware caches, culling and timings exist. Profile before changing; never scan the world from a render callback or trade boundedness for a continuous rescan. |
 | P1 | UX/HUD | **Substantial** | Dynamic registry, editor, themes, accessibility and typed controls exist. Remaining work is primarily visual inspection at multiple GUI scales, not another widget rewrite. |
 | P1 | Visual acceptance | **Manual-only** | Inspect TargetHUD skin layers, ESP/nametag geometry, waypoint beams, trajectories, rainbow phases and AMOLED/light/high-contrast themes with a real client. Pixel-difference tests only establish drawing activity. |
-| P2 | AutoGrind execution | **Plan-only** | Keep `.grind` honest. Implement an in-reach interaction primitive only if it has real 26.2 game-test evidence; extend Baritone only against an inspected compatible JAR. |
+| P2 | AutoGrind execution | **Substantial** | Raw-resource execution is implemented through the inspected Baritone 26.2 mining API with bounded quantities, explicit stop/status and lifecycle cancellation. Recipe crafting/smelting remains plan-only until a vanilla menu executor has real contention and transition evidence. |
 | P2 | Addon installation | **Partly proven** | Fixture JARs prove entrypoints, registration and failure isolation. Still manually validate a remapped production JAR in `mods/`, restart persistence, safe removal and missing-dependency behavior. |
 | P2 | Dedicated multiplayer | **Opt-in/manual** | Use the existing harness only with owner-approved `-PacceptServerEula=true`; then test latency, reconnect, packet scoping and automation. Do not enable it in CI silently. |
 | P3 | Documentation/release | **In progress** | Keep handover and PR facts synchronized; generate module docs from source; record evidence class for every acceptance item. |
 
 ## Conditional module candidates
 
-Do not add modules just to increase the catalogue. The only currently justified candidate is the
-first honest AutoGrind executor primitive, and it is conditional on a bounded, reachable action that
-can be stopped and tested. It must use existing `RotationService`, `InventoryService` and action
-ownership, restore all input/state on disable or world replacement, and explicitly avoid pathfinding
-claims.
+Do not add modules just to increase the catalogue. AutoGrind now has a bounded raw-resource
+executor; its remaining recipe crafting/smelting work is a service concern, not a reason to add a
+duplicate module. Any extension must use the existing RotationService, InventoryService and action
+ownership, restore all input/state on disable or world replacement, and carry real 26.2 game-test
+evidence.
 
 Other original roadmap bullets are already represented by existing modules or services (for example
 Movement Stats, Ping Graph, ItemESP, ProjectileWarning, SafeWalk, AutoArmor and AutoTotem). Before
@@ -74,5 +74,4 @@ shared consumer over creating a duplicate.
 
 No packet flooding, crash/dupe exploits, malformed packet tricks, anti-cheat bypass presets, hidden
 server-authoritative claims, or silent rotations intended to defeat server checks. Turkish setting
-description localization is cancelled and must not be restarted. AutoGrind remains plan-only until
-its executor is honestly proven; Baritone reflection must never be written from guessed signatures.
+description localization is cancelled and must not be restarted. AutoGrind executes only its proven raw-resource boundary; crafting/smelting and installed-jar acceptance remain explicitly gated by evidence; Baritone reflection must never be written from guessed signatures.

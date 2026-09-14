@@ -88,13 +88,6 @@ public final class GrindBook {
     }
 
     /**
-     * Maps a real item id onto the name this book counts it under.
-     *
-     * <p>Wood is the reason this exists: every plank counts as "planks" whatever tree it came from,
-     * so a grind holding four birch planks is not sent to chop an oak. An id with no generic name
-     * maps to itself, which keeps the planner honest about items this book has never heard of.
-     */
-    /**
      * Returns the real block names accepted by Baritone for a raw resource goal.
      *
      * <p>A copy is returned so callers cannot mutate the shared recipe vocabulary. Crafted goals
@@ -107,6 +100,13 @@ public final class GrindBook {
         return names == null ? new String[0] : names.clone();
     }
 
+    /**
+     * Maps a real item id onto the name this book counts it under.
+     *
+     * <p>Wood is the reason this exists: every plank counts as "planks" whatever tree it came from,
+     * so a grind holding four birch planks is not sent to chop an oak. An id with no generic name
+     * maps to itself, which keeps the planner honest about items this book has never heard of.
+     */
     public static String generic(String itemId) {
         if (itemId == null || itemId.isBlank()) return "";
         String id = itemId.toLowerCase(Locale.ROOT);

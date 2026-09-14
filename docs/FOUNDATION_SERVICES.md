@@ -10,7 +10,7 @@ compatibility. Modules can use `service(Contract.class)` instead of static manag
 Existing Settings, profiles, HUD layouts and submit-node renderer remain in place.
 
 Registered services include existing managers, EventBus, InventoryService, TargetService,
-RotationService, NotificationService, ServerContextService, InputStateService, RenderService, ScannerService, ThemeService and HudRegistry.
+RotationService, NotificationService, BaritoneBridge, GrindExecutor, ServerContextService, InputStateService, RenderService, ScannerService, ThemeService and HudRegistry.
 Registration rejects duplicates. Optional integrations must use `registry().find(...)`.
 There is no external addon compatibility promise yet.
 
