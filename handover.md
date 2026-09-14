@@ -2,74 +2,86 @@
 
 ## CURRENT STATE — authoritative checkpoint (2026-09-14)
 
-Authority: live source > live tests > live PR state/description > current CI > this checkpoint >
-generated docs > historical records. Re-derive counts from the live branch before publishing; older
-figures and next-batch suggestions are historical context only.
+Authority order: live source > live tests > live PR state/description > current CI > this checkpoint >
+generated docs > historical records. Re-derive counts before every publish; anything below the
+historical marker explains how the branch got here and is not a current TODO list.
 
-- **Live branch/PR:** codex/foundation-services-26.2, PR #9, open, draft, mergeable and not merged.
-  Main is 19f83ab888a55d9b459f84fbae27dffe39036f71. The live code head is 60bd87b; this checkpoint may itself be documentation-only, so resolve the
-  exact live PR head before every publish and never merge, force-push or open a second PR.
-- **Code-head scale:** 251 commits against main; 361 changed files, +34,253/-891. Resolve the
-  current PR commit/file scale from GitHub because documentation-only checkpoints follow this code.
-- **Versions:** Minecraft 26.2, Loader 0.19.3, Fabric API 0.157.0+26.2, Java 25.
-- **Modules:** 53 built-ins; 0 UNTESTED. Runtime lifecycle count is 55 because two fixture addon
-  modules exist only during game tests.
-- **Observed CI:** run #248 (34881123734) succeeded on the code-bearing AutoGrind head 13c27ab. It ran all four inventory regression
-  controls, Java 25 compilation, generated docs, client game tests, runtime mixin verification,
-  rolled-log swallowed-error scanning and artifact creation. Archived JUnit XML reported
-  **803 tests, 0 failures, 0 errors, 0 skipped** across 102 suites. The game log opened 171 screens,
-  passed the real profile transition and inventory-contention scenarios, loaded both addon fixtures,
-  recorded "AutoGrind refused execution cleanly without Baritone", and scanned 957 log lines with
-  only the two deliberately expected broken-addon failures. Later docs-only checkpoints do not
-  change this code evidence. Dedicated-server checks explicitly
-  skipped behind the EULA gate and are not coverage.
-- **Scenario count:** 46 grouped checks across 11 client game-test entrypoints; the new AutoGrind
-  assertion is inside the existing grind scenario.
-- **Scope estimate:** roughly 80–85% of useful original feature scope at meaningful depth. Release
-  confidence is lower until installed Baritone/addon acceptance, visual correctness and dedicated
-  multiplayer are performed; crafted AutoGrind remains intentionally evidence-gated.
+- **Live branch/PR:** `codex/foundation-services-26.2`, PR #9, open, draft, mergeable and not merged. Base `main` is
+  `19f83ab888a55d9b459f84fbae27dffe39036f71`.
+- **Live head:** `2d33929890018d9763ee0989198022ee78c4738a` — **261 commits against main**, **368 changed files**,
+  **+34,980 / -891**. These are the current PR numbers, not the older documentation checkpoints.
+- **Versions:** Minecraft 26.2, Fabric Loader 0.19.3, Fabric API 0.157.0+26.2, Java 25.
+- **Modules:** **55 built-in modules**, with **1 UNTESTED** (PlayerAlerts). Runtime smoke exercises
+  **57 modules** because the two independent addon fixtures register one module each only during
+  game tests.
+- **Automated evidence:** CI run **#254** (34905822392) succeeded on this head. It executed the
+  Java 25 build, **819 JUnit tests (0 failures, 0 errors, 0 skipped)**, generated-doc checks,
+  inventory regression controls, client game tests, runtime mixin verification and artifact
+  creation. The headless client opened and rendered **177 screens without a world**, exercised
+  all 57 runtime modules for 20 ticks, and scanned **961 log lines** across one file. Only the
+  two intentionally failing broken-addon fixture records were allowed.
+- **Behaviour coverage:** **47 grouped client-game/transition outcomes** are reported by the smoke
+  run. GamemodeAlerts now has a real integrated-server survival-to-creative scenario; PlayerAlerts
+  has bounded tracker unit coverage and lifecycle coverage but still needs a real second-player
+  visibility acceptance before its experimental flag is cleared. Pixel-difference checks prove
+  render activity, not visual correctness.
+- **External addon mash-up:** public ideas were reviewed from [Trouser-Streak](https://github.com/etianl/Trouser-Streak),
+  [meteor-rejects](https://github.com/AntiCope/meteor-rejects) and [MeteorPlus 26.2](https://github.com/MeteorClientPlus/MeteorPlus/tree/26.2).
+  No source, mixin, packet format or license text was copied. The safe clean-room result is
+  PlayerAlerts (bounded client-visible entity alarms, friends filter, cooldown and Notification HUD)
+  plus GamemodeAlerts (bounded client-visible player-list mode changes, baseline snapshot and
+  explicit “client-visible” wording). Duplicate ESP variants, packet/crash/dupe/bypass behavior and
+  unsafe automation remain deliberately excluded by the product target.
+- **Baritone / AutoGrind:** the optional Baritone bridge uses the inspected 26.2 interfaces and
+  never sends chat. Resource-only `.grind run` execution watches real inventory counts and
+  cancels on lifecycle changes; crafted/smelted chains remain an explicit plan-only refusal until
+  a vanilla menu/input executor is proven. No installed production Baritone JAR was available to CI.
+- **Current scope:** approximately **80–85% of useful original scope at meaningful depth**. The
+  remaining release risk is acceptance evidence rather than a missing module catalogue: installed
+  addon persistence/removal, installed Baritone, natural fishing, busy dedicated multiplayer,
+  profile/reconnect edge cases, and visual correctness at multiple GUI scales/themes.
+- **Dedicated server:** the existing harness remains **opt-in**. CI #254 skipped its checks because
+  `acceptServerEula` was not supplied; those three checks are not counted as coverage. Do not enable
+  the EULA gate without the repository owner’s explicit decision.
+- **Language and safety:** the UI remains English-first; Turkish setting-description localization
+  is cancelled (existing translated module descriptions remain). No packet flooding, malformed
+  packets, crash/dupe exploits, anti-cheat bypass presets, hidden rotation or fake
+  server-authoritative information was added.
 
-### Current Baritone and AutoGrind batch
+### Current continuation — external addon mash-up
 
-- The official Baritone 26.2 API source was inspected rather than guessed. IBaritone exposes
-  getMineProcess(); IMineProcess exposes mineByName(int, String...) and cancel(). The client remains
-  compile-optional and never sends #goto or any other chat command.
-- 60bd87b adds bounded reflective mineByName, mining-state and mining-cancellation calls to
-  BaritoneBridge. GrindBook maps generic log, cobblestone, coal and raw_iron goals to bounded block
-  lists.
-- GrindExecutor runs raw gather steps through TaskRunner, watches actual inventory counts, refuses
-  craft/smelt chains rather than faking them, and cancels on completion, timeout, disconnect, world
-  change, player replacement or death. .grind run, .grind stop and .grind status are explicit; the
-  legacy short form and .grind plan remain plan-only.
-- Unit coverage is source-compatible reflection/argument tests and defensive mapping tests. The client
-  game test proves the absent-Baritone refusal and no-start behavior; CI does not contain Baritone.
+- `PlayerAlertTracker` and `GameModeTracker` are bounded, pure state holders with 16 unit
+  tests total. They deduplicate/rebaseline lifecycle events, cap remembered UUIDs, normalize modes,
+  and keep partial join snapshots from producing false alerts.
+- `PlayerAlerts` consumes the typed EventBus, FriendManager and NotificationService. It reports only
+  players loaded by this client, never scans the server, sends no chat and never claims invisibility
+  knowledge. It is marked experimental until a real second-player client-visibility scenario exists.
+- `GamemodeAlerts` polls the existing client player list, treats the first complete self-inclusive
+  snapshot as a baseline, supports self/other/mode filters, and was cleared only after its real
+  integrated-server scenario passed. The generated `docs/MODULES.md` now reports 55 modules and
+  one UNTESTED badge; Turkish module-description keys are present in valid JSON.
+- The implementation is intentionally small: external projects informed feature selection, while
+  Agalar Hack’s existing EventBus, services, notification HUD, settings persistence and lifecycle
+  guards own the behavior.
 
-### Remaining scope, manual acceptance and deliberate boundaries
+### Current release-validation focus
 
-- **Installed Baritone remains manual:** test a real remapped 26.2-compatible JAR, .goto pathing,
-  .grind run completion on nearby resources, cancellation and no public-chat leakage. The API source
-  branch is verified, but this is not a production-JAR or multiplayer claim.
-- **Crafted AutoGrind remains plan-only:** menu/input ownership, recipe placement, station setup,
-  smelting, peer inventory changes and real transitions need a separate vanilla executor and tests.
-- **Visual correctness remains manual-first:** TargetHUD face/skin overlay, ESP/nametag geometry,
-  waypoint beams, frustum edges, trajectory/potion/XP impact points, rainbow phase, themes and
-  ClickGUI/HUD behavior at multiple vanilla GUI scales. Pixel activity tests do not prove appearance.
-- **Addon installation remains partly manual:** remapped production JAR, mods/ discovery, restart
-  persistence, safe removal/orphaned config and missing-dependency loader behavior.
-- **Dedicated server remains opt-in:** do not accept the EULA in CI without owner approval; its
-  loopback harness is not busy-server latency or peer traffic.
-- **Product decisions left deliberately unresolved:** NoFall's once-per-fall ground report, Jesus'
-  water-surface semantics, notification placement ownership and the Baritone reflection modifier
-  suspicion require product or runtime evidence; no packet spam, guessed API or speculative refactor.
-- **Language:** client-visible UI remains English-first. Turkish setting-description localization was
-  explicitly cancelled; keep existing translated module descriptions only.
+1. Validate a genuinely installed/remapped addon JAR in a `mods/` folder, including restart
+   persistence, keybind persistence, safe removal and missing-dependency behavior.
+2. If a real compatible Baritone 26.2 JAR is installed, verify `.goto`, `.goto stop`,
+   `.grind run` completion/cancellation and zero public-chat leakage.
+3. Exercise natural fishing and inventory automation with real latency/full-inventory contention.
+4. Manually inspect TargetHUD face/hat compositing, ESP and nametag geometry, waypoint beams,
+   trajectory landing points, rainbow phase, HUD scale and light/AMOLED/high-contrast themes.
+5. Reproduce the deliberately unresolved NoFall, Jesus, notification-placement and Baritone
+   reflection-policy questions before changing their behavior.
 
-Preserve proven invariants: PlayerInputOverrides through the KeyboardInput TAIL injection, one-tick
-use pulses with physical-input preservation, per-tick container click budget and bounded recovery,
-total/default-safe HUD placement, .look cleanup on disconnect/world change, client-thread service access,
-narrow 26.2 mixins, rolled-log swallowed-error detection, Fabric-entrypoint addon loading without a
-folder scanner or custom class loader, bounded profile-binding persistence, and no public-chat path for
-Baritone operations.
+### Historical development record
+
+The chronological records below are retained for future agents. They may contain old counts,
+old recommendations and superseded “missing feature” statements; do not treat them as current
+requirements without checking live source and tests.
+
 
 ### Previous checkpoint context — superseded on 2026-09-14
 
