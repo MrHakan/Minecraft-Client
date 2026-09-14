@@ -9,8 +9,8 @@ and CI; older figures and next-batch suggestions are historical context only.
 - **Live branch/PR:** `codex/foundation-services-26.2`, [PR #9](https://github.com/MrHakan/Minecraft-Client/pull/9),
   open, draft, mergeable and not merged. It is the only open PR. Main is
   `19f83ab888a55d9b459f84fbae27dffe39036f71`; the latest code-bearing head is
-  `8046a011ace8b19c91c03beb36b9c20049169715` (`8046a01`), followed by the documentation-only
-  checkpoint `2cbcc3f` and this evidence update. Resolve the live branch before publishing;
+  `8046a011ace8b19c91c03beb36b9c20049169715` (`8046a01`), followed by documentation-only
+  checkpoints `2cbcc3f` and `c5da2fb` and this evidence update. Resolve the live branch before publishing;
   never merge, force-push, or open a second PR.
 - **Scale at the validated code head:** 235 commits against main; 355 changed files, +33,340/-876.
   The current branch has additional documentation-only commits; no source or test code changed after
@@ -19,13 +19,14 @@ and CI; older figures and next-batch suggestions are historical context only.
 - **Modules:** 53 built-ins; 0 UNTESTED (22 baseline exemptions, 31 behaviour-mapped modules).
   Runtime lifecycle count is 55 because two fixture addon modules do not ship. Zero badges does
   not mean all 53 have distinct behaviour scenarios.
-- **Observed CI:** [run #229](https://github.com/MrHakan/Minecraft-Client/actions/runs/34842635402)
-  succeeded on documentation checkpoint `2cbcc3f`; [run #228](https://github.com/MrHakan/Minecraft-Client/actions/runs/34787077090)
-  is the matching code-head validation on `8046a01`. The full PR job used JDK 25, passed the four inventory regression controls,
+- **Observed CI:** [run #230](https://github.com/MrHakan/Minecraft-Client/actions/runs/34843585385)
+  succeeded on documentation checkpoint `c5da2fb`; [run #228](https://github.com/MrHakan/Minecraft-Client/actions/runs/34787077090)
+  is the matching code-head validation on `8046a01` and [run #229](https://github.com/MrHakan/Minecraft-Client/actions/runs/34842635402)
+  independently validated the first documentation checkpoint. The full PR job used JDK 25, passed the four inventory regression controls,
   compiled the client and generated docs, ran client game tests and runtime mixin checks, and produced
   artifacts. Archived JUnit XML was independently counted as **788 tests, 0 failures, 0 errors,
   0 skipped across 102 suites**. The client run opened 171 screens and the swallowed-error scan read
-  954 lines from one run log, finding only the two deliberately expected broken-addon failures.
+  958 lines from one run log, finding only the two deliberately expected broken-addon failures.
   Dedicated-server checks logged their explicit EULA-gated skip and are not coverage.
 - **Scenario count:** 46 grouped checks across 11 client game-test entrypoints. This convention groups
   SafeWalk/Parkour and Tracers/Nametags and is not a count of assertions or log lines. Three
