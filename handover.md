@@ -7,35 +7,35 @@ generated docs > historical records. Re-derive counts from the live branch befor
 figures and next-batch suggestions are historical context only.
 
 - **Live branch/PR:** codex/foundation-services-26.2, PR #9, open, draft, mergeable and not merged.
-  Main is 19f83ab888a55d9b459f84fbae27dffe39036f71. The live code head is 60bd87b; re-fetch it
-  before every publish and never merge, force-push or open a second PR.
-- **Scale at the live head:** 251 commits against main; 361 changed files, +34,297/-891.
+  Main is 19f83ab888a55d9b459f84fbae27dffe39036f71. The live branch tip is f70e2d5 (documentation-only);
+  the live code head is 60bd87b. Re-fetch before every publish and never merge, force-push or open
+  a second PR.
+- **Scale:** 252 commits against main; 361 changed files, +34,251/-891.
 - **Versions:** Minecraft 26.2, Loader 0.19.3, Fabric API 0.157.0+26.2, Java 25.
 - **Modules:** 53 built-ins; 0 UNTESTED. Runtime lifecycle count is 55 because two fixture addon
   modules exist only during game tests.
-- **Observed CI:** run #244 (34876609046) succeeded on 60bd87b. It ran all four inventory regression
+- **Observed CI:** run #245 (34877807695) succeeded on f70e2d5. It ran all four inventory regression
   controls, Java 25 compilation, generated docs, client game tests, runtime mixin verification,
   rolled-log swallowed-error scanning and artifact creation. Archived JUnit XML reported
-  **803 tests, 0 failures, 0 errors, 0 skipped** across 102 suites. The game log recorded the
-  existing 46 grouped checks, opened 171 screens, passed the real profile transition and
-  inventory-contention scenarios, loaded both addon fixtures, and recorded
-  "AutoGrind refused execution cleanly without Baritone". It scanned 990 log lines and found only
-  the two deliberately expected broken-addon failures. Dedicated-server checks explicitly skipped
-  behind the EULA gate and are not coverage.
-- **Scenario count:** 46 grouped checks across 11 client game-test entrypoints. The new AutoGrind
-  assertion is within the existing grind scenario and adds no separate grouped-count convention.
-- **Scope estimate:** roughly 80–85% of useful original feature scope at meaningful depth. The
-  remaining gap is release confidence: installed Baritone/addon acceptance, visual correctness,
-  dedicated multiplayer and crafted AutoGrind execution are still evidence-gated.
+  **803 tests, 0 failures, 0 errors, 0 skipped** across 102 suites. The game log opened 171 screens,
+  passed the real profile transition and inventory-contention scenarios, loaded both addon fixtures,
+  recorded "AutoGrind refused execution cleanly without Baritone", and scanned 957 log lines with
+  only the two deliberately expected broken-addon failures. Dedicated-server checks explicitly
+  skipped behind the EULA gate and are not coverage.
+- **Scenario count:** 46 grouped checks across 11 client game-test entrypoints; the new AutoGrind
+  assertion is inside the existing grind scenario.
+- **Scope estimate:** roughly 80–85% of useful original feature scope at meaningful depth. Release
+  confidence is lower until installed Baritone/addon acceptance, visual correctness and dedicated
+  multiplayer are performed; crafted AutoGrind remains intentionally evidence-gated.
 
 ### Current Baritone and AutoGrind batch
 
 - The official Baritone 26.2 API source was inspected rather than guessed. IBaritone exposes
-  getMineProcess(); IMineProcess exposes mineByName(int, String...) and cancel(). The client
-  remains compile-optional and never sends #goto or any other chat command.
-- 60bd87b adds reflective mineByName, mining-state and mining-cancellation calls to BaritoneBridge,
-  with request/list bounds and a single logged failure boundary. GrindBook maps generic log,
-  cobblestone, coal and raw_iron goals to bounded block-name lists.
+  getMineProcess(); IMineProcess exposes mineByName(int, String...) and cancel(). The client remains
+  compile-optional and never sends #goto or any other chat command.
+- 60bd87b adds bounded reflective mineByName, mining-state and mining-cancellation calls to
+  BaritoneBridge. GrindBook maps generic log, cobblestone, coal and raw_iron goals to bounded block
+  lists.
 - GrindExecutor runs raw gather steps through TaskRunner, watches actual inventory counts, refuses
   craft/smelt chains rather than faking them, and cancels on completion, timeout, disconnect, world
   change, player replacement or death. .grind run, .grind stop and .grind status are explicit; the
@@ -65,10 +65,10 @@ figures and next-batch suggestions are historical context only.
 
 Preserve proven invariants: PlayerInputOverrides through the KeyboardInput TAIL injection, one-tick
 use pulses with physical-input preservation, per-tick container click budget and bounded recovery,
-total/default-safe HUD placement, .look cleanup on disconnect/world change, client-thread service
-access, narrow 26.2 mixins, rolled-log swallowed-error detection, Fabric-entrypoint addon loading
-without a folder scanner or custom class loader, bounded profile-binding persistence, and no public-chat
-path for Baritone operations.
+total/default-safe HUD placement, .look cleanup on disconnect/world change, client-thread service access,
+narrow 26.2 mixins, rolled-log swallowed-error detection, Fabric-entrypoint addon loading without a
+folder scanner or custom class loader, bounded profile-binding persistence, and no public-chat path for
+Baritone operations.
 
 ### Previous checkpoint context — superseded on 2026-09-14
 
