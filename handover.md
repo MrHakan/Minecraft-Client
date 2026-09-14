@@ -8,11 +8,10 @@ and CI; older figures and next-batch suggestions are historical context only.
 
 - **Live branch/PR:** `codex/foundation-services-26.2`, [PR #9](https://github.com/MrHakan/Minecraft-Client/pull/9),
   open, draft, mergeable and not merged. It is the only open PR. Main is
-  `19f83ab888a55d9b459f84fbae27dffe39036f71`; the current branch head is
-  `5171e6076d6192aa279154d10ff8ff01b466a415` (`5171e60`), a documentation-only checkpoint. The
-  latest code-bearing head is `625a8f854d5e89262c06c6e877d1747a644f63e0` (`625a8f8`), followed by
-  the documentation-only checkpoints `2cbcc3f`, `c5da2fb`, `5a240fa`, `d214154`, `3d85b4d` and `5171e60`.
-  Resolve the live branch before publishing;
+  `19f83ab888a55d9b459f84fbae27dffe39036f71`. The latest observed remote tip before this
+  self-describing documentation checkpoint is `be80e98` (CI #236 below); the latest code-bearing
+  head is `625a8f854d5e89262c06c6e877d1747a644f63e0` (`625a8f8`), followed by documentation-only
+  checkpoints. Resolve the live branch and PR for the exact tip before publishing;
   never merge, force-push, or open a second PR.
 - **Scale at the validated code head:** 241 commits against main; 355 changed files, +33,433/-876.
   The current head adds one source/test topic-level commit; no gameplay or Minecraft API code changed.
@@ -20,13 +19,14 @@ and CI; older figures and next-batch suggestions are historical context only.
 - **Modules:** 53 built-ins; 0 UNTESTED (22 baseline exemptions, 31 behaviour-mapped modules).
   Runtime lifecycle count is 55 because two fixture addon modules do not ship. Zero badges does
   not mean all 53 have distinct behaviour scenarios.
-- **Observed CI:** [run #235](https://github.com/Mrhakan/Minecraft-Client/actions/runs/34850755495)
-  succeeded on the current documentation head `5171e60` (and therefore the code head `625a8f8`). It used JDK 25, passed the four inventory regression controls,
+- **Observed CI:** [run #236](https://github.com/Mrhakan/Minecraft-Client/actions/runs/34851705139)
+  succeeded on documentation head `be80e98` (and therefore the code head `625a8f8`). It used JDK 25, passed the four inventory regression controls,
   compiled the client and generated docs, ran client game tests and runtime mixin checks, and produced
   artifacts. Archived JUnit XML was independently counted as **789 tests, 0 failures, 0 errors,
-  0 skipped across 102 suites**. [Run #234](https://github.com/Mrhakan/Minecraft-Client/actions/runs/34849712009)
+  0 skipped across 102 suites**. [Run #235](https://github.com/Mrhakan/Minecraft-Client/actions/runs/34850755495)
+  on the preceding documentation checkpoint also succeeded with the same 789 tests. [Run #234](https://github.com/Mrhakan/Minecraft-Client/actions/runs/34849712009)
   on the preceding code checkpoint also succeeded with the same 789 tests. The client run opened 171
-  screens and the swallowed-error scan read 951 lines from one run log, finding only the two deliberately
+  screens and the swallowed-error scan read 956 lines from one run log, finding only the two deliberately
   expected broken-addon failures. The earlier #232 first-attempt timeout and successful rerun remain
   documented below and in the PR. Dedicated-server checks logged their explicit EULA-gated skip and are not coverage.
 - **Scenario count:** 46 grouped checks across 11 client game-test entrypoints. This convention groups
@@ -59,7 +59,7 @@ a write is refused, expose unsaved state, warn instead of claiming a green save,
 retries without repeating the mutation. `PortalCommand` shares that feedback rule and `BaseFinder`
 makes no persistence claim. `WaypointServiceTest` covers failed write, clear, and retry paths.
 
-CI #235's observed game output included:
+CI #236's observed game output included:
 
 ```text
 Parkour fence surface: control rise=0.0 enabled rise=0.0
@@ -69,7 +69,7 @@ BlockESP cap recovery: initial=16 grown=30 remaining=5 idle maximum work=9
 Dimension transition passed: real Nether level, held look cancelled and Freecam restored to replacement player
 Inventory contention passed: a mid-plan peer change kept every item and both cursors empty
 SKIPPED: dedicated-server scenarios need Minecraft's server EULA accepted
-Scanned 951 log lines across 1 file(s) for swallowed failures; found none beyond the 2 expected failures
+Scanned 956 log lines across 1 file(s) for swallowed failures; found none beyond the 2 expected failures
 Smoke check passed: the client runs, every module survives a world, and every mixin is applied.
 ```
 
