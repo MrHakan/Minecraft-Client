@@ -158,7 +158,9 @@ public class StorageESP extends Module {
             double dz = pos.getZ() + 0.5 - mc.player.getZ();
             if (dx * dx + dy * dy + dz * dz <= range * (double)range
                     && matches(BuiltInRegistries.BLOCK.getKey(entity.getBlockState().getBlock()).toString())) {
-                passMatches.add(new BlockPos(pos.getX(), pos.getY(), pos.getZ()));
+                // immutable() over a defensive copy: a block entity's position is already immutable,
+                // so this is the same object rather than an allocation per match (ported from main's dfe6e95).
+                passMatches.add(pos.immutable());
             }
         } catch (ConcurrentModificationException changed) {
             iterator = null;
