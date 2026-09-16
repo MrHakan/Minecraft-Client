@@ -14,6 +14,8 @@ import net.minecraft.world.level.chunk.status.ChunkStatus;
 /** Periodically caches loaded storage block entities for the world overlay renderer. */
 public class StorageESP extends Module {
     private final List<BlockPos> cachedPositions = new ArrayList<>();
+    private final List<BlockPos> scanBuffer = new ArrayList<>();
+    private List<BlockPos> cachedSnapshot = List.of();
     private int ticksUntilScan;
 
     public StorageESP() {
@@ -42,12 +44,8 @@ public class StorageESP extends Module {
 
     @Override
     public void onUpdate() {
-        if (mc.player == null || mc.level == null) {
-            return;
-        }
-        if (ticksUntilScan-- > 0) {
-            return;
-        }
+        if (mc.player == null || mc.level == null) return;
+        if (ticksUntilScan-- > 0) return;
         ticksUntilScan = Math.max(1, (int) Math.round(getNumberSetting("scanInterval", 10.0))) - 1;
         scanLoadedStorage();
     }
@@ -55,45 +53,33 @@ public class StorageESP extends Module {
     @Override
     public void onDisable() {
         cachedPositions.clear();
+        scanBuffer.clear();
+        cachedSnapshot = List.of();
         ticksUntilScan = 0;
     }
 
+    /** Immutable scan snapshot. Reused between scans instead of allocating a copy every render frame. */
     public List<BlockPos> getCachedPositions() {
-        return List.copyOf(cachedPositions);
+        return cachedSnapshot;
     }
 
     public boolean matches(String blockId) {
-        if (blockId == null) {
-            return false;
-        }
-        if (blockId.endsWith(":ender_chest")) {
-            return getBooleanSetting("enderChests", true);
-        }
-        if (blockId.endsWith(":chest") || blockId.endsWith(":trapped_chest")) {
-            return getBooleanSetting("chests", true);
-        }
-        if (blockId.endsWith(":barrel")) {
-            return getBooleanSetting("barrels", true);
-        }
-        if (blockId.endsWith("_shulker_box")) {
-            return getBooleanSetting("shulkers", true);
-        }
+        if (blockId == null) return false;
+        if (blockId.endsWith(":ender_chest")) return getBooleanSetting("enderChests", true);
+        if (blockId.endsWith(":chest") || blockId.endsWith(":trapped_chest")) return getBooleanSetting("chests", true);
+        if (blockId.endsWith(":barrel")) return getBooleanSetting("barrels", true);
+        if (blockId.endsWith("_shulker_box")) return getBooleanSetting("shulkers", true);
         return getBooleanSetting("utilities", true) && isUtilityStorage(blockId);
     }
 
     public static boolean isUtilityStorage(String blockId) {
-        return blockId.endsWith(":hopper")
-                || blockId.endsWith(":furnace")
-                || blockId.endsWith(":smoker")
-                || blockId.endsWith(":blast_furnace")
-                || blockId.endsWith(":dispenser")
-                || blockId.endsWith(":dropper")
-                || blockId.endsWith(":brewing_stand")
-                || blockId.endsWith(":crafter");
+        return blockId.endsWith(":hopper") || blockId.endsWith(":furnace") || blockId.endsWith(":smoker")
+                || blockId.endsWith(":blast_furnace") || blockId.endsWith(":dispenser") || blockId.endsWith(":dropper")
+                || blockId.endsWith(":brewing_stand") || blockId.endsWith(":crafter");
     }
 
     private void scanLoadedStorage() {
-        cachedPositions.clear();
+        scanBuffer.clear();
         int range = (int) Math.round(getNumberSetting("range", 64.0));
         int maxResults = (int) Math.round(getNumberSetting("maxResults", 512.0));
         int minimumChunkX = Math.floorDiv(mc.player.getBlockX() - range, 16);
@@ -101,34 +87,28 @@ public class StorageESP extends Module {
         int minimumChunkZ = Math.floorDiv(mc.player.getBlockZ() - range, 16);
         int maximumChunkZ = Math.floorDiv(mc.player.getBlockZ() + range, 16);
         double rangeSq = range * (double) range;
+        double playerX = mc.player.getX(), playerY = mc.player.getY(), playerZ = mc.player.getZ();
 
         outer:
         for (int chunkX = minimumChunkX; chunkX <= maximumChunkX; chunkX++) {
             for (int chunkZ = minimumChunkZ; chunkZ <= maximumChunkZ; chunkZ++) {
                 LevelChunk chunk = mc.level.getChunkSource().getChunk(chunkX, chunkZ, ChunkStatus.FULL, false);
-                if (chunk == null) {
-                    continue;
-                }
+                if (chunk == null) continue;
                 for (BlockEntity blockEntity : chunk.getBlockEntities().values()) {
-                    if (blockEntity == null || blockEntity.isRemoved()) {
-                        continue;
-                    }
+                    if (blockEntity == null || blockEntity.isRemoved()) continue;
                     BlockPos pos = blockEntity.getBlockPos();
-                    double dx = pos.getX() + 0.5 - mc.player.getX();
-                    double dy = pos.getY() + 0.5 - mc.player.getY();
-                    double dz = pos.getZ() + 0.5 - mc.player.getZ();
-                    if (dx * dx + dy * dy + dz * dz > rangeSq) {
-                        continue;
-                    }
+                    double dx = pos.getX() + 0.5 - playerX, dy = pos.getY() + 0.5 - playerY, dz = pos.getZ() + 0.5 - playerZ;
+                    if (dx * dx + dy * dy + dz * dz > rangeSq) continue;
                     String id = BuiltInRegistries.BLOCK.getKey(blockEntity.getBlockState().getBlock()).toString();
                     if (matches(id)) {
-                        cachedPositions.add(new BlockPos(pos.getX(), pos.getY(), pos.getZ()));
-                        if (cachedPositions.size() >= maxResults) {
-                            break outer;
-                        }
+                        scanBuffer.add(pos.immutable());
+                        if (scanBuffer.size() >= maxResults) break outer;
                     }
                 }
             }
         }
+        cachedPositions.clear();
+        cachedPositions.addAll(scanBuffer);
+        cachedSnapshot = List.copyOf(cachedPositions);
     }
 }
