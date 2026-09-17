@@ -112,11 +112,24 @@ public final class InventoryService {
     }
     public int findBestTool(BlockState state, int minimumDurability) {
         if (mc.player == null) return -1;
-        return InventorySelection.best(9, 1, slot -> {
-            ItemStack stack = mc.player.getInventory().getItem(slot);
-            if (stack.isEmpty() || (stack.isDamageableItem() && stack.getMaxDamage() - stack.getDamageValue() <= minimumDurability)) return -1;
-            return stack.getDestroySpeed(state) + (stack.isCorrectToolForDrops(state) ? 1000 : 0);
-        });
+        return InventorySelection.best(9, 1, slot -> toolScore(slot, state, minimumDurability));
+    }
+
+    /**
+     * How good the tool in this hotbar slot is against this block.
+     *
+     * <p>Public so a caller weighing the slot it is already on against the best one ranks them by
+     * the same rule {@link #findBestTool} ranks by. Writing that rule out a second time is exactly
+     * how {@code findBestArmor} and {@code ItemScoring} drifted apart.
+     *
+     * @return the score, or -1 when the slot is empty or the tool is too damaged to use - below the
+     *     baseline {@code findBestTool} selects above, so a refusal can never win
+     */
+    public double toolScore(int slot, BlockState state, int minimumDurability) {
+        if (mc.player == null || slot < 0 || slot >= 9) return -1;
+        ItemStack stack = mc.player.getInventory().getItem(slot);
+        if (stack.isEmpty() || (stack.isDamageableItem() && stack.getMaxDamage() - stack.getDamageValue() <= minimumDurability)) return -1;
+        return stack.getDestroySpeed(state) + (stack.isCorrectToolForDrops(state) ? 1000 : 0);
     }
     public boolean owns(String owner) { return leases.owns(owner); }
     /** Inventory-menu click sequences for armour/offhand automation. */

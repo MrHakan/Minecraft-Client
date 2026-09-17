@@ -780,7 +780,9 @@ Automatically selects the fastest hotbar tool while mining
 | --- | --- | --- | --- |
 | `swapBack` | `true` | `true/false or on/off` | Return to the previous hotbar slot after mining |
 | `miningOnly` | `true` | `true/false or on/off` | Only switch tools while the attack key is held |
+| `preferCurrent` | `true` | `true/false or on/off` | Keep the selected tool when it is effectively as fast as the best option |
 | `minDurability` | `5` | `0..1000` | Avoid damageable tools with this many or fewer uses remaining |
+| `switchThreshold` | `0.15` | `0..5` | Minimum destroy-speed improvement required before switching tools |
 
 ### BaseFinder
 

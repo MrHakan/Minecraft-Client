@@ -136,7 +136,8 @@ public class ClickGuiScreen extends Screen implements me.mrhakan.agalarhack.ui.C
             Module module = visibleModules.get(i);
             int y = listTop + i * ROW_HEIGHT;
             int cardWidth = contentWidth;
-            rowVisuals.add(new RowVisual(contentLeft, y, cardWidth, ROW_HEIGHT - 4, module));
+            String description = truncate(module.getDescription(), Math.max(60, cardWidth - 175));
+            rowVisuals.add(new RowVisual(contentLeft, y, cardWidth, ROW_HEIGHT - 4, module, description));
             int settingsWidth = 70;
             int toggleWidth = 66;
             addRenderableWidget(Button.builder(Component.literal(module.isToggled() ? "ON" : "OFF"), b -> {
@@ -251,8 +252,8 @@ public class ClickGuiScreen extends Screen implements me.mrhakan.agalarhack.ui.C
                 // verification rather than a quality judgement.
                 graphics.text(font, "UNTESTED", row.x + 14 + font.width(label), row.y + 7, 0xFFFFB86B, false);
             }
-            String desc = truncate(row.module.getDescription(), Math.max(60, row.width - 175));
-            graphics.text(font, desc, row.x + 10, row.y + 21, ClientUiTheme.MUTED, false);
+            // Truncated once when the row is built (main's 2daf33e) rather than per frame.
+            graphics.text(font, row.description, row.x + 10, row.y + 21, ClientUiTheme.MUTED, false);
         }
         if (visibleModules.isEmpty()) {
             graphics.centeredText(font, "No modules match this filter.", (SIDEBAR_WIDTH + width) / 2, 90, 0xFFFFB86B);
@@ -301,5 +302,5 @@ public class ClickGuiScreen extends Screen implements me.mrhakan.agalarhack.ui.C
         return out + suffix;
     }
 
-    private record RowVisual(int x, int y, int width, int height, Module module) {}
+    private record RowVisual(int x, int y, int width, int height, Module module, String description) {}
 }
