@@ -28,6 +28,8 @@ public class AutoEat extends Module {
         addNumberSetting("hunger", 12.0, 1.0, 20.0, "Start eating at or below this hunger level");
         addBooleanSetting("fillToFull", true, "Continue eating until the hunger bar is full");
         addBooleanSetting("swapBack", true, "Return to the previous hotbar slot afterwards");
+        addBooleanSetting("preferCurrent", true, "Keep the selected food when it is close to the best option to avoid needless hotbar swaps");
+        addNumberSetting("nutritionTolerance", 2.0, 0.0, 10.0, "Maximum nutrition points the selected food may trail the best food by");
         addBooleanSetting("allowGoldenApples", false, "Allow automatic use of golden/enchanted golden apples");
     }
 
@@ -80,16 +82,12 @@ public class AutoEat extends Module {
         eating = true;
     }
 
-    private boolean claimControls() {
-        boolean hotbar = AgalarHackClient.UTILITY_ACTIONS.claimHotbar(OWNER, PRIORITY);
-        boolean use = AgalarHackClient.UTILITY_ACTIONS.claimUse(OWNER, PRIORITY);
-        return hotbar && use;
-    }
-
     private int findBestFoodSlot() {
         int bestSlot = -1;
         int bestNutrition = -1;
         boolean allowGolden = getBooleanSetting("allowGoldenApples", false);
+        int selectedSlot = mc.player.getInventory().getSelectedSlot();
+        int selectedNutrition = -1;
 
         for (int slot = 0; slot < 9; slot++) {
             ItemStack stack = mc.player.getInventory().getItem(slot);
@@ -104,12 +102,29 @@ public class AutoEat extends Module {
             if (food == null) {
                 continue;
             }
-            if (food.nutrition() > bestNutrition) {
-                bestNutrition = food.nutrition();
+            int nutrition = food.nutrition();
+            if (slot == selectedSlot) {
+                selectedNutrition = nutrition;
+            }
+            if (nutrition > bestNutrition) {
+                bestNutrition = nutrition;
                 bestSlot = slot;
             }
         }
+
+        if (getBooleanSetting("preferCurrent", true) && selectedNutrition >= 0) {
+            int tolerance = (int) Math.round(getNumberSetting("nutritionTolerance", 2.0));
+            if (bestNutrition - selectedNutrition <= tolerance) {
+                return selectedSlot;
+            }
+        }
         return bestSlot;
+    }
+
+    private boolean claimControls() {
+        boolean hotbar = AgalarHackClient.UTILITY_ACTIONS.claimHotbar(OWNER, PRIORITY);
+        boolean use = AgalarHackClient.UTILITY_ACTIONS.claimUse(OWNER, PRIORITY);
+        return hotbar && use;
     }
 
     private void stopEating() {
