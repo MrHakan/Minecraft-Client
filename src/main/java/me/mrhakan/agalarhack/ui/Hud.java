@@ -2,7 +2,6 @@ package me.mrhakan.agalarhack.ui;
 
 import java.awt.Color;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 
@@ -26,12 +25,8 @@ import net.minecraft.world.item.ItemStack;
 public class Hud implements HudElement {
 
     private static final EquipmentSlot[] TARGET_EQUIPMENT = {
-            EquipmentSlot.HEAD,
-            EquipmentSlot.CHEST,
-            EquipmentSlot.LEGS,
-            EquipmentSlot.FEET,
-            EquipmentSlot.MAINHAND,
-            EquipmentSlot.OFFHAND
+            EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS,
+            EquipmentSlot.FEET, EquipmentSlot.MAINHAND, EquipmentSlot.OFFHAND
     };
 
     private final me.mrhakan.agalarhack.ui.hud.HudRegistry registry = me.mrhakan.agalarhack.services.ClientServices.require(me.mrhakan.agalarhack.ui.hud.HudRegistry.class);
@@ -282,13 +277,7 @@ public class Hud implements HudElement {
         }),new me.mrhakan.agalarhack.managers.HudLayoutManager.WidgetState(me.mrhakan.agalarhack.managers.HudLayoutManager.Anchor.TOP_LEFT,8,90+registry.ids().size()*12,false));
     }
 
-    public static class ModuleComparator implements Comparator<Module> {
-        @Override
-        public int compare(Module a, Module b) {
-            Font font = Minecraft.getInstance().font;
-            return Integer.compare(font.width(b.getDisplayName()), font.width(a.getDisplayName()));
-        }
-    }
+    private final List<HudLine> infoLines = new ArrayList<>();
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor graphics, DeltaTracker deltaTracker) {
@@ -300,9 +289,7 @@ public class Hud implements HudElement {
     }
 
     private void renderBranding(GuiGraphicsExtractor graphics, Minecraft mc) {
-        if (!AgalarHackClient.HUD_LAYOUT.get("branding").visible) {
-            return;
-        }
+        if (!AgalarHackClient.HUD_LAYOUT.get("branding").visible) return;
         Font font = mc.font;
         String text = AgalarHackClient.NAME + " " + AgalarHackClient.VERSION;
         int x = AgalarHackClient.HUD_LAYOUT.resolveX("branding", graphics.guiWidth(), font.width(text));
@@ -311,25 +298,21 @@ public class Hud implements HudElement {
         graphics.text(font, AgalarHackClient.VERSION, x + font.width(AgalarHackClient.NAME) + 5, y, 0xFFFFFACD, true);
     }
 
+
     private void renderInfo(GuiGraphicsExtractor graphics, Minecraft mc) {
-        if (!AgalarHackClient.HUD_LAYOUT.get("info").visible) {
-            return;
-        }
+        if (!AgalarHackClient.HUD_LAYOUT.get("info").visible) return;
         Font font = mc.font;
-        List<HudLine> lines = new ArrayList<>();
+        infoLines.clear();
         for (Module mod : AgalarHackClient.moduleManager.getModuleList()) {
-            if (mod.isToggled() && mod instanceof HudInfoProvider provider) {
-                lines.addAll(provider.getHudLines());
-            }
+            if (mod.isToggled() && mod instanceof HudInfoProvider provider) infoLines.addAll(provider.getHudLines());
         }
-        if (lines.isEmpty()) {
-            return;
-        }
-        int width = lines.stream().mapToInt(line -> font.width(line.text())).max().orElse(0);
-        int height = lines.size() * font.lineHeight;
+        if (infoLines.isEmpty()) return;
+        int width = 0;
+        for (HudLine line : infoLines) width = Math.max(width, font.width(line.text()));
+        int height = infoLines.size() * font.lineHeight;
         int x = AgalarHackClient.HUD_LAYOUT.resolveX("info", graphics.guiWidth(), width);
         int y = AgalarHackClient.HUD_LAYOUT.resolveY("info", graphics.guiHeight(), height);
-        for (HudLine line : lines) {
+        for (HudLine line : infoLines) {
             graphics.text(font, line.text(), x, y, line.color(), true);
             y += font.lineHeight;
         }
@@ -365,14 +348,9 @@ public class Hud implements HudElement {
 
     private void renderTarget(GuiGraphicsExtractor graphics, Minecraft mc) {
         Module targetHud = AgalarHackClient.moduleManager.getModule("TargetHUD");
-        if (targetHud == null || !targetHud.isToggled() || !AgalarHackClient.HUD_LAYOUT.get("target").visible) {
-            return;
-        }
-        double timeout = targetHud.getNumberSetting("timeout", 3.0);
-        LivingEntity target = AgalarHackClient.TARGET_TRACKER.get(timeout);
-        if (target == null) {
-            return;
-        }
+        if (targetHud == null || !targetHud.isToggled() || !AgalarHackClient.HUD_LAYOUT.get("target").visible) return;
+        LivingEntity target = AgalarHackClient.TARGET_TRACKER.get(targetHud.getNumberSetting("timeout", 3.0));
+        if (target == null) return;
 
         Font font = mc.font;
         var layout = me.mrhakan.agalarhack.ui.hud.TargetHudModel.Layout.parse(targetHud.getStringSetting("layout", "compact"));
@@ -405,19 +383,14 @@ public class Hud implements HudElement {
         if (showEquipment) {
             for (EquipmentSlot slot : TARGET_EQUIPMENT) {
                 ItemStack item = target.getItemBySlot(slot);
-                if (!item.isEmpty()) {
-                    equipment.add(item);
-                }
+                if (!item.isEmpty()) equipment.add(item);
             }
         }
-
         List<MobEffectInstance> effects = new ArrayList<>();
         if (showEffects) {
             int limit = (int) Math.round(targetHud.getNumberSetting("maxEffects", 6.0));
             for (MobEffectInstance effect : target.getActiveEffects()) {
-                if (effects.size() >= limit) {
-                    break;
-                }
+                if (effects.size() >= limit) break;
                 effects.add(effect);
             }
         }
@@ -427,7 +400,9 @@ public class Hud implements HudElement {
                 && target instanceof net.minecraft.client.player.AbstractClientPlayer;
         int indent = me.mrhakan.agalarhack.ui.hud.PlayerFace.textIndent(showFace);
 
-        int contentWidth = lines.stream().mapToInt(font::width).max().orElse(80) + indent;
+        int contentWidth = 80;
+        for (String line : lines) contentWidth = Math.max(contentWidth, font.width(line));
+        contentWidth += indent;
         int iconWidth = Math.max(equipment.size(), effects.size()) * 18;
         int boxWidth = Math.max(132, Math.max(contentWidth + 12, iconWidth + 12));
         int textHeight = Math.max(lines.size() * font.lineHeight,
@@ -481,27 +456,15 @@ public class Hud implements HudElement {
             }
             cursorY += 7;
         }
-
         if (!equipment.isEmpty()) {
             int itemX = x + 7;
-            for (ItemStack item : equipment) {
-                graphics.item(item, itemX, cursorY);
-                itemX += 18;
-            }
+            for (ItemStack item : equipment) { graphics.item(item, itemX, cursorY); itemX += 18; }
             cursorY += 18;
         }
-
         if (!effects.isEmpty()) {
             int effectX = x + 7;
             for (MobEffectInstance effect : effects) {
-                graphics.blitSprite(
-                        RenderPipelines.GUI_TEXTURED,
-                        net.minecraft.client.gui.Hud.getMobEffectSprite(effect.getEffect()),
-                        effectX,
-                        cursorY + 1,
-                        18,
-                        18,
-                        ARGB.white(1.0f));
+                graphics.blitSprite(RenderPipelines.GUI_TEXTURED, net.minecraft.client.gui.Hud.getMobEffectSprite(effect.getEffect()), effectX, cursorY + 1, 18, 18, ARGB.white(1.0f));
                 effectX += 18;
             }
         }
@@ -511,8 +474,7 @@ public class Hud implements HudElement {
         var themes = me.mrhakan.agalarhack.services.ClientServices.registry().find(me.mrhakan.agalarhack.services.ThemeService.class);
         if (themes.isPresent() && (!themes.get().current().motionEnabled() || themes.get().current().highContrast))
             return ClientUiTheme.ACCENT;
-        double rainbowState = Math.ceil((System.currentTimeMillis() + delay) / 25.0);
-        rainbowState %= 360;
+        double rainbowState = Math.ceil((System.currentTimeMillis() + delay) / 25.0) % 360;
         return Color.getHSBColor((float) (rainbowState / 360.0f), 1f, 1f).getRGB();
     }
 }

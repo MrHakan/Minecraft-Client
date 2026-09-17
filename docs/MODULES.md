@@ -466,12 +466,13 @@ Client-side camera adjustments: hurt shake, view bobbing, FOV and FOV effects
 
 ### Coordinates
 
-Shows your current XYZ coordinates and optional facing direction on the HUD
+Shows XYZ, facing direction, and optional Nether/Overworld coordinate conversion
 
 | Setting | Default | Values | Description |
 | --- | --- | --- | --- |
 | `precision` | `1` | `0..3` | Number of decimal places shown for coordinates |
 | `facing` | `true` | `true/false or on/off` | Append the horizontal cardinal direction |
+| `dimensionCoords` | `true` | `true/false or on/off` | Show the matching Nether or Overworld X/Z coordinates |
 
 ### Durability
 
