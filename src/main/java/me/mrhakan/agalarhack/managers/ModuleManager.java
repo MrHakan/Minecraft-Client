@@ -35,6 +35,7 @@ import net.minecraft.client.Minecraft;
 public class ModuleManager {
 
     private final List<Module> modules = new ArrayList<>();
+    private final List<Module> moduleView = Collections.unmodifiableList(modules);
     private final Map<String, Module> modulesByName = new LinkedHashMap<>();
 
     public ModuleManager() {
@@ -113,7 +114,7 @@ public class ModuleManager {
     }
 
     public List<Module> getModuleList() {
-        return Collections.unmodifiableList(modules);
+        return moduleView;
     }
 
     public List<Module> getModulesByCategory(Category category) {
