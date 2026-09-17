@@ -24,7 +24,9 @@ public class AutoTool extends Module {
     public void selfSettings() {
         addBooleanSetting("swapBack", true, "Return to the previous hotbar slot after mining");
         addBooleanSetting("miningOnly", true, "Only switch tools while the attack key is held");
+        addBooleanSetting("preferCurrent", true, "Keep the selected tool when it is effectively as fast as the best option");
         addNumberSetting("minDurability", 5.0, 0.0, 1000.0, "Avoid damageable tools with this many or fewer uses remaining");
+        addNumberSetting("switchThreshold", 0.15, 0.0, 5.0, "Minimum destroy-speed improvement required before switching tools");
     }
 
     @Override
@@ -42,8 +44,8 @@ public class AutoTool extends Module {
         }
 
         BlockState state = mc.level.getBlockState(hit.getBlockPos());
-        int bestSlot = findBestSlot(state);
         int current = mc.player.getInventory().getSelectedSlot();
+        int bestSlot = findBestSlot(state, current);
         if (bestSlot < 0 || bestSlot == current) {
             if (!mining) {
                 restoreSlot();
@@ -62,26 +64,39 @@ public class AutoTool extends Module {
         swapped = true;
     }
 
-    private int findBestSlot(BlockState state) {
+    private int findBestSlot(BlockState state, int currentSlot) {
         int best = -1;
         double bestScore = 1.0;
+        double currentScore = score(mc.player.getInventory().getItem(currentSlot), state);
         int minimumDurability = (int) Math.round(getNumberSetting("minDurability", 5.0));
         for (int slot = 0; slot < 9; slot++) {
             ItemStack stack = mc.player.getInventory().getItem(slot);
-            if (stack.isEmpty()) {
+            if (!isUsable(stack, minimumDurability)) {
                 continue;
             }
-            if (stack.isDamageableItem() && stack.getMaxDamage() - stack.getDamageValue() <= minimumDurability) {
-                continue;
-            }
-            float speed = stack.getDestroySpeed(state);
-            double score = speed + (stack.isCorrectToolForDrops(state) ? 1000.0 : 0.0);
+            double score = score(stack, state);
             if (score > bestScore) {
                 bestScore = score;
                 best = slot;
             }
         }
-        return best;
+        if (best < 0 || !getBooleanSetting("preferCurrent", true) || !isUsable(mc.player.getInventory().getItem(currentSlot), minimumDurability)) {
+            return best;
+        }
+        double threshold = getNumberSetting("switchThreshold", 0.15);
+        return bestScore - currentScore <= threshold ? currentSlot : best;
+    }
+
+    private boolean isUsable(ItemStack stack, int minimumDurability) {
+        return !stack.isEmpty()
+                && (!stack.isDamageableItem() || stack.getMaxDamage() - stack.getDamageValue() > minimumDurability);
+    }
+
+    private double score(ItemStack stack, BlockState state) {
+        if (stack.isEmpty()) {
+            return 0.0;
+        }
+        return stack.getDestroySpeed(state) + (stack.isCorrectToolForDrops(state) ? 1000.0 : 0.0);
     }
 
     private void restoreSlot() {
