@@ -92,7 +92,8 @@ public class ClickGuiScreen extends Screen {
             Module module = visibleModules.get(i);
             int y = listTop + i * ROW_HEIGHT;
             int cardWidth = contentWidth;
-            rowVisuals.add(new RowVisual(contentLeft, y, cardWidth, ROW_HEIGHT - 4, module));
+            String description = truncate(module.getDescription(), Math.max(60, cardWidth - 175));
+            rowVisuals.add(new RowVisual(contentLeft, y, cardWidth, ROW_HEIGHT - 4, module, description));
             int settingsWidth = 70;
             int toggleWidth = 66;
             addRenderableWidget(Button.builder(Component.literal(module.isToggled() ? "ON" : "OFF"), b -> {
@@ -146,8 +147,7 @@ public class ClickGuiScreen extends Screen {
         for (RowVisual row : rowVisuals) {
             int nameColor = row.module.isToggled() ? ClientUiTheme.SUCCESS : ClientUiTheme.TEXT;
             graphics.text(font, row.module.getName(), row.x + 10, row.y + 7, nameColor, true);
-            String desc = truncate(row.module.getDescription(), Math.max(60, row.width - 175));
-            graphics.text(font, desc, row.x + 10, row.y + 21, ClientUiTheme.MUTED, false);
+            graphics.text(font, row.description, row.x + 10, row.y + 21, ClientUiTheme.MUTED, false);
         }
         if (visibleModules.isEmpty()) {
             graphics.centeredText(font, "No modules match this filter.", (SIDEBAR_WIDTH + width) / 2, 90, 0xFFFFB86B);
@@ -174,5 +174,5 @@ public class ClickGuiScreen extends Screen {
         return out + suffix;
     }
 
-    private record RowVisual(int x, int y, int width, int height, Module module) {}
+    private record RowVisual(int x, int y, int width, int height, Module module, String description) {}
 }
