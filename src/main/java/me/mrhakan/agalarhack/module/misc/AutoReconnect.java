@@ -76,6 +76,8 @@ public class AutoReconnect extends Module {
         }
 
         attempts++;
+        service(me.mrhakan.agalarhack.services.NotificationService.class).publish(
+                me.mrhakan.agalarhack.services.NotificationService.Type.INFO, "Reconnect attempt " + attempts);
         armed = false;
         setDisplayName("AutoReconnect [attempt " + attempts + "]");
         try {

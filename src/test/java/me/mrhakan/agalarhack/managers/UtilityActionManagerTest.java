@@ -6,6 +6,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
 
 class UtilityActionManagerTest {
+    @org.junit.jupiter.api.Test
+    void dualClaimDoesNotPartiallyAcquire() {
+        UtilityActionManager actions = new UtilityActionManager();
+        actions.claimUse("high", 100);
+        org.junit.jupiter.api.Assertions.assertFalse(actions.claimHotbarAndUse("low", 50));
+        org.junit.jupiter.api.Assertions.assertFalse(actions.ownsHotbar("low"));
+        org.junit.jupiter.api.Assertions.assertTrue(actions.claimHotbarAndUse("higher", 101));
+    }
+
     @Test
     void higherPriorityOwnerWinsChannel() {
         UtilityActionManager manager = new UtilityActionManager();

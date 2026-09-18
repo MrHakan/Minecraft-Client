@@ -24,5 +24,6 @@ public class Trajectories extends Module {
         addNumberSetting("red", 255.0, 0.0, 255.0, "Path red channel");
         addNumberSetting("green", 220.0, 0.0, 255.0, "Path green channel");
         addNumberSetting("blue", 80.0, 0.0, 255.0, "Path blue channel");
+        me.mrhakan.agalarhack.services.RainbowColors.registerSettings(this);
     }
 }

@@ -6,6 +6,9 @@ out/
 # Minecraft run directory
 run/
 
+# Client logs written by local runs
+logs/
+
 # eclipse
 bin/
 *.launch
