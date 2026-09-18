@@ -103,12 +103,25 @@ public final class InventoryService {
     public int findFood(boolean allowGolden) { return findFood(allowGolden, true); }
     public int findFood(boolean allowGolden, boolean hotbar) {
         if (mc.player == null) return -1;
-        return InventorySelection.best(hotbar ? 9 : 36, -1, slot -> {
-            ItemStack stack = mc.player.getInventory().getItem(slot);
-            if (stack.isEmpty() || (!allowGolden && (stack.is(Items.GOLDEN_APPLE) || stack.is(Items.ENCHANTED_GOLDEN_APPLE)))) return -1;
-            var food = stack.get(DataComponents.FOOD);
-            return food == null ? -1 : food.nutrition();
-        });
+        return InventorySelection.best(hotbar ? 9 : 36, -1, slot -> foodScore(slot, allowGolden));
+    }
+
+    /**
+     * Nutrition of the food in this slot, by the same rule {@link #findFood} selects on.
+     *
+     * <p>Public for the same reason {@link #toolScore} is: a caller weighing the slot it is already
+     * on against the best one must rank them identically, and a second copy of the rule is how
+     * {@code findBestArmor} and {@code ItemScoring} drifted apart.
+     *
+     * @return the nutrition, or -1 for an empty slot, a non-food, or a golden apple while those are
+     *     disallowed - at the baseline {@code findFood} selects above, so a refusal never wins
+     */
+    public double foodScore(int slot, boolean allowGolden) {
+        if (mc.player == null || slot < 0 || slot >= 36) return -1;
+        ItemStack stack = mc.player.getInventory().getItem(slot);
+        if (stack.isEmpty() || (!allowGolden && (stack.is(Items.GOLDEN_APPLE) || stack.is(Items.ENCHANTED_GOLDEN_APPLE)))) return -1;
+        var food = stack.get(DataComponents.FOOD);
+        return food == null ? -1 : food.nutrition();
     }
     public int findBestTool(BlockState state, int minimumDurability) {
         if (mc.player == null) return -1;

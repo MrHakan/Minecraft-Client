@@ -335,6 +335,8 @@ Automatically eats food from the hotbar when hunger is low
 | `hunger` | `12` | `1..20` | Start eating at or below this hunger level |
 | `fillToFull` | `true` | `true/false or on/off` | Continue eating until the hunger bar is full |
 | `swapBack` | `true` | `true/false or on/off` | Return to the previous hotbar slot afterwards |
+| `preferCurrent` | `true` | `true/false or on/off` | Keep the selected food when it is close to the best option to avoid needless hotbar swaps |
+| `nutritionTolerance` | `2` | `0..10` | Maximum nutrition points the selected food may trail the best food by |
 | `allowGoldenApples` | `false` | `true/false or on/off` | Allow automatic use of golden/enchanted golden apples |
 
 ### AutoRefill
@@ -476,12 +478,13 @@ Shows XYZ, facing direction, and optional Nether/Overworld coordinate conversion
 
 ### Durability
 
-Shows remaining durability for the damageable item in your main hand
+Shows remaining durability for equipped damageable items
 
 | Setting | Default | Values | Description |
 | --- | --- | --- | --- |
-| `showName` | `true` | `true/false or on/off` | Include the held item's display name |
+| `showName` | `true` | `true/false or on/off` | Include the item's display name |
 | `showPercent` | `true` | `true/false or on/off` | Include remaining durability as a percentage |
+| `showOffhand` | `true` | `true/false or on/off` | Show a second line for a damageable offhand item |
 | `warningPercent` | `15` | `1..50` | Turn the HUD line red at or below this remaining percentage |
 
 ### ESP
