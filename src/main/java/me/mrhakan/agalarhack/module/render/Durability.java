@@ -10,7 +10,12 @@ import me.mrhakan.agalarhack.ui.hud.HudLine;
 import net.minecraft.world.item.ItemStack;
 
 public class Durability extends Module implements HudInfoProvider {
+    private static final int NORMAL_COLOR = 0xFFF0F0F0;
+    private static final int WARNING_COLOR = 0xFFFFAA00;
+    private static final int CRITICAL_COLOR = 0xFFFF5555;
+
     private final List<HudLine> hudLines = new ArrayList<>(2);
+    private final StringBuilder text = new StringBuilder(96);
 
     public Durability() {
         super("Durability", Category.RENDER, "Shows remaining durability for equipped damageable items");
@@ -21,7 +26,8 @@ public class Durability extends Module implements HudInfoProvider {
         addBooleanSetting("showName", true, "Include the item's display name");
         addBooleanSetting("showPercent", true, "Include remaining durability as a percentage");
         addBooleanSetting("showOffhand", true, "Show a second line for a damageable offhand item");
-        addNumberSetting("warningPercent", 15.0, 1.0, 50.0, "Turn the HUD line red at or below this remaining percentage");
+        addNumberSetting("warningPercent", 25.0, 1.0, 75.0, "Turn the HUD line amber at or below this remaining percentage");
+        addNumberSetting("criticalPercent", 10.0, 1.0, 50.0, "Turn the HUD line red at or below this remaining percentage");
     }
 
     @Override
@@ -31,14 +37,20 @@ public class Durability extends Module implements HudInfoProvider {
             return hudLines;
         }
 
-        appendLine(mc.player.getMainHandItem(), "Main");
+        boolean showName = getBooleanSetting("showName", true);
+        boolean showPercent = getBooleanSetting("showPercent", true);
+        double warningPercent = getNumberSetting("warningPercent", 25.0);
+        double criticalPercent = Math.min(warningPercent, getNumberSetting("criticalPercent", 10.0));
+
+        appendLine(mc.player.getMainHandItem(), "Main", showName, showPercent, warningPercent, criticalPercent);
         if (getBooleanSetting("showOffhand", true)) {
-            appendLine(mc.player.getOffhandItem(), "Offhand");
+            appendLine(mc.player.getOffhandItem(), "Offhand", showName, showPercent, warningPercent, criticalPercent);
         }
         return hudLines;
     }
 
-    private void appendLine(ItemStack stack, String hand) {
+    private void appendLine(ItemStack stack, String hand, boolean showName, boolean showPercent,
+            double warningPercent, double criticalPercent) {
         if (stack.isEmpty() || !stack.isDamageableItem() || stack.getMaxDamage() <= 0) {
             return;
         }
@@ -46,16 +58,20 @@ public class Durability extends Module implements HudInfoProvider {
         int maxDamage = stack.getMaxDamage();
         int remaining = Math.max(0, maxDamage - stack.getDamageValue());
         int percent = (int) Math.round(remaining * 100.0 / maxDamage);
-        StringBuilder text = new StringBuilder("Durability [").append(hand).append("]: ");
-        if (getBooleanSetting("showName", true)) {
+
+        text.setLength(0);
+        text.append("Durability [").append(hand).append("]: ");
+        if (showName) {
             text.append(stack.getHoverName().getString()).append(' ');
         }
         text.append(remaining).append('/').append(maxDamage);
-        if (getBooleanSetting("showPercent", true)) {
+        if (showPercent) {
             text.append(" (").append(percent).append("%)");
         }
 
-        int color = percent <= getNumberSetting("warningPercent", 15.0) ? 0xFFFF5555 : 0xFFF0F0F0;
+        int color = percent <= criticalPercent
+                ? CRITICAL_COLOR
+                : percent <= warningPercent ? WARNING_COLOR : NORMAL_COLOR;
         hudLines.add(new HudLine(text.toString(), color));
     }
 }
