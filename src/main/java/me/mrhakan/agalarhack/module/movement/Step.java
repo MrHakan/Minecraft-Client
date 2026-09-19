@@ -9,6 +9,7 @@ public class Step extends Module {
 
 	private AttributeInstance capturedAttribute;
 	private double previousStepHeight;
+	private double appliedStepHeight = Double.NaN;
 
 	public Step() {
 		super("Step", Category.MOVEMENT, "Lets you walk up taller blocks while restoring the original step height when disabled");
@@ -38,8 +39,15 @@ public class Step extends Module {
 			restoreCapturedAttribute();
 			capturedAttribute = stepHeight;
 			previousStepHeight = stepHeight.getBaseValue();
+			appliedStepHeight = Double.NaN;
 		}
-		stepHeight.setBaseValue(getNumberSetting("height", 1.0));
+
+		double configuredHeight = getNumberSetting("height", 1.0);
+		if (Double.compare(appliedStepHeight, configuredHeight) != 0
+				|| Double.compare(stepHeight.getBaseValue(), configuredHeight) != 0) {
+			stepHeight.setBaseValue(configuredHeight);
+			appliedStepHeight = configuredHeight;
+		}
 	}
 
 	@Override
@@ -55,6 +63,7 @@ public class Step extends Module {
 		if (stepHeight != null) {
 			capturedAttribute = stepHeight;
 			previousStepHeight = stepHeight.getBaseValue();
+			appliedStepHeight = Double.NaN;
 		}
 	}
 
@@ -63,5 +72,6 @@ public class Step extends Module {
 			capturedAttribute.setBaseValue(previousStepHeight);
 			capturedAttribute = null;
 		}
+		appliedStepHeight = Double.NaN;
 	}
 }
