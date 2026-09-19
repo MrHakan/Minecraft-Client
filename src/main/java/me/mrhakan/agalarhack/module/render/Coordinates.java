@@ -11,23 +11,25 @@ import me.mrhakan.agalarhack.module.Category;
 import me.mrhakan.agalarhack.module.Module;
 import me.mrhakan.agalarhack.ui.hud.HudInfoProvider;
 import me.mrhakan.agalarhack.ui.hud.HudLine;
+import net.minecraft.util.Mth;
 import net.minecraft.world.level.Level;
 
 public class Coordinates extends Module implements HudInfoProvider {
 
     private static final int TEXT_COLOR = 0xFFF0F0F0;
     private final List<HudLine> hudLines = new ArrayList<>(1);
-    private final StringBuilder text = new StringBuilder(96);
+    private final StringBuilder text = new StringBuilder(112);
     private final DecimalFormat[] formats = createFormats();
 
     public Coordinates() {
-        super("Coordinates", Category.RENDER, "Shows XYZ, facing direction, and optional Nether/Overworld coordinate conversion");
+        super("Coordinates", Category.RENDER, "Shows XYZ, facing direction, chunk position, and optional Nether/Overworld coordinate conversion");
     }
 
     @Override
     public void selfSettings() {
         addNumberSetting("precision", 1.0, 0.0, 3.0, "Number of decimal places shown for coordinates");
         addBooleanSetting("facing", true, "Append the horizontal cardinal direction");
+        addBooleanSetting("chunkCoords", false, "Append the current chunk X/Z for navigation and chunk-aligned building");
         addBooleanSetting("dimensionCoords", true, "Show the matching Nether or Overworld X/Z coordinates");
     }
 
@@ -52,6 +54,12 @@ public class Coordinates extends Module implements HudInfoProvider {
 
         if (getBooleanSetting("facing", true)) {
             text.append(" | ").append(getFacing(mc.player.getYRot()));
+        }
+
+        if (getBooleanSetting("chunkCoords", false)) {
+            int blockX = Mth.floor(x);
+            int blockZ = Mth.floor(z);
+            text.append(" | Chunk: ").append(blockX >> 4).append(" / ").append(blockZ >> 4);
         }
 
         if (getBooleanSetting("dimensionCoords", true)) {
