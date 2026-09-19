@@ -37,6 +37,7 @@ public class ModuleManager {
     private final List<Module> modules = new ArrayList<>();
     private final List<Module> moduleView = Collections.unmodifiableList(modules);
     private final Map<String, Module> modulesByName = new LinkedHashMap<>();
+    private final Map<Module, String> searchText = new LinkedHashMap<>();
 
     public ModuleManager() {
         register(new Aura());
@@ -72,6 +73,7 @@ public class ModuleManager {
         }
         modules.add(module);
         modulesByName.put(key, module);
+        searchText.put(module, buildSearchText(module));
     }
 
     public void tick(Minecraft client) {
@@ -131,22 +133,33 @@ public class ModuleManager {
         if (query == null || query.isBlank()) {
             return getModuleList();
         }
-        String normalized = normalize(query);
+        String normalized = normalize(query).trim();
+        String[] terms = normalized.split("\\s+");
         List<Module> result = new ArrayList<>();
         for (Module module : modules) {
-            boolean matches = normalize(module.getName()).contains(normalized)
-                    || normalize(module.getDescription()).contains(normalized)
-                    || normalize(module.getCategory().name).contains(normalized);
-            if (!matches) {
-                matches = module.settings.getSpecs().stream()
-                        .anyMatch(spec -> normalize(spec.getName()).contains(normalized)
-                                || normalize(spec.getDescription()).contains(normalized));
+            String haystack = searchText.get(module);
+            boolean matches = true;
+            for (String term : terms) {
+                if (!haystack.contains(term)) {
+                    matches = false;
+                    break;
+                }
             }
-            if (matches) {
-                result.add(module);
-            }
+            if (matches) result.add(module);
         }
         return result;
+    }
+
+    private static String buildSearchText(Module module) {
+        StringBuilder text = new StringBuilder(192)
+                .append(normalize(module.getName())).append(' ')
+                .append(normalize(module.getDescription())).append(' ')
+                .append(normalize(module.getCategory().name));
+        for (var spec : module.settings.getSpecs()) {
+            text.append(' ').append(normalize(spec.getName()))
+                    .append(' ').append(normalize(spec.getDescription()));
+        }
+        return text.toString();
     }
 
     public int disableAll() {
