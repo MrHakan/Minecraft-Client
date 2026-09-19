@@ -14,6 +14,8 @@ public class AutoTool extends Module {
 
     private int previousSlot = -1;
     private int appliedSlot = -1;
+    private int candidateSlot = -1;
+    private int candidateTicks;
     private boolean swapped;
 
     public AutoTool() {
@@ -27,6 +29,7 @@ public class AutoTool extends Module {
         addBooleanSetting("preferCurrent", true, "Keep the selected tool when it is effectively as fast as the best option");
         addNumberSetting("minDurability", 5.0, 0.0, 1000.0, "Avoid damageable tools with this many or fewer uses remaining");
         addNumberSetting("switchThreshold", 0.15, 0.0, 5.0, "Minimum destroy-speed improvement required before switching tools");
+        addNumberSetting("switchDelay", 0.0, 0.0, 10.0, "Ticks a better tool must remain preferred before switching; helps prevent hotbar flicker while aiming");
     }
 
     @Override
@@ -45,11 +48,26 @@ public class AutoTool extends Module {
 
         BlockState state = mc.level.getBlockState(hit.getBlockPos());
         int current = mc.player.getInventory().getSelectedSlot();
-        int bestSlot = findBestSlot(state, current);
+        int minimumDurability = (int) Math.round(getNumberSetting("minDurability", 5.0));
+        boolean preferCurrent = getBooleanSetting("preferCurrent", true);
+        double switchThreshold = getNumberSetting("switchThreshold", 0.15);
+        int bestSlot = findBestSlot(state, current, minimumDurability, preferCurrent, switchThreshold);
         if (bestSlot < 0 || bestSlot == current) {
+            resetCandidate();
             if (!mining) {
                 restoreSlot();
             }
+            return;
+        }
+
+        int switchDelay = (int) Math.round(getNumberSetting("switchDelay", 0.0));
+        if (bestSlot != candidateSlot) {
+            candidateSlot = bestSlot;
+            candidateTicks = 1;
+        } else {
+            candidateTicks++;
+        }
+        if (candidateTicks <= switchDelay) {
             return;
         }
         if (!AgalarHackClient.UTILITY_ACTIONS.claimHotbar(OWNER, PRIORITY)) {
@@ -62,13 +80,15 @@ public class AutoTool extends Module {
         mc.player.getInventory().setSelectedSlot(bestSlot);
         appliedSlot = bestSlot;
         swapped = true;
+        resetCandidate();
     }
 
-    private int findBestSlot(BlockState state, int currentSlot) {
+    private int findBestSlot(BlockState state, int currentSlot, int minimumDurability,
+                             boolean preferCurrent, double switchThreshold) {
         int best = -1;
         double bestScore = 1.0;
-        double currentScore = score(mc.player.getInventory().getItem(currentSlot), state);
-        int minimumDurability = (int) Math.round(getNumberSetting("minDurability", 5.0));
+        ItemStack currentStack = mc.player.getInventory().getItem(currentSlot);
+        double currentScore = score(currentStack, state);
         for (int slot = 0; slot < 9; slot++) {
             ItemStack stack = mc.player.getInventory().getItem(slot);
             if (!isUsable(stack, minimumDurability)) {
@@ -80,11 +100,10 @@ public class AutoTool extends Module {
                 best = slot;
             }
         }
-        if (best < 0 || !getBooleanSetting("preferCurrent", true) || !isUsable(mc.player.getInventory().getItem(currentSlot), minimumDurability)) {
+        if (best < 0 || !preferCurrent || !isUsable(currentStack, minimumDurability)) {
             return best;
         }
-        double threshold = getNumberSetting("switchThreshold", 0.15);
-        return bestScore - currentScore <= threshold ? currentSlot : best;
+        return bestScore - currentScore <= switchThreshold ? currentSlot : best;
     }
 
     private boolean isUsable(ItemStack stack, int minimumDurability) {
@@ -99,6 +118,11 @@ public class AutoTool extends Module {
         return stack.getDestroySpeed(state) + (stack.isCorrectToolForDrops(state) ? 1000.0 : 0.0);
     }
 
+    private void resetCandidate() {
+        candidateSlot = -1;
+        candidateTicks = 0;
+    }
+
     private void restoreSlot() {
         if (swapped && getBooleanSetting("swapBack", true) && previousSlot >= 0 && previousSlot < 9
                 && mc.player != null && mc.player.getInventory().getSelectedSlot() == appliedSlot) {
@@ -107,6 +131,7 @@ public class AutoTool extends Module {
         previousSlot = -1;
         appliedSlot = -1;
         swapped = false;
+        resetCandidate();
     }
 
     @Override
