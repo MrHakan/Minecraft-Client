@@ -32,6 +32,7 @@ public class Durability extends Module implements HudInfoProvider {
         addBooleanSetting("showPercent", true, "Include remaining durability as a percentage");
         addBooleanSetting("showArmor", true, "Show durability for equipped armor pieces");
         addBooleanSetting("showOffhand", true, "Show a line for a damageable offhand item");
+        addBooleanSetting("onlyWarnings", false, "Hide healthy items and show only warning or critical durability");
         addNumberSetting("warningPercent", 25.0, 1.0, 75.0, "Turn the HUD line amber at or below this remaining percentage");
         addNumberSetting("criticalPercent", 10.0, 1.0, 50.0, "Turn the HUD line red at or below this remaining percentage");
     }
@@ -43,29 +44,35 @@ public class Durability extends Module implements HudInfoProvider {
 
         boolean showName = getBooleanSetting("showName", true);
         boolean showPercent = getBooleanSetting("showPercent", true);
+        boolean showOffhand = getBooleanSetting("showOffhand", true);
+        boolean showArmor = getBooleanSetting("showArmor", true);
+        boolean onlyWarnings = getBooleanSetting("onlyWarnings", false);
         double warningPercent = getNumberSetting("warningPercent", 25.0);
         double criticalPercent = Math.min(warningPercent, getNumberSetting("criticalPercent", 10.0));
 
-        appendLine(mc.player.getMainHandItem(), "Main", showName, showPercent, warningPercent, criticalPercent);
-        if (getBooleanSetting("showOffhand", true)) {
-            appendLine(mc.player.getOffhandItem(), "Offhand", showName, showPercent, warningPercent, criticalPercent);
+        appendLine(mc.player.getMainHandItem(), "Main", showName, showPercent, onlyWarnings,
+                warningPercent, criticalPercent);
+        if (showOffhand) {
+            appendLine(mc.player.getOffhandItem(), "Offhand", showName, showPercent, onlyWarnings,
+                    warningPercent, criticalPercent);
         }
-        if (getBooleanSetting("showArmor", true)) {
+        if (showArmor) {
             for (int i = 0; i < ARMOR_SLOTS.length; i++) {
                 appendLine(mc.player.getItemBySlot(ARMOR_SLOTS[i]), ARMOR_LABELS[i], showName, showPercent,
-                        warningPercent, criticalPercent);
+                        onlyWarnings, warningPercent, criticalPercent);
             }
         }
         return hudLines;
     }
 
     private void appendLine(ItemStack stack, String slot, boolean showName, boolean showPercent,
-            double warningPercent, double criticalPercent) {
+            boolean onlyWarnings, double warningPercent, double criticalPercent) {
         if (stack.isEmpty() || !stack.isDamageableItem() || stack.getMaxDamage() <= 0) return;
 
         int maxDamage = stack.getMaxDamage();
         int remaining = Math.max(0, maxDamage - stack.getDamageValue());
         int percent = (int) Math.round(remaining * 100.0 / maxDamage);
+        if (onlyWarnings && percent > warningPercent) return;
 
         text.setLength(0);
         text.append("Durability [").append(slot).append("]: ");
