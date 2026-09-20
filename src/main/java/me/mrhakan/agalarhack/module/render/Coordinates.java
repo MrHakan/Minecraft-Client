@@ -3,6 +3,7 @@ package me.mrhakan.agalarhack.module.render;
 import java.math.RoundingMode;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
+import java.text.FieldPosition;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -17,9 +18,10 @@ import net.minecraft.world.level.Level;
 public class Coordinates extends Module implements HudInfoProvider {
 
     private static final int TEXT_COLOR = 0xFFF0F0F0;
-    private final List<HudLine> hudLines = new ArrayList<>(1);
+    private final List<HudLine> hudLines = new ArrayList<>(2);
     private final StringBuilder text = new StringBuilder(112);
     private final DecimalFormat[] formats = createFormats();
+    private final FieldPosition fieldPosition = new FieldPosition(0);
 
     public Coordinates() {
         super("Coordinates", Category.RENDER, "Shows XYZ, facing direction, chunk position, and optional Nether/Overworld coordinate conversion");
@@ -30,7 +32,9 @@ public class Coordinates extends Module implements HudInfoProvider {
         addNumberSetting("precision", 1.0, 0.0, 3.0, "Number of decimal places shown for coordinates");
         addBooleanSetting("facing", true, "Append the horizontal cardinal direction");
         addBooleanSetting("chunkCoords", false, "Append the current chunk X/Z for navigation and chunk-aligned building");
+        addBooleanSetting("chunkLocal", false, "Show the current block position inside the 16x16 chunk");
         addBooleanSetting("dimensionCoords", true, "Show the matching Nether or Overworld X/Z coordinates");
+        addBooleanSetting("dimensionLine", false, "Put converted dimension coordinates on a separate HUD line for readability");
     }
 
     @Override
@@ -43,6 +47,8 @@ public class Coordinates extends Module implements HudInfoProvider {
         double x = mc.player.getX();
         double y = mc.player.getY();
         double z = mc.player.getZ();
+        int blockX = Mth.floor(x);
+        int blockZ = Mth.floor(z);
 
         text.setLength(0);
         text.append("XYZ: ");
@@ -57,29 +63,40 @@ public class Coordinates extends Module implements HudInfoProvider {
         }
 
         if (getBooleanSetting("chunkCoords", false)) {
-            int blockX = Mth.floor(x);
-            int blockZ = Mth.floor(z);
             text.append(" | Chunk: ").append(blockX >> 4).append(" / ").append(blockZ >> 4);
         }
-
-        if (getBooleanSetting("dimensionCoords", true)) {
-            boolean nether = mc.level.dimension() == Level.NETHER;
-            boolean overworld = mc.level.dimension() == Level.OVERWORLD;
-            if (nether || overworld) {
-                double scale = nether ? 8.0 : 0.125;
-                text.append(" | ").append(nether ? "OW" : "Nether").append(": ");
-                appendNumber(format, x * scale);
-                text.append(" / ");
-                appendNumber(format, z * scale);
-            }
+        if (getBooleanSetting("chunkLocal", false)) {
+            text.append(" | Local: ").append(blockX & 15).append(" / ").append(blockZ & 15);
         }
 
+        boolean nether = mc.level.dimension() == Level.NETHER;
+        boolean overworld = mc.level.dimension() == Level.OVERWORLD;
+        boolean showDimension = getBooleanSetting("dimensionCoords", true) && (nether || overworld);
+        boolean separateDimensionLine = showDimension && getBooleanSetting("dimensionLine", false);
+        if (showDimension && !separateDimensionLine) appendDimension(format, x, z, nether);
+
         hudLines.add(new HudLine(text.toString(), TEXT_COLOR));
+        if (separateDimensionLine) {
+            text.setLength(0);
+            appendDimension(format, x, z, nether);
+            hudLines.add(new HudLine(text.toString(), TEXT_COLOR));
+        }
         return hudLines;
     }
 
+    private void appendDimension(DecimalFormat format, double x, double z, boolean nether) {
+        double scale = nether ? 8.0 : 0.125;
+        if (text.length() > 0) text.append(" | ");
+        text.append(nether ? "OW" : "Nether").append(": ");
+        appendNumber(format, x * scale);
+        text.append(" / ");
+        appendNumber(format, z * scale);
+    }
+
     private void appendNumber(DecimalFormat format, double value) {
-        format.format(value, text, new java.text.FieldPosition(0));
+        fieldPosition.setBeginIndex(0);
+        fieldPosition.setEndIndex(0);
+        format.format(value, text, fieldPosition);
     }
 
     private static DecimalFormat[] createFormats() {
