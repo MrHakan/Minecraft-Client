@@ -2,6 +2,7 @@ package me.mrhakan.agalarhack.managers;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.EnumMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -33,46 +34,34 @@ import me.mrhakan.agalarhack.module.world.AutoTool;
 import net.minecraft.client.Minecraft;
 
 public class ModuleManager {
-
     private final List<Module> modules = new ArrayList<>();
     private final List<Module> moduleView = Collections.unmodifiableList(modules);
     private final Map<String, Module> modulesByName = new LinkedHashMap<>();
     private final Map<Module, String> searchText = new LinkedHashMap<>();
+    private final Map<Category, List<Module>> modulesByCategory = new EnumMap<>(Category.class);
+    private final Map<Category, List<Module>> categoryViews = new EnumMap<>(Category.class);
 
     public ModuleManager() {
-        register(new Aura());
-        register(new TriggerBot());
+        for (Category category : Category.values()) {
+            List<Module> categoryModules = new ArrayList<>();
+            modulesByCategory.put(category, categoryModules);
+            categoryViews.put(category, Collections.unmodifiableList(categoryModules));
+        }
 
-        register(new AutoEat());
-        register(new AutoReconnect());
-
-        register(new Speed());
-        register(new Flight());
-        register(new Jesus());
-        register(new Sprint());
-        register(new Step());
-        register(new NoFall());
-
-        register(new Fullbright());
-        register(new Coordinates());
-        register(new Durability());
-        register(new EntityESP());
-        register(new StorageESP());
-        register(new BlockESP());
-        register(new Trajectories());
-        register(new TargetHUD());
-        register(new Freecam());
-
+        register(new Aura()); register(new TriggerBot());
+        register(new AutoEat()); register(new AutoReconnect());
+        register(new Speed()); register(new Flight()); register(new Jesus()); register(new Sprint()); register(new Step()); register(new NoFall());
+        register(new Fullbright()); register(new Coordinates()); register(new Durability()); register(new EntityESP()); register(new StorageESP());
+        register(new BlockESP()); register(new Trajectories()); register(new TargetHUD()); register(new Freecam());
         register(new AutoTool());
     }
 
     private void register(Module module) {
         String key = normalize(module.getName());
-        if (modulesByName.containsKey(key)) {
-            throw new IllegalStateException("Duplicate module name: " + module.getName());
-        }
+        if (modulesByName.containsKey(key)) throw new IllegalStateException("Duplicate module name: " + module.getName());
         modules.add(module);
         modulesByName.put(key, module);
+        modulesByCategory.get(module.getCategory()).add(module);
         searchText.put(module, buildSearchText(module));
     }
 
@@ -80,70 +69,44 @@ public class ModuleManager {
         boolean worldReady = client.player != null && client.level != null;
         boolean stateChanged = false;
         for (Module module : modules) {
-            if (!module.isToggled() || (!worldReady && !module.runsWithoutWorld())) {
-                continue;
-            }
-            try {
-                module.onUpdate();
-            } catch (RuntimeException e) {
+            if (!module.isToggled() || (!worldReady && !module.runsWithoutWorld())) continue;
+            try { module.onUpdate(); }
+            catch (RuntimeException e) {
                 System.err.println("[Agalar Hack] Disabling module after tick failure: " + module.getName());
-                e.printStackTrace();
-                forceDisable(module);
-                stateChanged = true;
+                e.printStackTrace(); forceDisable(module); stateChanged = true;
             }
         }
-        if (stateChanged) {
-            AgalarHackClient.SETTINGS_MANAGER.updateSettings();
-        }
+        if (stateChanged) AgalarHackClient.SETTINGS_MANAGER.updateSettings();
     }
 
     public void onDisconnect() {
         for (Module module : modules) {
-            if (!module.isToggled()) {
-                continue;
-            }
-            try {
-                module.onDisconnect();
-            } catch (RuntimeException e) {
-                System.err.println("[Agalar Hack] Disconnect cleanup failed for " + module.getName());
-                e.printStackTrace();
+            if (!module.isToggled()) continue;
+            try { module.onDisconnect(); }
+            catch (RuntimeException e) {
+                System.err.println("[Agalar Hack] Disconnect cleanup failed for " + module.getName()); e.printStackTrace();
             }
         }
     }
 
-    public Module getModule(String name) {
-        return name == null ? null : modulesByName.get(normalize(name));
-    }
+    public Module getModule(String name) { return name == null ? null : modulesByName.get(normalize(name)); }
+    public List<Module> getModuleList() { return moduleView; }
 
-    public List<Module> getModuleList() {
-        return moduleView;
-    }
-
+    /** Returns a stable read-only category view without allocating a new list per GUI frame. */
     public List<Module> getModulesByCategory(Category category) {
-        List<Module> result = new ArrayList<>();
-        for (Module module : modules) {
-            if (module.getCategory() == category) {
-                result.add(module);
-            }
-        }
-        return result;
+        List<Module> view = categoryViews.get(category);
+        return view == null ? Collections.emptyList() : view;
     }
 
     public List<Module> searchModules(String query) {
-        if (query == null || query.isBlank()) {
-            return getModuleList();
-        }
-        String normalized = normalize(query).trim();
-        String[] terms = normalized.split("\\s+");
+        if (query == null || query.isBlank()) return getModuleList();
+        String[] terms = normalize(query).trim().split("\\s+");
         List<Module> result = new ArrayList<>();
         for (Module module : modules) {
             String haystack = searchText.get(module);
             boolean matches = true;
             for (String term : terms) {
-                if (!haystack.contains(term)) {
-                    matches = false;
-                    break;
-                }
+                if (!haystack.contains(term)) { matches = false; break; }
             }
             if (matches) result.add(module);
         }
@@ -156,8 +119,7 @@ public class ModuleManager {
                 .append(normalize(module.getDescription())).append(' ')
                 .append(normalize(module.getCategory().name));
         for (var spec : module.settings.getSpecs()) {
-            text.append(' ').append(normalize(spec.getName()))
-                    .append(' ').append(normalize(spec.getDescription()));
+            text.append(' ').append(normalize(spec.getName())).append(' ').append(normalize(spec.getDescription()));
         }
         return text.toString();
     }
@@ -165,15 +127,10 @@ public class ModuleManager {
     public int disableAll() {
         int disabled = 0;
         for (Module module : modules) {
-            if (!module.isToggled()) {
-                continue;
-            }
-            disabled++;
-            forceDisable(module);
+            if (!module.isToggled()) continue;
+            disabled++; forceDisable(module);
         }
-        if (disabled > 0) {
-            AgalarHackClient.SETTINGS_MANAGER.updateSettings();
-        }
+        if (disabled > 0) AgalarHackClient.SETTINGS_MANAGER.updateSettings();
         return disabled;
     }
 
@@ -181,38 +138,25 @@ public class ModuleManager {
         AgalarHackClient.SETTINGS_MANAGER.loadSettings();
         boolean changed = false;
         for (Module module : modules) {
-            if (!Boolean.TRUE.equals(module.settings.getSetting("enabled")) || module.isToggled()) {
-                continue;
-            }
-            try {
-                module.setToggled(true, false);
-            } catch (RuntimeException e) {
+            if (!Boolean.TRUE.equals(module.settings.getSetting("enabled")) || module.isToggled()) continue;
+            try { module.setToggled(true, false); }
+            catch (RuntimeException e) {
                 System.err.println("[Agalar Hack] Could not restore enabled module: " + module.getName());
-                e.printStackTrace();
-                forceDisable(module);
-                changed = true;
+                e.printStackTrace(); forceDisable(module); changed = true;
             }
         }
-        if (changed) {
-            AgalarHackClient.SETTINGS_MANAGER.updateSettings();
-        }
+        if (changed) AgalarHackClient.SETTINGS_MANAGER.updateSettings();
     }
 
     private void forceDisable(Module module) {
         try {
-            if (module.isToggled()) {
-                module.setToggled(false, false);
-            } else {
-                module.settings.setSetting("enabled", false);
-            }
+            if (module.isToggled()) module.setToggled(false, false);
+            else module.settings.setSetting("enabled", false);
         } catch (RuntimeException disableError) {
             module.settings.setSetting("enabled", false);
-            System.err.println("[Agalar Hack] Module cleanup failed: " + module.getName());
-            disableError.printStackTrace();
+            System.err.println("[Agalar Hack] Module cleanup failed: " + module.getName()); disableError.printStackTrace();
         }
     }
 
-    private static String normalize(String value) {
-        return value == null ? "" : value.toLowerCase(Locale.ROOT);
-    }
+    private static String normalize(String value) { return value == null ? "" : value.toLowerCase(Locale.ROOT); }
 }
