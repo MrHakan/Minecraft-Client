@@ -1,6 +1,8 @@
 package me.mrhakan.agalarhack.ui;
 
 import java.awt.Color;
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -32,6 +34,11 @@ public class Hud implements HudElement {
 
     private final List<Module> enabledModules = new ArrayList<>();
     private final List<HudLine> infoLines = new ArrayList<>();
+    // Reused target-card buffers avoid allocating three backing lists every rendered frame.
+    private final List<String> targetLines = new ArrayList<>(4);
+    private final List<ItemStack> targetEquipment = new ArrayList<>(TARGET_EQUIPMENT.length);
+    private final List<MobEffectInstance> targetEffects = new ArrayList<>(12);
+    private final DecimalFormat oneDecimal = new DecimalFormat("0.0", DecimalFormatSymbols.getInstance(Locale.ROOT));
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor graphics, DeltaTracker deltaTracker) {
@@ -63,8 +70,7 @@ public class Hud implements HudElement {
         if (enabledModules.isEmpty()) return;
         enabledModules.sort(Comparator.comparingInt((Module mod) -> font.width(mod.getDisplayName())).reversed());
 
-        int width = 0;
-        for (Module mod : enabledModules) width = Math.max(width, font.width(mod.getDisplayName()));
+        int width = font.width(enabledModules.get(0).getDisplayName());
         int height = enabledModules.size() * font.lineHeight;
         int x = AgalarHackClient.HUD_LAYOUT.resolveX("modules", graphics.guiWidth(), width);
         int y = AgalarHackClient.HUD_LAYOUT.resolveY("modules", graphics.guiHeight(), height);
@@ -104,59 +110,65 @@ public class Hud implements HudElement {
 
         Font font = mc.font;
         boolean healthBar = targetHud.getBooleanSetting("healthBar", true);
-        List<String> lines = new ArrayList<>();
-        lines.add(target.getName().getString());
-        if (targetHud.getBooleanSetting("showHealth", true)) lines.add(String.format(Locale.ROOT, "HP %.1f / %.1f", target.getHealth(), target.getMaxHealth()));
-        if (targetHud.getBooleanSetting("showDistance", true)) lines.add(String.format(Locale.ROOT, "Distance %.1fm", mc.player.distanceTo(target)));
-        if (targetHud.getBooleanSetting("showArmor", true) && target instanceof Player) lines.add("Armor " + target.getArmorValue());
+        double maxHealth = target.getMaxHealth();
+        double healthRatio = maxHealth <= 0 ? 0 : Math.max(0.0, Math.min(1.0, target.getHealth() / maxHealth));
 
-        List<ItemStack> equipment = new ArrayList<>();
+        targetLines.clear();
+        targetLines.add(target.getName().getString());
+        if (targetHud.getBooleanSetting("showHealth", true)) {
+            String health = "HP " + oneDecimal.format(target.getHealth()) + " / " + oneDecimal.format(maxHealth);
+            if (targetHud.getBooleanSetting("healthPercent", true)) health += " (" + Math.round(healthRatio * 100.0) + "%)";
+            targetLines.add(health);
+        }
+        if (targetHud.getBooleanSetting("showDistance", true)) targetLines.add("Distance " + oneDecimal.format(mc.player.distanceTo(target)) + "m");
+        if (targetHud.getBooleanSetting("showArmor", true) && target instanceof Player) targetLines.add("Armor " + target.getArmorValue());
+
+        targetEquipment.clear();
         if (targetHud.getBooleanSetting("showEquipment", true)) {
             for (EquipmentSlot slot : TARGET_EQUIPMENT) {
                 ItemStack item = target.getItemBySlot(slot);
-                if (!item.isEmpty()) equipment.add(item);
+                if (!item.isEmpty()) targetEquipment.add(item);
             }
         }
-        List<MobEffectInstance> effects = new ArrayList<>();
+        targetEffects.clear();
         if (targetHud.getBooleanSetting("showEffects", true)) {
             int limit = (int) Math.round(targetHud.getNumberSetting("maxEffects", 6.0));
             for (MobEffectInstance effect : target.getActiveEffects()) {
-                if (effects.size() >= limit) break;
-                effects.add(effect);
+                if (targetEffects.size() >= limit) break;
+                targetEffects.add(effect);
             }
         }
 
         int contentWidth = 80;
-        for (String line : lines) contentWidth = Math.max(contentWidth, font.width(line));
-        int boxWidth = Math.max(132, Math.max(contentWidth + 12, Math.max(equipment.size(), effects.size()) * 18 + 12));
-        int boxHeight = lines.size() * font.lineHeight + 10 + (healthBar ? 7 : 0) + (!equipment.isEmpty() ? 18 : 0) + (!effects.isEmpty() ? 20 : 0);
+        for (String line : targetLines) contentWidth = Math.max(contentWidth, font.width(line));
+        int boxWidth = Math.max(132, Math.max(contentWidth + 12, Math.max(targetEquipment.size(), targetEffects.size()) * 18 + 12));
+        int boxHeight = targetLines.size() * font.lineHeight + 10 + (healthBar ? 7 : 0) + (!targetEquipment.isEmpty() ? 18 : 0) + (!targetEffects.isEmpty() ? 20 : 0);
         int x = AgalarHackClient.HUD_LAYOUT.resolveX("target", graphics.guiWidth(), boxWidth);
         int y = AgalarHackClient.HUD_LAYOUT.resolveY("target", graphics.guiHeight(), boxHeight);
         graphics.fill(x, y, x + boxWidth, y + boxHeight, 0xB0101010);
         graphics.fill(x, y, x + 3, y + boxHeight, 0xFF55AAFF);
 
         int cursorY = y + 5;
-        for (int i = 0; i < lines.size(); i++) {
-            graphics.text(font, lines.get(i), x + 7, cursorY, i == 0 ? 0xFFFFFFFF : 0xFFDDDDDD, true);
+        for (int i = 0; i < targetLines.size(); i++) {
+            graphics.text(font, targetLines.get(i), x + 7, cursorY, i == 0 ? 0xFFFFFFFF : 0xFFDDDDDD, true);
             cursorY += font.lineHeight;
         }
         if (healthBar) {
-            double ratio = target.getMaxHealth() <= 0 ? 0 : Math.max(0.0, Math.min(1.0, target.getHealth() / target.getMaxHealth()));
             int barX = x + 7, barWidth = boxWidth - 14;
             graphics.fill(barX, cursorY + 1, barX + barWidth, cursorY + 5, 0xFF333333);
-            int filled = (int) Math.round(barWidth * ratio);
-            int color = ratio > 0.6 ? 0xFF55DD55 : ratio > 0.3 ? 0xFFFFCC44 : 0xFFFF5555;
+            int filled = (int) Math.round(barWidth * healthRatio);
+            int color = healthRatio > 0.6 ? 0xFF55DD55 : healthRatio > 0.3 ? 0xFFFFCC44 : 0xFFFF5555;
             if (filled > 0) graphics.fill(barX, cursorY + 1, barX + filled, cursorY + 5, color);
             cursorY += 7;
         }
-        if (!equipment.isEmpty()) {
+        if (!targetEquipment.isEmpty()) {
             int itemX = x + 7;
-            for (ItemStack item : equipment) { graphics.item(item, itemX, cursorY); itemX += 18; }
+            for (ItemStack item : targetEquipment) { graphics.item(item, itemX, cursorY); itemX += 18; }
             cursorY += 18;
         }
-        if (!effects.isEmpty()) {
+        if (!targetEffects.isEmpty()) {
             int effectX = x + 7;
-            for (MobEffectInstance effect : effects) {
+            for (MobEffectInstance effect : targetEffects) {
                 graphics.blitSprite(RenderPipelines.GUI_TEXTURED, net.minecraft.client.gui.Hud.getMobEffectSprite(effect.getEffect()), effectX, cursorY + 1, 18, 18, ARGB.white(1.0f));
                 effectX += 18;
             }

@@ -12,6 +12,7 @@ public class TargetHUD extends Module {
     @Override
     public void selfSettings() {
         addBooleanSetting("showHealth", true, "Show target current/max health text");
+        addBooleanSetting("healthPercent", true, "Append target health percentage for faster at-a-glance reading");
         addBooleanSetting("healthBar", true, "Draw a proportional target health bar");
         addBooleanSetting("showDistance", true, "Show distance to the target");
         addBooleanSetting("showArmor", true, "Show the player's numeric armor value when the target is a player");
