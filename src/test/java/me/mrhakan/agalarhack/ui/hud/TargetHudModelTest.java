@@ -55,6 +55,15 @@ class TargetHudModelTest {
         assertEquals("HP 20.0 / 20.0", plain.get(1));
     }
 
+    @Test void healthPercentageCanBeEnabledWithoutChangingLegacyFormatting() {
+        var percent = TargetHudModel.lines(Layout.COMPACT, target(10, 0, -1, true, false),
+                true, true, false, false);
+        assertEquals("HP 10.0 / 20.0 (50%)", percent.get(1));
+        var legacy = TargetHudModel.lines(Layout.COMPACT, target(10, 0, -1, true, false),
+                true, false, false);
+        assertEquals("HP 10.0 / 20.0", legacy.get(1));
+    }
+
     @Test void friendsAreMarkedOnEveryLayout() {
         for (Layout layout : Layout.values()) {
             var lines = TargetHudModel.lines(layout, target(20, 0, -1, true, true), true, true, true);
