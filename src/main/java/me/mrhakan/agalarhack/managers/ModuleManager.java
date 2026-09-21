@@ -2,7 +2,6 @@ package me.mrhakan.agalarhack.managers;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.EnumMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -11,126 +10,253 @@ import java.util.Map;
 import me.mrhakan.agalarhack.AgalarHackClient;
 import me.mrhakan.agalarhack.module.Category;
 import me.mrhakan.agalarhack.module.Module;
+import me.mrhakan.agalarhack.module.combat.CritInfo;
 import me.mrhakan.agalarhack.module.combat.Aura;
+import me.mrhakan.agalarhack.module.combat.CombatHistory;
+import me.mrhakan.agalarhack.module.combat.TotemTracker;
 import me.mrhakan.agalarhack.module.combat.TriggerBot;
+import me.mrhakan.agalarhack.module.misc.AutoAccept;
+import me.mrhakan.agalarhack.module.misc.BetterChat;
+import me.mrhakan.agalarhack.module.misc.AutoFish;
+import me.mrhakan.agalarhack.module.misc.Performance;
 import me.mrhakan.agalarhack.module.misc.AutoEat;
 import me.mrhakan.agalarhack.module.misc.AutoReconnect;
+import me.mrhakan.agalarhack.module.misc.ChatFilter;
+import me.mrhakan.agalarhack.module.misc.ChatMentions;
+import me.mrhakan.agalarhack.module.misc.GamemodeAlerts;
+import me.mrhakan.agalarhack.module.misc.PlayerAlerts;
+import me.mrhakan.agalarhack.module.misc.ServerInfo;
 import me.mrhakan.agalarhack.module.movement.Flight;
+import me.mrhakan.agalarhack.module.player.AutoArmor;
+import me.mrhakan.agalarhack.module.player.AutoTotem;
+import me.mrhakan.agalarhack.module.player.AutoRefill;
+import me.mrhakan.agalarhack.module.player.ElytraInfo;
+import me.mrhakan.agalarhack.module.player.AutoRespawn;
+import me.mrhakan.agalarhack.module.player.AutoWeapon;
+import me.mrhakan.agalarhack.module.player.InventoryCleaner;
 import me.mrhakan.agalarhack.module.movement.Jesus;
 import me.mrhakan.agalarhack.module.movement.NoFall;
+import me.mrhakan.agalarhack.module.movement.AutoWalk;
+import me.mrhakan.agalarhack.module.movement.Parkour;
+import me.mrhakan.agalarhack.module.movement.SafeWalk;
 import me.mrhakan.agalarhack.module.movement.Speed;
 import me.mrhakan.agalarhack.module.movement.Sprint;
 import me.mrhakan.agalarhack.module.movement.Step;
 import me.mrhakan.agalarhack.module.render.BlockESP;
+import me.mrhakan.agalarhack.module.render.Breadcrumbs;
+import me.mrhakan.agalarhack.module.render.CameraTweaks;
 import me.mrhakan.agalarhack.module.render.Coordinates;
 import me.mrhakan.agalarhack.module.render.Durability;
 import me.mrhakan.agalarhack.module.render.EntityESP;
 import me.mrhakan.agalarhack.module.render.Freecam;
+import me.mrhakan.agalarhack.module.render.HoleESP;
+import me.mrhakan.agalarhack.module.render.ItemESP;
+import me.mrhakan.agalarhack.module.render.Nametags;
 import me.mrhakan.agalarhack.module.render.Fullbright;
+import me.mrhakan.agalarhack.module.render.ProjectileESP;
+import me.mrhakan.agalarhack.module.render.ProjectileWarning;
+import me.mrhakan.agalarhack.module.render.SpawnESP;
 import me.mrhakan.agalarhack.module.render.StorageESP;
 import me.mrhakan.agalarhack.module.render.TargetHUD;
+import me.mrhakan.agalarhack.module.render.Waypoints;
+import me.mrhakan.agalarhack.module.render.Tracers;
 import me.mrhakan.agalarhack.module.render.Trajectories;
 import me.mrhakan.agalarhack.module.world.AutoTool;
+import me.mrhakan.agalarhack.module.world.BaseFinder;
 import net.minecraft.client.Minecraft;
 
 public class ModuleManager {
+
     private final List<Module> modules = new ArrayList<>();
     private final List<Module> moduleView = Collections.unmodifiableList(modules);
     private final Map<String, Module> modulesByName = new LinkedHashMap<>();
-    private final Map<Module, String> searchText = new LinkedHashMap<>();
-    private final Map<Category, List<Module>> modulesByCategory = new EnumMap<>(Category.class);
-    private final Map<Category, List<Module>> categoryViews = new EnumMap<>(Category.class);
 
     public ModuleManager() {
-        for (Category category : Category.values()) {
-            List<Module> categoryModules = new ArrayList<>();
-            modulesByCategory.put(category, categoryModules);
-            categoryViews.put(category, Collections.unmodifiableList(categoryModules));
-        }
+        register(new Aura());
+        register(new TriggerBot());
+        register(new CritInfo());
+        register(new TotemTracker());
+        register(new CombatHistory());
 
-        register(new Aura()); register(new TriggerBot());
-        register(new AutoEat()); register(new AutoReconnect());
-        register(new Speed()); register(new Flight()); register(new Jesus()); register(new Sprint()); register(new Step()); register(new NoFall());
-        register(new Fullbright()); register(new Coordinates()); register(new Durability()); register(new EntityESP()); register(new StorageESP());
-        register(new BlockESP()); register(new Trajectories()); register(new TargetHUD()); register(new Freecam());
+        register(new AutoEat());
+        register(new AutoReconnect());
+        register(new ServerInfo());
+        register(new Performance());
+        register(new AutoFish());
+        register(new AutoAccept());
+        register(new BetterChat());
+        register(new ChatMentions());
+        register(new GamemodeAlerts());
+        register(new PlayerAlerts());
+        register(new ChatFilter());
+
+        register(new Speed());
+        register(new Flight());
+        register(new Jesus());
+        register(new Sprint());
+        register(new Step());
+        register(new NoFall());
+        register(new SafeWalk());
+        register(new Parkour());
+        register(new AutoWalk());
+
+        register(new me.mrhakan.agalarhack.module.render.Notifications());
+        register(new me.mrhakan.agalarhack.module.render.ModuleList());
+        register(new Fullbright());
+        register(new Coordinates());
+        register(new Durability());
+        register(new EntityESP());
+        register(new StorageESP());
+        register(new BlockESP());
+        register(new Trajectories());
+        register(new TargetHUD());
+        register(new Freecam());
+        register(new Waypoints());
+        register(new ItemESP());
+        register(new Nametags());
+        register(new Breadcrumbs());
+        register(new HoleESP());
+        register(new CameraTweaks());
+        register(new SpawnESP());
+        register(new Tracers());
+        register(new ProjectileESP());
+        register(new ProjectileWarning());
+
+        register(new AutoTotem());
+        register(new AutoArmor());
+        register(new AutoWeapon());
+        register(new AutoRefill());
+        register(new AutoRespawn());
+        register(new InventoryCleaner());
+        register(new ElytraInfo());
+
         register(new AutoTool());
+        register(new BaseFinder());
     }
 
-    private void register(Module module) {
+    /**
+     * Adds a module to the catalogue.
+     *
+     * <p>Public because addons register through it. It already refuses a duplicate name, which is
+     * the contract {@code AddonContext.addModule} states, so an addon colliding with a built-in
+     * module fails loudly against its own id rather than quietly shadowing something.
+     */
+    public void register(Module module) {
         String key = normalize(module.getName());
-        if (modulesByName.containsKey(key)) throw new IllegalStateException("Duplicate module name: " + module.getName());
+        if (modulesByName.containsKey(key)) {
+            throw new IllegalStateException("Duplicate module name: " + module.getName());
+        }
         modules.add(module);
         modulesByName.put(key, module);
-        modulesByCategory.get(module.getCategory()).add(module);
-        searchText.put(module, buildSearchText(module));
     }
 
     public void tick(Minecraft client) {
-        boolean worldReady = client.player != null && client.level != null;
+        boolean worldReady = client.player != null && client.level != null && client.player.isAlive();
         boolean stateChanged = false;
+        // Looked up once per tick rather than per module, and absent before startup finishes.
+        var timings = me.mrhakan.agalarhack.services.ClientServices.registry() == null ? null
+                : me.mrhakan.agalarhack.services.ClientServices.registry()
+                        .find(me.mrhakan.agalarhack.services.ModuleTimings.class).orElse(null);
+        boolean measure = timings != null && timings.isRecording();
         for (Module module : modules) {
-            if (!module.isToggled() || (!worldReady && !module.runsWithoutWorld())) continue;
-            try { module.onUpdate(); }
-            catch (RuntimeException e) {
-                System.err.println("[Agalar Hack] Disabling module after tick failure: " + module.getName());
-                e.printStackTrace(); forceDisable(module); stateChanged = true;
+            if (!module.isToggled() || (!worldReady && !module.runsWithoutWorld())) {
+                continue;
+            }
+            try {
+                if (measure) {
+                    long started = System.nanoTime();
+                    module.onUpdate();
+                    timings.record(module.getName(), System.nanoTime() - started);
+                } else {
+                    module.onUpdate();
+                }
+            } catch (RuntimeException e) {
+                AgalarHackClient.LOGGER.error("Disabling module after tick failure: {}", module.getName(), e);
+                me.mrhakan.agalarhack.services.ClientServices.require(me.mrhakan.agalarhack.services.NotificationService.class).publish(
+                        me.mrhakan.agalarhack.services.NotificationService.Type.ERROR, module.getName() + " disabled after an error");
+                forceDisable(module);
+                stateChanged = true;
             }
         }
-        if (stateChanged) AgalarHackClient.SETTINGS_MANAGER.updateSettings();
+        if (stateChanged) {
+            AgalarHackClient.SETTINGS_MANAGER.updateSettings();
+        }
+    }
+
+    public void onWorldChanged(boolean worldReady) {
+        for (Module module : modules) {
+            if (!module.isToggled() || module.runsWithoutWorld()) continue;
+            try { module.onWorldChanged(worldReady); }
+            catch (RuntimeException failure) {
+                AgalarHackClient.LOGGER.error("World transition failed for {}", module.getName(), failure);
+                forceDisable(module);
+                AgalarHackClient.SETTINGS_MANAGER.updateSettings();
+            }
+        }
+        AgalarHackClient.TARGET_TRACKER.clear();
     }
 
     public void onDisconnect() {
         for (Module module : modules) {
-            if (!module.isToggled()) continue;
-            try { module.onDisconnect(); }
-            catch (RuntimeException e) {
-                System.err.println("[Agalar Hack] Disconnect cleanup failed for " + module.getName()); e.printStackTrace();
+            if (!module.isToggled()) {
+                continue;
+            }
+            try {
+                module.onDisconnect();
+            } catch (RuntimeException e) {
+                me.mrhakan.agalarhack.AgalarHackClient.LOGGER.warn("[Agalar Hack] Disconnect cleanup failed for " + module.getName());
+                me.mrhakan.agalarhack.AgalarHackClient.LOGGER.error("Operation failed", e);
             }
         }
     }
 
-    public Module getModule(String name) { return name == null ? null : modulesByName.get(normalize(name)); }
-    public List<Module> getModuleList() { return moduleView; }
-
-    /** Returns a stable read-only category view without allocating a new list per GUI frame. */
-    public List<Module> getModulesByCategory(Category category) {
-        List<Module> view = categoryViews.get(category);
-        return view == null ? Collections.emptyList() : view;
+    public Module getModule(String name) {
+        return name == null ? null : modulesByName.get(normalize(name));
     }
 
-    public List<Module> searchModules(String query) {
-        if (query == null || query.isBlank()) return getModuleList();
-        String[] terms = normalize(query).trim().split("\\s+");
+    public List<Module> getModuleList() {
+        return moduleView;
+    }
+
+    public List<Module> getModulesByCategory(Category category) {
         List<Module> result = new ArrayList<>();
         for (Module module : modules) {
-            String haystack = searchText.get(module);
-            boolean matches = true;
-            for (String term : terms) {
-                if (!haystack.contains(term)) { matches = false; break; }
+            if (module.getCategory() == category) {
+                result.add(module);
             }
-            if (matches) result.add(module);
         }
         return result;
     }
 
-    private static String buildSearchText(Module module) {
-        StringBuilder text = new StringBuilder(192)
-                .append(normalize(module.getName())).append(' ')
-                .append(normalize(module.getDescription())).append(' ')
-                .append(normalize(module.getCategory().name));
-        for (var spec : module.settings.getSpecs()) {
-            text.append(' ').append(normalize(spec.getName())).append(' ').append(normalize(spec.getDescription()));
+    public List<Module> searchModules(String query) {
+        if (query == null || query.isBlank()) {
+            return getModuleList();
         }
-        return text.toString();
+        String normalized = normalize(query);
+        List<Module> result = new ArrayList<>();
+        for (Module module : modules) {
+            StringBuilder searchable = new StringBuilder(module.getName()).append(' ').append(module.getDescription()).append(' ').append(module.getCategory().name);
+            for (var spec : module.settings.getSpecs()) searchable.append(' ').append(spec.getName()).append(' ').append(spec.getDescription());
+            boolean matches = me.mrhakan.agalarhack.ui.ModuleSearch.matches(normalized, searchable.toString());
+            if (matches) {
+                result.add(module);
+            }
+        }
+        return result;
     }
 
     public int disableAll() {
         int disabled = 0;
         for (Module module : modules) {
-            if (!module.isToggled()) continue;
-            disabled++; forceDisable(module);
+            if (!module.isToggled()) {
+                continue;
+            }
+            disabled++;
+            forceDisable(module);
         }
-        if (disabled > 0) AgalarHackClient.SETTINGS_MANAGER.updateSettings();
+        if (disabled > 0) {
+            AgalarHackClient.SETTINGS_MANAGER.updateSettings();
+        }
         return disabled;
     }
 
@@ -138,25 +264,39 @@ public class ModuleManager {
         AgalarHackClient.SETTINGS_MANAGER.loadSettings();
         boolean changed = false;
         for (Module module : modules) {
-            if (!Boolean.TRUE.equals(module.settings.getSetting("enabled")) || module.isToggled()) continue;
-            try { module.setToggled(true, false); }
-            catch (RuntimeException e) {
-                System.err.println("[Agalar Hack] Could not restore enabled module: " + module.getName());
-                e.printStackTrace(); forceDisable(module); changed = true;
+            if (!Boolean.TRUE.equals(module.settings.getSetting("enabled")) || module.isToggled()) {
+                continue;
+            }
+            try {
+                module.setToggled(true, false);
+            } catch (RuntimeException e) {
+                me.mrhakan.agalarhack.AgalarHackClient.LOGGER.warn("[Agalar Hack] Could not restore enabled module: " + module.getName());
+                me.mrhakan.agalarhack.AgalarHackClient.LOGGER.error("Operation failed", e);
+                forceDisable(module);
+                changed = true;
             }
         }
-        if (changed) AgalarHackClient.SETTINGS_MANAGER.updateSettings();
-    }
-
-    private void forceDisable(Module module) {
-        try {
-            if (module.isToggled()) module.setToggled(false, false);
-            else module.settings.setSetting("enabled", false);
-        } catch (RuntimeException disableError) {
-            module.settings.setSetting("enabled", false);
-            System.err.println("[Agalar Hack] Module cleanup failed: " + module.getName()); disableError.printStackTrace();
+        if (changed) {
+            AgalarHackClient.SETTINGS_MANAGER.updateSettings();
         }
     }
 
-    private static String normalize(String value) { return value == null ? "" : value.toLowerCase(Locale.ROOT); }
+    /** Public because the shared module guard disables from callbacks outside this class. */
+    public void forceDisable(Module module) {
+        try {
+            if (module.isToggled()) {
+                module.setToggled(false, false);
+            } else {
+                module.settings.setSetting("enabled", false);
+            }
+        } catch (RuntimeException disableError) {
+            module.settings.setSetting("enabled", false);
+            me.mrhakan.agalarhack.AgalarHackClient.LOGGER.warn("[Agalar Hack] Module cleanup failed: " + module.getName());
+            me.mrhakan.agalarhack.AgalarHackClient.LOGGER.error("Module cleanup failed", disableError);
+        }
+    }
+
+    private static String normalize(String value) {
+        return value == null ? "" : value.toLowerCase(Locale.ROOT);
+    }
 }

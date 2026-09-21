@@ -1,9 +1,8 @@
 package me.mrhakan.agalarhack.module.world;
 
-import me.mrhakan.agalarhack.AgalarHackClient;
+import me.mrhakan.agalarhack.services.InventoryService;
 import me.mrhakan.agalarhack.module.Category;
 import me.mrhakan.agalarhack.module.Module;
-import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 
@@ -11,12 +10,6 @@ import net.minecraft.world.phys.BlockHitResult;
 public class AutoTool extends Module {
     private static final String OWNER = "autotool";
     private static final int PRIORITY = 40;
-
-    private int previousSlot = -1;
-    private int appliedSlot = -1;
-    private int candidateSlot = -1;
-    private int candidateTicks;
-    private boolean swapped;
 
     public AutoTool() {
         super("AutoTool", Category.WORLD, "Automatically selects the fastest hotbar tool while mining");
@@ -29,113 +22,44 @@ public class AutoTool extends Module {
         addBooleanSetting("preferCurrent", true, "Keep the selected tool when it is effectively as fast as the best option");
         addNumberSetting("minDurability", 5.0, 0.0, 1000.0, "Avoid damageable tools with this many or fewer uses remaining");
         addNumberSetting("switchThreshold", 0.15, 0.0, 5.0, "Minimum destroy-speed improvement required before switching tools");
-        addNumberSetting("switchDelay", 0.0, 0.0, 10.0, "Ticks a better tool must remain preferred before switching; helps prevent hotbar flicker while aiming");
     }
 
     @Override
     public void onUpdate() {
-        if (mc.player == null || mc.level == null || mc.gui.screen() != null) {
-            restoreSlot();
-            return;
+        InventoryService inventory = service(InventoryService.class);
+        if (mc.player == null || mc.level == null || mc.gui.screen() != null || mc.player.isUsingItem()
+                || !(mc.hitResult instanceof BlockHitResult hit)
+                || (getBooleanSetting("miningOnly", true) && !mc.options.keyAttack.isDown())) {
+            inventory.release(OWNER); return;
         }
-
-        boolean mining = mc.options.keyAttack.isDown();
-        if (!(mc.hitResult instanceof BlockHitResult hit)
-                || (getBooleanSetting("miningOnly", true) && !mining)) {
-            restoreSlot();
-            return;
-        }
-
+        int minimumDurability = (int) Math.round(getNumberSetting("minDurability", 5));
         BlockState state = mc.level.getBlockState(hit.getBlockPos());
+        int slot = inventory.findBestTool(state, minimumDurability);
+        if (slot < 0) { inventory.release(OWNER); return; }
+        inventory.select(OWNER, PRIORITY, hold(inventory, state, slot, minimumDurability), false,
+                getBooleanSetting("swapBack", true));
+    }
+    /**
+     * The slot to actually hold: the best one, unless the slot already selected is close enough.
+     *
+     * <p>Hysteresis ported from main's fd2d295. Two tools within a hair of each other made the
+     * module swap every tick for a destroy speed the player cannot feel, and each swap is a visible
+     * hand animation. The {@code +1000} correct-tool bonus dwarfs any threshold the slider allows,
+     * so this only ever holds a tool of the same correctness class - reaching for the right tool is
+     * never suppressed.
+     */
+    private int hold(InventoryService inventory, BlockState state, int best, int minimumDurability) {
+        if (!getBooleanSetting("preferCurrent", true) || mc.player == null) return best;
         int current = mc.player.getInventory().getSelectedSlot();
-        int minimumDurability = (int) Math.round(getNumberSetting("minDurability", 5.0));
-        boolean preferCurrent = getBooleanSetting("preferCurrent", true);
-        double switchThreshold = getNumberSetting("switchThreshold", 0.15);
-        int bestSlot = findBestSlot(state, current, minimumDurability, preferCurrent, switchThreshold);
-        if (bestSlot < 0 || bestSlot == current) {
-            resetCandidate();
-            if (!mining) {
-                restoreSlot();
-            }
-            return;
-        }
-
-        int switchDelay = (int) Math.round(getNumberSetting("switchDelay", 0.0));
-        if (bestSlot != candidateSlot) {
-            candidateSlot = bestSlot;
-            candidateTicks = 1;
-        } else {
-            candidateTicks++;
-        }
-        if (candidateTicks <= switchDelay) {
-            return;
-        }
-        if (!AgalarHackClient.UTILITY_ACTIONS.claimHotbar(OWNER, PRIORITY)) {
-            return;
-        }
-
-        if (!swapped && getBooleanSetting("swapBack", true)) {
-            previousSlot = current;
-        }
-        mc.player.getInventory().setSelectedSlot(bestSlot);
-        appliedSlot = bestSlot;
-        swapped = true;
-        resetCandidate();
+        if (current == best) return best;
+        double currentScore = inventory.toolScore(current, state, minimumDurability);
+        // A negative score is a refusal - an empty hand or a tool at its durability floor - and is
+        // never worth holding on to, however small the difference looks.
+        if (currentScore < 0) return best;
+        double improvement = inventory.toolScore(best, state, minimumDurability) - currentScore;
+        return improvement <= getNumberSetting("switchThreshold", 0.15) ? current : best;
     }
 
-    private int findBestSlot(BlockState state, int currentSlot, int minimumDurability,
-                             boolean preferCurrent, double switchThreshold) {
-        int best = -1;
-        double bestScore = 1.0;
-        ItemStack currentStack = mc.player.getInventory().getItem(currentSlot);
-        double currentScore = score(currentStack, state);
-        for (int slot = 0; slot < 9; slot++) {
-            ItemStack stack = mc.player.getInventory().getItem(slot);
-            if (!isUsable(stack, minimumDurability)) {
-                continue;
-            }
-            double score = score(stack, state);
-            if (score > bestScore) {
-                bestScore = score;
-                best = slot;
-            }
-        }
-        if (best < 0 || !preferCurrent || !isUsable(currentStack, minimumDurability)) {
-            return best;
-        }
-        return bestScore - currentScore <= switchThreshold ? currentSlot : best;
-    }
-
-    private boolean isUsable(ItemStack stack, int minimumDurability) {
-        return !stack.isEmpty()
-                && (!stack.isDamageableItem() || stack.getMaxDamage() - stack.getDamageValue() > minimumDurability);
-    }
-
-    private double score(ItemStack stack, BlockState state) {
-        if (stack.isEmpty()) {
-            return 0.0;
-        }
-        return stack.getDestroySpeed(state) + (stack.isCorrectToolForDrops(state) ? 1000.0 : 0.0);
-    }
-
-    private void resetCandidate() {
-        candidateSlot = -1;
-        candidateTicks = 0;
-    }
-
-    private void restoreSlot() {
-        if (swapped && getBooleanSetting("swapBack", true) && previousSlot >= 0 && previousSlot < 9
-                && mc.player != null && mc.player.getInventory().getSelectedSlot() == appliedSlot) {
-            mc.player.getInventory().setSelectedSlot(previousSlot);
-        }
-        previousSlot = -1;
-        appliedSlot = -1;
-        swapped = false;
-        resetCandidate();
-    }
-
-    @Override
-    public void onDisable() {
-        restoreSlot();
-    }
+    @Override public void onDisable() { service(InventoryService.class).release(OWNER); }
+    @Override public void onDisconnect() { onDisable(); }
 }

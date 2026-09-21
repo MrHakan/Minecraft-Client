@@ -29,7 +29,8 @@ public class Bind extends Command {
 
         String keyName = args[2].toLowerCase(Locale.ROOT);
         if (keyName.equals("none")) {
-            module.settings.setSetting("keybind", String.valueOf(InputConstants.UNKNOWN.getValue()));
+            module.settings.setSetting("keyModifiers", 0.0);
+        module.settings.setSetting("keybind", String.valueOf(InputConstants.UNKNOWN.getValue()));
             AgalarHackClient.SETTINGS_MANAGER.updateSettings();
             MessageManager.sendMessagePrefix(ChatFormatting.AQUA + module.getName() + ChatFormatting.WHITE + " is now unbound.");
             return;
@@ -48,6 +49,7 @@ public class Bind extends Command {
             return;
         }
 
+        module.settings.setSetting("keyModifiers", 0.0);
         module.settings.setSetting("keybind", String.valueOf(key.getValue()));
         AgalarHackClient.SETTINGS_MANAGER.updateSettings();
         MessageManager.sendMessagePrefix(ChatFormatting.AQUA + module.getName() + ChatFormatting.WHITE + " is now bound to " + ChatFormatting.GREEN + key.getDisplayName().getString());

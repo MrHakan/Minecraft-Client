@@ -14,7 +14,6 @@ public class AutoReconnect extends Module {
     private int ticksRemaining;
     private int attempts;
     private Object observedDisconnectScreen;
-    private int displayedSeconds = -1;
 
     public AutoReconnect() {
         super("AutoReconnect", Category.MISC, "Reconnects to the last multiplayer server after an unexpected disconnect");
@@ -42,6 +41,8 @@ public class AutoReconnect extends Module {
         }
 
         if (!(mc.gui.screen() instanceof DisconnectedScreen disconnected)) {
+            // Leaving the actual disconnect screen means the user intentionally
+            // navigated elsewhere; do not surprise them with a reconnect later.
             if (!(mc.gui.screen() instanceof ConnectScreen)) {
                 clearSchedule();
             }
@@ -50,13 +51,11 @@ public class AutoReconnect extends Module {
         }
 
         if (lastServer == null) {
-            setDisplayName("AutoReconnect [no server]");
             return;
         }
         if (observedDisconnectScreen != disconnected) {
             observedDisconnectScreen = disconnected;
-            ticksRemaining = delayTicks();
-            displayedSeconds = -1;
+            ticksRemaining = (int) Math.round(getNumberSetting("delaySeconds", 5.0) * 20.0);
             armed = true;
         }
         if (!armed) {
@@ -66,31 +65,26 @@ public class AutoReconnect extends Module {
         int maxAttempts = (int) Math.round(getNumberSetting("maxAttempts", 5.0));
         if (attempts >= maxAttempts) {
             armed = false;
-            setDisplayName("AutoReconnect [stopped " + attempts + "/" + maxAttempts + "]");
+            setDisplayName("AutoReconnect [stopped]");
             return;
         }
 
         if (ticksRemaining > 0) {
             ticksRemaining--;
-            int seconds = Math.max(1, (ticksRemaining + 19) / 20);
-            // Display names are consumed by HUD/GUI. Update only when the visible
-            // second changes instead of allocating a new String every client tick.
-            if (seconds != displayedSeconds) {
-                displayedSeconds = seconds;
-                setDisplayName("AutoReconnect [" + seconds + "s · " + attempts + "/" + maxAttempts + "]");
-            }
+            setDisplayName("AutoReconnect [" + Math.max(1, (int) Math.ceil(ticksRemaining / 20.0)) + "s]");
             return;
         }
 
         attempts++;
+        service(me.mrhakan.agalarhack.services.NotificationService.class).publish(
+                me.mrhakan.agalarhack.services.NotificationService.Type.INFO, "Reconnect attempt " + attempts);
         armed = false;
-        displayedSeconds = -1;
-        setDisplayName("AutoReconnect [attempt " + attempts + "/" + maxAttempts + "]");
+        setDisplayName("AutoReconnect [attempt " + attempts + "]");
         try {
             ServerAddress address = ServerAddress.parseString(lastServer.ip);
             ConnectScreen.startConnecting(disconnected, mc, address, lastServer, false, null);
         } catch (RuntimeException e) {
-            ticksRemaining = delayTicks();
+            ticksRemaining = (int) Math.round(getNumberSetting("delaySeconds", 5.0) * 20.0);
             armed = true;
         }
     }
@@ -99,10 +93,6 @@ public class AutoReconnect extends Module {
     public void onDisconnect() {
         // The screen-based tick arms the reconnect only if vanilla actually shows
         // DisconnectedScreen. This avoids reconnecting after an intentional exit.
-    }
-
-    private int delayTicks() {
-        return Math.max(20, (int) Math.round(getNumberSetting("delaySeconds", 5.0) * 20.0));
     }
 
     private ServerData copyServer(ServerData source) {
@@ -114,7 +104,6 @@ public class AutoReconnect extends Module {
     private void clearSchedule() {
         armed = false;
         ticksRemaining = 0;
-        displayedSeconds = -1;
         observedDisconnectScreen = null;
     }
 

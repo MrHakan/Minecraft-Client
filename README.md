@@ -13,6 +13,8 @@
 > [!NOTE]
 > The original 1.12.2 Forge client is retained on the [`og` branch](../../tree/og).
 
+AI contributors: read [handover.md](handover.md) for current progress, architecture, remaining work and validation requirements.
+
 ## Requirements
 
 | Dependency | Version |
@@ -51,7 +53,7 @@ HUD layout is persisted in `config/agalarhack-hud.json`.
 
 ## Profiles and per-server configs
 
-Profiles store complete module state/settings/keybinds, Global Target Policy and HUD layout. They support save/load/delete, per-server binding, duplicate/rename and clipboard JSON import/export. Rename migrates server bindings; imported maps are sanitized before storage.
+Profiles store complete module state/settings/keybinds, Global Target Policy and HUD layout. They support save/load/delete, per-server binding, duplicate/rename and clipboard JSON import/export. Partial loads can select module/category settings, HUD, targets or the independent keybind slice; imported maps are sanitized before storage. Rename migrates server and dimension bindings.
 
 ## Commands
 
@@ -64,9 +66,10 @@ Profiles store complete module state/settings/keybinds, Global Target Policy and
 | `.bind <module> <key|none>` | Changes a keybind |
 | `.set <module> <setting> <value>` | Changes a typed setting |
 | `.friend add|remove|list|clear [name]` | Manages friends |
-| `.profile save|load|delete|list|bind|unbind [name]` | Core profile lifecycle |
+| `.profile save|load|delete|list|bind|unbind [name] [parts]` | Core profile lifecycle; load parts can include module/category names, `hud`, `targets` or `keybinds` |
 | `.profile duplicate|rename <source> <target>` | Copies/renames profiles |
 | `.profile export|import <name>` | Clipboard profile JSON |
+| `.grind <item> [count]` | Plans what it would take to obtain an item, counting what you already carry (plans only; gathers nothing) |
 | `.gui` | Opens the Control Center |
 | `.panic` | Disables all active modules |
 
@@ -130,6 +133,20 @@ Minecraft 26.2 multiplayer does not always synchronize complete active-effect st
 ### Earlier 26.2.x work
 
 26.2.4 added drag-and-drop HUD positioning, ESP tracers/name labels, collision-aware Trajectories, richer TargetHUD, Freecam smoothing/body marker and full profile import/export/duplicate/rename. 26.2.3 introduced profiles/per-server configs, the HUD layout manager, shared target policy/tracker and utility/render modules. 26.2.2 established typed settings, friends, Aura/TriggerBot improvements, safer module lifecycle and modern CI.
+
+## Addons
+
+This client can be extended by other Fabric mods: declare an `agalarhack` entrypoint and you get a
+module and a command registered alongside the built-in ones. The published surface, the rules the
+loader enforces and a complete minimal example are in [Writing an addon](docs/ADDONS.md). The API is
+version 1 and still marked provisional.
+
+## Foundation development branch
+
+The shared service foundation and its current limitations are documented in
+[Foundation services](docs/FOUNDATION_SERVICES.md). This branch introduces an internal event
+bridge, inventory/target/rotation services, notifications, lifecycle cleanup and explicit
+module-config migration while preserving the existing 26.2 rendering pipeline.
 
 ## Building
 

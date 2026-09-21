@@ -48,6 +48,20 @@ class SettingsTest {
     }
 
     @Test
+    void selectiveLoadedValuesDoNotNormalizeUnselectedSettings() {
+        Settings settings = new Settings();
+        settings.addNumberSetting("selected", 1.0, 0.0, 10.0, "Selected");
+        settings.addNumberSetting("untouched", 1.0, 0.0, 10.0, "Untouched");
+
+        settings.setSetting("selected", 50.0);
+        settings.setSetting("untouched", 50.0);
+        settings.sanitizeLoadedValues(java.util.List.of("selected"));
+
+        assertEquals(10.0, settings.getSetting("selected"));
+        assertEquals(50.0, settings.getSetting("untouched"));
+    }
+
+    @Test
     void choicesAreCaseInsensitiveAndCanonicalized() {
         Settings settings = new Settings();
         settings.addChoiceSetting("priority", "closest", "Target priority",
