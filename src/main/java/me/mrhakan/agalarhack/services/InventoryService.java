@@ -100,28 +100,57 @@ public final class InventoryService {
     }
     public int findHotbar(Predicate<ItemStack> predicate) { return find(predicate, true); }
     public int findInventory(Predicate<ItemStack> predicate) { return find(predicate, false); }
-    public int findFood(boolean allowGolden) { return findFood(allowGolden, true); }
-    public int findFood(boolean allowGolden, boolean hotbar) {
-        if (mc.player == null) return -1;
-        return InventorySelection.best(hotbar ? 9 : 36, -1, slot -> foodScore(slot, allowGolden));
-    }
+    public int findFood(boolean allowGolden) { return findFood(allowGolden, true, IGNORE_WASTE); }
+    public int findFood(boolean allowGolden, boolean hotbar) { return findFood(allowGolden, hotbar, IGNORE_WASTE); }
 
     /**
-     * Nutrition of the food in this slot, by the same rule {@link #findFood} selects on.
+     * Best food in the hotbar or the whole inventory, ranked by how much of it the player can
+     * actually use.
      *
-     * <p>Public for the same reason {@link #toolScore} is: a caller weighing the slot it is already
-     * on against the best one must rank them identically, and a second copy of the rule is how
-     * {@code findBestArmor} and {@code ItemScoring} drifted apart.
-     *
-     * @return the nutrition, or -1 for an empty slot, a non-food, or a golden apple while those are
-     *     disallowed - at the baseline {@code findFood} selects above, so a refusal never wins
+     * @param missingHunger hunger points the bar is short of full, or {@link #IGNORE_WASTE} to rank
+     *     on raw nutrition and ignore overflow entirely
      */
-    public double foodScore(int slot, boolean allowGolden) {
-        if (mc.player == null || slot < 0 || slot >= 36) return -1;
+    public int findFood(boolean allowGolden, boolean hotbar, int missingHunger) {
+        if (mc.player == null) return -1;
+        return InventorySelection.best(hotbar ? 9 : 36, -1, slot -> {
+            FoodValue value = foodValue(slot, allowGolden, missingHunger);
+            // Useful nutrition first, least overflow second, packed into the one score the shared
+            // selector compares. Every real food lands at or above 999, so a refusal at -1 still
+            // sits below the baseline and can never win.
+            return value.refused() ? -1
+                    : value.useful() * 1000.0 + (999 - Math.min(value.waste(), 999));
+        });
+    }
+
+    /** Rank on raw nutrition, the way food selection worked before waste was considered. */
+    public static final int IGNORE_WASTE = -1;
+
+    /**
+     * What a slot's food is worth against a bar missing {@code missingHunger} points.
+     *
+     * @param useful nutrition that would actually land, or -1 when the slot holds nothing edible here
+     * @param waste nutrition that would overflow a full bar
+     */
+    public record FoodValue(int useful, int waste) {
+        public boolean refused() { return useful < 0; }
+    }
+
+    private static final FoodValue NO_FOOD = new FoodValue(-1, Integer.MAX_VALUE);
+
+    /**
+     * The food rule, in one place, for the same reason {@link #toolScore} is: a caller weighing the
+     * slot it is already on against the best one must rank them identically, and a second copy of a
+     * scoring rule is how {@code findBestArmor} and {@code ItemScoring} drifted apart.
+     */
+    public FoodValue foodValue(int slot, boolean allowGolden, int missingHunger) {
+        if (mc.player == null || slot < 0 || slot >= 36) return NO_FOOD;
         ItemStack stack = mc.player.getInventory().getItem(slot);
-        if (stack.isEmpty() || (!allowGolden && (stack.is(Items.GOLDEN_APPLE) || stack.is(Items.ENCHANTED_GOLDEN_APPLE)))) return -1;
+        if (stack.isEmpty() || (!allowGolden && (stack.is(Items.GOLDEN_APPLE) || stack.is(Items.ENCHANTED_GOLDEN_APPLE)))) return NO_FOOD;
         var food = stack.get(DataComponents.FOOD);
-        return food == null ? -1 : food.nutrition();
+        if (food == null) return NO_FOOD;
+        int nutrition = food.nutrition();
+        if (missingHunger == IGNORE_WASTE) return new FoodValue(nutrition, 0);
+        return new FoodValue(Math.min(nutrition, missingHunger), Math.max(0, nutrition - missingHunger));
     }
     public int findBestTool(BlockState state, int minimumDurability) {
         if (mc.player == null) return -1;

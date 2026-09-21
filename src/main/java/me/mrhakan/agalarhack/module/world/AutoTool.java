@@ -11,6 +11,10 @@ public class AutoTool extends Module {
     private static final String OWNER = "autotool";
     private static final int PRIORITY = 40;
 
+    /** main's switchDelay state: which slot is waiting to win, and for how many ticks. */
+    private int candidateSlot = -1;
+    private int candidateTicks;
+
     public AutoTool() {
         super("AutoTool", Category.WORLD, "Automatically selects the fastest hotbar tool while mining");
     }
@@ -22,6 +26,7 @@ public class AutoTool extends Module {
         addBooleanSetting("preferCurrent", true, "Keep the selected tool when it is effectively as fast as the best option");
         addNumberSetting("minDurability", 5.0, 0.0, 1000.0, "Avoid damageable tools with this many or fewer uses remaining");
         addNumberSetting("switchThreshold", 0.15, 0.0, 5.0, "Minimum destroy-speed improvement required before switching tools");
+        addNumberSetting("switchDelay", 0.0, 0.0, 10.0, "Ticks a better tool must remain preferred before switching; helps prevent hotbar flicker while aiming");
     }
 
     @Override
@@ -30,14 +35,41 @@ public class AutoTool extends Module {
         if (mc.player == null || mc.level == null || mc.gui.screen() != null || mc.player.isUsingItem()
                 || !(mc.hitResult instanceof BlockHitResult hit)
                 || (getBooleanSetting("miningOnly", true) && !mc.options.keyAttack.isDown())) {
-            inventory.release(OWNER); return;
+            resetCandidate(); inventory.release(OWNER); return;
         }
         int minimumDurability = (int) Math.round(getNumberSetting("minDurability", 5));
         BlockState state = mc.level.getBlockState(hit.getBlockPos());
         int slot = inventory.findBestTool(state, minimumDurability);
-        if (slot < 0) { inventory.release(OWNER); return; }
-        inventory.select(OWNER, PRIORITY, hold(inventory, state, slot, minimumDurability), false,
-                getBooleanSetting("swapBack", true));
+        if (slot < 0) { resetCandidate(); inventory.release(OWNER); return; }
+        int want = hold(inventory, state, slot, minimumDurability);
+        if (want == inventory.selectedSlot()) {
+            resetCandidate();
+        } else if (!settled(want)) {
+            return;
+        }
+        inventory.select(OWNER, PRIORITY, want, false, getBooleanSetting("swapBack", true));
+    }
+
+    /**
+     * main's switchDelay, ported onto the lease: a slot only wins once it has been the wanted one
+     * for this many consecutive ticks, so sweeping the crosshair across a wall of mixed blocks stops
+     * flicking the hotbar back and forth.
+     *
+     * <p>At the default of 0 the first tick already passes, which is the behaviour before it existed.
+     */
+    private boolean settled(int want) {
+        if (want != candidateSlot) {
+            candidateSlot = want;
+            candidateTicks = 1;
+        } else {
+            candidateTicks++;
+        }
+        return candidateTicks > (int) Math.round(getNumberSetting("switchDelay", 0.0));
+    }
+
+    private void resetCandidate() {
+        candidateSlot = -1;
+        candidateTicks = 0;
     }
     /**
      * The slot to actually hold: the best one, unless the slot already selected is close enough.
@@ -60,6 +92,6 @@ public class AutoTool extends Module {
         return improvement <= getNumberSetting("switchThreshold", 0.15) ? current : best;
     }
 
-    @Override public void onDisable() { service(InventoryService.class).release(OWNER); }
+    @Override public void onDisable() { resetCandidate(); service(InventoryService.class).release(OWNER); }
     @Override public void onDisconnect() { onDisable(); }
 }

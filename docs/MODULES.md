@@ -297,12 +297,13 @@ Boosts ground movement with a configurable horizontal speed cap
 
 ### Sprint
 
-Automatically sprints forward while respecting vanilla sprint eligibility
+Automatically sprints with configurable directional and movement safeguards
 
 | Setting | Default | Values | Description |
 | --- | --- | --- | --- |
 | `whileUsing` | `false` | `true/false or on/off` | Keep auto-sprint active while using an item |
 | `whileSneaking` | `false` | `true/false or on/off` | Keep auto-sprint active while sneaking |
+| `omni` | `false` | `true/false or on/off` | Allow auto-sprint while moving sideways or backward when vanilla sprint eligibility permits it |
 
 ### Step
 
@@ -328,15 +329,16 @@ Equips the best available armour using the shared inventory transfer channel
 
 ### AutoEat
 
-Automatically eats food from the hotbar when hunger is low
+Automatically eats suitable food from the hotbar when hunger is low
 
 | Setting | Default | Values | Description |
 | --- | --- | --- | --- |
 | `hunger` | `12` | `1..20` | Start eating at or below this hunger level |
 | `fillToFull` | `true` | `true/false or on/off` | Continue eating until the hunger bar is full |
+| `avoidWaste` | `true` | `true/false or on/off` | Prefer food that fills the missing hunger without wasting nutrition |
 | `swapBack` | `true` | `true/false or on/off` | Return to the previous hotbar slot afterwards |
 | `preferCurrent` | `true` | `true/false or on/off` | Keep the selected food when it is close to the best option to avoid needless hotbar swaps |
-| `nutritionTolerance` | `2` | `0..10` | Maximum nutrition points the selected food may trail the best food by |
+| `nutritionTolerance` | `2` | `0..10` | Maximum useful nutrition points the selected food may trail the best food by |
 | `allowGoldenApples` | `false` | `true/false or on/off` | Allow automatic use of golden/enchanted golden apples |
 
 ### AutoRefill
@@ -468,13 +470,17 @@ Client-side camera adjustments: hurt shake, view bobbing, FOV and FOV effects
 
 ### Coordinates
 
-Shows XYZ, facing direction, and optional Nether/Overworld coordinate conversion
+Shows XYZ, heading, chunk position, and optional Nether/Overworld coordinate conversion
 
 | Setting | Default | Values | Description |
 | --- | --- | --- | --- |
 | `precision` | `1` | `0..3` | Number of decimal places shown for coordinates |
 | `facing` | `true` | `true/false or on/off` | Append the horizontal cardinal direction |
+| `headingDegrees` | `false` | `true/false or on/off` | Append a 0-359 degree heading for precise navigation |
+| `chunkCoords` | `false` | `true/false or on/off` | Append the current chunk X/Z for navigation and chunk-aligned building |
+| `chunkLocal` | `false` | `true/false or on/off` | Show the current block position inside the 16x16 chunk |
 | `dimensionCoords` | `true` | `true/false or on/off` | Show the matching Nether or Overworld X/Z coordinates |
+| `dimensionLine` | `false` | `true/false or on/off` | Put converted dimension coordinates on a separate HUD line for readability |
 
 ### Durability
 
@@ -484,8 +490,11 @@ Shows remaining durability for equipped damageable items
 | --- | --- | --- | --- |
 | `showName` | `true` | `true/false or on/off` | Include the item's display name |
 | `showPercent` | `true` | `true/false or on/off` | Include remaining durability as a percentage |
-| `showOffhand` | `true` | `true/false or on/off` | Show a second line for a damageable offhand item |
-| `warningPercent` | `15` | `1..50` | Turn the HUD line red at or below this remaining percentage |
+| `showArmor` | `true` | `true/false or on/off` | Show durability for equipped armor pieces |
+| `showOffhand` | `true` | `true/false or on/off` | Show a line for a damageable offhand item |
+| `onlyWarnings` | `false` | `true/false or on/off` | Hide healthy items and show only warning or critical durability |
+| `warningPercent` | `25` | `1..75` | Turn the HUD line amber at or below this remaining percentage |
+| `criticalPercent` | `10` | `1..50` | Turn the HUD line red at or below this remaining percentage |
 
 ### ESP
 
@@ -702,6 +711,7 @@ Shows the active combat target with health, gear and status effects
 | --- | --- | --- | --- |
 | `layout` | `compact` | `minimal\|compact\|detailed` | How much of the card is shown |
 | `showHealth` | `true` | `true/false or on/off` | Show target current/max health text |
+| `healthPercent` | `true` | `true/false or on/off` | Append target health percentage for faster at-a-glance reading |
 | `healthBar` | `true` | `true/false or on/off` | Draw a proportional target health bar |
 | `showDistance` | `true` | `true/false or on/off` | Show distance to the target |
 | `showArmor` | `true` | `true/false or on/off` | Show the player's numeric armor value when the target is a player |
@@ -787,6 +797,7 @@ Automatically selects the fastest hotbar tool while mining
 | `preferCurrent` | `true` | `true/false or on/off` | Keep the selected tool when it is effectively as fast as the best option |
 | `minDurability` | `5` | `0..1000` | Avoid damageable tools with this many or fewer uses remaining |
 | `switchThreshold` | `0.15` | `0..5` | Minimum destroy-speed improvement required before switching tools |
+| `switchDelay` | `0` | `0..10` | Ticks a better tool must remain preferred before switching; helps prevent hotbar flicker while aiming |
 
 ### BaseFinder
 

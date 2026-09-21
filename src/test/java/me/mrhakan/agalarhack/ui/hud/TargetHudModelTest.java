@@ -55,6 +55,24 @@ class TargetHudModelTest {
         assertEquals("HP 20.0 / 20.0", plain.get(1));
     }
 
+    @Test void healthPercentAgreesWithTheBarRatherThanDividingAgain() {
+        // Off by request, and off for every caller that predates the option.
+        assertEquals("HP 10.0 / 20.0",
+                TargetHudModel.lines(Layout.COMPACT, target(10, 0, -1, true, false), true, false, false, false).get(1));
+        assertEquals("HP 10.0 / 20.0",
+                TargetHudModel.lines(Layout.COMPACT, target(10, 0, -1, true, false), true, false, false).get(1));
+
+        assertEquals("HP 10.0 / 20.0 (50%)",
+                TargetHudModel.lines(Layout.COMPACT, target(10, 0, -1, true, false), true, false, false, true).get(1));
+
+        // Absorption counts towards the percentage exactly as it counts towards the bar, and the
+        // shared clamp is what stops an absorbing target reading 140%.
+        var absorbing = target(20, 8, -1, true, false);
+        assertEquals("HP 28.0 / 20.0 (+8.0) (100%)",
+                TargetHudModel.lines(Layout.COMPACT, absorbing, true, false, false, true).get(1));
+        assertEquals(100, Math.round(TargetHudModel.healthFraction(absorbing) * 100.0));
+    }
+
     @Test void friendsAreMarkedOnEveryLayout() {
         for (Layout layout : Layout.values()) {
             var lines = TargetHudModel.lines(layout, target(20, 0, -1, true, true), true, true, true);

@@ -2,6 +2,7 @@ package me.mrhakan.agalarhack.managers;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.EnumMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -66,12 +67,19 @@ import me.mrhakan.agalarhack.module.world.BaseFinder;
 import net.minecraft.client.Minecraft;
 
 public class ModuleManager {
-
     private final List<Module> modules = new ArrayList<>();
     private final List<Module> moduleView = Collections.unmodifiableList(modules);
     private final Map<String, Module> modulesByName = new LinkedHashMap<>();
+    private final Map<Module, String> searchText = new LinkedHashMap<>();
+    private final Map<Category, List<Module>> modulesByCategory = new EnumMap<>(Category.class);
+    private final Map<Category, List<Module>> categoryViews = new EnumMap<>(Category.class);
 
     public ModuleManager() {
+        for (Category category : Category.values()) {
+            List<Module> categoryModules = new ArrayList<>();
+            modulesByCategory.put(category, categoryModules);
+            categoryViews.put(category, Collections.unmodifiableList(categoryModules));
+        }
         register(new Aura());
         register(new TriggerBot());
         register(new CritInfo());
@@ -129,7 +137,6 @@ public class ModuleManager {
         register(new AutoRespawn());
         register(new InventoryCleaner());
         register(new ElytraInfo());
-
         register(new AutoTool());
         register(new BaseFinder());
     }
@@ -143,11 +150,11 @@ public class ModuleManager {
      */
     public void register(Module module) {
         String key = normalize(module.getName());
-        if (modulesByName.containsKey(key)) {
-            throw new IllegalStateException("Duplicate module name: " + module.getName());
-        }
+        if (modulesByName.containsKey(key)) throw new IllegalStateException("Duplicate module name: " + module.getName());
         modules.add(module);
         modulesByName.put(key, module);
+        modulesByCategory.get(module.getCategory()).add(module);
+        searchText.put(module, buildSearchText(module));
     }
 
     public void tick(Minecraft client) {
@@ -178,9 +185,7 @@ public class ModuleManager {
                 stateChanged = true;
             }
         }
-        if (stateChanged) {
-            AgalarHackClient.SETTINGS_MANAGER.updateSettings();
-        }
+        if (stateChanged) AgalarHackClient.SETTINGS_MANAGER.updateSettings();
     }
 
     public void onWorldChanged(boolean worldReady) {
@@ -210,53 +215,49 @@ public class ModuleManager {
         }
     }
 
-    public Module getModule(String name) {
-        return name == null ? null : modulesByName.get(normalize(name));
-    }
+    public Module getModule(String name) { return name == null ? null : modulesByName.get(normalize(name)); }
+    public List<Module> getModuleList() { return moduleView; }
 
-    public List<Module> getModuleList() {
-        return moduleView;
-    }
-
+    /** Returns a stable read-only category view without allocating a new list per GUI frame. */
     public List<Module> getModulesByCategory(Category category) {
-        List<Module> result = new ArrayList<>();
-        for (Module module : modules) {
-            if (module.getCategory() == category) {
-                result.add(module);
-            }
-        }
-        return result;
+        List<Module> view = categoryViews.get(category);
+        return view == null ? Collections.emptyList() : view;
     }
 
     public List<Module> searchModules(String query) {
-        if (query == null || query.isBlank()) {
-            return getModuleList();
-        }
+        if (query == null || query.isBlank()) return getModuleList();
         String normalized = normalize(query);
         List<Module> result = new ArrayList<>();
         for (Module module : modules) {
-            StringBuilder searchable = new StringBuilder(module.getName()).append(' ').append(module.getDescription()).append(' ').append(module.getCategory().name);
-            for (var spec : module.settings.getSpecs()) searchable.append(' ').append(spec.getName()).append(' ').append(spec.getDescription());
-            boolean matches = me.mrhakan.agalarhack.ui.ModuleSearch.matches(normalized, searchable.toString());
-            if (matches) {
+            // main's precomputed haystack, this branch's matcher. ModuleSearch already requires
+            // every word to match and additionally accepts a subsequence, so taking main's
+            // contains-loop would have narrowed what the search finds; taking its cache stops
+            // rebuilding a StringBuilder per module per keystroke, which had no counterpart here.
+            if (me.mrhakan.agalarhack.ui.ModuleSearch.matches(normalized, searchText.get(module))) {
                 result.add(module);
             }
         }
         return result;
+    }
+
+    private static String buildSearchText(Module module) {
+        StringBuilder text = new StringBuilder(192)
+                .append(normalize(module.getName())).append(' ')
+                .append(normalize(module.getDescription())).append(' ')
+                .append(normalize(module.getCategory().name));
+        for (var spec : module.settings.getSpecs()) {
+            text.append(' ').append(normalize(spec.getName())).append(' ').append(normalize(spec.getDescription()));
+        }
+        return text.toString();
     }
 
     public int disableAll() {
         int disabled = 0;
         for (Module module : modules) {
-            if (!module.isToggled()) {
-                continue;
-            }
-            disabled++;
-            forceDisable(module);
+            if (!module.isToggled()) continue;
+            disabled++; forceDisable(module);
         }
-        if (disabled > 0) {
-            AgalarHackClient.SETTINGS_MANAGER.updateSettings();
-        }
+        if (disabled > 0) AgalarHackClient.SETTINGS_MANAGER.updateSettings();
         return disabled;
     }
 
@@ -276,19 +277,14 @@ public class ModuleManager {
                 changed = true;
             }
         }
-        if (changed) {
-            AgalarHackClient.SETTINGS_MANAGER.updateSettings();
-        }
+        if (changed) AgalarHackClient.SETTINGS_MANAGER.updateSettings();
     }
 
     /** Public because the shared module guard disables from callbacks outside this class. */
     public void forceDisable(Module module) {
         try {
-            if (module.isToggled()) {
-                module.setToggled(false, false);
-            } else {
-                module.settings.setSetting("enabled", false);
-            }
+            if (module.isToggled()) module.setToggled(false, false);
+            else module.settings.setSetting("enabled", false);
         } catch (RuntimeException disableError) {
             module.settings.setSetting("enabled", false);
             me.mrhakan.agalarhack.AgalarHackClient.LOGGER.warn("[Agalar Hack] Module cleanup failed: " + module.getName());
@@ -296,7 +292,5 @@ public class ModuleManager {
         }
     }
 
-    private static String normalize(String value) {
-        return value == null ? "" : value.toLowerCase(Locale.ROOT);
-    }
+    private static String normalize(String value) { return value == null ? "" : value.toLowerCase(Locale.ROOT); }
 }

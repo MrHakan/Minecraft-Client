@@ -41,9 +41,21 @@ public final class TargetHudModel {
                          double distance, int armor, int ping, boolean player,
                          boolean friend, boolean hurt) { }
 
-    /** Text lines for a layout, in display order. The first line is always the name. */
+    /** Without a percentage, which is what every caller wanted before the option existed. */
     public static List<String> lines(Layout layout, Target target, boolean showHealth,
             boolean showDistance, boolean showArmor) {
+        return lines(layout, target, showHealth, showDistance, showArmor, false);
+    }
+
+    /**
+     * Text lines for a layout, in display order. The first line is always the name.
+     *
+     * <p>{@code showPercent} is main's healthPercent option (3655e75), ported here rather than into
+     * the renderer so the percentage agrees with the bar: it is {@link #healthFraction}, which
+     * counts absorption and clamps at full, not a second health/maxHealth division.
+     */
+    public static List<String> lines(Layout layout, Target target, boolean showHealth,
+            boolean showDistance, boolean showArmor, boolean showPercent) {
         List<String> lines = new ArrayList<>();
         if (target == null) return lines;
         lines.add((target.friend() ? "★ " : "") + target.name());
@@ -54,10 +66,12 @@ public final class TargetHudModel {
             String health = String.format(Locale.ROOT, "HP %.1f / %.1f", effective, target.maxHealth());
             // Absorption can exceed max health, so it is called out rather than silently overflowing.
             if (target.absorption() > 0) {
-                lines.add(health + String.format(Locale.ROOT, " (+%.1f)", target.absorption()));
-            } else {
-                lines.add(health);
+                health += String.format(Locale.ROOT, " (+%.1f)", target.absorption());
             }
+            if (showPercent) {
+                health += " (" + Math.round(healthFraction(target) * 100.0) + "%)";
+            }
+            lines.add(health);
         }
         if (showDistance) lines.add(String.format(Locale.ROOT, "Distance %.1fm", target.distance()));
         if (layout != Layout.DETAILED) return List.copyOf(lines);

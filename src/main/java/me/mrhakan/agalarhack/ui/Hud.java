@@ -278,6 +278,12 @@ public class Hud implements HudElement {
     }
 
     private final List<HudLine> infoLines = new ArrayList<>();
+    // main's reused icon-row buffers, kept: they save two list allocations every rendered frame and
+    // nothing outlives the method, the same reason infoLines above is safe. Its targetLines and
+    // decimal format have no counterpart, because this branch builds the card's text in
+    // TargetHudModel, which hands back its own immutable list.
+    private final List<ItemStack> targetEquipment = new ArrayList<>(TARGET_EQUIPMENT.length);
+    private final List<MobEffectInstance> targetEffects = new ArrayList<>(12);
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor graphics, DeltaTracker deltaTracker) {
@@ -377,21 +383,22 @@ public class Hud implements HudElement {
         List<String> lines = me.mrhakan.agalarhack.ui.hud.TargetHudModel.lines(layout, model,
                 targetHud.getBooleanSetting("showHealth", true),
                 targetHud.getBooleanSetting("showDistance", true),
-                targetHud.getBooleanSetting("showArmor", true));
+                targetHud.getBooleanSetting("showArmor", true),
+                targetHud.getBooleanSetting("healthPercent", true));
 
-        List<ItemStack> equipment = new ArrayList<>();
+        targetEquipment.clear();
         if (showEquipment) {
             for (EquipmentSlot slot : TARGET_EQUIPMENT) {
                 ItemStack item = target.getItemBySlot(slot);
-                if (!item.isEmpty()) equipment.add(item);
+                if (!item.isEmpty()) targetEquipment.add(item);
             }
         }
-        List<MobEffectInstance> effects = new ArrayList<>();
+        targetEffects.clear();
         if (showEffects) {
             int limit = (int) Math.round(targetHud.getNumberSetting("maxEffects", 6.0));
             for (MobEffectInstance effect : target.getActiveEffects()) {
-                if (effects.size() >= limit) break;
-                effects.add(effect);
+                if (targetEffects.size() >= limit) break;
+                targetEffects.add(effect);
             }
         }
 
@@ -403,7 +410,7 @@ public class Hud implements HudElement {
         int contentWidth = 80;
         for (String line : lines) contentWidth = Math.max(contentWidth, font.width(line));
         contentWidth += indent;
-        int iconWidth = Math.max(equipment.size(), effects.size()) * 18;
+        int iconWidth = Math.max(targetEquipment.size(), targetEffects.size()) * 18;
         int boxWidth = Math.max(132, Math.max(contentWidth + 12, iconWidth + 12));
         int textHeight = Math.max(lines.size() * font.lineHeight,
                 me.mrhakan.agalarhack.ui.hud.PlayerFace.minimumContentHeight(showFace));
@@ -411,10 +418,10 @@ public class Hud implements HudElement {
         if (healthBar) {
             boxHeight += 7;
         }
-        if (!equipment.isEmpty()) {
+        if (!targetEquipment.isEmpty()) {
             boxHeight += 18;
         }
-        if (!effects.isEmpty()) {
+        if (!targetEffects.isEmpty()) {
             boxHeight += 20;
         }
 
@@ -456,14 +463,14 @@ public class Hud implements HudElement {
             }
             cursorY += 7;
         }
-        if (!equipment.isEmpty()) {
+        if (!targetEquipment.isEmpty()) {
             int itemX = x + 7;
-            for (ItemStack item : equipment) { graphics.item(item, itemX, cursorY); itemX += 18; }
+            for (ItemStack item : targetEquipment) { graphics.item(item, itemX, cursorY); itemX += 18; }
             cursorY += 18;
         }
-        if (!effects.isEmpty()) {
+        if (!targetEffects.isEmpty()) {
             int effectX = x + 7;
-            for (MobEffectInstance effect : effects) {
+            for (MobEffectInstance effect : targetEffects) {
                 graphics.blitSprite(RenderPipelines.GUI_TEXTURED, net.minecraft.client.gui.Hud.getMobEffectSprite(effect.getEffect()), effectX, cursorY + 1, 18, 18, ARGB.white(1.0f));
                 effectX += 18;
             }
