@@ -61,7 +61,10 @@ public class ClickGuiScreen extends Screen implements me.mrhakan.agalarhack.ui.C
     public void init() {
         super.init();
         rowVisuals.clear();
-        enabledCount = (int) AgalarHackClient.moduleManager.getModuleList().stream().filter(Module::isToggled).count();
+        enabledCount = 0;
+        for (Module module : AgalarHackClient.moduleManager.getModuleList()) {
+            if (module.isToggled()) enabledCount++;
+        }
 
         int contentLeft = SIDEBAR_WIDTH + 14;
         int contentRight = width - 14;
@@ -294,12 +297,14 @@ public class ClickGuiScreen extends Screen implements me.mrhakan.agalarhack.ui.C
         if (text == null || text.isBlank()) return "No description";
         if (font.width(text) <= maxWidth) return text;
         String suffix = "…";
-        StringBuilder out = new StringBuilder();
-        for (int i = 0; i < text.length(); i++) {
-            if (font.width(out.toString() + text.charAt(i) + suffix) > maxWidth) break;
-            out.append(text.charAt(i));
+        int suffixWidth = font.width(suffix);
+        int low = 0, high = text.length();
+        while (low < high) {
+            int mid = (low + high + 1) >>> 1;
+            if (font.width(text.substring(0, mid)) + suffixWidth <= maxWidth) low = mid;
+            else high = mid - 1;
         }
-        return out + suffix;
+        return text.substring(0, low) + suffix;
     }
 
     private record RowVisual(int x, int y, int width, int height, Module module, String description) {}
