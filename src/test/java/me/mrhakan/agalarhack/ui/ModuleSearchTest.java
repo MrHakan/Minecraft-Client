@@ -8,4 +8,11 @@ class ModuleSearchTest {
         assertFalse(ModuleSearch.matches("food teleport","AutoEat food hunger"));
         assertTrue(ModuleSearch.matches("","anything"));
     }
+
+    @Test void preparedSearchIsCaseInsensitiveAndWhitespaceTolerant() {
+        String prepared = ModuleSearch.prepare("AutoWalk Movement pauseWhenHungry hunger threshold");
+        assertTrue(ModuleSearch.matchesPrepared("  AWALK   HUNGRY ", prepared));
+        assertTrue(ModuleSearch.matchesPrepared("movement threshold", prepared));
+        assertFalse(ModuleSearch.matchesPrepared("movement elytra", prepared));
+    }
 }

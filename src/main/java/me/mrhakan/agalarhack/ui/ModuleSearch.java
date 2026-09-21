@@ -2,18 +2,42 @@ package me.mrhakan.agalarhack.ui;
 
 import java.util.Locale;
 
-/** Every word must match; subsequence matching allows abbreviations without edit-distance allocation. */
+/** Allocation-conscious module search with word AND semantics and abbreviation matching. */
 public final class ModuleSearch {
     private ModuleSearch() { }
+
+    /** Normalizes catalogue text once so repeated searches do not lowercase every module every time. */
+    public static String prepare(String haystack) {
+        return haystack == null ? "" : haystack.toLowerCase(Locale.ROOT);
+    }
+
     public static boolean matches(String query, String haystack) {
+        return matchesPrepared(query, prepare(haystack));
+    }
+
+    /** Matches against text returned by {@link #prepare(String)}. */
+    public static boolean matchesPrepared(String query, String preparedHaystack) {
         if (query == null || query.isBlank()) return true;
-        String text = haystack.toLowerCase(Locale.ROOT);
-        for (String word : query.trim().toLowerCase(Locale.ROOT).split("\\s+")) {
-            if (text.contains(word)) continue;
-            int cursor = 0;
-            for (int i=0;i<text.length() && cursor<word.length();i++) if (text.charAt(i)==word.charAt(cursor)) cursor++;
-            if (cursor != word.length()) return false;
+        String text = preparedHaystack == null ? "" : preparedHaystack;
+        String normalized = query.trim().toLowerCase(Locale.ROOT);
+        int start = 0;
+        while (start < normalized.length()) {
+            while (start < normalized.length() && Character.isWhitespace(normalized.charAt(start))) start++;
+            if (start >= normalized.length()) break;
+            int end = start + 1;
+            while (end < normalized.length() && !Character.isWhitespace(normalized.charAt(end))) end++;
+            String word = normalized.substring(start, end);
+            if (!text.contains(word) && !isSubsequence(word, text)) return false;
+            start = end;
         }
         return true;
+    }
+
+    private static boolean isSubsequence(String needle, String text) {
+        int cursor = 0;
+        for (int i = 0; i < text.length() && cursor < needle.length(); i++) {
+            if (text.charAt(i) == needle.charAt(cursor)) cursor++;
+        }
+        return cursor == needle.length();
     }
 }
