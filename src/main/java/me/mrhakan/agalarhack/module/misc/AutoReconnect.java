@@ -14,6 +14,7 @@ public class AutoReconnect extends Module {
     private int ticksRemaining;
     private int attempts;
     private Object observedDisconnectScreen;
+    private int displayedSeconds = -1;
 
     public AutoReconnect() {
         super("AutoReconnect", Category.MISC, "Reconnects to the last multiplayer server after an unexpected disconnect");
@@ -26,9 +27,7 @@ public class AutoReconnect extends Module {
     }
 
     @Override
-    public boolean runsWithoutWorld() {
-        return true;
-    }
+    public boolean runsWithoutWorld() { return true; }
 
     @Override
     public void onUpdate() {
@@ -39,76 +38,71 @@ public class AutoReconnect extends Module {
             setDisplayName(null);
             return;
         }
-
         if (!(mc.gui.screen() instanceof DisconnectedScreen disconnected)) {
-            // Leaving the actual disconnect screen means the user intentionally
-            // navigated elsewhere; do not surprise them with a reconnect later.
-            if (!(mc.gui.screen() instanceof ConnectScreen)) {
-                clearSchedule();
-            }
+            if (!(mc.gui.screen() instanceof ConnectScreen)) clearSchedule();
             setDisplayName(null);
             return;
         }
-
         if (lastServer == null) {
+            setDisplayName("AutoReconnect [no server]");
             return;
         }
         if (observedDisconnectScreen != disconnected) {
             observedDisconnectScreen = disconnected;
-            ticksRemaining = (int) Math.round(getNumberSetting("delaySeconds", 5.0) * 20.0);
+            ticksRemaining = delayTicks();
+            displayedSeconds = -1;
             armed = true;
         }
-        if (!armed) {
-            return;
-        }
+        if (!armed) return;
 
         int maxAttempts = (int) Math.round(getNumberSetting("maxAttempts", 5.0));
         if (attempts >= maxAttempts) {
             armed = false;
-            setDisplayName("AutoReconnect [stopped]");
+            setDisplayName("AutoReconnect [stopped " + attempts + "/" + maxAttempts + "]");
             return;
         }
-
         if (ticksRemaining > 0) {
             ticksRemaining--;
-            setDisplayName("AutoReconnect [" + Math.max(1, (int) Math.ceil(ticksRemaining / 20.0)) + "s]");
+            int seconds = Math.max(1, (ticksRemaining + 19) / 20);
+            if (seconds != displayedSeconds) {
+                displayedSeconds = seconds;
+                setDisplayName("AutoReconnect [" + seconds + "s · " + attempts + "/" + maxAttempts + "]");
+            }
             return;
         }
 
         attempts++;
+        armed = false;
+        displayedSeconds = -1;
         service(me.mrhakan.agalarhack.services.NotificationService.class).publish(
                 me.mrhakan.agalarhack.services.NotificationService.Type.INFO, "Reconnect attempt " + attempts);
-        armed = false;
-        setDisplayName("AutoReconnect [attempt " + attempts + "]");
+        setDisplayName("AutoReconnect [attempt " + attempts + "/" + maxAttempts + "]");
         try {
             ServerAddress address = ServerAddress.parseString(lastServer.ip);
             ConnectScreen.startConnecting(disconnected, mc, address, lastServer, false, null);
         } catch (RuntimeException e) {
-            ticksRemaining = (int) Math.round(getNumberSetting("delaySeconds", 5.0) * 20.0);
+            ticksRemaining = delayTicks();
             armed = true;
         }
     }
 
-    @Override
-    public void onDisconnect() {
-        // The screen-based tick arms the reconnect only if vanilla actually shows
-        // DisconnectedScreen. This avoids reconnecting after an intentional exit.
-    }
+    @Override public void onDisconnect() { }
 
+    private int delayTicks() {
+        return Math.max(20, (int) Math.round(getNumberSetting("delaySeconds", 5.0) * 20.0));
+    }
     private ServerData copyServer(ServerData source) {
         ServerData copy = new ServerData(source.name, source.ip, source.type());
         copy.copyFrom(source);
         return copy;
     }
-
     private void clearSchedule() {
         armed = false;
         ticksRemaining = 0;
+        displayedSeconds = -1;
         observedDisconnectScreen = null;
     }
-
-    @Override
-    public void onDisable() {
+    @Override public void onDisable() {
         clearSchedule();
         attempts = 0;
         setDisplayName(null);
