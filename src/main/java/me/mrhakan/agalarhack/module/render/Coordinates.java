@@ -18,7 +18,7 @@ import net.minecraft.world.level.Level;
 public class Coordinates extends Module implements HudInfoProvider {
     private static final int TEXT_COLOR = 0xFFF0F0F0;
     private final List<HudLine> hudLines = new ArrayList<>(2);
-    private final StringBuilder text = new StringBuilder(112);
+    private final StringBuffer text = new StringBuffer(112);
     private final DecimalFormat[] formats = createFormats();
     private final FieldPosition fieldPosition = new FieldPosition(0);
 

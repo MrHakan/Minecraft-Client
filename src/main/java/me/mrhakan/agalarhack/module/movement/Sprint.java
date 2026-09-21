@@ -2,6 +2,7 @@ package me.mrhakan.agalarhack.module.movement;
 
 import me.mrhakan.agalarhack.module.Category;
 import me.mrhakan.agalarhack.module.Module;
+import net.minecraft.world.phys.Vec2;
 
 public class Sprint extends Module {
 
@@ -27,9 +28,13 @@ public class Sprint extends Module {
         }
 
         boolean omni = getBooleanSetting("omni", false);
-        boolean moving = omni
-                ? mc.player.input.getMoveVector().lengthSqr() > 1.0E-4
-                : mc.player.input.hasForwardImpulse();
+        boolean moving;
+        if (omni) {
+            Vec2 movement = mc.player.input.getMoveVector();
+            moving = movement.x * movement.x + movement.y * movement.y > 1.0E-4F;
+        } else {
+            moving = mc.player.input.hasForwardImpulse();
+        }
         boolean allowedUsing = getBooleanSetting("whileUsing", false) || !mc.player.isUsingItem();
         boolean allowedSneaking = getBooleanSetting("whileSneaking", false) || !mc.player.isShiftKeyDown();
         boolean shouldSprint = moving
