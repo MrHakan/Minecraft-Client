@@ -44,15 +44,32 @@ public final class TargetHudModel {
     /** Text lines for a layout, in display order. The first line is always the name. */
     public static List<String> lines(Layout layout, Target target, boolean showHealth,
             boolean showDistance, boolean showArmor) {
+        return lines(layout, target, showHealth, false, showDistance, showArmor);
+    }
+
+    /** Variant used by TargetHUD when health percentage display is enabled. */
+    public static List<String> lines(Layout layout, Target target, boolean showHealth,
+            boolean showHealthPercent, boolean showDistance, boolean showArmor) {
         List<String> lines = new ArrayList<>();
-        if (target == null) return lines;
+        linesInto(lines, layout, target, showHealth, showHealthPercent, showDistance, showArmor);
+        return List.copyOf(lines);
+    }
+
+    /** Fills a caller-owned buffer so the HUD render path avoids a fresh list each frame. */
+    public static void linesInto(List<String> lines, Layout layout, Target target, boolean showHealth,
+            boolean showHealthPercent, boolean showDistance, boolean showArmor) {
+        lines.clear();
+        if (target == null) return;
         lines.add((target.friend() ? "★ " : "") + target.name());
-        if (layout == Layout.MINIMAL) return List.copyOf(lines);
+        if (layout == Layout.MINIMAL) return;
 
         if (showHealth) {
             float effective = target.health() + Math.max(0, target.absorption());
             String health = String.format(Locale.ROOT, "HP %.1f / %.1f", effective, target.maxHealth());
-            // Absorption can exceed max health, so it is called out rather than silently overflowing.
+            if (showHealthPercent && target.maxHealth() > 0) {
+                double ratio = Math.max(0.0, Math.min(1.0, target.health() / target.maxHealth()));
+                health += " (" + Math.round(ratio * 100.0) + "%)";
+            }
             if (target.absorption() > 0) {
                 lines.add(health + String.format(Locale.ROOT, " (+%.1f)", target.absorption()));
             } else {
@@ -60,11 +77,10 @@ public final class TargetHudModel {
             }
         }
         if (showDistance) lines.add(String.format(Locale.ROOT, "Distance %.1fm", target.distance()));
-        if (layout != Layout.DETAILED) return List.copyOf(lines);
+        if (layout != Layout.DETAILED) return;
 
         if (showArmor && target.player()) lines.add("Armor " + target.armor());
         if (target.player() && target.ping() >= 0) lines.add("Ping " + target.ping() + " ms");
-        return List.copyOf(lines);
     }
 
     /** Equipment and effect rows only appear on the fuller layouts. */
