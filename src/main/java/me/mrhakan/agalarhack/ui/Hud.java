@@ -29,6 +29,9 @@ public class Hud implements HudElement {
             EquipmentSlot.FEET, EquipmentSlot.MAINHAND, EquipmentSlot.OFFHAND
     };
 
+    private final List<String> targetLines = new ArrayList<>(5);
+    private final List<ItemStack> targetEquipment = new ArrayList<>(TARGET_EQUIPMENT.length);
+    private final List<MobEffectInstance> targetEffects = new ArrayList<>(12);
     private final me.mrhakan.agalarhack.ui.hud.HudRegistry registry = me.mrhakan.agalarhack.services.ClientServices.require(me.mrhakan.agalarhack.ui.hud.HudRegistry.class);
     public Hud() {
         new me.mrhakan.agalarhack.ui.hud.ScannerDebugHud(
@@ -374,19 +377,23 @@ public class Hud implements HudElement {
                 ping, target instanceof Player, friend,
                 targetHud.getBooleanSetting("hurtIndicator", true) && target.hurtTime > 0);
 
-        List<String> lines = me.mrhakan.agalarhack.ui.hud.TargetHudModel.lines(layout, model,
+        me.mrhakan.agalarhack.ui.hud.TargetHudModel.linesInto(targetLines, layout, model,
                 targetHud.getBooleanSetting("showHealth", true),
+                targetHud.getBooleanSetting("healthPercent", true),
                 targetHud.getBooleanSetting("showDistance", true),
                 targetHud.getBooleanSetting("showArmor", true));
+        List<String> lines = targetLines;
 
-        List<ItemStack> equipment = new ArrayList<>();
+        targetEquipment.clear();
+        List<ItemStack> equipment = targetEquipment;
         if (showEquipment) {
             for (EquipmentSlot slot : TARGET_EQUIPMENT) {
                 ItemStack item = target.getItemBySlot(slot);
                 if (!item.isEmpty()) equipment.add(item);
             }
         }
-        List<MobEffectInstance> effects = new ArrayList<>();
+        targetEffects.clear();
+        List<MobEffectInstance> effects = targetEffects;
         if (showEffects) {
             int limit = (int) Math.round(targetHud.getNumberSetting("maxEffects", 6.0));
             for (MobEffectInstance effect : target.getActiveEffects()) {
