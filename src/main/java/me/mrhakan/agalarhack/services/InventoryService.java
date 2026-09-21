@@ -106,6 +106,19 @@ public final class InventoryService {
         return InventorySelection.best(hotbar ? 9 : 36, -1, slot -> foodScore(slot, allowGolden));
     }
 
+    /** Waste-aware food selection used by AutoEat while keeping inventory ranking centralized. */
+    public int findFood(boolean allowGolden, boolean hotbar, int missingHunger, boolean avoidWaste) {
+        if (mc.player == null) return -1;
+        int missing = Math.max(1, missingHunger);
+        return InventorySelection.best(hotbar ? 9 : 36, -1, slot -> {
+            double nutrition = foodScore(slot, allowGolden);
+            if (nutrition < 0 || !avoidWaste) return nutrition;
+            double useful = Math.min(nutrition, missing);
+            double waste = Math.max(0, nutrition - missing);
+            return useful * 1000.0 - waste;
+        });
+    }
+
     /**
      * Nutrition of the food in this slot, by the same rule {@link #findFood} selects on.
      *
