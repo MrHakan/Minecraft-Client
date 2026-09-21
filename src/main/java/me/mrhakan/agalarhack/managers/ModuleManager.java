@@ -2,6 +2,7 @@ package me.mrhakan.agalarhack.managers;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.EnumMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -70,8 +71,17 @@ public class ModuleManager {
     private final List<Module> modules = new ArrayList<>();
     private final List<Module> moduleView = Collections.unmodifiableList(modules);
     private final Map<String, Module> modulesByName = new LinkedHashMap<>();
+    private final Map<Module, String> searchText = new LinkedHashMap<>();
+    private final Map<Category, List<Module>> modulesByCategory = new EnumMap<>(Category.class);
+    private final Map<Category, List<Module>> categoryViews = new EnumMap<>(Category.class);
 
     public ModuleManager() {
+        for (Category category : Category.values()) {
+            List<Module> categoryModules = new ArrayList<>();
+            modulesByCategory.put(category, categoryModules);
+            categoryViews.put(category, Collections.unmodifiableList(categoryModules));
+        }
+
         register(new Aura());
         register(new TriggerBot());
         register(new CritInfo());
@@ -148,6 +158,8 @@ public class ModuleManager {
         }
         modules.add(module);
         modulesByName.put(key, module);
+        modulesByCategory.computeIfAbsent(module.getCategory(), ignored -> new ArrayList<>()).add(module);
+        searchText.remove(module);
     }
 
     public void tick(Minecraft client) {
@@ -218,31 +230,31 @@ public class ModuleManager {
         return moduleView;
     }
 
+    /** Returns a stable read-only category view without allocating a new list per GUI frame. */
     public List<Module> getModulesByCategory(Category category) {
+        List<Module> view = categoryViews.get(category);
+        return view == null ? Collections.emptyList() : view;
+    }
+
+    public List<Module> searchModules(String query) {
+        if (query == null || query.isBlank()) return getModuleList();
         List<Module> result = new ArrayList<>();
         for (Module module : modules) {
-            if (module.getCategory() == category) {
-                result.add(module);
-            }
+            String haystack = searchText.computeIfAbsent(module, ModuleManager::buildSearchText);
+            if (me.mrhakan.agalarhack.ui.ModuleSearch.matches(query, haystack)) result.add(module);
         }
         return result;
     }
 
-    public List<Module> searchModules(String query) {
-        if (query == null || query.isBlank()) {
-            return getModuleList();
+    private static String buildSearchText(Module module) {
+        StringBuilder text = new StringBuilder(192)
+                .append(module.getName()).append(' ')
+                .append(module.getDescription()).append(' ')
+                .append(module.getCategory().name);
+        for (var spec : module.settings.getSpecs()) {
+            text.append(' ').append(spec.getName()).append(' ').append(spec.getDescription());
         }
-        String normalized = normalize(query);
-        List<Module> result = new ArrayList<>();
-        for (Module module : modules) {
-            StringBuilder searchable = new StringBuilder(module.getName()).append(' ').append(module.getDescription()).append(' ').append(module.getCategory().name);
-            for (var spec : module.settings.getSpecs()) searchable.append(' ').append(spec.getName()).append(' ').append(spec.getDescription());
-            boolean matches = me.mrhakan.agalarhack.ui.ModuleSearch.matches(normalized, searchable.toString());
-            if (matches) {
-                result.add(module);
-            }
-        }
-        return result;
+        return text.toString();
     }
 
     public int disableAll() {
@@ -262,6 +274,8 @@ public class ModuleManager {
 
     public void loadModules() {
         AgalarHackClient.SETTINGS_MANAGER.loadSettings();
+        // Setting metadata is registered during settings load; rebuild any early search cache now.
+        searchText.clear();
         boolean changed = false;
         for (Module module : modules) {
             if (!Boolean.TRUE.equals(module.settings.getSetting("enabled")) || module.isToggled()) {
