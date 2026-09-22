@@ -110,10 +110,11 @@ public class ModuleManager {
 
     public List<Module> searchModules(String query) {
         if (query == null || query.isBlank()) return getModuleList();
+        String preparedQuery = me.mrhakan.agalarhack.ui.ModuleSearch.prepareQuery(query);
         List<Module> result = new ArrayList<>();
         for (Module module : modules) {
             String haystack = searchText.computeIfAbsent(module, m -> me.mrhakan.agalarhack.ui.ModuleSearch.prepare(buildSearchText(m)));
-            if (me.mrhakan.agalarhack.ui.ModuleSearch.matchesPrepared(query, haystack)) result.add(module);
+            if (me.mrhakan.agalarhack.ui.ModuleSearch.matchesPreparedQuery(preparedQuery, haystack)) result.add(module);
         }
         return result;
     }

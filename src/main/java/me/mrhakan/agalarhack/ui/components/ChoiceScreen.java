@@ -24,7 +24,7 @@ public final class ChoiceScreen extends Screen implements me.mrhakan.agalarhack.
         pageCount=Math.max(1,(choices.size()+count-1)/count);
         page=Math.max(0,Math.min(page,pageCount-1));
         int start=page*count;
-        int buttonWidth=Math.min(280,Math.max(120,width-32));
+        int buttonWidth=Math.min(280,Math.max(80,width-32));
         for(int i=start;i<Math.min(choices.size(),start+count);i++) {
             String choice=choices.get(i);
             String label=font.plainSubstrByWidth(choice,Math.max(20,buttonWidth-12));
@@ -32,9 +32,17 @@ public final class ChoiceScreen extends Screen implements me.mrhakan.agalarhack.
             addRenderableWidget(Button.builder(Component.literal(label),b->{selected.accept(choice);onClose();})
                     .bounds(width/2-buttonWidth/2,48+(i-start)*24,buttonWidth,20).build());
         }
-        if(page>0)addRenderableWidget(Button.builder(Component.literal("‹ Prev"),b->{page--;rebuild();}).bounds(width/2-126,height-35,72,20).build());
-        if(start+count<choices.size())addRenderableWidget(Button.builder(Component.literal("Next ›"),b->{page++;rebuild();}).bounds(width/2+54,height-35,72,20).build());
-        addRenderableWidget(Button.builder(Component.literal("Cancel"),b->onClose()).bounds(width/2-40,height-35,80,20).build());
+        addNavigation(start,count);
+    }
+    /** Keeps pagination usable at high GUI scales instead of placing Prev/Next off-screen. */
+    private void addNavigation(int start,int count) {
+        int gap=4;
+        int navWidth=Math.max(44,Math.min(72,(width-32-gap*2)/3));
+        int total=navWidth*3+gap*2;
+        int left=(width-total)/2;
+        if(page>0)addRenderableWidget(Button.builder(Component.literal("‹ Prev"),b->{page--;rebuild();}).bounds(left,height-35,navWidth,20).build());
+        addRenderableWidget(Button.builder(Component.literal("Cancel"),b->onClose()).bounds(left+navWidth+gap,height-35,navWidth,20).build());
+        if(start+count<choices.size())addRenderableWidget(Button.builder(Component.literal("Next ›"),b->{page++;rebuild();}).bounds(left+(navWidth+gap)*2,height-35,navWidth,20).build());
     }
     private void rebuild(){ clearWidgets();init(); }
     @Override public void onClose(){ minecraft.gui.setScreen(parent); }

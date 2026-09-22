@@ -18,12 +18,12 @@ import net.minecraft.world.level.Level;
 public class Coordinates extends Module implements HudInfoProvider {
     private static final int TEXT_COLOR = 0xFFF0F0F0;
     private final List<HudLine> hudLines = new ArrayList<>(2);
-    private final StringBuffer text = new StringBuffer(112);
+    private final StringBuffer text = new StringBuffer(128);
     private final DecimalFormat[] formats = createFormats();
     private final FieldPosition fieldPosition = new FieldPosition(0);
 
     public Coordinates() {
-        super("Coordinates", Category.RENDER, "Shows XYZ, heading, chunk position, and optional Nether/Overworld coordinate conversion");
+        super("Coordinates", Category.RENDER, "Shows XYZ, heading, movement speed, chunk position, and optional Nether/Overworld coordinate conversion");
     }
 
     @Override public void selfSettings() {
@@ -31,6 +31,7 @@ public class Coordinates extends Module implements HudInfoProvider {
         addBooleanSetting("facing", true, "Append the horizontal cardinal direction");
         addBooleanSetting("intercardinal", false, "Use eight-way directions such as NE and SW instead of only N/E/S/W");
         addBooleanSetting("headingDegrees", false, "Append a 0-359 degree heading for precise navigation");
+        addBooleanSetting("speed", false, "Append horizontal movement speed in blocks per second");
         addBooleanSetting("chunkCoords", false, "Append the current chunk X/Z for navigation and chunk-aligned building");
         addBooleanSetting("chunkLocal", false, "Show the current block position inside the 16x16 chunk");
         addBooleanSetting("dimensionCoords", true, "Show the matching Nether or Overworld X/Z coordinates");
@@ -44,6 +45,7 @@ public class Coordinates extends Module implements HudInfoProvider {
         boolean facing = getBooleanSetting("facing", true);
         boolean intercardinal = getBooleanSetting("intercardinal", false);
         boolean heading = getBooleanSetting("headingDegrees", false);
+        boolean speed = getBooleanSetting("speed", false);
         boolean chunks = getBooleanSetting("chunkCoords", false);
         boolean local = getBooleanSetting("chunkLocal", false);
         boolean dimensions = getBooleanSetting("dimensionCoords", true);
@@ -60,6 +62,10 @@ public class Coordinates extends Module implements HudInfoProvider {
             if (facing) text.append(getFacing(yaw, intercardinal));
             if (facing && heading) text.append(' ');
             if (heading) text.append(getHeadingDegrees(yaw)).append(" deg");
+        }
+        if (speed) {
+            var velocity = mc.player.getDeltaMovement();
+            text.append(" | "); appendNumber(format, Math.hypot(velocity.x, velocity.z) * 20.0); text.append(" b/s");
         }
         if (chunks) text.append(" | Chunk: ").append(blockX >> 4).append(" / ").append(blockZ >> 4);
         if (local) text.append(" | Local: ").append(blockX & 15).append(" / ").append(blockZ & 15);

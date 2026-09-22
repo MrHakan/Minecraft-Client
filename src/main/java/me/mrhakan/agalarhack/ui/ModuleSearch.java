@@ -11,22 +11,34 @@ public final class ModuleSearch {
         return haystack == null ? "" : haystack.toLowerCase(Locale.ROOT);
     }
 
-    public static boolean matches(String query, String haystack) {
-        return matchesPrepared(query, prepare(haystack));
+    /** Normalizes a user query once before it is tested against a module catalogue. */
+    public static String prepareQuery(String query) {
+        return query == null ? "" : query.trim().toLowerCase(Locale.ROOT);
     }
 
-    /** Matches against text returned by {@link #prepare(String)}. */
+    public static boolean matches(String query, String haystack) {
+        return matchesPreparedQuery(prepareQuery(query), prepare(haystack));
+    }
+
+    /** Matches a raw query against text returned by {@link #prepare(String)}. */
     public static boolean matchesPrepared(String query, String preparedHaystack) {
-        if (query == null || query.isBlank()) return true;
+        return matchesPreparedQuery(prepareQuery(query), preparedHaystack);
+    }
+
+    /**
+     * Hot-path variant for catalogue searches: both query and haystack have already been normalized.
+     * This avoids trimming/lowercasing the same query once per registered module.
+     */
+    public static boolean matchesPreparedQuery(String preparedQuery, String preparedHaystack) {
+        if (preparedQuery == null || preparedQuery.isBlank()) return true;
         String text = preparedHaystack == null ? "" : preparedHaystack;
-        String normalized = query.trim().toLowerCase(Locale.ROOT);
         int start = 0;
-        while (start < normalized.length()) {
-            while (start < normalized.length() && Character.isWhitespace(normalized.charAt(start))) start++;
-            if (start >= normalized.length()) break;
+        while (start < preparedQuery.length()) {
+            while (start < preparedQuery.length() && Character.isWhitespace(preparedQuery.charAt(start))) start++;
+            if (start >= preparedQuery.length()) break;
             int end = start + 1;
-            while (end < normalized.length() && !Character.isWhitespace(normalized.charAt(end))) end++;
-            String word = normalized.substring(start, end);
+            while (end < preparedQuery.length() && !Character.isWhitespace(preparedQuery.charAt(end))) end++;
+            String word = preparedQuery.substring(start, end);
             if (!text.contains(word) && !isSubsequence(word, text)) return false;
             start = end;
         }
