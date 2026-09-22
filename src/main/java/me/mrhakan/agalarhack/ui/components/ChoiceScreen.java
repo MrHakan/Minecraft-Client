@@ -5,6 +5,7 @@ import java.util.function.Consumer;
 import me.mrhakan.agalarhack.ui.ClientUiTheme;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
@@ -28,9 +29,14 @@ public final class ChoiceScreen extends Screen implements me.mrhakan.agalarhack.
         for(int i=start;i<Math.min(choices.size(),start+count);i++) {
             String choice=choices.get(i);
             String label=font.plainSubstrByWidth(choice,Math.max(20,buttonWidth-12));
-            if(label.length()<choice.length() && label.length()>1) label=label.substring(0,label.length()-1)+"…";
-            addRenderableWidget(Button.builder(Component.literal(label),b->{selected.accept(choice);onClose();})
-                    .bounds(width/2-buttonWidth/2,48+(i-start)*24,buttonWidth,20).build());
+            boolean truncated=label.length()<choice.length();
+            if(truncated && label.length()>1) label=label.substring(0,label.length()-1)+"…";
+            Button button=Button.builder(Component.literal(label),b->{selected.accept(choice);onClose();})
+                    .bounds(width/2-buttonWidth/2,48+(i-start)*24,buttonWidth,20).build();
+            // Truncation keeps narrow/high-scale layouts usable, but never hide the actual value.
+            // Hovering the compact button exposes the complete choice without changing selection semantics.
+            if(truncated) button.setTooltip(Tooltip.create(Component.literal(choice)));
+            addRenderableWidget(button);
         }
         addNavigation(start,count);
     }

@@ -12,6 +12,7 @@ public class AutoTool extends Module {
     private static final int PRIORITY = 40;
     private int candidateSlot = -1;
     private int candidateTicks;
+    private int releaseTicks;
 
     public AutoTool() {
         super("AutoTool", Category.WORLD, "Automatically selects the fastest hotbar tool while mining");
@@ -25,24 +26,26 @@ public class AutoTool extends Module {
         addNumberSetting("minDurability", 5.0, 0.0, 1000.0, "Avoid damageable tools with this many or fewer uses remaining");
         addNumberSetting("switchThreshold", 0.15, 0.0, 5.0, "Minimum destroy-speed improvement required before switching tools");
         addNumberSetting("switchDelay", 0.0, 0.0, 10.0, "Ticks a better tool must remain preferred before switching; helps prevent hotbar flicker while aiming");
+        addNumberSetting("swapBackDelay", 2.0, 0.0, 20.0, "Ticks to keep the selected tool after mining stops before restoring the previous slot; reduces slot flicker between adjacent blocks");
     }
 
     @Override
     public void onUpdate() {
         InventoryService inventory = service(InventoryService.class);
-        if (mc.player == null || mc.level == null || mc.gui.screen() != null || mc.player.isUsingItem()
-                || !(mc.hitResult instanceof BlockHitResult hit)
-                || (getBooleanSetting("miningOnly", true) && !mc.options.keyAttack.isDown())) {
-            inventory.release(OWNER);
-            resetCandidate();
+        if (mc.player == null || mc.level == null || mc.gui.screen() != null || mc.player.isUsingItem()) {
+            releaseNow(inventory);
+            return;
+        }
+        boolean miningOnly = getBooleanSetting("miningOnly", true);
+        if (!(mc.hitResult instanceof BlockHitResult hit) || (miningOnly && !mc.options.keyAttack.isDown())) {
+            releaseWithGrace(inventory);
             return;
         }
         int minimumDurability = (int) Math.round(getNumberSetting("minDurability", 5));
         BlockState state = mc.level.getBlockState(hit.getBlockPos());
         int slot = inventory.findBestTool(state, minimumDurability);
         if (slot < 0) {
-            inventory.release(OWNER);
-            resetCandidate();
+            releaseNow(inventory);
             return;
         }
         int desired = hold(inventory, state, slot, minimumDurability);
@@ -60,9 +63,28 @@ public class AutoTool extends Module {
             resetCandidate();
         }
         if (inventory.select(OWNER, PRIORITY, desired, false, getBooleanSetting("swapBack", true))) {
+            releaseTicks = (int) Math.round(getNumberSetting("swapBackDelay", 2.0));
             resetCandidate();
         }
     }
+
+    /** Keeps a leased tool briefly between adjacent blocks instead of restoring/reselecting it. */
+    private void releaseWithGrace(InventoryService inventory) {
+        resetCandidate();
+        if (inventory.owns(OWNER) && releaseTicks > 0) {
+            releaseTicks--;
+            return;
+        }
+        inventory.release(OWNER);
+        releaseTicks = 0;
+    }
+
+    private void releaseNow(InventoryService inventory) {
+        inventory.release(OWNER);
+        releaseTicks = 0;
+        resetCandidate();
+    }
+
     /**
      * The slot to actually hold: the best one, unless the slot already selected is close enough.
      *
@@ -77,8 +99,6 @@ public class AutoTool extends Module {
         int current = mc.player.getInventory().getSelectedSlot();
         if (current == best) return best;
         double currentScore = inventory.toolScore(current, state, minimumDurability);
-        // A negative score is a refusal - an empty hand or a tool at its durability floor - and is
-        // never worth holding on to, however small the difference looks.
         if (currentScore < 0) return best;
         double improvement = inventory.toolScore(best, state, minimumDurability) - currentScore;
         return improvement <= getNumberSetting("switchThreshold", 0.15) ? current : best;
@@ -89,9 +109,6 @@ public class AutoTool extends Module {
         candidateTicks = 0;
     }
 
-    @Override public void onDisable() {
-        service(InventoryService.class).release(OWNER);
-        resetCandidate();
-    }
+    @Override public void onDisable() { releaseNow(service(InventoryService.class)); }
     @Override public void onDisconnect() { onDisable(); }
 }

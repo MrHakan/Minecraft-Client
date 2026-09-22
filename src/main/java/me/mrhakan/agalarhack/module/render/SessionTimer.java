@@ -7,12 +7,14 @@ import me.mrhakan.agalarhack.module.Module;
 import me.mrhakan.agalarhack.ui.hud.HudInfoProvider;
 import me.mrhakan.agalarhack.ui.hud.HudLine;
 
-/** Lightweight HUD clock for the current play session. Text is rebuilt at most once per second. */
+/** Lightweight HUD clock for the current play session. */
 public class SessionTimer extends Module implements HudInfoProvider {
     private static final int TEXT_COLOR = 0xFFF0F0F0;
     private final List<HudLine> hudLines = new ArrayList<>(1);
+    private final StringBuilder text = new StringBuilder(24);
     private long startedNanos;
-    private long cachedSecond = Long.MIN_VALUE;
+    private long cachedBucket = Long.MIN_VALUE;
+    private boolean cachedShowSeconds;
 
     public SessionTimer() {
         super("SessionTimer", Category.RENDER, "Shows how long the current play session has been running");
@@ -33,22 +35,38 @@ public class SessionTimer extends Module implements HudInfoProvider {
         }
         if (startedNanos == 0L) reset();
         long seconds = Math.max(0L, (System.nanoTime() - startedNanos) / 1_000_000_000L);
-        if (seconds == cachedSecond && !hudLines.isEmpty()) return hudLines;
-        cachedSecond = seconds;
+        boolean showSeconds = getBooleanSetting("showSeconds", false);
+        // Minute-only mode does not need to rebuild identical HUD text sixty times per minute.
+        long bucket = showSeconds ? seconds : seconds / 60L;
+        if (bucket == cachedBucket && showSeconds == cachedShowSeconds && !hudLines.isEmpty()) return hudLines;
+        cachedBucket = bucket;
+        cachedShowSeconds = showSeconds;
+        rebuildText(seconds, showSeconds);
+        return hudLines;
+    }
+
+    private void rebuildText(long seconds, boolean showSeconds) {
         long hours = seconds / 3600L;
         long minutes = (seconds % 3600L) / 60L;
         long secs = seconds % 60L;
-        String value = getBooleanSetting("showSeconds", false)
-                ? String.format(java.util.Locale.ROOT, "Session: %02d:%02d:%02d", hours, minutes, secs)
-                : String.format(java.util.Locale.ROOT, "Session: %02d:%02d", hours, minutes);
+        text.setLength(0);
+        text.append("Session: ");
+        appendTwoDigits(text, hours);
+        text.append(':'); appendTwoDigits(text, minutes);
+        if (showSeconds) { text.append(':'); appendTwoDigits(text, secs); }
         hudLines.clear();
-        hudLines.add(new HudLine(value, TEXT_COLOR));
-        return hudLines;
+        hudLines.add(new HudLine(text.toString(), TEXT_COLOR));
+    }
+
+    private static void appendTwoDigits(StringBuilder out, long value) {
+        if (value < 10L) out.append('0');
+        out.append(value);
     }
 
     private void reset() {
         startedNanos = System.nanoTime();
-        cachedSecond = Long.MIN_VALUE;
+        cachedBucket = Long.MIN_VALUE;
+        cachedShowSeconds = false;
         hudLines.clear();
     }
 }
