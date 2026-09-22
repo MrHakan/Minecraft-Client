@@ -29,6 +29,7 @@ public class Coordinates extends Module implements HudInfoProvider {
     @Override public void selfSettings() {
         addNumberSetting("precision", 1.0, 0.0, 3.0, "Number of decimal places shown for coordinates");
         addBooleanSetting("facing", true, "Append the horizontal cardinal direction");
+        addBooleanSetting("intercardinal", false, "Use eight-way directions such as NE and SW instead of only N/E/S/W");
         addBooleanSetting("headingDegrees", false, "Append a 0-359 degree heading for precise navigation");
         addBooleanSetting("chunkCoords", false, "Append the current chunk X/Z for navigation and chunk-aligned building");
         addBooleanSetting("chunkLocal", false, "Show the current block position inside the 16x16 chunk");
@@ -41,6 +42,7 @@ public class Coordinates extends Module implements HudInfoProvider {
         if (mc.player == null || mc.level == null) return hudLines;
         int precision = Math.max(0, Math.min(3, (int) Math.round(getNumberSetting("precision", 1.0))));
         boolean facing = getBooleanSetting("facing", true);
+        boolean intercardinal = getBooleanSetting("intercardinal", false);
         boolean heading = getBooleanSetting("headingDegrees", false);
         boolean chunks = getBooleanSetting("chunkCoords", false);
         boolean local = getBooleanSetting("chunkLocal", false);
@@ -55,7 +57,7 @@ public class Coordinates extends Module implements HudInfoProvider {
         text.append("XYZ: "); appendNumber(format, x); text.append(" / "); appendNumber(format, y); text.append(" / "); appendNumber(format, z);
         if (facing || heading) {
             text.append(" | ");
-            if (facing) text.append(getFacing(yaw));
+            if (facing) text.append(getFacing(yaw, intercardinal));
             if (facing && heading) text.append(' ');
             if (heading) text.append(getHeadingDegrees(yaw)).append(" deg");
         }
@@ -105,11 +107,16 @@ public class Coordinates extends Module implements HudInfoProvider {
     private static int getHeadingDegrees(float yaw) {
         return Mth.floor(((yaw % 360.0F) + 360.0F) % 360.0F);
     }
-    private static String getFacing(float yaw) {
+    private static String getFacing(float yaw, boolean eightWay) {
         double normalized = ((yaw % 360.0) + 360.0) % 360.0;
-        if (normalized >= 315.0 || normalized < 45.0) return "S";
-        if (normalized < 135.0) return "W";
-        if (normalized < 225.0) return "N";
-        return "E";
+        if (!eightWay) {
+            if (normalized >= 315.0 || normalized < 45.0) return "S";
+            if (normalized < 135.0) return "W";
+            if (normalized < 225.0) return "N";
+            return "E";
+        }
+        String[] directions = {"S", "SW", "W", "NW", "N", "NE", "E", "SE"};
+        int index = (int) Math.floor((normalized + 22.5) / 45.0) & 7;
+        return directions[index];
     }
 }

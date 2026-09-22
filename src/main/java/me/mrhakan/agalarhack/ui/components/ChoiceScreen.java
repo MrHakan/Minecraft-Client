@@ -27,7 +27,9 @@ public final class ChoiceScreen extends Screen implements me.mrhakan.agalarhack.
         int buttonWidth=Math.min(280,Math.max(120,width-32));
         for(int i=start;i<Math.min(choices.size(),start+count);i++) {
             String choice=choices.get(i);
-            addRenderableWidget(Button.builder(Component.literal(choice),b->{selected.accept(choice);onClose();})
+            String label=font.plainSubstrByWidth(choice,Math.max(20,buttonWidth-12));
+            if(label.length()<choice.length() && label.length()>1) label=label.substring(0,label.length()-1)+"…";
+            addRenderableWidget(Button.builder(Component.literal(label),b->{selected.accept(choice);onClose();})
                     .bounds(width/2-buttonWidth/2,48+(i-start)*24,buttonWidth,20).build());
         }
         if(page>0)addRenderableWidget(Button.builder(Component.literal("‹ Prev"),b->{page--;rebuild();}).bounds(width/2-126,height-35,72,20).build());
