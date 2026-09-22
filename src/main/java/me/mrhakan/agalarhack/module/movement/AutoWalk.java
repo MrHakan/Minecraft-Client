@@ -10,12 +10,13 @@ public class AutoWalk extends Module {
     private int blockedTicks;
 
     public AutoWalk() {
-        super("AutoWalk", Category.MOVEMENT, "Keeps walking without holding the key, with screen, health, hunger and obstacle safety stops");
+        super("AutoWalk", Category.MOVEMENT, "Keeps walking without holding the key, with manual, screen, health, hunger and obstacle safety stops");
     }
 
     @Override public void selfSettings() {
         addChoiceSetting("direction", "forward", "Which way to walk", "forward", "backward");
         addBooleanSetting("sprint", false, "Also hold sprint");
+        addBooleanSetting("pauseOnSneak", true, "Use the sneak key as a temporary manual brake without toggling AutoWalk off");
         addBooleanSetting("pauseOnScreen", true, "Pause while a screen such as chat or an inventory is open");
         addBooleanSetting("pauseWhenHungry", false, "Pause before hunger becomes low enough to make sprinting unreliable");
         addNumberSetting("hungerThreshold", 7, 1, 19, "Pause at or below this hunger level when hunger pause is enabled");
@@ -32,6 +33,7 @@ public class AutoWalk extends Module {
     @Override public void onUpdate() {
         var player = mc.player;
         if (player == null || mc.level == null) { blockedTicks = 0; return; }
+        if (getBooleanSetting("pauseOnSneak", true) && mc.options.keyShift.isDown()) { blockedTicks = 0; return; }
         if (getBooleanSetting("pauseOnScreen", true) && mc.gui.screen() != null) { blockedTicks = 0; return; }
         if (getBooleanSetting("pauseWhenHungry", false)
                 && player.getFoodData().getFoodLevel() <= (int) Math.round(getNumberSetting("hungerThreshold", 7))) {
