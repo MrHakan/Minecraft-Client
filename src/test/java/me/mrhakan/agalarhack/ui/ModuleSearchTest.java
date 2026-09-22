@@ -17,8 +17,8 @@ class ModuleSearchTest {
     }
 
     @Test void preparedQueryCanBeReusedAcrossCatalogueEntries() {
-        String query = ModuleSearch.prepareQuery("  MOVEMENT   HUNGRY ");
-        assertEquals("movement   hungry", query);
+        String query = ModuleSearch.prepareQuery("  MOVEMENT   HUNGER ");
+        assertEquals("movement   hunger", query);
         assertTrue(ModuleSearch.matchesPreparedQuery(query, ModuleSearch.prepare("AutoWalk movement hunger threshold")));
         assertFalse(ModuleSearch.matchesPreparedQuery(query, ModuleSearch.prepare("Sprint movement speed")));
     }

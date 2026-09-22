@@ -70,5 +70,6 @@
   "agalarhack.module.basefinder.description": "StorageESP'nin zaten bulduğu depo kümelerinden olası üsleri bildirir; o modülü de aç",
   "agalarhack.module.betterchat.description": "Her sohbet satırına geldiği andaki yerel saati ekler ve bahsedilmeleri işaretler",
   "agalarhack.module.gamemodealerts.description": "İstemcinin gördüğü oyuncu oyun modu değişikliklerini bildirir",
-  "agalarhack.module.playeralerts.description": "Başka bir oyuncu istemcinin görüş alanına girip çıktığında bildirir"
+  "agalarhack.module.playeralerts.description": "Başka bir oyuncu istemcinin görüş alanına girip çıktığında bildirir",
+  "agalarhack.module.sessiontimer.description": "Mevcut oyun oturumunun ne kadar süredir devam ettiğini gösterir"
 }
