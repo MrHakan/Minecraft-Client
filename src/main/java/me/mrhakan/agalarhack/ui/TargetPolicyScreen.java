@@ -73,10 +73,9 @@ public class TargetPolicyScreen extends Screen implements me.mrhakan.agalarhack.
         for (int i = 0; i < specs.size(); i++) {
             SettingSpec spec = specs.get(i); int y = 48 + i * 30;
             graphics.text(font, spec.getName(), panelX + 8, y + 5, ClientUiTheme.TEXT, true);
-            graphics.text(font, truncate(spec.getConstraintText(), 145), panelX + 8, y + 16, ClientUiTheme.MUTED, false);
+            graphics.text(font, ClientUiTheme.truncate(font, spec.getConstraintText(), 145), panelX + 8, y + 16, ClientUiTheme.MUTED, false);
         }
         if (!feedback.isBlank()) graphics.centeredText(font, feedback, width / 2, height - 42, feedbackColor);
     }
 
-    private String truncate(String text, int maxWidth) { if (font.width(text) <= maxWidth) return text; while (text.length() > 1 && font.width(text + "…") > maxWidth) text = text.substring(0, text.length() - 1); return text + "…"; }
 }

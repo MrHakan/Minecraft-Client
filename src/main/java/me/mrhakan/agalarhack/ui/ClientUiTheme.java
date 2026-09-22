@@ -1,6 +1,7 @@
 package me.mrhakan.agalarhack.ui;
 
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.Font;
 
 /** Shared lightweight visual language for first-party client screens. */
 public final class ClientUiTheme {
@@ -61,6 +62,31 @@ public final class ClientUiTheme {
                 me.mrhakan.agalarhack.services.ContrastRules.LARGE_TEXT_RATIO);
     }
     private ClientUiTheme() {
+    }
+
+    /**
+     * Truncates at a code-point boundary with logarithmic width checks.
+     *
+     * <p>Screen render methods can run every frame. Removing one character and measuring the whole
+     * string again for each step made long feedback and profile summaries quadratic work per frame.
+     */
+    public static String truncate(Font font, String text, int maxWidth) {
+        if (text == null || text.isEmpty() || maxWidth <= 0) return "";
+        if (font.width(text) <= maxWidth) return text;
+        String suffix = "…";
+        int suffixWidth = font.width(suffix);
+        if (suffixWidth > maxWidth) return "";
+
+        int codePoints = text.codePointCount(0, text.length());
+        int low = 0;
+        int high = codePoints;
+        while (low < high) {
+            int mid = (low + high + 1) >>> 1;
+            int end = text.offsetByCodePoints(0, mid);
+            if (font.width(text.substring(0, end)) + suffixWidth <= maxWidth) low = mid;
+            else high = mid - 1;
+        }
+        return text.substring(0, text.offsetByCodePoints(0, low)) + suffix;
     }
 
     public static void backdrop(GuiGraphicsExtractor g, int width, int height) {

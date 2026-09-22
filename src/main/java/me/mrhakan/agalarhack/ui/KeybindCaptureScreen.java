@@ -21,10 +21,14 @@ public final class KeybindCaptureScreen extends Screen implements me.mrhakan.aga
         super(Component.literal("Bind " + module.getName())); this.parent=parent; this.module=module;
     }
     @Override public void init() {
-        addRenderableWidget(Button.builder(Component.literal("Cancel"), b -> onClose()).bounds(width/2-45,height/2+40,90,20).build());
+        addRenderableWidget(Button.builder(Component.literal("Unbind"), b -> save(new KeyChord(-1,0)))
+                .bounds(width/2-94,height/2+40,90,20).build());
+        addRenderableWidget(Button.builder(Component.literal("Cancel"), b -> onClose())
+                .bounds(width/2+4,height/2+40,90,20).build());
     }
     @Override public boolean keyPressed(KeyEvent event) {
-        if (event.key() == 256) { save(new KeyChord(-1,0)); return true; }
+        if (event.key() == 256) { onClose(); return true; }
+        if (event.key() == 259) { save(new KeyChord(-1,0)); return true; }
         if (modifierKey(event.key())) return true;
         save(new KeyChord(event.key(),event.modifiers())); return true;
     }
@@ -57,6 +61,6 @@ public final class KeybindCaptureScreen extends Screen implements me.mrhakan.aga
         super.extractRenderState(g,mouseX,mouseY,delta);
         g.centeredText(font,"Bind " + module.getName(),width/2,height/2-35,ClientUiTheme.TEXT);
         g.centeredText(font,"Press a key or mouse button...",width/2,height/2-12,ClientUiTheme.ACCENT);
-        g.centeredText(font,"ESC clears • Ctrl / Shift / Alt / Super supported",width/2,height/2+8,ClientUiTheme.MUTED);
+        g.centeredText(font,"Esc cancels • Backspace or Unbind clears • Ctrl / Shift / Alt / Super supported",width/2,height/2+8,ClientUiTheme.MUTED);
     }
 }

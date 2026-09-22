@@ -12,7 +12,7 @@ Every module here is enabled, ticked and disabled inside a real world on every p
 request, so an UNTESTED one is known not to crash; what is missing is a check that it
 does the thing it exists to do. The badge is cleared in the commit that adds that check.
 
-55 modules across 6 categories; 1 marked UNTESTED.
+56 modules across 6 categories; 2 marked UNTESTED.
 
 ## Combat
 
@@ -133,6 +133,7 @@ Reels in when the bobber is pulled under, then casts again
 | `reelDelay` | `4` | `0..40` | Ticks to wait after the pull before reeling in |
 | `castDelay` | `12` | `2..100` | Ticks to wait after reeling in before casting again |
 | `autoCast` | `true` | `true/false or on/off` | Cast again on its own; with this off it only reels in |
+| `preferCurrentRod` | `true` | `true/false or on/off` | Use the selected hotbar slot when it contains a fishing rod |
 | `swapBack` | `true` | `true/false or on/off` | Return to the previous hotbar slot when it stops |
 
 ### AutoReconnect
@@ -196,7 +197,7 @@ Sets the shared per-tick scanning ceiling every ESP scanner draws from
 
 | Setting | Default | Values | Description |
 | --- | --- | --- | --- |
-| `scanBudget` | `balanced` | `low\|balanced\|high` | Total scanning work allowed per client tick; balanced is what the client used before this was tunable |
+| `scanBudget` | `balanced` | `low\|balanced\|high` | Total scanning work allowed per client tick; balanced is the recommended default |
 
 ### PlayerAlerts — UNTESTED
 
@@ -229,13 +230,18 @@ Ping history and an estimated server tick rate, both clearly labelled as client-
 
 ### AutoWalk
 
-Keeps walking without holding the key, and stops when walking stops working
+Keeps walking without holding the key, with manual, screen, health, hunger and obstacle safety stops
 
 | Setting | Default | Values | Description |
 | --- | --- | --- | --- |
 | `direction` | `forward` | `forward\|backward` | Which way to walk |
 | `sprint` | `false` | `true/false or on/off` | Also hold sprint |
+| `pauseOnSneak` | `true` | `true/false or on/off` | Use the sneak key as a temporary manual brake without toggling AutoWalk off |
 | `pauseOnScreen` | `true` | `true/false or on/off` | Pause while a screen such as chat or an inventory is open |
+| `pauseWhenHungry` | `false` | `true/false or on/off` | Pause before hunger becomes low enough to make sprinting unreliable |
+| `hungerThreshold` | `7` | `1..19` | Pause at or below this hunger level when hunger pause is enabled |
+| `pauseOnLowHealth` | `false` | `true/false or on/off` | Pause walking when health falls below a safety threshold |
+| `healthThreshold` | `8` | `1..19` | Pause at or below this many health points when low-health pause is enabled |
 | `stopWhenBlocked` | `true` | `true/false or on/off` | Turn off after walking into something for a while |
 | `blockedSeconds` | `3` | `1..30` | How long to keep pushing into an obstacle before turning off |
 
@@ -470,13 +476,15 @@ Client-side camera adjustments: hurt shake, view bobbing, FOV and FOV effects
 
 ### Coordinates
 
-Shows XYZ, heading, chunk position, and optional Nether/Overworld coordinate conversion
+Shows XYZ, heading, movement speed, chunk position, and optional Nether/Overworld coordinate conversion
 
 | Setting | Default | Values | Description |
 | --- | --- | --- | --- |
 | `precision` | `1` | `0..3` | Number of decimal places shown for coordinates |
 | `facing` | `true` | `true/false or on/off` | Append the horizontal cardinal direction |
+| `intercardinal` | `false` | `true/false or on/off` | Use eight-way directions such as NE and SW instead of only N/E/S/W |
 | `headingDegrees` | `false` | `true/false or on/off` | Append a 0-359 degree heading for precise navigation |
+| `speed` | `false` | `true/false or on/off` | Append horizontal movement speed in blocks per second |
 | `chunkCoords` | `false` | `true/false or on/off` | Append the current chunk X/Z for navigation and chunk-aligned building |
 | `chunkLocal` | `false` | `true/false or on/off` | Show the current block position inside the 16x16 chunk |
 | `dimensionCoords` | `true` | `true/false or on/off` | Show the matching Nether or Overworld X/Z coordinates |
@@ -490,9 +498,11 @@ Shows remaining durability for equipped damageable items
 | --- | --- | --- | --- |
 | `showName` | `true` | `true/false or on/off` | Include the item's display name |
 | `showPercent` | `true` | `true/false or on/off` | Include remaining durability as a percentage |
+| `showExact` | `true` | `true/false or on/off` | Include exact remaining/max durability values |
 | `showArmor` | `true` | `true/false or on/off` | Show durability for equipped armor pieces |
 | `showOffhand` | `true` | `true/false or on/off` | Show a line for a damageable offhand item |
 | `onlyWarnings` | `false` | `true/false or on/off` | Hide healthy items and show only warning or critical durability |
+| `lowestOnly` | `false` | `true/false or on/off` | Show only the equipped damageable item with the lowest remaining percentage |
 | `warningPercent` | `25` | `1..75` | Turn the HUD line amber at or below this remaining percentage |
 | `criticalPercent` | `10` | `1..50` | Turn the HUD line red at or below this remaining percentage |
 
@@ -601,6 +611,8 @@ Style, sort and align the enabled-module HUD
 | `background` | `false` | `true/false or on/off` | Draw the theme panel behind each row |
 | `sideBar` | `false` | `true/false or on/off` | Draw an accent strip on the aligned edge |
 | `textShadow` | `true` | `true/false or on/off` | Draw a shadow behind module names |
+| `showCount` | `false` | `true/false or on/off` | Show a compact enabled-module count above the list |
+| `rowGap` | `0` | `0..6` | Extra vertical spacing between module rows |
 | `maximumRows` | `32` | `1..64` | Maximum rows, further limited by the screen height |
 | `rowAnimations` | `true` | `true/false or on/off` | Slide and fade rows in and out instead of jumping |
 | `animationSpeed` | `0.25` | `0.05..1` | How quickly rows settle; 1 is instant |
@@ -669,6 +681,14 @@ Estimates whether an incoming projectile will pass close to you; reads Projectil
 | `lookahead` | `60` | `5..200` | Ticks of flight to extrapolate |
 | `cooldown` | `40` | `5..200` | Ticks between warnings |
 | `ignoreOwnProjectiles` | `true` | `true/false or on/off` | Ignore projectiles you fired yourself |
+
+### SessionTimer — UNTESTED
+
+Shows how long the current play session has been running
+
+| Setting | Default | Values | Description |
+| --- | --- | --- | --- |
+| `showSeconds` | `false` | `true/false or on/off` | Show seconds in addition to hours and minutes |
 
 ### SpawnESP
 
@@ -798,6 +818,7 @@ Automatically selects the fastest hotbar tool while mining
 | `minDurability` | `5` | `0..1000` | Avoid damageable tools with this many or fewer uses remaining |
 | `switchThreshold` | `0.15` | `0..5` | Minimum destroy-speed improvement required before switching tools |
 | `switchDelay` | `0` | `0..10` | Ticks a better tool must remain preferred before switching; helps prevent hotbar flicker while aiming |
+| `swapBackDelay` | `2` | `0..20` | Ticks to keep the selected tool after mining stops before restoring the previous slot; reduces slot flicker between adjacent blocks |
 
 ### BaseFinder
 

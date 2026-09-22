@@ -42,6 +42,7 @@ public class AutoFish extends Module {
         addNumberSetting("reelDelay", 4.0, 0.0, 40.0, "Ticks to wait after the pull before reeling in");
         addNumberSetting("castDelay", 12.0, 2.0, 100.0, "Ticks to wait after reeling in before casting again");
         addBooleanSetting("autoCast", true, "Cast again on its own; with this off it only reels in");
+        addBooleanSetting("preferCurrentRod", true, "Use the selected hotbar slot when it contains a fishing rod");
         addBooleanSetting("swapBack", true, "Return to the previous hotbar slot when it stops");
     }
 
@@ -102,7 +103,11 @@ public class AutoFish extends Module {
         if (mc.player == null || mc.level == null || mc.gui.screen() != null) { stand(inventory); return; }
         refreshDetector();
 
-        int rod = inventory.findHotbar(stack -> stack.is(Items.FISHING_ROD));
+        int selected = inventory.selectedSlot();
+        boolean keepSelectedRod = getBooleanSetting("preferCurrentRod", true)
+                && selected >= 0 && selected < 9
+                && mc.player.getInventory().getItem(selected).is(Items.FISHING_ROD);
+        int rod = keepSelectedRod ? selected : inventory.findHotbar(stack -> stack.is(Items.FISHING_ROD));
         if (rod < 0) { stand(inventory); return; }
         tick++;
 

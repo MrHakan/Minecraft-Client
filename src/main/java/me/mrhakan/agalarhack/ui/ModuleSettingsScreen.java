@@ -139,27 +139,16 @@ public class ModuleSettingsScreen extends Screen implements me.mrhakan.agalarhac
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
         super.extractRenderState(graphics, mouseX, mouseY, delta);
         graphics.centeredText(font, module.getName().toUpperCase() + " SETTINGS", width / 2, 11, ClientUiTheme.TEXT);
-        graphics.centeredText(font, truncate(module.getDescription(), Math.max(80, width - 32)), width / 2, 27, ClientUiTheme.MUTED);
+        graphics.centeredText(font, ClientUiTheme.truncate(font, module.getDescription(), Math.max(80, width - 32)), width / 2, 27, ClientUiTheme.MUTED);
         int panelX = rows.isEmpty() ? 16 : rows.get(0).x;
         for (int i = 0; i < visibleSpecs.size(); i++) {
             SettingSpec spec = visibleSpecs.get(i);
             int y = 58 + i * ROW_HEIGHT;
             graphics.text(font, spec.getName(), panelX + 9, y + 5, ClientUiTheme.TEXT, true);
-            graphics.text(font, truncate(spec.getConstraintText(), 145), panelX + 9, y + 17, ClientUiTheme.MUTED, false);
+            graphics.text(font, ClientUiTheme.truncate(font, spec.getConstraintText(), 145), panelX + 9, y + 17, ClientUiTheme.MUTED, false);
         }
-        if (!feedback.isBlank()) graphics.centeredText(font, truncate(feedback, Math.max(80, width - 180)), width / 2, height - 40, feedbackColor);
+        if (!feedback.isBlank()) graphics.centeredText(font, ClientUiTheme.truncate(font, feedback, Math.max(80, width - 180)), width / 2, height - 40, feedbackColor);
         else if (pageCount > 1) graphics.centeredText(font, "Page " + (safePage + 1) + "/" + pageCount, width / 2, height - 40, ClientUiTheme.MUTED);
-    }
-
-    private String truncate(String text, int maxWidth) {
-        if (font.width(text) <= maxWidth) return text;
-        String suffix = "…";
-        StringBuilder out = new StringBuilder();
-        for (int i = 0; i < text.length(); i++) {
-            if (font.width(out.toString() + text.charAt(i) + suffix) > maxWidth) break;
-            out.append(text.charAt(i));
-        }
-        return out + suffix;
     }
 
     private record RowVisual(int x, int y, int width, int height) {}

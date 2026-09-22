@@ -41,16 +41,6 @@ jobs:
       - name: Build
         run: ./gradlew build --stacktrace
 
-      # The generated reference is rewritten by ModuleDocsTest before its mismatch assertion, so
-      # keep the renderer's output available even when this step is the reason Build failed.
-      - name: Upload generated module reference
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: generated-module-reference
-          path: docs/MODULES.md
-          if-no-files-found: ignore
-
       - name: Report unit-test totals
         run: python3 tools/summarize-tests.py
 
