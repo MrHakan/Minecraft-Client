@@ -27,10 +27,10 @@ player-visible risk or add a behavior that can be proven end-to-end.
 | P1 | Scanner/render performance | **Substantial** | Shared budgets, chunk-aware caches, culling and timings exist. Profile before changing; never scan the world from a render callback or trade boundedness for a continuous rescan. |
 | P1 | UX/HUD | **Substantial** | Dynamic registry, editor, themes, accessibility and typed controls exist. Remaining work is primarily visual inspection at multiple GUI scales, not another widget rewrite. |
 | P1 | Visual acceptance | **Manual-only** | Inspect TargetHUD skin layers, ESP/nametag geometry, waypoint beams, trajectories, rainbow phases and AMOLED/light/high-contrast themes with a real client. Pixel-difference tests only establish drawing activity. |
-| P2 | AutoGrind execution | **First executor slice implemented; CI acceptance pending** | `.grind run log N` scans loaded nearby blocks under ScannerService's shared budget, aims with RotationService, breaks through vanilla game-mode calls and checks inventory completion. It pauses for manual movement when a target is out of reach or its drop is not collected. Stop/restart replans from inventory. Crafting, smelting and automated movement remain unsupported; no pathfinding claim is made. Accept after the nearby-log, drop-pickup and resumability game test passes on 26.2. |
-| P2 | Addon installation | **Production test implemented** | CI launches the remapped client with a remapped addon, restarts with it installed to verify saved addon and built-in settings, then removes it and verifies the base client config still loads. Missing-dependency loader messaging remains manual. |
+| P2 | AutoGrind execution | **First executor slice implemented; current main CI pending** | `.grind run log N` scans loaded nearby blocks under ScannerService's shared budget, aims with RotationService, breaks through vanilla game-mode calls and checks inventory completion. It pauses for manual movement when a target is out of reach or its drop is not collected. Stop/restart replans from inventory. Crafting, smelting and automated movement remain unsupported; no pathfinding claim is made. Accept after the current main run passes the nearby-log, drop-pickup and resumability game tests on 26.2. |
+| P2 | Addon installation | **Production test implemented; corrected CI pending** | CI launches the 26.2 production `jar` artifact with a separately packaged addon fixture, restarts with it installed to verify saved addon and built-in settings, then removes it and verifies the base client config still loads. The first run found a stale `remapJar` assumption before launch; the next main run must pass all three launches. Missing-dependency loader messaging remains manual. |
 | P2 | Dedicated multiplayer | **Opt-in/manual** | Use the existing harness only with owner-approved `-PacceptServerEula=true`; then test latency, reconnect, packet scoping and automation. Do not enable it in CI silently. |
-| P3 | Documentation/release | **In progress** | Keep handover and PR facts synchronized; generate module docs from source; record evidence class for every acceptance item. |
+| P3 | Documentation/release | **In progress** | Reconcile the handover with current main and merged PR state; keep module docs generated from source; record evidence class for every acceptance item. |
 
 ## Conditional module candidates
 
@@ -68,10 +68,14 @@ shared consumer over creating a duplicate.
 4. Run the full Java 25 pipeline, including game tests, production addon install/removal launches and generated documentation.
 5. Report separately what was unit tested, integrated-server tested, dedicated-server tested,
    externally packaged, visually inspected and still manual-only.
-6. Update `handover.md` and PR #9 while preserving historical records. Keep the PR open/draft.
+6. Update `handover.md` while preserving historical records, and verify the live PR state. PR #9 has merged; do not describe it as open or draft or rewrite its historical review record.
 
 ## Deliberate non-goals
 
 No packet flooding, crash/dupe exploits, malformed packet tricks, anti-cheat bypass presets, hidden
 server-authoritative claims, or silent rotations intended to defeat server checks. Turkish setting
-description localization is cancelled and must not be restarted. AutoGrind executes only its proven raw-resource boundary; crafting/smelting and installed-jar acceptance remain explicitly gated by evidence; Baritone reflection must never be written from guessed signatures.
+description localization is cancelled and must not be restarted. AutoGrind executes only its proven
+raw-resource boundary; crafting and smelting remain out of scope until their inventory/container
+executors are proven. The production-like addon test covers installation, restart persistence and
+removal; missing-dependency messaging remains manual. Baritone reflection must never be written from
+guessed signatures.

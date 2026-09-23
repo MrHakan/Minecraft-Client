@@ -1,77 +1,32 @@
 # Agalar Hack — AI agent handover
 
-## CURRENT STATE — authoritative checkpoint (2026-09-14)
+## CURRENT STATE — authoritative checkpoint (2026-09-23)
 
-Authority order: live source > live tests > live PR state/description > current CI > this checkpoint >
-generated docs > historical records. Re-derive counts before every publish. The historical record below
-is retained for context and is not a current TODO list.
+Authority order: live source > live tests > latest main-branch CI > generated docs > this checkpoint >
+historical records. The chronological record below is retained for context and is not a current TODO
+list. Repository `main` is the active branch. PR #9 has merged; older open/draft statements in the
+historical record are superseded.
 
-- **Live branch/PR:** `codex/foundation-services-26.2`, PR #9, open, draft, mergeable and not merged. Base `main` is
-  `19f83ab888a55d9b459f84fbae27dffe39036f71`. Fetch the PR head before editing: documentation-only commits make a self-referential
-  SHA in this file impractical.
-- **Head reconciliation:** the last code-bearing head is `2d33929890018d9763ee0989198022ee78c4738a`.
-  CI #254 passed on that code. The next docs-only parent was
-  `2a2e4cabe33a805522b69a544a0d2b738451b3fe`, and CI #255 passed on it. This checkpoint itself is
-  documentation-only; the live PR metadata remains authoritative for its exact SHA and scale.
-- **PR scale at the last live refresh:** 262 commits against main, 368 changed files,
-  +34,992 / -891. The code-bearing scale before documentation-only reconciliation was
-  261 commits, +34,980 / -891.
+- **Latest code head:** `6e9ce144830c7fee1dce112211fc5282f169c85f` (`Verify AutoGrind drop pickup after movement resume`). Main CI run [35851703294](https://github.com/MrHakan/Minecraft-Client/actions/runs/35851703294) built with Java 25, reported **826 unit tests with 0 failures/errors/skips**, and passed client game tests. The production-addon step failed before launch because `remapJar` does not exist under the project's 26.2 non-obfuscated Loom plugin. The install, restart-persistence and removal behavior is therefore **not accepted yet**. The follow-up uses the ordinary `jar` output and ordinary addon fixture JARs, which need no remapping for this Minecraft version; the next full main run must prove it.
+- **Pull request history:** [PR #9](https://github.com/MrHakan/Minecraft-Client/pull/9) is merged. It is not the current working branch or an open review request.
 - **Versions:** Minecraft 26.2, Fabric Loader 0.19.3, Fabric API 0.157.0+26.2, Java 25.
-- **Modules:** 55 built-in modules, 1 UNTESTED (PlayerAlerts). Runtime smoke exercises 57 modules
-  because two independent addon fixtures register one module each only during game tests.
-- **CI evidence:** #254 and #255 both succeeded. Each ran the Java 25 build, **819 JUnit tests
-  (0 failures, 0 errors, 0 skipped)**, generated docs, inventory regression controls, client game
-  tests, runtime mixin verification, rolled-log failure scanning and artifacts. The smoke run opened
-  **177 screens without a world**, exercised all 57 runtime modules for 20 ticks, reported 47 grouped
-  behaviour/transition outcomes and scanned 961 lines on #254 / 952 lines on #255. Only the two
-  deliberately expected broken-addon fixture failures were allowed. Dedicated-server scenarios were
-  skipped behind the EULA gate and are not coverage.
-- **External addon mash-up:** clean-room review of [Trouser-Streak](https://github.com/etianl/Trouser-Streak),
-  [meteor-rejects](https://github.com/AntiCope/meteor-rejects) and [MeteorPlus 26.2](https://github.com/MeteorClientPlus/MeteorPlus/tree/26.2)
-  produced PlayerAlerts and GamemodeAlerts only. No external source, mixin, packet format or license
-  text was copied. PlayerAlerts reports bounded client-loaded player enter/leave events, local friends
-  filtering and cooldowns and remains experimental pending a real second-player acceptance.
-  GamemodeAlerts reports bounded client-visible player-list mode changes and its integrated-server
-  survival-to-creative scenario passed; its experimental flag is cleared.
-- **Baritone / AutoGrind:** the optional bridge uses inspected 26.2 interfaces and never sends chat.
-  Resource-only `.grind run` watches real inventory counts and cancels on lifecycle changes; crafted
-  and smelted chains remain an explicit plan-only refusal until a vanilla menu/input executor is proven.
-  No installed production Baritone JAR or busy multiplayer run is claimed.
-- **Current scope:** roughly 80–85% of useful original scope at meaningful depth. Remaining release risk
-  is acceptance evidence: installed addon persistence/removal, installed Baritone, natural fishing,
-  busy dedicated multiplayer, profile/reconnect edge cases and visual correctness at GUI scales/themes.
-- **Dedicated server:** the existing harness remains opt-in. Do not enable `acceptServerEula` without
-  the repository owner’s explicit decision; skipped checks are excluded from every count.
-- **Language/safety:** UI remains English-first; Turkish setting-description localization is cancelled
-  while existing translated module descriptions remain. Packet flooding, malformed packets,
-  crash/dupe exploits, anti-cheat bypass presets, hidden rotation and fake server-authoritative
-  information remain deliberately excluded.
-
-### Current continuation — external addon mash-up
-
-- `PlayerAlertTracker` and `GameModeTracker` provide bounded, pure state with 16 unit tests.
-  They deduplicate/rebaseline lifecycle events, cap remembered UUIDs, normalize modes and avoid
-  false alerts from partial join snapshots.
-- `PlayerAlerts` consumes EventBus, FriendManager and NotificationService only; it does not scan the
-  server, send chat or infer invisibility. `GamemodeAlerts` polls the existing visible player list,
-  requires a complete self-inclusive baseline, supports self/other/mode filters and explicitly labels
-  the evidence as client-visible.
-- `docs/MODULES.md` is generated and reports 55 modules with one UNTESTED badge. The two modules
-  reuse existing services, settings persistence and lifecycle guards rather than duplicating systems.
-- `docs/EXTERNAL_INSPIRATION.md` records the reviewed projects, safe selection and exclusions.
-  The current PR body carries the same evidence boundary and links.
+- **Modules:** `docs/MODULES.md` reports 56 built-in modules across six categories, with two UNTESTED badges. It is generated from source. Client game tests also load two separate addon fixtures; those do not count as built-in modules.
+- **AutoGrind:** planning remains separate from `GrindExecutor`. `.grind run log N` scans only loaded nearby chunks with the shared ScannerService budget, turns through RotationService, verifies reach, and breaks using vanilla game-mode calls. It waits until real drops appear in inventory before satisfying a gather task. Out-of-reach targets and uncollected drops pause as `NEEDS_MOVEMENT` with coordinates and an honest movement-unavailable message. Stop/restart replans from live inventory. Crafting, smelting, other resource executors and AutoGrind pathfinding are not implemented; no compatible installed Baritone JAR is claimed.
+- **AutoGrind evidence:** the client game tests passed in run 35851703294. `ModuleBehaviourGameTest.grindExecutesNearbyLogs` covers aiming from a wrong initial view, real block breaking and drop pickup, manual movement/resume, stop/restart after collecting a partial amount, and final inventory-confirmed completion. A distant-target test verifies the movement-unavailable pause and manual-resume path. This is game-test evidence; final batch acceptance still requires the corrected full pipeline.
+- **NoFall and Jesus:** NoFall waits for predicted collision with a real support surface and sends at most one grounded-status packet per fall; its description states that servers may still apply damage. Jesus derives its water target from the live fluid surface and keeps the separate lava lift. `RemainingSafetyGameTest` measures integrated-server fall damage against a normal-fall control and checks shallow/deep water surface behavior. This does not establish broad multiplayer or anti-cheat acceptance.
+- **Production-like addon test:** intended to launch the production client and addon fixtures three times in one isolated `mods/` directory, checking initial settings save, addon and base-setting persistence after restart, then safe addon removal. Run 35851703294 did not launch it because its task configuration referenced `remapJar`. The corrected main CI must produce all three successful launch markers before this is accepted. Missing-dependency loader messaging remains manual.
+- **Other release evidence:** CI runs the inventory regression controls, generated documentation, runtime mixin verification, full client game tests and rolled-log failure scan. Dedicated-server tests remain opt-in behind the EULA flag and are not coverage unless explicitly run.
+- **Remaining manual acceptance:** visual checks at GUI scales/themes, natural fishing, latency/contention in multiplayer, dedicated-server behavior, missing-addon-dependency messaging, and Baritone behavior only if a verified compatible 26.2 JAR is available. Packet flooding, hidden rotation and server-authoritative claims remain excluded.
+- **Local toolchain:** this workspace has Java 17 and cannot reach the Gradle distribution download, so Java 25 validation relies on GitHub Actions. Do not describe the current pipeline as fully green until all expected stages pass on the corrected head.
 
 ### Current release-validation focus
 
-1. Install/remap a third-party addon JAR in a real `mods/` folder; test restart/keybind persistence,
-   safe removal and missing-dependency behavior.
-2. If a compatible Baritone 26.2 JAR is installed, test `.goto`, `.goto stop`,
-   `.grind run` completion/cancellation and zero public-chat leakage.
-3. Exercise natural fishing and inventory automation with latency/full-inventory contention.
-4. Manually inspect TargetHUD face/hat compositing, ESP/nametag geometry, waypoint beams,
-   trajectory impact points, rainbow phase, HUD scale and light/AMOLED/high-contrast themes.
-5. Reproduce unresolved NoFall, Jesus, notification-placement and Baritone reflection-policy questions
-   before changing behavior.
+1. Push the correction from `remapJar` to the 26.2 production `jar` artifact and ordinary fixture jars.
+2. Inspect the next main CI run through all three production-addon launches; retain the actual stage markers and logs.
+3. After the full pipeline is green, update this checkpoint with the head-matched result and resume the paused six-hour maintenance automation.
+4. If a compatible Baritone 26.2 JAR is installed, test `.goto`, `.goto stop`, `.grind run` completion/cancellation and zero public-chat leakage.
+5. Exercise natural fishing and inventory automation with latency/full-inventory contention.
+6. Manually inspect TargetHUD face/hat compositing, ESP/nametag geometry, waypoint beams, trajectories, rainbow phase, HUD scale and light/AMOLED/high-contrast themes. Keep dedicated-server tests opt-in; do not accept the EULA on the owner's behalf.
 
 ### Historical development record
 

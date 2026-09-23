@@ -132,9 +132,11 @@ test with a hand-made context would only prove the hand-made context works.
 package: jar-origin loading (with the client itself as a negative control), module/command registration,
 settings and collision/failure containment. They enter the development launch through its classpath.
 
-CI also runs `productionAddonInstallationTest` with Loom's production client launcher. It puts the
-remapped client, remapped addon fixture, remapped monitor fixture and Fabric API jars in an isolated
-real `mods/` directory, then performs three launches with the same game directory:
+CI also runs `productionAddonInstallationTest` with Loom's production client launcher. Minecraft
+26.2 uses Loom's non-obfuscated plugin, so the production `jar` and the separately packaged addon
+and monitor fixtures need no remapping ([Loom documentation](https://docs.fabricmc.net/develop/loom/)).
+The test puts those jars and Fabric API in an isolated real `mods/` directory, then performs three
+launches with the same game directory:
 
 1. With the addon installed, change one addon setting and one built-in setting and write the real
    config file.

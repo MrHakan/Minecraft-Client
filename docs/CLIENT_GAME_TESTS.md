@@ -3,8 +3,7 @@
 `./gradlew runClientGameTest` starts a real client, drives it, and exits with a verdict.
 `tools/smoke-client.sh` wraps that for CI and adds the mixin check; both push-to-main and pull-request
 CI runs use it. A separate `productionAddonInstallationTest` launches the built production client
-three times to check settings persistence with a remapped addon installed, after restart, and after
-removal.
+three times to check settings persistence with an addon installed, after restart, and after removal.
 
 The tests live in `src/gametest/java` and are registered through the `fabric-client-gametest`
 entry point in `src/gametest/resources/fabric.mod.json`. They never ship: the source set is separate
@@ -68,9 +67,10 @@ with no chests, and "it ran without throwing" collapses to "its inner loop never
 ## Production add-on installation test
 
 `productionAddonInstallationTest` uses Loom's production client launcher and the production
-`remapJar` output, not the development classpath. A separately remapped addon fixture is installed
-under an isolated game directory, its setting is saved, and a second launch verifies that the
-setting survived. A third launch removes the addon jar and verifies that a built-in setting still
+`jar` output, not the development classpath. Minecraft 26.2 uses Loom's non-obfuscated plugin, so
+the client and separately packaged addon fixtures need no remapping ([Loom documentation](https://docs.fabricmc.net/develop/loom/)).
+They run under an isolated game directory: the addon setting is saved, a second launch verifies that
+it survived, and a third launch removes the addon jar and verifies that a built-in setting still
 loads. CI archives the launch logs and stage markers. The add-on's missing-dependency loader message
 remains a manual check.
 
