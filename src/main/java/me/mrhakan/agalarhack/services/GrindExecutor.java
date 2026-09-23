@@ -122,7 +122,12 @@ public final class GrindExecutor {
             return;
         }
         runner.tick();
-        if (runner.state() == TaskRunner.State.DONE || runner.state() == TaskRunner.State.FAILED) {
+        TaskRunner.State state = runner.state();
+        if (state == TaskRunner.State.NEEDS_MOVEMENT) {
+            // A paused task owns no player controls. The player needs to be free to look and move
+            // before deciding when to resume it.
+            releaseControls();
+        } else if (state == TaskRunner.State.DONE || state == TaskRunner.State.FAILED) {
             releaseControls();
             ownerPlayer = null;
             ownerLevel = null;
@@ -199,13 +204,13 @@ public final class GrindExecutor {
                         movementReason = movementMessage(target, "outside direct interaction reach");
                         return true;
                     }
+                    aimAt(target);
+                    if (!aimedAt(target)) return true;
                     BlockHitResult hit = hitTarget(target);
                     if (hit == null) {
                         movementReason = movementMessage(target, "blocked from direct interaction");
                         return true;
                     }
-                    aimAt(target);
-                    if (!aimedAt(target)) return true;
                     if (client.gameMode == null) {
                         failureReason = "lost the active game mode while breaking " + coordinates(target);
                         return false;
@@ -295,8 +300,10 @@ public final class GrindExecutor {
                 nearestOverallDistance = distance;
                 nearestOverall = pos.immutable();
             }
-            if (distance <= MAX_REACH * MAX_REACH && hitTarget(pos) != null
-                    && distance < nearestInReachDistance) {
+            // Visibility depends on the view rotation. Do not test the ray against the player's
+            // old look direction here: the executor owns a RotationService request that first
+            // turns toward this candidate, after which tick() verifies the actual ray hit.
+            if (distance <= MAX_REACH * MAX_REACH && distance < nearestInReachDistance) {
                 nearestInReachDistance = distance;
                 nearestInReach = pos.immutable();
             }

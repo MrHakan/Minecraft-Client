@@ -2293,8 +2293,6 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
         BlockPos first = base.offset(0, 1, 3);
         BlockPos second = base.offset(2, 1, 3);
         moveThere(context, singleplayer, base);
-        float originalYaw = context.computeOnClient(client -> client.player.getYRot());
-        float originalPitch = context.computeOnClient(client -> client.player.getXRot());
         setInventory(singleplayer, slots -> { });
         singleplayer.getServer().runOnServer(server -> {
             ServerPlayer player = singleplayer.getConnection().getServerPlayer();
@@ -2302,20 +2300,45 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
             player.setHealth(player.getMaxHealth());
             player.setDeltaMovement(Vec3.ZERO);
             player.getInventory().setItem(40, Items.OAK_LOG.getDefaultInstance());
+            player.containerMenu.broadcastChanges();
             player.level().setBlockAndUpdate(first, Blocks.OAK_LOG.defaultBlockState());
             player.level().setBlockAndUpdate(second, Blocks.OAK_LOG.defaultBlockState());
         });
         singleplayer.getConnection().waitForChunksRender();
         context.waitTicks(10);
+        if (context.computeOnClient(client -> countItem(client, Items.OAK_LOG)) != 1) {
+            throw new AssertionError("AutoGrind setup did not synchronize the one starting log in the offhand");
+        }
+        if (!context.computeOnClient(client -> client.level.getBlockState(first).is(Blocks.OAK_LOG)
+                && client.level.getBlockState(second).is(Blocks.OAK_LOG))) {
+            throw new AssertionError("AutoGrind setup did not load both test logs into the client world");
+        }
+        // Start with the view pointed away so the scenario proves AutoGrind rotates before it
+        // checks line of sight and invokes vanilla block breaking.
+        context.getInput().lookAt(base.offset(0, 1, -3));
+        context.waitTicks(20);
+        float originalYaw = context.computeOnClient(client -> client.player.getYRot());
+        float originalPitch = context.computeOnClient(client -> client.player.getXRot());
 
         context.runOnClient(client -> me.mrhakan.agalarhack.managers.CommandManager.handleChat(
                 me.mrhakan.agalarhack.AgalarHackClient.prefix + "grind run log 3"));
-        boolean firstCollected = settle(context, client -> countItem(client, Items.OAK_LOG) >= 2, 160);
+        boolean firstCollected = settle(context, client -> countItem(client, Items.OAK_LOG) >= 2, 240);
         if (!firstCollected) {
+            String diagnostics = context.computeOnClient(client -> {
+                var executor = me.mrhakan.agalarhack.services.ClientServices.require(
+                        me.mrhakan.agalarhack.services.GrindExecutor.class);
+                var scanners = me.mrhakan.agalarhack.services.ClientServices.require(
+                        me.mrhakan.agalarhack.services.ScannerService.class);
+                return "state=" + executor.state() + " task=" + executor.currentTask()
+                        + " blocked=" + executor.blockedReason() + " scan=" + scanners.lastUsage()
+                        + " logs=" + countItem(client, Items.OAK_LOG)
+                        + " first=" + client.level.getBlockState(first)
+                        + " second=" + client.level.getBlockState(second)
+                        + " position=" + client.player.position()
+                        + " view=" + client.player.getYRot() + "/" + client.player.getXRot();
+            });
             throw new AssertionError("AutoGrind did not break a nearby oak log and confirm its drop "
-                    + "in the inventory; status=" + context.computeOnClient(client ->
-                    me.mrhakan.agalarhack.services.ClientServices.require(
-                            me.mrhakan.agalarhack.services.GrindExecutor.class).state()));
+                    + "in the inventory; " + diagnostics);
         }
 
         // One log is already in the offhand. Interrupt after one new pickup; restarting must see
