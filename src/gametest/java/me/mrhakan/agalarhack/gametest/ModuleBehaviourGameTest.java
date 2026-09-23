@@ -1718,9 +1718,16 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
             slots.setItem(1, new ItemStack(Items.FISHING_ROD));
             slots.setSelectedSlot(1);
         });
+        // setInventory edits the server player's Inventory and broadcasts container slots, but the
+        // selected hotbar index is not a container slot. Mirror it to the client too so this
+        // scenario starts with the same selected rod on both sides of the singleplayer connection.
+        context.runOnClient(client -> client.player.getInventory().setSelectedSlot(1));
         // At the middle of the pool. It is thirteen blocks across, so any ordinary cast lands in it.
         context.getInput().lookAt(pool);
         context.waitTicks(20);
+        if (context.computeOnClient(client -> client.player.getInventory().getSelectedSlot()) != 1) {
+            throw new AssertionError("AutoFish game-test setup did not select the intended rod on the client");
+        }
 
         Predicate<Minecraft> hooked = client -> client.player.fishing != null && client.player.fishing.isAlive();
         assertNotYet(context, hooked, "a fishing hook was already out before AutoFish ran");
