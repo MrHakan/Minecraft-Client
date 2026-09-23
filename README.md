@@ -70,8 +70,8 @@ Profiles store complete module state/settings/keybinds, Global Target Policy and
 | `.profile duplicate|rename <source> <target>` | Copies/renames profiles |
 | `.profile export|import <name>` | Clipboard profile JSON |
 | `.grind <item> [count]` / `.grind plan <item> [count]` | Plans what it would take to obtain an item, counting what you already carry (planning only) |
-| `.grind run log [count]` | Scans six blocks around you; breaks visible logs within vanilla reach and reports farther targets |
-| `.grind resume` / `.grind stop` / `.grind status` | Resumes a target after you move closer, cancels a run, or reports its state |
+| `.grind run log [count]` | Scans loaded nearby blocks, turns to and breaks a reachable log through vanilla interaction; waits for each drop to reach your inventory |
+| `.grind resume` / `.grind stop` / `.grind status` | Resumes after moving to a target or dropped item, cancels a run, or reports its state |
 | `.gui` | Opens the Control Center |
 | `.panic` | Disables all active modules |
 

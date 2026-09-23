@@ -2322,8 +2322,10 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
 
         context.runOnClient(client -> me.mrhakan.agalarhack.managers.CommandManager.handleChat(
                 me.mrhakan.agalarhack.AgalarHackClient.prefix + "grind run log 3"));
-        boolean firstCollected = settle(context, client -> countItem(client, Items.OAK_LOG) >= 2, 240);
-        if (!firstCollected) {
+        boolean waitingForFirstDrop = settle(context, client -> me.mrhakan.agalarhack.services.ClientServices
+                .require(me.mrhakan.agalarhack.services.GrindExecutor.class).state()
+                == me.mrhakan.agalarhack.services.TaskRunner.State.NEEDS_MOVEMENT, 240);
+        if (!waitingForFirstDrop) {
             String diagnostics = context.computeOnClient(client -> {
                 var executor = me.mrhakan.agalarhack.services.ClientServices.require(
                         me.mrhakan.agalarhack.services.GrindExecutor.class);
@@ -2337,26 +2339,57 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
                         + " position=" + client.player.position()
                         + " view=" + client.player.getYRot() + "/" + client.player.getXRot();
             });
-            throw new AssertionError("AutoGrind did not break a nearby oak log and confirm its drop "
-                    + "in the inventory; " + diagnostics);
+            throw new AssertionError("AutoGrind did not pause for the nearby broken log's uncollected drop; "
+                    + diagnostics);
+        }
+        String firstDropReason = context.computeOnClient(client ->
+                me.mrhakan.agalarhack.services.ClientServices.require(
+                        me.mrhakan.agalarhack.services.GrindExecutor.class).blockedReason());
+        if (context.computeOnClient(client -> countItem(client, Items.OAK_LOG)) != 1
+                || !context.computeOnClient(client -> client.level.getBlockState(first).isAir())
+                || !context.computeOnClient(client -> client.level.getBlockState(second).is(Blocks.OAK_LOG))
+                || firstDropReason == null || !firstDropReason.contains("log drop at")) {
+            throw new AssertionError("AutoGrind did not wait for the first real drop before starting another "
+                    + "log: inventory=" + context.computeOnClient(client -> countItem(client, Items.OAK_LOG))
+                    + " first=" + context.computeOnClient(client -> client.level.getBlockState(first))
+                    + " second=" + context.computeOnClient(client -> client.level.getBlockState(second))
+                    + " reason=" + firstDropReason);
         }
 
-        // One log is already in the offhand. Interrupt after one new pickup; restarting must see
-        // two of three total logs and gather only the last one.
+        // The block is three blocks away, so its drop is outside pickup reach. Move onto the actual
+        // world drop, resume the task, then stop and start again to prove it recounts inventory.
+        moveToDroppedLog(context, singleplayer, first);
+        context.runOnClient(client -> me.mrhakan.agalarhack.managers.CommandManager.handleChat(
+                me.mrhakan.agalarhack.AgalarHackClient.prefix + "grind resume"));
+        boolean firstCollected = settle(context, client -> countItem(client, Items.OAK_LOG) >= 2, 120);
+        if (!firstCollected) {
+            throw new AssertionError("AutoGrind did not recognize the first log after moving onto its drop");
+        }
         context.runOnClient(client -> me.mrhakan.agalarhack.managers.CommandManager.handleChat(
                 me.mrhakan.agalarhack.AgalarHackClient.prefix + "grind stop"));
         context.waitTicks(2);
         context.runOnClient(client -> me.mrhakan.agalarhack.managers.CommandManager.handleChat(
                 me.mrhakan.agalarhack.AgalarHackClient.prefix + "grind run log 3"));
-        boolean complete = settle(context, client -> countItem(client, Items.OAK_LOG) == 3
-                && client.level.getBlockState(first).isAir()
-                && client.level.getBlockState(second).isAir(), 240);
-        if (!complete) {
-            throw new AssertionError("AutoGrind did not resume from the existing log count; inventory="
-                    + context.computeOnClient(client -> countItem(client, Items.OAK_LOG))
+        boolean waitingForSecondDrop = settle(context, client -> client.level.getBlockState(second).isAir()
+                && me.mrhakan.agalarhack.services.ClientServices.require(
+                        me.mrhakan.agalarhack.services.GrindExecutor.class).state()
+                        == me.mrhakan.agalarhack.services.TaskRunner.State.NEEDS_MOVEMENT, 240);
+        if (!waitingForSecondDrop || context.computeOnClient(client -> countItem(client, Items.OAK_LOG)) != 2) {
+            throw new AssertionError("AutoGrind did not restart from two carried logs and break exactly one more; "
+                    + "inventory=" + context.computeOnClient(client -> countItem(client, Items.OAK_LOG))
                     + " first=" + context.computeOnClient(client -> client.level.getBlockState(first))
-                    + " second=" + context.computeOnClient(client -> client.level.getBlockState(second)));
+                    + " second=" + context.computeOnClient(client -> client.level.getBlockState(second))
+                    + " state=" + context.computeOnClient(client -> me.mrhakan.agalarhack.services.ClientServices
+                            .require(me.mrhakan.agalarhack.services.GrindExecutor.class).state()));
         }
+        moveToDroppedLog(context, singleplayer, second);
+        context.runOnClient(client -> me.mrhakan.agalarhack.managers.CommandManager.handleChat(
+                me.mrhakan.agalarhack.AgalarHackClient.prefix + "grind resume"));
+        boolean complete = settle(context, client -> countItem(client, Items.OAK_LOG) == 3
+                && me.mrhakan.agalarhack.services.ClientServices.require(
+                        me.mrhakan.agalarhack.services.GrindExecutor.class).state()
+                        == me.mrhakan.agalarhack.services.TaskRunner.State.DONE, 120);
+        if (!complete) throw new AssertionError("AutoGrind did not finish after its final drop reached inventory");
         context.waitTicks(2);
         var state = context.computeOnClient(client ->
                 me.mrhakan.agalarhack.services.ClientServices.require(
@@ -2431,6 +2464,36 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
             if (stack.is(item)) total += stack.getCount();
         }
         return total;
+    }
+
+    /** Moves the test player onto the actual world drop, as a manual pickup would. */
+    private static void moveToDroppedLog(ClientGameTestContext context,
+            TestSingleplayerContext singleplayer, BlockPos near) {
+        singleplayer.getServer().runOnServer(server -> {
+            ServerPlayer player = singleplayer.getConnection().getServerPlayer();
+            java.util.List<Entity> present = new java.util.ArrayList<>();
+            player.level().getAllEntities().forEach(present::add);
+            net.minecraft.world.entity.item.ItemEntity closest = null;
+            double closestDistance = Double.MAX_VALUE;
+            Vec3 target = Vec3.atCenterOf(near);
+            for (Entity entity : present) {
+                if (entity instanceof net.minecraft.world.entity.item.ItemEntity item
+                        && item.getItem().is(Items.OAK_LOG)) {
+                    double distance = item.position().distanceToSqr(target);
+                    if (distance < closestDistance) {
+                        closest = item;
+                        closestDistance = distance;
+                    }
+                }
+            }
+            if (closest == null || closestDistance > 64.0) {
+                throw new AssertionError("No real oak log drop was present near " + near);
+            }
+            player.teleportTo(closest.getX(), closest.getY(), closest.getZ());
+            player.setDeltaMovement(Vec3.ZERO);
+        });
+        singleplayer.getConnection().waitForChunksRender();
+        context.waitTicks(10);
     }
 
     /**

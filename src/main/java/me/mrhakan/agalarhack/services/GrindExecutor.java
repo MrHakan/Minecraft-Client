@@ -38,6 +38,8 @@ public final class GrindExecutor {
     private static final int SCAN_STEPS_PER_TICK = 512;
     private static final double MAX_REACH = 4.5;
     private static final int PICKUP_GRACE_TICKS = 60;
+    private static final double PICKUP_HORIZONTAL_REACH = 1.75;
+    private static final double PICKUP_VERTICAL_REACH = 2.5;
     private static final EquipmentSlot[] NON_STORAGE_SLOTS = {
             EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET,
             EquipmentSlot.OFFHAND
@@ -174,6 +176,8 @@ public final class GrindExecutor {
         private boolean mining;
         private boolean waitingForPickup;
         private int pickupWait;
+        private int inventoryBeforeMining;
+        private BlockPos pickupPosition;
         private String movementReason;
         private String failureReason;
 
@@ -196,6 +200,7 @@ public final class GrindExecutor {
             if (target != null) {
                 if (!isLog(client.level.getBlockState(target))) {
                     stopBreaking();
+                    pickupPosition = target.immutable();
                     target = null;
                     waitingForPickup = true;
                     pickupWait = 0;
@@ -216,6 +221,7 @@ public final class GrindExecutor {
                         return false;
                     }
                     if (!mining) {
+                        inventoryBeforeMining = count(GrindBook.LOG);
                         client.gameMode.startDestroyBlock(target, hit.getDirection());
                         mining = true;
                     } else {
@@ -226,9 +232,22 @@ public final class GrindExecutor {
             }
 
             if (waitingForPickup) {
-                if (satisfied()) return true;
-                if (++pickupWait < PICKUP_GRACE_TICKS) return true;
-                waitingForPickup = false;
+                if (count(GrindBook.LOG) > inventoryBeforeMining) {
+                    waitingForPickup = false;
+                    pickupPosition = null;
+                    pickupWait = 0;
+                } else {
+                    if (pickupWait >= PICKUP_GRACE_TICKS) {
+                        if (nearPickupPosition()) pickupWait = 0;
+                        else {
+                            movementReason = pickupMovementReason();
+                            return true;
+                        }
+                    }
+                    if (++pickupWait < PICKUP_GRACE_TICKS) return true;
+                    movementReason = pickupMovementReason();
+                    return true;
+                }
             }
 
             if (scanReady) {
@@ -325,6 +344,21 @@ public final class GrindExecutor {
 
         private boolean withinReach(BlockPos pos) {
             return client.player.getEyePosition().distanceToSqr(Vec3.atCenterOf(pos)) <= MAX_REACH * MAX_REACH;
+        }
+
+        private boolean nearPickupPosition() {
+            if (pickupPosition == null || client.player == null) return false;
+            Vec3 player = client.player.position();
+            Vec3 drop = Vec3.atCenterOf(pickupPosition);
+            double x = player.x - drop.x;
+            double z = player.z - drop.z;
+            return x * x + z * z <= PICKUP_HORIZONTAL_REACH * PICKUP_HORIZONTAL_REACH
+                    && Math.abs(player.y - drop.y) <= PICKUP_VERTICAL_REACH;
+        }
+
+        private String pickupMovementReason() {
+            return "The log drop at " + coordinates(pickupPosition)
+                    + " is not in your inventory; move over it and run .grind resume.";
         }
 
         private BlockHitResult hitTarget(BlockPos pos) {
