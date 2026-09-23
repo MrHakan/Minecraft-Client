@@ -62,6 +62,7 @@ jobs:
           ./tools/smoke-client.sh
 
       - name: Production-like addon install and removal
+        timeout-minutes: 15
         if: github.event_name == 'pull_request' || github.event_name == 'push'
         run: ./gradlew productionAddonInstallationTest --stacktrace
 
