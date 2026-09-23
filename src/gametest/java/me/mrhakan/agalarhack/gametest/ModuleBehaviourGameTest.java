@@ -2269,13 +2269,138 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
         context.runOnClient(client -> me.mrhakan.agalarhack.managers.CommandManager.handleChat(
                 me.mrhakan.agalarhack.AgalarHackClient.prefix + "grind run cobblestone 1"));
         context.waitTicks(10);
-        boolean refusedWithoutBaritone = context.computeOnClient(client ->
-                ChatView.contains(client, "AutoGrind needs Baritone installed"));
-        if (!refusedWithoutBaritone) {
-            throw new AssertionError("AutoGrind started a raw resource run without Baritone or "
-                    + "failed to explain that no mining backend is installed");
+        boolean refusedUnsupported = context.computeOnClient(client ->
+                ChatView.contains(client, "nearby logs only"));
+        if (!refusedUnsupported) {
+            throw new AssertionError("AutoGrind pretended it could gather cobblestone without a "
+                    + "verified executor or failed to explain its current log-only scope");
         }
-        LOGGER.info("  AutoGrind refused execution cleanly without Baritone");
+        LOGGER.info("  AutoGrind refused a resource it cannot execute yet");
+        grindExecutesNearbyLogs(context, singleplayer);
+    }
+
+    /** A real planner-to-world-to-inventory run, then an inventory-based restart after interruption. */
+    private void grindExecutesNearbyLogs(ClientGameTestContext context,
+            TestSingleplayerContext singleplayer) {
+        BlockPos base = sceneBase.offset(0, 0, 510);
+        BlockPos first = base.offset(0, 1, 3);
+        BlockPos second = base.offset(2, 1, 3);
+        moveThere(context, singleplayer, base);
+        float originalYaw = context.computeOnClient(client -> client.player.getYRot());
+        float originalPitch = context.computeOnClient(client -> client.player.getXRot());
+        setInventory(singleplayer, slots -> { });
+        singleplayer.getServer().runOnServer(server -> {
+            ServerPlayer player = singleplayer.getConnection().getServerPlayer();
+            player.setGameMode(GameType.SURVIVAL);
+            player.setHealth(player.getMaxHealth());
+            player.setDeltaMovement(Vec3.ZERO);
+            player.getInventory().setItem(40, Items.OAK_LOG.getDefaultInstance());
+            player.level().setBlockAndUpdate(first, Blocks.OAK_LOG.defaultBlockState());
+            player.level().setBlockAndUpdate(second, Blocks.OAK_LOG.defaultBlockState());
+        });
+        singleplayer.getConnection().waitForChunksRender();
+        context.waitTicks(10);
+
+        context.runOnClient(client -> me.mrhakan.agalarhack.managers.CommandManager.handleChat(
+                me.mrhakan.agalarhack.AgalarHackClient.prefix + "grind run log 3"));
+        boolean firstCollected = settle(context, client -> countItem(client, Items.OAK_LOG) >= 2, 160);
+        if (!firstCollected) {
+            throw new AssertionError("AutoGrind did not break a nearby oak log and confirm its drop "
+                    + "in the inventory; status=" + context.computeOnClient(client ->
+                    me.mrhakan.agalarhack.services.ClientServices.require(
+                            me.mrhakan.agalarhack.services.GrindExecutor.class).state()));
+        }
+
+        // One log is already in the offhand. Interrupt after one new pickup; restarting must see
+        // two of three total logs and gather only the last one.
+        context.runOnClient(client -> me.mrhakan.agalarhack.managers.CommandManager.handleChat(
+                me.mrhakan.agalarhack.AgalarHackClient.prefix + "grind stop"));
+        context.waitTicks(2);
+        context.runOnClient(client -> me.mrhakan.agalarhack.managers.CommandManager.handleChat(
+                me.mrhakan.agalarhack.AgalarHackClient.prefix + "grind run log 3"));
+        boolean complete = settle(context, client -> countItem(client, Items.OAK_LOG) == 3
+                && client.level.getBlockState(first).isAir()
+                && client.level.getBlockState(second).isAir(), 240);
+        if (!complete) {
+            throw new AssertionError("AutoGrind did not resume from the existing log count; inventory="
+                    + context.computeOnClient(client -> countItem(client, Items.OAK_LOG))
+                    + " first=" + context.computeOnClient(client -> client.level.getBlockState(first))
+                    + " second=" + context.computeOnClient(client -> client.level.getBlockState(second)));
+        }
+        context.waitTicks(2);
+        var state = context.computeOnClient(client ->
+                me.mrhakan.agalarhack.services.ClientServices.require(
+                        me.mrhakan.agalarhack.services.GrindExecutor.class).state());
+        if (state != me.mrhakan.agalarhack.services.TaskRunner.State.DONE) {
+            throw new AssertionError("AutoGrind changed both blocks and received both drops but did not "
+                    + "complete its task: " + state);
+        }
+        float finalYaw = context.computeOnClient(client -> client.player.getYRot());
+        float finalPitch = context.computeOnClient(client -> client.player.getXRot());
+        if (Math.abs(net.minecraft.util.Mth.wrapDegrees(finalYaw - originalYaw)) > 0.01f
+                || Math.abs(finalPitch - originalPitch) > 0.01f) {
+            throw new AssertionError("AutoGrind did not release its temporary aim rotation: original="
+                    + originalYaw + "/" + originalPitch + " final=" + finalYaw + "/" + finalPitch);
+        }
+        LOGGER.info("  AutoGrind broke nearby logs, confirmed drops, and resumed from inventory");
+        grindReportsMovementForDistantLogs(context, singleplayer);
+    }
+
+    /** A visible target outside vanilla reach pauses honestly, then resumes after manual movement. */
+    private void grindReportsMovementForDistantLogs(ClientGameTestContext context,
+            TestSingleplayerContext singleplayer) {
+        BlockPos base = sceneBase.offset(0, 0, 540);
+        BlockPos target = base.offset(6, 1, 0);
+        moveThere(context, singleplayer, base);
+        setInventory(singleplayer, slots -> { });
+        singleplayer.getServer().runOnServer(server -> {
+            ServerPlayer player = singleplayer.getConnection().getServerPlayer();
+            player.setGameMode(GameType.SURVIVAL);
+            player.setDeltaMovement(Vec3.ZERO);
+            player.level().setBlockAndUpdate(target, Blocks.OAK_LOG.defaultBlockState());
+        });
+        singleplayer.getConnection().waitForChunksRender();
+        context.waitTicks(10);
+
+        context.runOnClient(client -> me.mrhakan.agalarhack.managers.CommandManager.handleChat(
+                me.mrhakan.agalarhack.AgalarHackClient.prefix + "grind run log 1"));
+        boolean waitingForMovement = settle(context, client ->
+                me.mrhakan.agalarhack.services.ClientServices.require(
+                        me.mrhakan.agalarhack.services.GrindExecutor.class).state()
+                        == me.mrhakan.agalarhack.services.TaskRunner.State.NEEDS_MOVEMENT, 160);
+        String blocked = context.computeOnClient(client ->
+                me.mrhakan.agalarhack.services.ClientServices.require(
+                        me.mrhakan.agalarhack.services.GrindExecutor.class).blockedReason());
+        if (!waitingForMovement || blocked == null
+                || !blocked.contains(target.getX() + " " + target.getY() + " " + target.getZ())
+                || !blocked.contains("movement automation unavailable")) {
+            throw new AssertionError("AutoGrind did not expose the distant target and unavailable movement: "
+                    + blocked);
+        }
+        if (context.computeOnClient(client -> !client.level.getBlockState(target).is(Blocks.OAK_LOG))
+                || context.computeOnClient(client -> countItem(client, Items.OAK_LOG)) != 0) {
+            throw new AssertionError("AutoGrind claimed to handle a distant log before the player moved");
+        }
+
+        moveThere(context, singleplayer, base.offset(3, 0, 0));
+        context.runOnClient(client -> me.mrhakan.agalarhack.managers.CommandManager.handleChat(
+                me.mrhakan.agalarhack.AgalarHackClient.prefix + "grind resume"));
+        boolean complete = settle(context, client -> countItem(client, Items.OAK_LOG) == 1
+                && client.level.getBlockState(target).isAir()
+                && me.mrhakan.agalarhack.services.ClientServices.require(
+                        me.mrhakan.agalarhack.services.GrindExecutor.class).state()
+                        == me.mrhakan.agalarhack.services.TaskRunner.State.DONE, 200);
+        if (!complete) throw new AssertionError("AutoGrind did not resume after moving closer to " + target);
+        LOGGER.info("  AutoGrind paused honestly outside reach and resumed after manual movement");
+    }
+
+    private static int countItem(Minecraft client, net.minecraft.world.item.Item item) {
+        int total = 0;
+        for (int slot = 0; slot < client.player.getInventory().getContainerSize(); slot++) {
+            var stack = client.player.getInventory().getItem(slot);
+            if (stack.is(item)) total += stack.getCount();
+        }
+        return total;
     }
 
     /**

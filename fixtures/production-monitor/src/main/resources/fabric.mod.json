@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "agalarhack-production-monitor",
+  "version": "1.0.0",
+  "name": "Agalar Hack Production Install Monitor",
+  "environment": "client",
+  "entrypoints": {
+    "client": ["com.example.agalarhackproduction.ProductionInstallMonitor"]
+  },
+  "depends": {
+    "agalarhack": "*",
+    "fabric-lifecycle-events-v1": "*"
+  }
+}

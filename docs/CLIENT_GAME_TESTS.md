@@ -1,7 +1,10 @@
 # Client game tests
 
 `./gradlew runClientGameTest` starts a real client, drives it, and exits with a verdict.
-`tools/smoke-client.sh` wraps that for CI and adds the mixin check; it runs on every pull request.
+`tools/smoke-client.sh` wraps that for CI and adds the mixin check; both push-to-main and pull-request
+CI runs use it. A separate `productionAddonInstallationTest` launches the built production client
+three times to check settings persistence with a remapped addon installed, after restart, and after
+removal.
 
 The tests live in `src/gametest/java` and are registered through the `fabric-client-gametest`
 entry point in `src/gametest/resources/fabric.mod.json`. They never ship: the source set is separate
@@ -24,13 +27,13 @@ invisible to it:
 | --- | --- |
 | `ClientScreensGameTest` | Opens every screen the mod can show — the ClickGUI, the HUD editor, profiles, themes, the target policy, the colour picker, and each module's settings, actions and keybind screens — against the title screen, where there is no player and no level. |
 | `ModuleLifecycleGameTest` | Creates a flat, fixed-seed world, builds a scene around the player, then enables each module in turn, ticks it, and disables it. |
-| `ModuleBehaviourGameTest` | One scenario per module, asserting the effect a player would actually notice — a totem moved into the offhand, a player who walked, a death screen that closed, pixels that changed where an overlay should be. Every scenario first asserts that effect is *absent* with the module off. Commands and the addon entrypoint are covered the same way: `.look` turns the real view, `.goto` refuses without Baritone and puts nothing in chat, `.grind` plans a stone pickaxe around wood the player is already carrying (and says it only plans), and the game test mod declares its own `agalarhack` entrypoint so a **real addon, loaded by the real Fabric loader**, is asserted to have registered a real module and command. |
+| `ModuleBehaviourGameTest` | One scenario per module, asserting the effect a player would actually notice — a totem moved into the offhand, a player who walked, a death screen that closed, pixels that changed where an overlay should be. Every scenario first asserts that effect is *absent* with the module off. Commands and the addon entrypoint are covered the same way: `.look` turns the real view, `.goto` refuses without Baritone and puts nothing in chat, `.grind` plans around held wood, refuses unsupported work, then breaks nearby logs through vanilla block interaction and confirms each drop before finishing a restarted request, and the game test mod declares its own `agalarhack` entrypoint so a **real addon, loaded by the real Fabric loader**, is asserted to have registered a real module and command. |
 | `InventoryRecoveryGameTest` | Interrupts a real AutoArmor pickup with its settings screen and module disable; checks deferred recovery, both cursors and server-side item conservation. |
 | `WorldTransitionGameTest` | Travels to the Nether through the server, observes held-look cleanup before/after real world replacement, checks Freecam restoration and closes the actual connection. |
 | `InventoryContentionGameTest` | Changes the inventory through vanilla commands **between two clicks of a plan** and asserts item conservation, empty cursors and a released channel. Runs the identical change with nothing in flight first, as a control: the accounting has to be shown trustworthy before its verdict means anything. |
 | `ProfileBindingGameTest` | Verifies a keybind-only partial profile restores key and modifiers without touching an unrelated setting, then binds profiles to dimensions and drives a real Nether round trip. The first arrival is unbound and must change nothing, which makes the later ones evidence that the binding caused the load rather than the transition. |
 | `ExternalAddonGameTest` | Installs two **separately packaged addon jars** and checks them from the outside: one registers a module and a command and receives settings, the other collides with a built-in module and a built-in command on purpose and has to be contained. Asserts the good one was loaded from a real `.jar` file, and first asserts the client itself is *not*, so that check separates installed jars from classpath mods rather than passing for everything. |
-| `RemainingSafetyGameTest` | Builds real walkways out of fences, walls and slabs and walks the player along each with Parkour off and on, so support is decided by vanilla's own collision shapes rather than by a block-state guess — a fence is 1.5 blocks tall, so the position below the player's feet is the empty block above it. Then caps BlockESP's results, grows the cap, and removes the blocks behind the markers, checking that the count recovers, that earlier findings are not stranded, and that a finished scan stops probing. |
+| `RemainingSafetyGameTest` | Builds real walkways out of fences, walls and slabs and walks the player along each with Parkour off and on, so support is decided by vanilla's own collision shapes. It also measures Jesus's surface height and upward correction in shallow and deep water, and compares server health loss from a normal fall with NoFall enabled. Then it caps BlockESP's results, grows the cap, and removes the blocks behind the markers, checking that the count recovers, that earlier findings are not stranded, and that a finished scan stops probing. |
 | `DedicatedServerGameTest` | **Opt-in; see below.** Starts a real dedicated server and connects to it: observes the packet counters actually counting, equips armour where every click crosses a socket and the server has to agree, then checks the counters reset on disconnect and that a reconnect works. |
 | `SwallowedFailureGameTest` | Reads the log the run just wrote and fails if the mod caught and logged a failure anywhere in it. One exemption, by mod id: the deliberately broken addon fixture, whose failure is *asserted to happen* rather than merely ignored. |
 
@@ -61,6 +64,15 @@ code paths a remote connection uses, not behaviour on a busy public server.
 two-deep obsidian hole, a zombie, a dropped item and a full inventory next to the player. An empty
 world is a weak test: a scanner that throws the moment it finds a chest passes happily in a world
 with no chests, and "it ran without throwing" collapses to "its inner loop never executed".
+
+## Production add-on installation test
+
+`productionAddonInstallationTest` uses Loom's production client launcher and the production
+`remapJar` output, not the development classpath. A separately remapped addon fixture is installed
+under an isolated game directory, its setting is saved, and a second launch verifies that the
+setting survived. A third launch removes the addon jar and verifies that a built-in setting still
+loads. CI archives the launch logs and stage markers. The add-on's missing-dependency loader message
+remains a manual check.
 
 ## How failures are detected
 

@@ -4,6 +4,8 @@ import java.util.ArrayList;
 import java.util.List;
 import me.mrhakan.agalarhack.AgalarHackClient;
 import me.mrhakan.agalarhack.module.render.BlockESP;
+import me.mrhakan.agalarhack.module.movement.Jesus;
+import me.mrhakan.agalarhack.module.movement.NoFall;
 import me.mrhakan.agalarhack.services.ClientServices;
 import me.mrhakan.agalarhack.services.ScannerService;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
@@ -38,10 +40,14 @@ public final class RemainingSafetyGameTest implements FabricClientGameTest {
             surface(context, world, base, Blocks.COBBLESTONE_WALL, 1.5, "wall", failures);
             surface(context, world, base, Blocks.STONE_SLAB, 0.5, "slab", failures);
             cappedBlocks(context, world, base, failures);
+            jesusMeasuresShallowAndDeepWater(context, world, base);
+            noFallMeasuresActualDamage(context, world, base);
         } finally {
             context.getInput().releaseKey(options -> options.keyUp);
             context.runOnClient(client -> {
                 AgalarHackClient.moduleManager.getModule("Parkour").setToggled(false, false);
+                AgalarHackClient.moduleManager.getModule("Jesus").setToggled(false, false);
+                AgalarHackClient.moduleManager.getModule("NoFall").setToggled(false, false);
                 var module = AgalarHackClient.moduleManager.getModule("BlockESP");
                 module.setToggled(false, false);
                 module.settings.setSetting("horizontalRange", 24.0);
@@ -50,6 +56,112 @@ public final class RemainingSafetyGameTest implements FabricClientGameTest {
             });
         }
         if (!failures.isEmpty()) throw new AssertionError("Remaining safety regressions: " + failures);
+    }
+
+    /** Uses real source-fluid states at two depths and checks buoyancy points at their actual tops. */
+    private static void jesusMeasuresShallowAndDeepWater(ClientGameTestContext context,
+            TestSingleplayerContext world, BlockPos base) {
+        BlockPos shallow = base.offset(2, 0, 8);
+        BlockPos deep = base.offset(8, 0, 8);
+        world.getServer().runOnServer(server -> {
+            var level = world.getConnection().getServerPlayer().level();
+            for (int depth = 0; depth < 2; depth++)
+                level.setBlockAndUpdate(shallow.above(depth), Blocks.WATER.defaultBlockState());
+            for (int depth = 0; depth < 8; depth++)
+                level.setBlockAndUpdate(deep.above(depth), Blocks.WATER.defaultBlockState());
+        });
+        world.getConnection().waitForChunksRender();
+
+        double shallowSurface = context.computeOnClient(client -> Jesus.waterSurfaceY(client.level, shallow));
+        double deepSurface = context.computeOnClient(client -> Jesus.waterSurfaceY(client.level, deep));
+        if (Math.abs(shallowSurface - (shallow.getY() + 2.0)) > 0.001
+                || Math.abs(deepSurface - (deep.getY() + 8.0)) > 0.001) {
+            throw new AssertionError("Jesus did not derive both water surfaces from live fluid states: shallow="
+                    + shallowSurface + " deep=" + deepSurface);
+        }
+
+        var module = (me.mrhakan.agalarhack.module.movement.Jesus)
+                AgalarHackClient.moduleManager.getModule("Jesus");
+        module.setToggled(false, false);
+        assertUpwardSurfaceCorrection(context, world, module, shallow);
+        assertUpwardSurfaceCorrection(context, world, module, deep);
+        LOGGER.info("  Jesus used measured shallow={} and deep={} water surfaces", shallowSurface, deepSurface);
+    }
+
+    private static void assertUpwardSurfaceCorrection(ClientGameTestContext context,
+            TestSingleplayerContext world, Jesus module, BlockPos water) {
+        module.setToggled(false, false);
+        world.getServer().runOnServer(server -> {
+            var player = world.getConnection().getServerPlayer();
+            player.setGameMode(GameType.SURVIVAL);
+            player.teleportTo(water.getX() + 0.5, water.getY() + 0.1, water.getZ() + 0.5);
+            player.setDeltaMovement(Vec3.ZERO);
+            player.fallDistance = 0;
+        });
+        context.waitTicks(5);
+        double correction = context.computeOnClient(client -> {
+            module.setToggled(true, false);
+            client.player.setDeltaMovement(Vec3.ZERO);
+            module.onUpdate();
+            double y = client.player.getDeltaMovement().y;
+            module.setToggled(false, false);
+            return y;
+        });
+        if (!(correction > 0)) {
+            throw new AssertionError("Jesus did not raise a submerged player toward the surface at "
+                    + water + "; vertical correction=" + correction);
+        }
+    }
+
+    /** Records server-side health loss for an unmodified fall and for NoFall's one-shot report. */
+    private static void noFallMeasuresActualDamage(ClientGameTestContext context,
+            TestSingleplayerContext world, BlockPos base) {
+        BlockPos floor = base.offset(26, 0, 12);
+        world.getServer().runOnServer(server -> {
+            var level = world.getConnection().getServerPlayer().level();
+            for (int x = -1; x <= 1; x++) for (int z = -1; z <= 1; z++)
+                level.setBlockAndUpdate(floor.offset(x, 0, z), Blocks.STONE.defaultBlockState());
+        });
+        float controlDamage = measuredFallDamage(context, world, floor, false);
+        float noFallDamage = measuredFallDamage(context, world, floor, true);
+        LOGGER.info("  NoFall measured server health loss: control={} enabled={}", controlDamage, noFallDamage);
+        if (controlDamage <= 0) {
+            throw new AssertionError("NoFall damage control was not calibrated: an ordinary fall dealt "
+                    + controlDamage + " health damage");
+        }
+        if (noFallDamage >= controlDamage) {
+            throw new AssertionError("NoFall did not reduce real server damage against the calibrated control: "
+                    + noFallDamage + " >= " + controlDamage);
+        }
+        AgalarHackClient.moduleManager.getModule("NoFall").setToggled(false, false);
+    }
+
+    private static float measuredFallDamage(ClientGameTestContext context, TestSingleplayerContext world,
+            BlockPos floor, boolean enabled) {
+        context.runOnClient(client -> AgalarHackClient.moduleManager.getModule("NoFall").setToggled(false, false));
+        world.getServer().runOnServer(server -> {
+            var player = world.getConnection().getServerPlayer();
+            player.setGameMode(GameType.SURVIVAL);
+            player.setHealth(player.getMaxHealth());
+            player.setDeltaMovement(Vec3.ZERO);
+            player.fallDistance = 0;
+            player.teleportTo(floor.getX() + 0.5, floor.getY() + 12, floor.getZ() + 0.5);
+        });
+        context.waitTicks(5);
+        context.runOnClient(client -> AgalarHackClient.moduleManager.getModule("NoFall").setToggled(enabled, false));
+        boolean landed = false;
+        for (int tick = 0; tick < 160; tick += 4) {
+            context.waitTicks(4);
+            if (context.computeOnClient(client -> client.player.onGround())) {
+                landed = true;
+                break;
+            }
+        }
+        if (!landed) throw new AssertionError("NoFall damage measurement did not land within 160 ticks");
+        context.waitTicks(5);
+        float health = world.getServer().computeOnServer(server ->
+                world.getConnection().getServerPlayer().getHealth());
+        return Math.max(0, 20.0f - health);
     }
 
     private static void surface(ClientGameTestContext context, TestSingleplayerContext world,

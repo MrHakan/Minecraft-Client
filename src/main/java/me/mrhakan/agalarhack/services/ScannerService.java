@@ -21,24 +21,41 @@ public final class ScannerService {
     private final Minecraft mc;
     private long lastElapsedNanos;
     private final Map<Long, LevelChunk> chunks = new HashMap<>();
-    private final ScanScheduler<Module> scheduler = new ScanScheduler<>((module, error) -> {
-        AgalarHackClient.LOGGER.error("Scanner failed for {}", module.getName(), error);
-        module.setToggled(false);
-        ClientServices.require(NotificationService.class).publish(NotificationService.Type.ERROR,
-                module.getName() + " disabled after a scanner error");
+    private final ScanScheduler<Object> scheduler = new ScanScheduler<>((owner, error) -> {
+        if (owner instanceof Module module) {
+            AgalarHackClient.LOGGER.error("Scanner failed for {}", module.getName(), error);
+            module.setToggled(false);
+            ClientServices.require(NotificationService.class).publish(NotificationService.Type.ERROR,
+                    module.getName() + " disabled after a scanner error");
+        } else {
+            AgalarHackClient.LOGGER.error("Bounded client scan failed for {}", owner.getClass().getName(), error);
+        }
     });
+    private ScanScheduler.Usage lastUsage = new ScanScheduler.Usage(0, 0, 0, 0);
     public ScannerService(Minecraft mc) { this.mc = mc; }
     public void offer(Module owner, ScanScheduler.Priority priority, int steps, ScanScheduler.Task task) {
         if (owner.isToggled()) scheduler.offer(owner, priority, steps, task);
     }
-    public void cancel(Module owner) { scheduler.cancel(owner); }
-    public void reset() { scheduler.clear(); chunks.clear(); lastElapsedNanos = 0; }
+    /** Offers a bounded service query, sharing the same priority queue and budget as module scans. */
+    public void offerClientTask(Object owner, ScanScheduler.Priority priority, int steps,
+            ScanScheduler.Task task) {
+        scheduler.offer(owner, priority, steps, task);
+    }
+    public void cancel(Object owner) { scheduler.cancel(owner); }
+    public void reset() {
+        scheduler.clear(); chunks.clear(); lastElapsedNanos = 0;
+        lastUsage = new ScanScheduler.Usage(0, 0, 0, 0);
+    }
     public void tick() {
         chunks.clear();
         if (mc.level == null || mc.player == null || !mc.player.isAlive()) { reset(); return; }
         long started = System.nanoTime();
         ScanBudgets tickBudgets = budgets;
-        try { scheduler.run(tickBudgets.blocks(), tickBudgets.chunkLookups(), tickBudgets.entities()); }
+        try {
+            scheduler.run(new ScanScheduler.Budget(tickBudgets.blocks(),
+                    tickBudgets.chunkLookups(), tickBudgets.entities()));
+            lastUsage = scheduler.lastUsage();
+        }
         finally { lastElapsedNanos = Math.max(0, System.nanoTime() - started); chunks.clear(); }
     }
     public long lastElapsedNanos() { return lastElapsedNanos; }
@@ -48,7 +65,7 @@ public final class ScannerService {
      * ceiling it started under, which is the one thing this whole mechanism exists to prevent.
      */
     public void setBudgets(ScanBudgets updated) { if (updated != null) budgets = updated; }
-    public ScanScheduler.Usage lastUsage() { return scheduler.lastUsage(); }
+    public ScanScheduler.Usage lastUsage() { return lastUsage; }
     private static long key(int x, int z) { return ((long)x << 32) ^ (z & 0xffffffffL); }
     /** Reserve a lookup before calling loadedChunk; false means the cursor must pause unchanged. */
     public boolean reserveChunk(ScanScheduler.Budget budget, int x, int z) {

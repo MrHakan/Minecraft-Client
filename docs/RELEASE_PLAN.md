@@ -8,10 +8,9 @@ player-visible risk or add a behavior that can be proven end-to-end.
 
 - Minecraft 26.2, Fabric Loader 0.19.3, Fabric API 0.157.0+26.2, Java 25.
 - 53 built-in modules, 0 `UNTESTED` badges; two fixture modules exist only during game tests.
-- The latest complete CI run (#248) executes 803 JUnit tests with zero failures/errors/skips, all
-  client game-test entrypoints, runtime mixin verification, addon fixture containment, generated docs
-  and artifact creation. The code-bearing AutoGrind commit is 13c27ab; later documentation-only
-  checkpoints use the same tree.
+- The previous green baseline is commit `561175e` (CI run `35783127911`): Java 25 build, unit tests,
+  client game tests, runtime mixin verification, inventory regression controls and artifacts passed.
+  This batch is accepted only after a new main-branch run also passes the production addon install test.
 - 46 grouped client checks across 11 entrypoints and 171 no-world screens are covered. Dedicated
   server checks exist but are opt-in behind the EULA flag and are not part of that count.
 - Useful feature scope is approximately 80–85% at meaningful depth. Release confidence is a separate
@@ -28,8 +27,8 @@ player-visible risk or add a behavior that can be proven end-to-end.
 | P1 | Scanner/render performance | **Substantial** | Shared budgets, chunk-aware caches, culling and timings exist. Profile before changing; never scan the world from a render callback or trade boundedness for a continuous rescan. |
 | P1 | UX/HUD | **Substantial** | Dynamic registry, editor, themes, accessibility and typed controls exist. Remaining work is primarily visual inspection at multiple GUI scales, not another widget rewrite. |
 | P1 | Visual acceptance | **Manual-only** | Inspect TargetHUD skin layers, ESP/nametag geometry, waypoint beams, trajectories, rainbow phases and AMOLED/light/high-contrast themes with a real client. Pixel-difference tests only establish drawing activity. |
-| P2 | AutoGrind execution | **Substantial** | Raw-resource execution is implemented through the inspected Baritone 26.2 mining API with bounded quantities, explicit stop/status and lifecycle cancellation. Recipe crafting/smelting remains plan-only until a vanilla menu executor has real contention and transition evidence. |
-| P2 | Addon installation | **Partly proven** | Fixture JARs prove entrypoints, registration and failure isolation. Still manually validate a remapped production JAR in `mods/`, restart persistence, safe removal and missing-dependency behavior. |
+| P2 | AutoGrind execution | **First executor slice implemented** | `.grind run log N` scans loaded nearby blocks under ScannerService's shared budget, aims with RotationService, breaks through vanilla game-mode calls and checks inventory completion. Stop/restart replans from inventory. Crafting, smelting and movement remain unsupported; no pathfinding claim is made. Accept after the nearby-log and resumability game test passes on 26.2. |
+| P2 | Addon installation | **Production test implemented** | CI launches the remapped client with a remapped addon, restarts with it installed to verify saved addon and built-in settings, then removes it and verifies the base client config still loads. Missing-dependency loader messaging remains manual. |
 | P2 | Dedicated multiplayer | **Opt-in/manual** | Use the existing harness only with owner-approved `-PacceptServerEula=true`; then test latency, reconnect, packet scoping and automation. Do not enable it in CI silently. |
 | P3 | Documentation/release | **In progress** | Keep handover and PR facts synchronized; generate module docs from source; record evidence class for every acceptance item. |
 
@@ -66,7 +65,7 @@ shared consumer over creating a duplicate.
 2. Reproduce a concrete defect or define a player-visible behavior; write the narrowest discriminating
    test first.
 3. Implement one logical topic without rewriting working services.
-4. Run the full Java 25 pipeline, including game tests and generated documentation.
+4. Run the full Java 25 pipeline, including game tests, production addon install/removal launches and generated documentation.
 5. Report separately what was unit tested, integrated-server tested, dedicated-server tested,
    externally packaged, visually inspected and still manual-only.
 6. Update `handover.md` and PR #9 while preserving historical records. Keep the PR open/draft.

@@ -1,0 +1,106 @@
+package com.example.agalarhackproduction;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+import me.mrhakan.agalarhack.AgalarHackClient;
+import me.mrhakan.agalarhack.module.Module;
+import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.loader.api.FabricLoader;
+import net.minecraft.client.gui.screens.TitleScreen;
+
+/** Test-only monitor used by the three real production-client launches in CI. */
+public final class ProductionInstallMonitor implements ClientModInitializer {
+    private boolean finished;
+
+    @Override
+    public void onInitializeClient() {
+        String stage = System.getProperty("agalarhack.productionProbeStage", "");
+        if (!stage.equals("write") && !stage.equals("verify-addon")
+                && !stage.equals("verify-removed")) return;
+        ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            if (finished || !(client.gui.screen() instanceof TitleScreen)) return;
+            finished = true;
+            String result = "ok";
+            try {
+                switch (stage) {
+                    case "write" -> writeSettings();
+                    case "verify-addon" -> verifyAddonSettingsReloaded();
+                    case "verify-removed" -> verifyWithoutAddon();
+                    default -> throw new IllegalStateException("Unknown production probe stage: " + stage);
+                }
+            } catch (Throwable failure) {
+                result = "failed: " + failure;
+                AgalarHackClient.LOGGER.error("Production addon install probe failed at {}", stage, failure);
+            } finally {
+                writeMarker(stage, result);
+                client.stop();
+            }
+        });
+    }
+
+    private static void writeSettings() throws Exception {
+        if (!FabricLoader.getInstance().isModLoaded("agalarhack-external-fixture")) {
+            throw new IllegalStateException("separately installed addon was not loaded");
+        }
+        Module addon = AgalarHackClient.moduleManager.getModule("ExternalFixtureModule");
+        Module noFall = AgalarHackClient.moduleManager.getModule("NoFall");
+        if (addon == null || noFall == null) throw new IllegalStateException("expected modules missing");
+        addon.settings.setSetting("externalFlag", false);
+        noFall.settings.setSetting("threshold", 9.0);
+        if (!Boolean.FALSE.equals(addon.settings.getSetting("externalFlag"))) {
+            throw new IllegalStateException("the addon setting could not be changed before writing config");
+        }
+        AgalarHackClient.SETTINGS_MANAGER.updateSettings();
+        Path config = FabricLoader.getInstance().getConfigDir().resolve("agalarhack.json");
+        if (!Files.isRegularFile(config) || Files.size(config) == 0) {
+            throw new IllegalStateException("the installed client did not write its config");
+        }
+        String saved = Files.readString(config);
+        if (!saved.contains("ExternalFixtureModule") || !saved.contains("externalFlag")) {
+            throw new IllegalStateException("the external addon's settings were absent from the saved config");
+        }
+    }
+
+    /** The second launch keeps the add-on jar installed and proves its saved setting was reloaded. */
+    private static void verifyAddonSettingsReloaded() {
+        if (!FabricLoader.getInstance().isModLoaded("agalarhack-external-fixture")) {
+            throw new IllegalStateException("separately installed addon was missing on restart");
+        }
+        Module addon = AgalarHackClient.moduleManager.getModule("ExternalFixtureModule");
+        Object savedAddon = addon == null ? null : addon.settings.getSetting("externalFlag");
+        if (!Boolean.FALSE.equals(savedAddon)) {
+            throw new IllegalStateException("addon setting did not survive restart: " + savedAddon);
+        }
+        verifyBaseClientSetting();
+    }
+
+    /** The third launch removes only the add-on jar and proves the base config still loads. */
+    private static void verifyWithoutAddon() {
+        if (FabricLoader.getInstance().isModLoaded("agalarhack-external-fixture")) {
+            throw new IllegalStateException("the removed addon was still present on the removal launch");
+        }
+        verifyBaseClientSetting();
+    }
+
+    private static void verifyBaseClientSetting() {
+        Module noFall = AgalarHackClient.moduleManager.getModule("NoFall");
+        Object saved = noFall == null ? null : noFall.settings.getSetting("threshold");
+        if (!(saved instanceof Number number) || Math.abs(number.doubleValue() - 9.0) > 0.001) {
+            throw new IllegalStateException("base client settings did not survive restart: " + saved);
+        }
+        Path config = FabricLoader.getInstance().getConfigDir().resolve("agalarhack.json");
+        if (!Files.isRegularFile(config)) throw new IllegalStateException("base config disappeared after restart");
+    }
+
+    private static void writeMarker(String stage, String result) {
+        try {
+            Path directory = Path.of(System.getProperty("agalarhack.productionProbeMarker"));
+            Files.createDirectories(directory);
+            Files.writeString(directory.resolve(stage + ".txt"), result);
+        } catch (Exception failure) {
+            AgalarHackClient.LOGGER.error("Could not write production install marker for {}", stage, failure);
+        }
+    }
+}

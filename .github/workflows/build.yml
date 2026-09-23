@@ -52,23 +52,30 @@ jobs:
       #
       # The client drives itself: it creates a world, opens every screen, toggles every
       # module, and fails the build if any of that throws or if the mod caught and logged a
-      # failure on the way. Only on pull requests, since it costs a few minutes and main is
-      # only reached through one.
+      # failure on the way. It runs on main pushes and pull requests, so direct-main hardening
+      # receives the same game-level coverage as reviewed changes.
       - name: Client game tests
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' || github.event_name == 'push'
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends xvfb mesa-utils libgl1-mesa-dri
           ./tools/smoke-client.sh
 
+      - name: Production-like addon install and removal
+        if: github.event_name == 'pull_request' || github.event_name == 'push'
+        run: ./gradlew productionAddonInstallationTest --stacktrace
+
       - name: Upload game test log
-        if: always() && github.event_name == 'pull_request'
+        if: always() && (github.event_name == 'pull_request' || github.event_name == 'push')
         uses: actions/upload-artifact@v4
         with:
           name: smoke-client-log
           path: |
             build/smoke-client.log
             build/run/clientGameTest/logs/latest.log
+            build/production-addon-install/game/logs/latest.log
+            build/production-addon-install/launch-logs/*.log
+            build/production-addon-install/markers/*.txt
             build/inventory-regression-control.log
             build/test-results/test/*.xml
           if-no-files-found: ignore

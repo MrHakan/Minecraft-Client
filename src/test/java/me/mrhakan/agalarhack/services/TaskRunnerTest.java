@@ -38,6 +38,23 @@ class TaskRunnerTest {
         @Override public int budgetTicks() { return budget; }
     }
 
+    private static final class WaitingForMovement implements TaskRunner.Task {
+        private boolean close;
+        private boolean done;
+        int ticked;
+        int cancelled;
+
+        @Override public String name() { return "reach nearby log"; }
+        @Override public boolean satisfied() { return done; }
+        @Override public boolean tick() {
+            ticked++;
+            done = close;
+            return true;
+        }
+        @Override public String blockedReason() { return close ? null : "target at 10 64 10"; }
+        @Override public void cancel() { cancelled++; }
+    }
+
     private static void tick(TaskRunner runner, int times) {
         for (int i = 0; i < times; i++) runner.tick();
     }
@@ -104,6 +121,21 @@ class TaskRunnerTest {
         assertEquals(TaskRunner.State.FAILED, runner.state());
         assertTrue(runner.failure().startsWith("find diamonds"), runner.failure());
         assertTrue(runner.failure().contains("gave up"), runner.failure());
+    }
+
+    @Test void aTaskCanGiveAPlayerVisibleFailureReason() {
+        var runner = new TaskRunner();
+        runner.start(List.of(new TaskRunner.Task() {
+            @Override public String name() { return "gather logs"; }
+            @Override public boolean satisfied() { return false; }
+            @Override public boolean tick() { return false; }
+            @Override public String failureReason() { return "no log in loaded chunks"; }
+        }));
+
+        runner.tick();
+
+        assertEquals(TaskRunner.State.FAILED, runner.state());
+        assertEquals("gather logs no log in loaded chunks", runner.failure());
     }
 
     /** Without this a task that can never finish grinds forever and the plan never reports anything. */
@@ -213,6 +245,45 @@ class TaskRunnerTest {
         assertEquals(2, runner.total());
         assertEquals(1, runner.spentOnCurrent());
         assertTrue(runner.running());
+    }
+
+    @Test void movementPauseKeepsTheSameTaskAndResumesAfterThePlayerMoves() {
+        TaskRunner runner = new TaskRunner();
+        WaitingForMovement task = new WaitingForMovement();
+        runner.start(List.of(task));
+
+        runner.tick();
+        assertEquals(TaskRunner.State.NEEDS_MOVEMENT, runner.state());
+        assertEquals("target at 10 64 10", runner.blockedReason());
+        assertEquals(1, task.ticked);
+        runner.tick();
+        assertEquals(1, task.ticked, "a paused task kept consuming ticks in the background");
+
+        assertTrue(runner.resume());
+        runner.tick();
+        assertEquals(TaskRunner.State.NEEDS_MOVEMENT, runner.state(),
+                "resuming without moving should keep the same task paused");
+        assertEquals(2, task.ticked);
+
+        task.close = true;
+        assertTrue(runner.resume());
+        runner.tick();
+        assertEquals(TaskRunner.State.DONE, runner.state());
+        assertEquals(3, task.ticked);
+        assertEquals(0, task.cancelled, "successful movement must not be treated as cancellation");
+    }
+
+    @Test void cancellingAMovementPausedTaskReleasesItsOwnedWork() {
+        TaskRunner runner = new TaskRunner();
+        WaitingForMovement task = new WaitingForMovement();
+        runner.start(List.of(task));
+        runner.tick();
+        assertEquals(TaskRunner.State.NEEDS_MOVEMENT, runner.state());
+
+        runner.cancel();
+        assertEquals(TaskRunner.State.IDLE, runner.state());
+        assertEquals(1, task.cancelled);
+        assertFalse(runner.resume());
     }
 
     @Test void aNullTaskIsRefusedRatherThanStored() {

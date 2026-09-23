@@ -77,9 +77,13 @@ sourceSets {
         java.srcDir 'fixtures/broken-addon/src/main/java'
         resources.srcDir 'fixtures/broken-addon/src/main/resources'
     }
+    productionMonitorFixture {
+        java.srcDir 'fixtures/production-monitor/src/main/java'
+        resources.srcDir 'fixtures/production-monitor/src/main/resources'
+    }
 }
 
-[sourceSets.addonFixture, sourceSets.brokenAddonFixture].each { fixture ->
+[sourceSets.addonFixture, sourceSets.brokenAddonFixture, sourceSets.productionMonitorFixture].each { fixture ->
     fixture.compileClasspath += sourceSets.main.compileClasspath + sourceSets.main.output
 }
 
@@ -97,11 +101,128 @@ tasks.register('brokenAddonFixtureJar', Jar) {
     from sourceSets.brokenAddonFixture.output
 }
 
+tasks.register('productionMonitorFixtureJar', Jar) {
+    description = 'Packages a launch monitor for production-like addon install persistence tests.'
+    archiveFileName = 'agalarhack-production-monitor.jar'
+    destinationDirectory = layout.buildDirectory.dir('fixtures')
+    from sourceSets.productionMonitorFixture.output
+}
+
+// Production runs consume intermediary/remapped mod jars. The development addon fixtures above
+// intentionally stay named for runClientGameTest; these parallel outputs exercise installation the
+// same way the Loom production launcher and a user's mods folder do.
+tasks.register('remapAddonFixtureJar', net.fabricmc.loom.task.RemapJarTask) {
+    dependsOn 'addonFixtureJar'
+    inputFile = tasks.named('addonFixtureJar').flatMap { it.archiveFile }
+    archiveFileName = 'agalarhack-external-fixture-remapped.jar'
+    destinationDirectory = layout.buildDirectory.dir('fixtures/remapped')
+    sourceNamespace = 'named'
+    targetNamespace = 'intermediary'
+    classpath.from(sourceSets.addonFixture.compileClasspath)
+}
+
+tasks.register('remapProductionMonitorFixtureJar', net.fabricmc.loom.task.RemapJarTask) {
+    dependsOn 'productionMonitorFixtureJar'
+    inputFile = tasks.named('productionMonitorFixtureJar').flatMap { it.archiveFile }
+    archiveFileName = 'agalarhack-production-monitor-remapped.jar'
+    destinationDirectory = layout.buildDirectory.dir('fixtures/remapped')
+    sourceNamespace = 'named'
+    targetNamespace = 'intermediary'
+    classpath.from(sourceSets.productionMonitorFixture.compileClasspath)
+}
+
 // Compiling the fixtures is part of `check` for the same reason the game tests are: finding out an
 // addon no longer compiles against the published API when a client launches is too late, and this is
 // the only consumer of that API that is not inside the client.
 tasks.named('check') {
-    dependsOn 'addonFixtureJar', 'brokenAddonFixtureJar'
+	dependsOn 'addonFixtureJar', 'brokenAddonFixtureJar', 'productionMonitorFixtureJar'
+}
+
+// Launch the actual Loom production artifact and separately packaged addon jars from an isolated
+// game directory. The monitor closes each client after checking the title screen; a second launch
+// checks settings with the addon still installed, and a third checks clean removal against that config.
+def productionInstallDir = layout.buildDirectory.dir('production-addon-install').get().asFile
+def productionMarkerDir = new File(productionInstallDir, 'markers')
+def productionLogDir = new File(productionInstallDir, 'launch-logs')
+def productionRunDir = new File(productionInstallDir, 'game')
+def archiveProductionRunLog = { String stage ->
+    File latest = new File(productionRunDir, 'logs/latest.log')
+    if (latest.isFile()) {
+        productionLogDir.mkdirs()
+        project.copy {
+            from latest
+            into productionLogDir
+            rename { "${stage}.log" }
+        }
+    }
+}
+
+tasks.register('prepareProductionAddonInstall') {
+    outputs.upToDateWhen { false }
+    doLast {
+        delete productionInstallDir
+        productionMarkerDir.mkdirs()
+        productionLogDir.mkdirs()
+    }
+}
+
+tasks.register('productionAddonInstallFirstLaunch', net.fabricmc.loom.task.prod.ClientProductionRunTask) {
+    dependsOn 'prepareProductionAddonInstall', 'remapJar', 'remapAddonFixtureJar', 'remapProductionMonitorFixtureJar'
+    useXVFB = true
+    runDir = productionRunDir
+    mods.from(tasks.named('remapJar').flatMap { it.archiveFile })
+    mods.from(tasks.named('remapAddonFixtureJar').flatMap { it.archiveFile })
+    mods.from(tasks.named('remapProductionMonitorFixtureJar').flatMap { it.archiveFile })
+    mods.from(configurations.runtimeClasspath.filter { it.name.startsWith('fabric-api-') })
+    jvmArgs.add("-Dagalarhack.productionProbeStage=write")
+    jvmArgs.add("-Dagalarhack.productionProbeMarker=${productionMarkerDir.absolutePath}")
+    javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(25) }
+    outputs.upToDateWhen { false }
+    doLast { archiveProductionRunLog('write') }
+}
+
+tasks.register('productionAddonRestartWithAddon', net.fabricmc.loom.task.prod.ClientProductionRunTask) {
+    dependsOn 'productionAddonInstallFirstLaunch'
+    useXVFB = true
+    runDir = productionRunDir
+    mods.from(tasks.named('remapJar').flatMap { it.archiveFile })
+    mods.from(tasks.named('remapAddonFixtureJar').flatMap { it.archiveFile })
+    mods.from(tasks.named('remapProductionMonitorFixtureJar').flatMap { it.archiveFile })
+    mods.from(configurations.runtimeClasspath.filter { it.name.startsWith('fabric-api-') })
+    jvmArgs.add("-Dagalarhack.productionProbeStage=verify-addon")
+    jvmArgs.add("-Dagalarhack.productionProbeMarker=${productionMarkerDir.absolutePath}")
+    javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(25) }
+    outputs.upToDateWhen { false }
+    doLast { archiveProductionRunLog('verify-addon') }
+}
+
+tasks.register('productionAddonRemovalThirdLaunch', net.fabricmc.loom.task.prod.ClientProductionRunTask) {
+    dependsOn 'productionAddonRestartWithAddon'
+    useXVFB = true
+    runDir = productionRunDir
+    mods.from(tasks.named('remapJar').flatMap { it.archiveFile })
+    mods.from(tasks.named('remapProductionMonitorFixtureJar').flatMap { it.archiveFile })
+    mods.from(configurations.runtimeClasspath.filter { it.name.startsWith('fabric-api-') })
+    jvmArgs.add("-Dagalarhack.productionProbeStage=verify-removed")
+    jvmArgs.add("-Dagalarhack.productionProbeMarker=${productionMarkerDir.absolutePath}")
+    javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(25) }
+    doFirst { delete new File(productionRunDir, 'mods') }
+    outputs.upToDateWhen { false }
+    doLast { archiveProductionRunLog('verify-removed') }
+}
+
+tasks.register('productionAddonInstallationTest') {
+    group = 'verification'
+    description = 'Installs, restarts, then removes a remapped addon in three production client launches.'
+    dependsOn 'productionAddonRemovalThirdLaunch'
+    doLast {
+        ['write.txt', 'verify-addon.txt', 'verify-removed.txt'].each { markerName ->
+            File marker = new File(productionMarkerDir, markerName)
+            if (!marker.isFile() || marker.text.trim() != 'ok') {
+                throw new GradleException("Production addon installation probe failed: ${marker}")
+            }
+        }
+    }
 }
 
 // Hand the fixture jars to the game-test client the way an installed mod arrives: on the launch

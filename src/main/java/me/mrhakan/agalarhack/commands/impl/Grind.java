@@ -12,8 +12,11 @@ import me.mrhakan.agalarhack.services.ClientServices;
 import me.mrhakan.agalarhack.services.CraftingPlan;
 import me.mrhakan.agalarhack.services.GrindBook;
 import me.mrhakan.agalarhack.services.GrindExecutor;
+import me.mrhakan.agalarhack.services.InventoryService;
+import me.mrhakan.agalarhack.services.InventoryTransfers;
 import net.minecraft.ChatFormatting;
-import net.minecraft.client.Minecraft;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.item.ItemStack;
 
 /**
  * Plans a deterministic recipe chain, or starts its explicitly bounded raw-resource executor.
@@ -26,10 +29,14 @@ public class Grind extends Command {
 
     /** Kept small on purpose: a chat reply that scrolls the log away helps nobody. */
     private static final int MAX_LINES = 12;
+    private static final EquipmentSlot[] NON_STORAGE_SLOTS = {
+            EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET,
+            EquipmentSlot.OFFHAND
+    };
 
     public Grind() {
         super("grind", "Plans or executes a bounded resource grind",
-                "grind <item> [count] | grind run <item> [count] | grind stop | grind status", "plan");
+                "grind <item> [count] | grind run <item> [count] | grind resume | grind stop | grind status", "plan");
     }
 
     @Override
@@ -47,6 +54,10 @@ public class Grind extends Command {
         }
         if ("status".equals(selector)) {
             status();
+            return;
+        }
+        if ("resume".equals(selector)) {
+            resume();
             return;
         }
 
@@ -108,11 +119,9 @@ public class Grind extends Command {
                     + "AutoGrind is already running " + executor.currentTask() + ".");
             case NO_WORLD -> MessageManager.sendMessagePrefix(ChatFormatting.RED
                     + "You need to be in a world to run AutoGrind.");
-            case BARITONE_ABSENT -> MessageManager.sendMessagePrefix(ChatFormatting.RED
-                    + "AutoGrind needs Baritone installed; nothing was started.");
             case UNSUPPORTED -> MessageManager.sendMessagePrefix(ChatFormatting.RED
-                    + "AutoGrind currently executes raw resource goals only; this plan includes "
-                    + "crafting. Use .grind plan to inspect it.");
+                    + "This AutoGrind step is not executable yet. The current executor gathers "
+                    + "nearby logs only; use .grind plan to inspect other plans.");
             case INVALID -> MessageManager.sendMessagePrefix(ChatFormatting.RED
                     + "That AutoGrind request is not valid.");
         }
@@ -124,11 +133,20 @@ public class Grind extends Command {
                 + "AutoGrind stopped." : ChatFormatting.GRAY + "No AutoGrind run is active.");
     }
 
+    private static void resume() {
+        GrindExecutor executor = ClientServices.require(GrindExecutor.class);
+        MessageManager.sendMessagePrefix(executor.resume() ? ChatFormatting.YELLOW
+                + "AutoGrind resumed. Move closer to its target if it pauses again."
+                : ChatFormatting.GRAY + "AutoGrind is not waiting for movement.");
+    }
+
     private static void status() {
         GrindExecutor executor = ClientServices.require(GrindExecutor.class);
         switch (executor.state()) {
             case RUNNING -> MessageManager.sendMessagePrefix(ChatFormatting.GREEN + "AutoGrind running: "
                     + executor.currentTask() + " (" + executor.completed() + "/" + executor.total() + ").");
+            case NEEDS_MOVEMENT -> MessageManager.sendMessagePrefix(ChatFormatting.YELLOW
+                    + "AutoGrind needs movement: " + executor.blockedReason());
             case DONE -> MessageManager.sendMessagePrefix(ChatFormatting.GREEN + "AutoGrind complete.");
             case FAILED -> MessageManager.sendMessagePrefix(ChatFormatting.RED + "AutoGrind failed: "
                     + executor.failure());
@@ -137,22 +155,25 @@ public class Grind extends Command {
     }
 
     /** What the player is carrying, counted under the book's names. */
-    private static Map<String, Integer> carried(Minecraft mc) {
+    private static Map<String, Integer> carried() {
         Map<String, Integer> have = new LinkedHashMap<>();
-        if (mc == null || mc.player == null) return have;
-        var inventory = mc.player.getInventory();
-        for (int slot = 0; slot < inventory.getContainerSize(); slot++) {
-            var stack = inventory.getItem(slot);
-            if (stack.isEmpty()) continue;
-            String name = GrindBook.generic(
-                    net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(stack.getItem()).toString());
-            have.merge(name, stack.getCount(), Integer::sum);
+        InventoryService inventory = ClientServices.require(InventoryService.class);
+        for (int slot = 0; slot < InventoryTransfers.INVENTORY_SIZE; slot++) {
+            addStack(have, inventory.stackAt(slot));
         }
+        for (EquipmentSlot slot : NON_STORAGE_SLOTS) addStack(have, inventory.equipped(slot));
         return have;
     }
 
+    private static void addStack(Map<String, Integer> have, ItemStack stack) {
+        if (stack.isEmpty()) return;
+        String name = GrindBook.generic(
+                net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(stack.getItem()).toString());
+        have.merge(name, stack.getCount(), Integer::sum);
+    }
+
     private static void plan(String target, int wanted) {
-        Map<String, Integer> have = carried(Minecraft.getInstance());
+        Map<String, Integer> have = carried();
         List<CraftingPlan.Step> steps;
         try {
             steps = CraftingPlan.plan(target, wanted, have, GrindBook.recipes());

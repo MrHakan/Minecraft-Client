@@ -255,21 +255,21 @@ Provides client-side creative-style flight while preserving prior abilities
 
 ### Jesus
 
-Keeps you buoyant in selected fluids; sneak to dive normally
+Rises toward the water surface; lava uses a vertical lift; sneak to dive
 
 | Setting | Default | Values | Description |
 | --- | --- | --- | --- |
 | `water` | `true` | `true/false or on/off` | Apply buoyancy in water |
 | `lava` | `true` | `true/false or on/off` | Apply buoyancy in lava |
-| `verticalSpeed` | `0.1` | `0.02..0.3` | Upward velocity applied while inside a selected fluid |
+| `verticalSpeed` | `0.1` | `0.02..0.3` | Maximum vertical correction toward the water surface or through lava |
 
 ### NoFall
 
-Reports a grounded state once per fall after a configurable distance
+Sends one grounded-status packet near a predicted landing; servers may still apply fall damage
 
 | Setting | Default | Values | Description |
 | --- | --- | --- | --- |
-| `threshold` | `3` | `2..20` | Fall distance before the grounded packet is sent |
+| `threshold` | `3` | `2..20` | Minimum fall distance before checking for a landing on the next movement step |
 
 ### Parkour
 

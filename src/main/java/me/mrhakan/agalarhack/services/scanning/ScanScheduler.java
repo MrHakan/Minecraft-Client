@@ -106,10 +106,20 @@ public final class ScanScheduler<K> {
     }
 
     public void run(int blocks, int chunks, int entities) {
-        Budget budget = new Budget(blocks, chunks, entities);
+        run(new Budget(blocks, chunks, entities));
+    }
+
+    /** Runs against an existing tick budget so every scanner shares the same ceiling. */
+    public void run(Budget budget) {
+        Objects.requireNonNull(budget);
+        int blocksBefore = budget.blocks;
+        int chunksBefore = budget.chunks;
+        int entitiesBefore = budget.entities;
         // Derived from the budget rather than fixed, so the two ceilings cannot contradict each
         // other. The idle allowance is the slack a well-behaved task never needs.
-        final long stepCeiling = (long) blocks + chunks + entities + MAX_IDLE_STEPS;
+        final long stepCeiling = (long) budget.maxBlocks - budget.blocks
+                + budget.maxChunks - budget.chunks
+                + budget.maxEntities - budget.entities + MAX_IDLE_STEPS;
         int idleSteps = 0;
         var work = new ArrayList<>(pending.entrySet());
         // Rotate equal-priority entry order, so a tiny shared budget cannot permanently starve a peer.
@@ -145,7 +155,8 @@ public final class ScanScheduler<K> {
             }
         } finally {
             pending.clear();
-            lastUsage = new Usage(budget.blocks, budget.chunks, budget.entities, totalSteps);
+            lastUsage = new Usage(budget.blocks - blocksBefore, budget.chunks - chunksBefore,
+                    budget.entities - entitiesBefore, totalSteps);
         }
     }
 }

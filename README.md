@@ -69,7 +69,9 @@ Profiles store complete module state/settings/keybinds, Global Target Policy and
 | `.profile save|load|delete|list|bind|unbind [name] [parts]` | Core profile lifecycle; load parts can include module/category names, `hud`, `targets` or `keybinds` |
 | `.profile duplicate|rename <source> <target>` | Copies/renames profiles |
 | `.profile export|import <name>` | Clipboard profile JSON |
-| `.grind <item> [count]` | Plans what it would take to obtain an item, counting what you already carry (plans only; gathers nothing) |
+| `.grind <item> [count]` / `.grind plan <item> [count]` | Plans what it would take to obtain an item, counting what you already carry (planning only) |
+| `.grind run log [count]` | Scans six blocks around you; breaks visible logs within vanilla reach and reports farther targets |
+| `.grind resume` / `.grind stop` / `.grind status` | Resumes a target after you move closer, cancels a run, or reports its state |
 | `.gui` | Opens the Control Center |
 | `.panic` | Disables all active modules |
 
@@ -83,10 +85,10 @@ Profiles store complete module state/settings/keybinds, Global Target Policy and
 | Misc | **AutoReconnect** | Bounded reconnect attempts from the vanilla disconnect screen |
 | Movement | **Speed** | Ground speed multiplier with cap and movement conditions |
 | Movement | **Flight** | Creative-style flight with exact ability restoration |
-| Movement | **Jesus** | Configurable water/lava buoyancy |
+| Movement | **Jesus** | Surface-aware water correction and configurable lava lift |
 | Movement | **Sprint** | Vanilla-eligibility-aware automatic sprint |
 | Movement | **Step** | Configurable step height with exact restoration |
-| Movement | **NoFall** | One grounded status packet per qualifying fall |
+| Movement | **NoFall** | One grounded-status packet near landing; servers may still apply damage |
 | Render | **Fullbright** | Client night vision with prior-effect preservation |
 | Render | **Coordinates** | XYZ and facing HUD info |
 | Render | **Durability** | Item durability HUD info |

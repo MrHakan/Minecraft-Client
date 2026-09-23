@@ -46,13 +46,19 @@ public final class TaskRunner {
         /**
          * One tick of work.
          *
-         * @return false to give up, which fails the plan. Returning true forever is what the budget
-         *         is for.
+         * @return false to give up (unless {@link #blockedReason()} pauses the task). Returning
+         *         true forever is what the budget is for.
          */
         boolean tick();
 
         /** Called when the plan stops for any reason while this task is the current one. */
         default void cancel() { }
+
+        /** A readable reason to pause until the player moves or resolves an obstruction. */
+        default String blockedReason() { return null; }
+
+        /** A specific reason for returning false, or null for the default "gave up" message. */
+        default String failureReason() { return null; }
 
         /** How long this task may run before the plan gives up on it. */
         default int budgetTicks() { return DEFAULT_BUDGET_TICKS; }
@@ -65,6 +71,8 @@ public final class TaskRunner {
         /** Nothing loaded, or the plan was cancelled. */
         IDLE,
         RUNNING,
+        /** A task found work outside direct interaction range; resume after moving closer. */
+        NEEDS_MOVEMENT,
         /** Every task is satisfied. */
         DONE,
         /** A task gave up, ran out of budget or threw; {@link #failure()} says which and why. */
@@ -76,6 +84,7 @@ public final class TaskRunner {
     private int index;
     private int spent;
     private String failure;
+    private String blockedReason;
 
     /** Loads a plan and starts it. Replaces anything already running, cancelling it first. */
     public void start(List<Task> tasks) {
@@ -92,6 +101,7 @@ public final class TaskRunner {
         index = 0;
         spent = 0;
         failure = null;
+        blockedReason = null;
     }
 
     /**
@@ -126,8 +136,15 @@ public final class TaskRunner {
             skipSatisfied();
             return;
         }
+        String blocked = current.blockedReason();
+        if (blocked != null && !blocked.isBlank()) {
+            blockedReason = blocked;
+            state = State.NEEDS_MOVEMENT;
+            return;
+        }
         if (!keepGoing) {
-            fail(current, "gave up");
+            String reason = current.failureReason();
+            fail(current, reason == null || reason.isBlank() ? "gave up" : reason);
             return;
         }
         if (spent >= Math.max(1, current.budgetTicks())) {
@@ -171,12 +188,22 @@ public final class TaskRunner {
 
     /** Stops the plan where it is. The current task is told, so it can put its own state back. */
     public void cancel() {
-        if (state == State.RUNNING && index < plan.size()) safeCancel(plan.get(index));
+        if ((state == State.RUNNING || state == State.NEEDS_MOVEMENT) && index < plan.size()) safeCancel(plan.get(index));
         plan.clear();
         state = State.IDLE;
         index = 0;
         spent = 0;
         failure = null;
+        blockedReason = null;
+    }
+
+    /** Resumes the same task after a movement pause; task progress and inventory goals stay intact. */
+    public boolean resume() {
+        if (state != State.NEEDS_MOVEMENT) return false;
+        state = State.RUNNING;
+        spent = 0;
+        blockedReason = null;
+        return true;
     }
 
     /** A task that throws on the way out must not hide why the plan stopped. */
@@ -195,6 +222,9 @@ public final class TaskRunner {
 
     /** Why the plan stopped, naming the task, or null unless it failed. */
     public String failure() { return failure; }
+
+    /** Why the current task is waiting for movement, if it is paused. */
+    public String blockedReason() { return blockedReason; }
 
     /** The task being worked on, or null when nothing is running. */
     public String currentTask() {

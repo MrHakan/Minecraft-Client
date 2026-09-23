@@ -24,6 +24,20 @@ class ScanSchedulerTest {
         }
         assertEquals(2, visited.stream().distinct().count());
     }
+
+    @Test void anExistingTickBudgetIsRespectedAndUsageReportsOnlyThisRun() {
+        var scheduler = new ScanScheduler<String>((owner, error) -> fail(error));
+        var tickBudget = new Budget(3, 1, 0);
+        assertTrue(tickBudget.take(1, 0, 0), "another client service used part of this tick first");
+        scheduler.offer("grind", Priority.NEAR, 10, budget ->
+                budget.take(1, 0, 0) ? Result.MORE : Result.BLOCKED);
+
+        scheduler.run(tickBudget);
+
+        assertEquals(1, scheduler.lastUsage().blocks(), "usage included work performed before this scheduler run");
+        assertFalse(tickBudget.take(2, 0, 0), "the query exceeded the already-used tick allowance");
+        assertTrue(tickBudget.take(1, 0, 0), "the query did not share the already-used tick allowance");
+    }
     @Test void failureCancellationAndExpiredWorkDoNotSuppressPeers() {
         var failures = new ArrayList<String>();
         var scheduler = new ScanScheduler<String>((owner, error) -> failures.add(owner));

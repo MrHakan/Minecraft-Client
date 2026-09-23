@@ -85,6 +85,8 @@ public class AgalarHackClient implements ClientModInitializer {
         InventoryService inventory = services.register(InventoryService.class, new InventoryService(Minecraft.getInstance(), UTILITY_ACTIONS));
         EVENTS.subscribe(ClientEvents.ClientTick.class, "inventory", 90, event -> inventory.tick());
         EVENTS.subscribe(ClientEvents.Disconnected.class, "inventory", 100, event -> inventory.reset());
+        var scanners = services.register(me.mrhakan.agalarhack.services.ScannerService.class,
+                new me.mrhakan.agalarhack.services.ScannerService(Minecraft.getInstance()));
         services.register(me.mrhakan.agalarhack.services.TargetService.class, new me.mrhakan.agalarhack.services.TargetService(Minecraft.getInstance(), FRIEND_MANAGER, TARGET_POLICY));
         var rotations = services.register(me.mrhakan.agalarhack.services.RotationService.class,
                 new me.mrhakan.agalarhack.services.RotationService(Minecraft.getInstance()));
@@ -93,7 +95,8 @@ public class AgalarHackClient implements ClientModInitializer {
         var baritone = services.register(me.mrhakan.agalarhack.services.BaritoneBridge.class,
                 new me.mrhakan.agalarhack.services.BaritoneBridge());
         var grind = services.register(me.mrhakan.agalarhack.services.GrindExecutor.class,
-                new me.mrhakan.agalarhack.services.GrindExecutor(Minecraft.getInstance(), baritone, inventory));
+                new me.mrhakan.agalarhack.services.GrindExecutor(Minecraft.getInstance(), inventory,
+                        scanners, rotations));
         EVENTS.subscribe(ClientEvents.ClientTick.class, "autogrind", 45, event -> grind.tick());
         EVENTS.subscribe(ClientEvents.WorldChanged.class, "autogrind-world", 100, event -> grind.reset());
         EVENTS.subscribe(ClientEvents.Disconnected.class, "autogrind-disconnect", 100, event -> grind.reset());
@@ -145,8 +148,6 @@ public class AgalarHackClient implements ClientModInitializer {
         var themes=services.register(me.mrhakan.agalarhack.services.ThemeService.class,new me.mrhakan.agalarhack.services.ThemeService());
         var waypoints = services.register(me.mrhakan.agalarhack.services.WaypointService.class,
                 new me.mrhakan.agalarhack.services.WaypointService());
-        var scanners = services.register(me.mrhakan.agalarhack.services.ScannerService.class,
-                new me.mrhakan.agalarhack.services.ScannerService(Minecraft.getInstance()));
         var timings = services.register(me.mrhakan.agalarhack.services.ModuleTimings.class,
                 new me.mrhakan.agalarhack.services.ModuleTimings());
         var movement = services.register(me.mrhakan.agalarhack.services.MovementStats.class,
