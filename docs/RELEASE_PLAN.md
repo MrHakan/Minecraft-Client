@@ -1,16 +1,17 @@
 # Release hardening plan — Agalar Hack 26.2
 
 This is the execution plan for the late-stage branch. It is deliberately evidence-driven: the
-client already has 53 meaningful modules and mature shared services, so new work must close a
+client already has 56 catalogue modules and mature shared services, so new work must close a
 player-visible risk or add a behavior that can be proven end-to-end.
 
 ## Current baseline
 
 - Minecraft 26.2, Fabric Loader 0.19.3, Fabric API 0.157.0+26.2, Java 25.
-- 53 built-in modules, 0 `UNTESTED` badges; two fixture modules exist only during game tests.
-- The previous green baseline is commit `561175e` (CI run `35783127911`): Java 25 build, unit tests,
-  client game tests, runtime mixin verification, inventory regression controls and artifacts passed.
-  This batch is accepted only after a new main-branch run also passes the production addon install test.
+- 56 built-in modules across six categories, with 2 `UNTESTED` badges; two fixture modules exist only during game tests.
+- The code-bearing batch is verified at commit `ff226f8` (CI run `35861603084`): Java 25 build, 826
+  unit tests with no failures/errors/skips, inventory regression controls, client game tests,
+  runtime mixin verification, rolled-log scan, artifacts and all three production addon markers passed.
+  This documentation-only reconciliation receives its own full main-branch CI run.
 - 46 grouped client checks across 11 entrypoints and 171 no-world screens are covered. Dedicated
   server checks exist but are opt-in behind the EULA flag and are not part of that count.
 - Useful feature scope is approximately 80–85% at meaningful depth. Release confidence is a separate
@@ -27,10 +28,10 @@ player-visible risk or add a behavior that can be proven end-to-end.
 | P1 | Scanner/render performance | **Substantial** | Shared budgets, chunk-aware caches, culling and timings exist. Profile before changing; never scan the world from a render callback or trade boundedness for a continuous rescan. |
 | P1 | UX/HUD | **Substantial** | Dynamic registry, editor, themes, accessibility and typed controls exist. Remaining work is primarily visual inspection at multiple GUI scales, not another widget rewrite. |
 | P1 | Visual acceptance | **Manual-only** | Inspect TargetHUD skin layers, ESP/nametag geometry, waypoint beams, trajectories, rainbow phases and AMOLED/light/high-contrast themes with a real client. Pixel-difference tests only establish drawing activity. |
-| P2 | AutoGrind execution | **First executor slice implemented; current main CI pending** | `.grind run log N` scans loaded nearby blocks under ScannerService's shared budget, aims with RotationService, breaks through vanilla game-mode calls and checks inventory completion. It pauses for manual movement when a target is out of reach or its drop is not collected. Stop/restart replans from inventory. Crafting, smelting and automated movement remain unsupported; no pathfinding claim is made. Accept after the current main run passes the nearby-log, drop-pickup and resumability game tests on 26.2. |
-| P2 | Addon installation | **Production test implemented; launch result pending** | CI launches the 26.2 production `jar` artifact with a separately packaged addon fixture, restarts with it installed to verify saved addon and built-in settings, then removes it and verifies the base client config still loads. Run 35853612285 loaded the client and addon but stalled before the title screen during resource reload. Each stage now has a 120-second thread-dump watchdog, with a 15-minute workflow-step limit as a final bound. Missing-dependency loader messaging remains manual. |
+| P2 | AutoGrind execution | **First executor slice implemented and verified** | `.grind run log N` scans loaded nearby blocks under ScannerService's shared budget, aims with RotationService, breaks through vanilla game-mode calls and checks inventory completion. Out-of-reach blocks or uncollected drops pause for manual movement; stop/restart replans from inventory. The nearby-log, pickup and resumability game tests passed on 26.2 in CI run 35861603084. Crafting, smelting and automated movement remain unsupported; no pathfinding claim is made. |
+| P2 | Addon installation | **Three-stage production test passed** | CI installed the 26.2 production `jar` with a separately packaged addon, saved addon and built-in settings, restarted with the addon present, removed it, then verified the base client config still loaded. All three stage markers passed in run 35861603084. The monitor checks at Fabric's client-started lifecycle event before the first title-screen render; a watchdog and 15-minute step limit retain failure diagnostics. Missing-dependency loader messaging remains manual. |
 | P2 | Dedicated multiplayer | **Opt-in/manual** | Use the existing harness only with owner-approved `-PacceptServerEula=true`; then test latency, reconnect, packet scoping and automation. Do not enable it in CI silently. |
-| P3 | Documentation/release | **In progress** | Reconcile the handover with current main and merged PR state; keep module docs generated from source; record evidence class for every acceptance item. |
+| P3 | Documentation/release | **Current checkpoint reconciled** | This update aligns module counts, CI evidence, AutoGrind and production-addon acceptance; generated `docs/MODULES.md` remains source-driven. The documentation-only full CI run validates this reconciliation. |
 
 ## Conditional module candidates
 

@@ -42,9 +42,10 @@ death, or explicit stop cancels the active block interaction and releases rotati
 - `ModuleBehaviourGameTest.grindExecutesNearbyLogs` starts with one oak log in the offhand, breaks
   two real nearby oak logs through vanilla interaction, confirms a drop pause while the item remains
   out of pickup reach, moves onto the real dropped item, and resumes. It then interrupts and restarts
-  from the updated inventory count before collecting the next drop. It also checks turning from an
-  intentionally incorrect view, temporary aim restoration, and the `NEEDS_MOVEMENT`/manual-resume
-  path for a farther log.
+  from the updated inventory count before breaking the next log. The next drop may complete immediately
+  if already picked up, or pause for movement and resume if it remains outside pickup reach. The test
+  also checks turning from an intentionally incorrect view, temporary aim restoration, and the
+  `NEEDS_MOVEMENT`/manual-resume path for a farther log.
 - `ModuleBehaviourGameTest.grindPlan` continues to prove the planner counts carried wood and that an
   unsupported gather step is refused honestly.
 
