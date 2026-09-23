@@ -2,6 +2,8 @@ package com.example.agalarhackproduction;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import me.mrhakan.agalarhack.AgalarHackClient;
 import me.mrhakan.agalarhack.module.Module;
@@ -13,12 +15,15 @@ import net.minecraft.client.gui.screens.TitleScreen;
 /** Test-only monitor used by the three real production-client launches in CI. */
 public final class ProductionInstallMonitor implements ClientModInitializer {
     private boolean finished;
+    private final AtomicBoolean stageComplete = new AtomicBoolean();
 
     @Override
     public void onInitializeClient() {
         String stage = System.getProperty("agalarhack.productionProbeStage", "");
         if (!stage.equals("write") && !stage.equals("verify-addon")
                 && !stage.equals("verify-removed")) return;
+        AgalarHackClient.LOGGER.info("Production addon probe stage {} started", stage);
+        startStartupWatchdog(stage);
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (finished || !(client.gui.screen() instanceof TitleScreen)) return;
             finished = true;
@@ -35,9 +40,47 @@ public final class ProductionInstallMonitor implements ClientModInitializer {
                 AgalarHackClient.LOGGER.error("Production addon install probe failed at {}", stage, failure);
             } finally {
                 writeMarker(stage, result);
+                stageComplete.set(true);
                 client.stop();
             }
         });
+    }
+
+    /** A stuck production resource reload must produce diagnostics instead of hanging CI. */
+    private void startStartupWatchdog(String stage) {
+        Thread watchdog = new Thread(() -> {
+            try {
+                Thread.sleep(120_000);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+            if (!stageComplete.compareAndSet(false, true)) return;
+
+            String reason = "failed: production client did not finish " + stage + " within 120 seconds";
+            try {
+                Path directory = Path.of(System.getProperty("agalarhack.productionProbeMarker"));
+                Files.createDirectories(directory);
+                StringBuilder dump = new StringBuilder("Startup watchdog expired during ")
+                        .append(stage).append('\n');
+                for (Map.Entry<Thread, StackTraceElement[]> entry : Thread.getAllStackTraces().entrySet()) {
+                    Thread thread = entry.getKey();
+                    dump.append('\n').append('"').append(thread.getName()).append('"')
+                            .append(" state=").append(thread.getState()).append('\n');
+                    for (StackTraceElement frame : entry.getValue()) {
+                        dump.append("  at ").append(frame).append('\n');
+                    }
+                }
+                Files.writeString(directory.resolve(stage + "-thread-dump.txt"), dump);
+            } catch (Exception failure) {
+                AgalarHackClient.LOGGER.error("Could not write production probe thread dump", failure);
+            }
+            writeMarker(stage, reason);
+            AgalarHackClient.LOGGER.error("{}; stopping the production client for CI diagnostics", reason);
+            System.exit(2);
+        }, "agalarhack-production-probe-watchdog");
+        watchdog.setDaemon(true);
+        watchdog.start();
     }
 
     private static void writeSettings() throws Exception {

@@ -72,7 +72,9 @@ the client and separately packaged addon fixtures need no remapping ([Loom docum
 They run under an isolated game directory: the addon setting is saved, a second launch verifies that
 it survived, and a third launch removes the addon jar and verifies that a built-in setting still
 loads. CI archives the launch logs and stage markers. The add-on's missing-dependency loader message
-remains a manual check.
+remains a manual check. Each monitor stage has a 120-second startup watchdog; if the client never
+reaches its title screen, the fixture writes all JVM thread stacks to the marker directory and exits
+nonzero. The workflow also caps the complete three-launch step at 15 minutes.
 
 ## How failures are detected
 

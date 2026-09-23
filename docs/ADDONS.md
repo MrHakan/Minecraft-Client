@@ -144,6 +144,10 @@ launches with the same game directory:
 3. Remove the addon jar, restart again, and assert the built-in setting still loads and the client
    reaches the title screen.
 
+Each launch has a 120-second startup watchdog. If the title screen is not reached, the production
+monitor writes every JVM thread stack to the marker directory and exits nonzero; the workflow also
+caps the complete three-launch step at 15 minutes.
+
 **Still manual:** whether a third-party addon's missing external dependency is reported clearly by
 Fabric Loader. The production test uses a controlled fixture and does not claim to cover every
 third-party mod or loader error path.
