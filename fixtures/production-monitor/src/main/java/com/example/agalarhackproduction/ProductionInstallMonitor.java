@@ -8,9 +8,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import me.mrhakan.agalarhack.AgalarHackClient;
 import me.mrhakan.agalarhack.module.Module;
 import net.fabricmc.api.ClientModInitializer;
-import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.loader.api.FabricLoader;
-import net.minecraft.client.gui.screens.TitleScreen;
+
 
 /** Test-only monitor used by the three real production-client launches in CI. */
 public final class ProductionInstallMonitor implements ClientModInitializer {
@@ -24,8 +24,11 @@ public final class ProductionInstallMonitor implements ClientModInitializer {
                 && !stage.equals("verify-removed")) return;
         AgalarHackClient.LOGGER.info("Production addon probe stage {} started", stage);
         startStartupWatchdog(stage);
-        ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            if (finished || !(client.gui.screen() instanceof TitleScreen)) return;
+        // Fabric fires this on the client thread after construction and before its first tick,
+        // while the splash screen is displayed. The production title-screen blur can be very slow
+        // on software OpenGL, so validate settings before it starts rendering.
+        ClientLifecycleEvents.CLIENT_STARTED.register(client -> {
+            if (finished) return;
             finished = true;
             String result = "ok";
             try {
@@ -46,7 +49,7 @@ public final class ProductionInstallMonitor implements ClientModInitializer {
         });
     }
 
-    /** A stuck production resource reload must produce diagnostics instead of hanging CI. */
+    /** A stuck production startup must produce diagnostics instead of hanging CI. */
     private void startStartupWatchdog(String stage) {
         Thread watchdog = new Thread(() -> {
             try {

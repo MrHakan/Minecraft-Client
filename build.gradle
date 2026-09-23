@@ -119,8 +119,8 @@ tasks.named('check') {
 }
 
 // Launch the actual Loom production artifact and separately packaged addon jars from an isolated
-// game directory. The monitor closes each client after checking the title screen; a second launch
-// checks settings with the addon still installed, and a third checks clean removal against that config.
+// game directory. The monitor checks settings when Fabric reports the client started, before the first
+// title-screen render; a second launch checks persistence, and a third checks clean addon removal.
 def productionInstallDir = layout.buildDirectory.dir('production-addon-install').get().asFile
 def productionMarkerDir = new File(productionInstallDir, 'markers')
 def productionLogDir = new File(productionInstallDir, 'launch-logs')
