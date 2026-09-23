@@ -2370,21 +2370,36 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
         context.waitTicks(2);
         context.runOnClient(client -> me.mrhakan.agalarhack.managers.CommandManager.handleChat(
                 me.mrhakan.agalarhack.AgalarHackClient.prefix + "grind run log 3"));
-        boolean waitingForSecondDrop = settle(context, client -> client.level.getBlockState(second).isAir()
-                && me.mrhakan.agalarhack.services.ClientServices.require(
-                        me.mrhakan.agalarhack.services.GrindExecutor.class).state()
-                        == me.mrhakan.agalarhack.services.TaskRunner.State.NEEDS_MOVEMENT, 240);
-        if (!waitingForSecondDrop || context.computeOnClient(client -> countItem(client, Items.OAK_LOG)) != 2) {
+        boolean secondGatherResolved = settle(context, client -> {
+            int carriedLogs = countItem(client, Items.OAK_LOG);
+            var state = me.mrhakan.agalarhack.services.ClientServices.require(
+                    me.mrhakan.agalarhack.services.GrindExecutor.class).state();
+            return client.level.getBlockState(second).isAir()
+                    && ((state == me.mrhakan.agalarhack.services.TaskRunner.State.NEEDS_MOVEMENT
+                            && carriedLogs == 2)
+                    || (state == me.mrhakan.agalarhack.services.TaskRunner.State.DONE
+                            && carriedLogs == 3));
+        }, 240);
+        var restartedState = context.computeOnClient(client ->
+                me.mrhakan.agalarhack.services.ClientServices.require(
+                        me.mrhakan.agalarhack.services.GrindExecutor.class).state());
+        int restartedLogs = context.computeOnClient(client -> countItem(client, Items.OAK_LOG));
+        if (!secondGatherResolved || !context.computeOnClient(client -> client.level.getBlockState(second).isAir())
+                || (restartedState == me.mrhakan.agalarhack.services.TaskRunner.State.NEEDS_MOVEMENT
+                        && restartedLogs != 2)
+                || (restartedState == me.mrhakan.agalarhack.services.TaskRunner.State.DONE
+                        && restartedLogs != 3)) {
             throw new AssertionError("AutoGrind did not restart from two carried logs and break exactly one more; "
-                    + "inventory=" + context.computeOnClient(client -> countItem(client, Items.OAK_LOG))
+                    + "inventory=" + restartedLogs
                     + " first=" + context.computeOnClient(client -> client.level.getBlockState(first))
                     + " second=" + context.computeOnClient(client -> client.level.getBlockState(second))
-                    + " state=" + context.computeOnClient(client -> me.mrhakan.agalarhack.services.ClientServices
-                            .require(me.mrhakan.agalarhack.services.GrindExecutor.class).state()));
+                    + " state=" + restartedState);
         }
-        moveToDroppedLog(context, singleplayer, second);
-        context.runOnClient(client -> me.mrhakan.agalarhack.managers.CommandManager.handleChat(
-                me.mrhakan.agalarhack.AgalarHackClient.prefix + "grind resume"));
+        if (restartedState == me.mrhakan.agalarhack.services.TaskRunner.State.NEEDS_MOVEMENT) {
+            moveToDroppedLog(context, singleplayer, second);
+            context.runOnClient(client -> me.mrhakan.agalarhack.managers.CommandManager.handleChat(
+                    me.mrhakan.agalarhack.AgalarHackClient.prefix + "grind resume"));
+        }
         boolean complete = settle(context, client -> countItem(client, Items.OAK_LOG) == 3
                 && me.mrhakan.agalarhack.services.ClientServices.require(
                         me.mrhakan.agalarhack.services.GrindExecutor.class).state()
