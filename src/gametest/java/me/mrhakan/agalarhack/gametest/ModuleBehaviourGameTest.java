@@ -2448,12 +2448,25 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
         moveThere(context, singleplayer, base.offset(3, 0, 0));
         context.runOnClient(client -> me.mrhakan.agalarhack.managers.CommandManager.handleChat(
                 me.mrhakan.agalarhack.AgalarHackClient.prefix + "grind resume"));
-        boolean complete = settle(context, client -> countItem(client, Items.OAK_LOG) == 1
-                && client.level.getBlockState(target).isAir()
+        boolean dropPaused = settle(context, client -> client.level.getBlockState(target).isAir()
                 && me.mrhakan.agalarhack.services.ClientServices.require(
                         me.mrhakan.agalarhack.services.GrindExecutor.class).state()
-                        == me.mrhakan.agalarhack.services.TaskRunner.State.DONE, 200);
-        if (!complete) throw new AssertionError("AutoGrind did not resume after moving closer to " + target);
+                        == me.mrhakan.agalarhack.services.TaskRunner.State.NEEDS_MOVEMENT, 240);
+        if (!dropPaused || context.computeOnClient(client -> countItem(client, Items.OAK_LOG)) != 0) {
+            throw new AssertionError("AutoGrind did not wait for the distant target's real drop; target="
+                    + context.computeOnClient(client -> client.level.getBlockState(target))
+                    + " inventory=" + context.computeOnClient(client -> countItem(client, Items.OAK_LOG))
+                    + " reason=" + context.computeOnClient(client -> me.mrhakan.agalarhack.services.ClientServices
+                            .require(me.mrhakan.agalarhack.services.GrindExecutor.class).blockedReason()));
+        }
+        moveToDroppedLog(context, singleplayer, target);
+        context.runOnClient(client -> me.mrhakan.agalarhack.managers.CommandManager.handleChat(
+                me.mrhakan.agalarhack.AgalarHackClient.prefix + "grind resume"));
+        boolean complete = settle(context, client -> countItem(client, Items.OAK_LOG) == 1
+                && me.mrhakan.agalarhack.services.ClientServices.require(
+                        me.mrhakan.agalarhack.services.GrindExecutor.class).state()
+                        == me.mrhakan.agalarhack.services.TaskRunner.State.DONE, 120);
+        if (!complete) throw new AssertionError("AutoGrind did not resume after moving onto the dropped log");
         LOGGER.info("  AutoGrind paused honestly outside reach and resumed after manual movement");
     }
 
