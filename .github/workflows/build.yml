@@ -64,8 +64,34 @@ jobs:
       - name: Production-like addon install and removal
         timeout-minutes: 15
         if: github.event_name == 'pull_request' || github.event_name == 'push'
+        env:
+          MESA_GL_VERSION_OVERRIDE: "4.5"
+          MESA_GLSL_VERSION_OVERRIDE: "450"
+          GALLIUM_DRIVER: llvmpipe
+          LIBGL_ALWAYS_SOFTWARE: "1"
         run: ./gradlew productionAddonInstallationTest --stacktrace
 
+      - name: Print production addon startup diagnostics
+        if: failure() && (github.event_name == 'pull_request' || github.event_name == 'push')
+        shell: bash
+        run: |
+          shopt -s nullglob
+          dumps=(build/production-addon-install/markers/*-thread-dump.txt)
+          if ((${#dumps[@]})); then
+            for dump in "${dumps[@]}"; do
+              echo "::group::${dump}"
+              cat "${dump}"
+              echo "::endgroup::"
+            done
+          else
+            echo "No production startup watchdog dump was written."
+          fi
+          log=build/production-addon-install/game/logs/latest.log
+          if [[ -f "$log" ]]; then
+            echo "::group::Last 120 lines of the production client log"
+            tail -n 120 "$log"
+            echo "::endgroup::"
+          fi
       - name: Upload game test log
         if: always() && (github.event_name == 'pull_request' || github.event_name == 'push')
         uses: actions/upload-artifact@v4
