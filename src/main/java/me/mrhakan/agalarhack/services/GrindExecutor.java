@@ -1,5 +1,4 @@
-µ¨¥zºè¯
-â¶)à²Ö§uªÝ¢ëiºÐk¢G§¦*^package me.mrhakan.agalarhack.services;
+package me.mrhakan.agalarhack.services;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -748,7 +747,7 @@ public final class GrindExecutor {
 
         @Override public boolean tick() {
             movementReason = null;
-         µ¨¥Â¸­yêë¢°k¢G§¦*^   if (satisfied()) return true;
+            if (satisfied()) return true;
             if (closeOwnedStationMenu()) return true;
             if (client.gui.screen() != null || client.player.containerMenu != client.player.inventoryMenu) {
                 movementReason = "Close the open screen before AutoGrind can move an offhand ingredient.";
@@ -1109,7 +1108,7 @@ public final class GrindExecutor {
                 clicks.add(new ContainerTransferController.Click(InventoryTransfers.MENU_OFFHAND, 0));
                 for (int i = 0; i < amount; i++) {
                     int gridSlot = targetSlots.get(targetSlots.size() - remaining + i);
-                    clicks.add(µ¨¥Â¸­yêë¢°k¢G§¦*^new ContainerTransferController.Click(gridSlot, 1));
+                    clicks.add(new ContainerTransferController.Click(gridSlot, 1));
                 }
                 if (amount < available) clicks.add(new ContainerTransferController.Click(InventoryTransfers.MENU_OFFHAND, 0));
                 remaining -= amount;

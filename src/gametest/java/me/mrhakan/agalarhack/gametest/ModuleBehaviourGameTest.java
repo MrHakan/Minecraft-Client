@@ -338,8 +338,347 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
         context.waitTicks(40);
 
         BlockPos dug = singleplayer.getServer().computeOnServer(server -> {
-            ServerPlayer player = singleplayerµ¨¥zºè¯
-â¶)à²Ö§uªİ¢ëiºĞk¢G§¦*^m«ëŒ+Š×®º+º$zzb¥âævWD6öææV7F–öâ‚’ævWE6W'fW%Æ–W"‚“°¢6W'fW$ÆWfVÂÆWfVÂÒÆ–W"æÆWfVÂ‚“°¢f÷"†–çBG‚Ò#²G‚ÃÒc²G‚²²’°¢f÷"†–çBG¢ÒÓ#²G¢ÃÒ#²G¢²²’°¢ÆWfVÂç6WD&Æö6´æEWFFR‡7FæBæöfg6WB†G‚ÂÕ•EôDUD‚ÒÂG¢’Â&Æö6·2å5DôäRæFVfVÇD&Æö6µ7FFR‚’“°¢f÷"†–çBG’ÒÓ²G’ãÒÕ•EôDUDƒ²G’ÒÒ’°¢ÆWfVÂç6WD&Æö6´æEWFFR‡7FæBæöfg6WB†G‚ÂG’ÂG¢’Â&Æö6·2ä•"æFVfVÇD&Æö6µ7FFR‚’“°¢Ğ¢Ğ¢Ğ¢&WGW&â7FæC°¢Ò“°¢6–ævÆWÆ–W"ævWD6öææV7F–öâ‚’çv—Df÷$6‡Væ·5&VæFW"‚“°¢6öçFW‡Bçv—EF–6·2ƒ#“°¢&WGW&âGVs°¢Ğ ¢ò¢¢†÷rF†RÆ–W"w2†V–v‡B6†ævVBGW&–æröæRvÆ²BF†R—BÂ&VÆF—fRFòv†W&RF†W’7F'FVBâ¢ğ¢&—fFR&V6÷&BvÆ²†F÷V&ÆRG&÷ÂF÷V&ÆR&—6R’²Ğ ¢ò¢ ¢¢WG2F†RÆ–W"&6²öâF†RÆVFvRæBvÆ·2F†VÒ–çFòF†R—Bà¢ ¢¢ÇåF†R†V–v‡B—26×ÆVBF‡&÷Vv†÷WB&F†W"F†âöæÇ’BF†RVæBÂ&V6W6R§V×æBfÆÂ&P¢¢FöÆB'B'’v†B†VæVB–â&WGvVVã¢Æ–W"v†ò§V×2F†RvæBöæRv†òæWfW"Ö÷fV@¢¢&÷F‚f–æ—6‚ÆWfVÂv—F‚v†W&RF†W’7F'FVBà¢¢ğ¢&—fFR7FF–2vÆ²vÆ´öfdæE&W÷'B„6Æ–VçDvÖUFW7D6öçFW‡B6öçFW‡BÂFW7E6–ævÆWÆ–W$6öçFW‡B6–ævÆWÆ–W"À¢&Æö6µ÷2ÆVFvR’°¢6–ævÆWÆ–W"ævWE6W'fW"‚’ç'Väöå6W'fW"‡6W'fW"Óâ°¢6W'fW%Æ–W"Æ–W"Ò6–ævÆWÆ–W"ævWD6öææV7F–öâ‚’ævWE6W'fW%Æ–W"‚“°¢Æ–W"ç6WDvÖTÖöFR„vÖUG—Rå5U%d•dÂ“°¢Æ–W"çFVÆW÷'EFò†ÆVFvRævWE‚‚’²ãRÂÆVFvRævWE’‚’ÂÆVFvRævWE¢‚’²ãR“°¢òòV6‚vÆ²—2—G2÷vâW‡W&–ÖVçC¢Æ–W"6''––ærFÖvR÷"ÖöÖVçGVÒg&öÒF†RÆ7@¢òòöæR—2F–ffW&VçBÆ–W"ÂæBF‡&VRvÆ·2–â&÷rv÷VÆBWfVçGVÆÇ’¶–ÆÂF†VÒà¢Æ–W"ç6WD†VÇF‚‡Æ–W"ævWDÖ„†VÇF‚‚’“°¢Æ–W"ç6WDFVÇFÖ÷fVÖVçB…fV32å¤U$ò“°¢Æ–W"æfÆÄF—7Fæ6RÒ°¢Ò“°¢6öçFW‡Bçv—EF–6·2ƒ#“°¢6öçFW‡BævWD–çWB‚’æÆöö´B†ÆVFvRæöfg6WBƒBÂÂ’“°¢6öçFW‡Bçv—EF–6·2ƒR“° ¢F÷V&ÆR7F'E’Ò÷6—F–öâ†6öçFW‡B’ç“°¢F÷V&ÆRÆ÷vW7BÒ7F'E“°¢F÷V&ÆR†–v†W7BÒ7F'E“°¢6öçFW‡BævWD–çWB‚’æ†öÆD¶W’†÷F–öç2Óâ÷F–öç2æ¶W•W“°¢f÷"†–çBF–6²Ò²F–6²ÂS²F–6²³Ò"’°¢6öçFW‡Bçv—EF–6·2ƒ"“°¢F÷V&ÆR’Ò÷6—F–öâ†6öçFW‡B’ç“°¢Æ÷vW7BÒÖF‚æÖ–â†Æ÷vW7BÂ’“°¢†–v†W7BÒÖF‚æÖ‚††–v†W7BÂ’“°¢Ğ¢6öçFW‡BævWD–çWB‚’ç&VÆV6T¶W’†÷F–öç2Óâ÷F–öç2æ¶W•W“°¢6öçFW‡Bçv—EF–6·2ƒ“°¢òòÆövvVBf÷"WfW'’vÆ³¢v†VâöæRöbF†W6R66Væ&–÷2f–Ç2ÂF†RF‡&VRvÆ·2rçVÖ&W'26–FR'¢òò6–FR&RF†RF–ffW&Væ6R&WGvVVâF–væ÷6—2æBwVW72à¢ÄôttU"æ–æfò‚"vÆ²g&öÒ“×·ÒG&÷×·Ò&—6S×·Òöäw&÷VæC×·Ò"À¢7G&–æræf÷&ÖB‚"Rã&b"Â7F'E’’Â7G&–æræf÷&ÖB‚"Rã&b"ÂÆ÷vW7BÒ7F'E’’À¢7G&–æræf÷&ÖB‚"Rã&b"Â†–v†W7BÒ7F'E’’À¢6öçFW‡Bæ6ö×WFTöä6Æ–VçB†6Æ–VçBÓâ6Æ–VçBçÆ–W"æöäw&÷VæB‚’’“° ¢6–ævÆWÆ–W"ævWE6W'fW"‚’ç'Väöå6W'fW"‡6W'fW"Óà¢6–ævÆWÆ–W"ævWD6öææV7F–öâ‚’ævWE6W'fW%Æ–W"‚’ç6WDvÖTÖöFR„vÖUG—Rä5$TD•dR’“°¢&WGW&âæWrvÆ²†Æ÷vW7BÒ7F'E’Â†–v†W7BÒ7F'E’“°¢Ğ ¢ò¢¢7&VF—fRfÆ–v‡BÆVfW2F†RÆ–W"G&–gF–æs²6WfW&ÂÖöGVÆW2öæÇ’7Bv—F‚&÷F‚fVWBF÷vââ¢ğ¢&—fFR7FF–2fö–B6WGFÆTöäw&÷VæB„6Æ–VçDvÖUFW7D6öçFW‡B6öçFW‡BÂFW7E6–ævÆWÆ–W$6öçFW‡B6–ævÆWÆ–W"’°¢6–ævÆWÆ–W"ævWE6W'fW"‚’ç'Väöå6W'fW"‡6W'fW"Óà¢6–ævÆWÆ–W"ævWD6öææV7F–öâ‚’ævWE6W'fW%Æ–W"‚’ç6WDvÖTÖöFR„vÖUG—Rä5$TD•dR’“°¢6öçFW‡Bçv—EF–6·2ƒ“°¢Ğ ¢&—fFR7FF–2fV32÷6—F–öâ„6Æ–VçDvÖUFW7D6öçFW‡B6öçFW‡B’°¢&WGW&â6öçFW‡Bæ6ö×WFTöä6Æ–VçB†6Æ–VçBÓâ6Æ–VçBçÆ–W"ç÷6—F–öâ‚’“°¢Ğ ¢ò¢¢Æ÷r†÷F&"7F6²v—F‚gVÆÂöæR&V†–æB—B–âF†R–çfVçF÷'’6†÷VÆB&RF÷VBWâ¢ğ¢&—fFRfö–BWFõ&Vf–ÆÂ„6Æ–VçDvÖUFW7D6öçFW‡B6öçFW‡BÂFW7E6–ævÆWÆ–W$6öçFW‡B6–ævÆWÆ–W"’°¢f–æÂ–çB†÷F&%6Æ÷BÒ°¢f–æÂ–çB7F÷&vU6Æ÷BÒ#°¢6WD–çfVçF÷'’‡6–ævÆWÆ–W"Â6Æ÷G2Óâ°¢6Æ÷G2ç6WD—FVÒ††÷F&%6Æ÷BÂæWr—FVÕ7F6²„—FV×2ä4ô$$ÄU5DôäRÂB’“°¢6Æ÷G2ç6WD—FVÒ‡7F÷&vU6Æ÷BÂæWr—FVÕ7F6²„—FV×2ä4ô$$ÄU5DôäRÂcB’“°¢Ò“°¢6öçFW‡Bçv—EF–6·2ƒ“° ¢&VF–6FSÄÖ–æV7&gCâF÷VEWĞ¢6Æ–VçBÓâ6Æ–VçBçÆ–W"ævWD–çfVçF÷'’‚’ævWD—FVÒ††÷F&%6Æ÷B’ævWD6÷VçB‚’âC°¢76W'Dæ÷E–WB†6öçFW‡BÂF÷VEWÂ'F†R†÷F&"7F6²v2Ç&VG’&÷fRF†R&Vf–ÆÂF‡&W6†öÆB"“° ¢FövvÆR†6öçFW‡BÂ$WFõ&Vf–ÆÂ"ÂG'VR“°¢&ööÆVâ&Vf–ÆÆVBÒ6WGFÆR†6öçFW‡BÂF÷VEWÂ4UEDÄUõD”4µ2¢"“°¢FövvÆR†6öçFW‡BÂ$WFõ&Vf–ÆÂ"ÂfÇ6R“°¢–b‚&Vf–ÆÆVB’°¢F‡&÷ræWr76W'F–öäW'&÷"‚$WFõ&Vf–ÆÂÆVgBBÖ—FVÒ†÷F&"7F6²ÆöæRv—F‚gVÆÂ7F6² ¢²&öbF†R6ÖR—FVÒ–âF†R–çfVçF÷'’"“°¢Ğ¢ÄôttU"æ–æfò‚"WFõ&Vf–ÆÂF÷VBWÆ÷r†÷F&"7F6²"“°¢Ğ ¢ò¢ ¢¢F†RöæRWFöÖF–öâ†W&RF†BFW7G&÷—2&÷W'G’Â6òF†R66Væ&–ò6&W22×V6‚&÷WBv†@¢¢7W'f—fW22&÷WBv†BvöW2ââVæÆ—7FVB—FVÒ–âF†RæW‡B6Æ÷B×W7B7F–ÆÂ&RF†W&RgFW'v&G2à¢¢ğ¢&—fFRfö–B–çfVçF÷'”6ÆVæW"„6Æ–VçDvÖUFW7D6öçFW‡B6öçFW‡BÂFW7E6–ævÆWÆ–W$6öçFW‡B6–ævÆWÆ–W"’°¢f–æÂ–çB§Væµ6Æ÷BÒ#°¢f–æÂ–çB¶VW6Æ÷BÒ#°¢6WD–çfVçF÷'’‡6–ævÆWÆ–W"Â6Æ÷G2Óâ°¢6Æ÷G2ç6WD—FVÒ†§Væµ6Æ÷BÂæWr—FVÕ7F6²„—FV×2å$õEDTåôdÄU4‚Â‚’“°¢6Æ÷G2ç6WD—FVÒ†¶VW6Æ÷BÂæWr—FVÕ7F6²„—FV×2äD”ÔôäBÂ‚’“°¢Ò“°¢6öçFW‡Bçv—EF–6·2ƒ“° ¢&VF–6FSÄÖ–æV7&gCâ§Væ´vöæRĞ¢6Æ–VçBÓâ6Æ–VçBçÆ–W"ævWD–çfVçF÷'’‚’ævWD—FVÒ†§Væµ6Æ÷B’æ—2„—FV×2å$õEDTåôdÄU4‚“°¢76W'Dæ÷E–WB†6öçFW‡BÂ§Væ´vöæRÂ'F†R§Væ²6Æ÷BF–Bæ÷B6öçF–âF†R§Væ²F†R66Væ&–òÆ6VB"“° ¢FövvÆR†6öçFW‡BÂ$–çfVçF÷'”6ÆVæW""ÂG'VR“°¢&ööÆVâG&÷VBÒ6WGFÆR†6öçFW‡BÂ§Væ´vöæRÂ4UEDÄUõD”4µ2¢"“°¢FövvÆR†6öçFW‡BÂ$–çfVçF÷'”6ÆVæW""ÂfÇ6R“°¢–b‚G&÷VB’°¢F‡&÷ræWr76W'F–öäW'&÷"‚$–çfVçF÷'”6ÆVæW"F–Bæ÷BG&÷&÷GFVâfÆW6‚Âv†–6‚—2–â—G2 ¢²&FVfVÇB§Væ²Æ—7B"“°¢Ğ ¢&ööÆVâ¶WBÒ6öçFW‡Bæ6ö×WFTöä6Æ–VçB†6Æ–VçBÓà¢6Æ–VçBçÆ–W"ævWD–çfVçF÷'’‚’ævWD—FVÒ†¶VW6Æ÷B’æ—2„—FV×2äD”ÔôäB’“°¢–b‚¶WB’°¢F‡&÷ræWr76W'F–öäW'&÷"‚$–çfVçF÷'”6ÆVæW"G&÷VBF–ÖöæBÂv†–6‚—2æ÷B–âç’§Væ² ¢²&Æ—7C²F†—2ÖöGVÆR×W7BæWfW"&VÖ÷fR6öÖWF†–æræö&öG’Æ—7FVB"“°¢Ğ¢ÄôttU"æ–æfò‚"–çfVçF÷'”6ÆVæW"G&÷VBF†RÆ—7FVB§Væ²æBÆVgBF†RF–ÖöæG2ÆöæR"“°¢Ğ ¢ò¢ ¢¢v—F‚vVöâ–âF†R†÷F&"æB6öÖWF†–ærFò†—BÂF†R6VÆV7FVB6Æ÷B6†÷VÆB&V6öÖRF†RvVöâà¢ ¢¢ÇåF†RF&vWB—2â&Ö÷W"7FæB&F†W"F†âF†R66VæRw2¦öÖ&–Râ—B—2Æ—f–ærVçF—G’Âv†–6€¢¢—2ÆÂF†RÖöGVÆR6·2f÷"ÂæB—BFöW2æ÷BvÆ²v’ÒF&vWBF†BÖ÷fW2GW&ç2'F†RÖöGVÆP¢¢F–Bæ÷B7v—F6‚"æB'F†R7&÷76†—"Ö—76VB"–çFòF†R6ÖRf–ÇW&Rà¢¢ğ¢&—fFRfö–BWFõvVöâ„6Æ–VçDvÖUFW7D6öçFW‡B6öçFW‡BÂFW7E6–ævÆWÆ–W$6öçFW‡B6–ævÆWÆ–W"’°¢f–æÂ–çB7v÷&E6Æ÷BÒ3°¢6WD–çfVçF÷'’‡6–ævÆWÆ–W"Â6Æ÷G2Óâ°¢6Æ÷G2ç6WD—FVÒƒÂæWr—FVÕ7F6²„—FV×2ä4ô$$ÄU5DôäRÂb’“°¢6Æ÷G2ç6WD—FVÒ‡7v÷&E6Æ÷BÂæWr—FVÕ7F6²„—FV×2äD”ÔôäEõ5tõ$B’“°¢6Æ÷G2ç6WE6VÆV7FVE6Æ÷Bƒ“°¢Ò“° ¢òòv’g&öÒF†R—BÂöâw&÷VæBF†RV&Æ–W"66Væ&–÷2F–Bæ÷BF–r÷WBâ7væ–ærF†R7Fæ@¢òòv†W&RF†RÆ–W"†VæVBFò&RÆVgB—B7FæF–ær–âF†R—BÂF‡&VR&Æö6·2&VÆ÷rF†P¢òò7&÷76†—"Âv†–6‚F†RwV&B&VÆ÷r6Vv‡B'WBv†–6‚—2F†R66Væ&–òw2fVÇBFòfö–Bà¢&Æö6µ÷27FæBÒ6–ævÆWÆ–W"ævWE6W'fW"‚’æ6ö×WFTöå6W'fW"‡6W'fW"Óâ°¢6W'fW%Æ–W"Æ–W"Ò6–ævÆWÆ–W"ævWD6öææV7F–öâ‚’ævWE6W'fW%Æ–W"‚“°¢&Æö6µ÷2fö÷F–ærÒÆVFvRæöfg6WB‚ÓÂÂ“°¢Æ–W"çFVÆW÷'EFò†fö÷F–ærævWE‚‚’²ãRÂfö÷F–ærævWE’‚’Âfö÷F–ærævWE¢‚’²ãR“°¢&Æö6µ÷27÷BÒfö÷F–æræöfg6WBƒ"ÂÂ“°¢–b„VçF—G•G—W2ä$Ôõ%õ5DäBç7vâ‡Æ–W"æÆWfVÂ‚’Â7÷BÂVçF—G•7vå&V6öâä4ôÔÔäB’ÓÒçVÆÂ’°¢F‡&÷ræWr76W'F–öäW'&÷"‚&6÷VÆBæ÷B7vâF†R&Ö÷W"7FæBB"²7÷B“°¢Ğ¢&WGW&â7÷C°¢Ò“°¢6öçFW‡Bçv—EF–6·2ƒ#“°¢òò—G2WW"†ÆbÂæ÷B—G2fVWC¢&Æö6²Ö6VçG&R–ÒBF†RÆ÷vW"&Æö6²Æöö·2&VÆ÷rF†R&öG’à¢6öçFW‡BævWD–çWB‚’æÆöö´B‡7FæBæ&÷fR‚’“°¢6öçFW‡Bçv—EF–6·2ƒ“° ¢òò–Ö–ær—2F†—266Væ&–òw26WGWÂæ÷B—G26Æ–Òâ–bF†R7&÷76†—"—2æ÷BöâF†R7FæBF†P¢òòÖöGVÆR—26÷'&V7BFòFòæ÷F†–ærÂæB&W÷'F–ærF†B2ÖöGVÆRf–ÇW&Rv÷VÆB&RÆ–Rà¢&ööÆVâ–ÖVBÒ6öçFW‡Bæ6ö×WFTöä6Æ–VçB†6Æ–VçBÓà¢6Æ–VçBæ†—E&W7VÇB–ç7Fæ6VöbæWBæÖ–æV7&gBçv÷&ÆBç‡—2äVçF—G”†—E&W7VÇB“°¢–b‚–ÖVB’°¢F‡&÷ræWr76W'F–öäW'&÷"‚'F†R7&÷76†—"—2æ÷BöâF†R&Ö÷W"7FæBÂ6òWFõvVöâ†2 ¢²&æ÷F†–ærFò&V7BFó²F†R66Væ&–ò—2'&ö¶VâÂæ÷BF†RÖöGVÆR"“°¢Ğ ¢&VF–6FSÄÖ–æV7&gCâ†öÆF–æu7v÷&BĞ¢6Æ–VçBÓâ6Æ–VçBçÆ–W"ævWD–çfVçF÷'’‚’ævWE6VÆV7FVE6Æ÷B‚’ÓÒ7v÷&E6Æ÷C°¢76W'Dæ÷E–WB†6öçFW‡BÂ†öÆF–æu7v÷&BÂ'F†R7v÷&B6Æ÷Bv2Ç&VG’6VÆV7FVB&Vf÷&RWFõvVöâ&â"“° ¢FövvÆR†6öçFW‡BÂ$WFõvVöâ"ÂG'VR“°¢&ööÆVâ7v—F6†VBÒ6WGFÆR†6öçFW‡BÂ†öÆF–æu7v÷&B“°¢FövvÆR†6öçFW‡BÂ$WFõvVöâ"ÂfÇ6R“°¢–b‚7v—F6†VB’°¢F‡&÷ræWr76W'F–öäW'&÷"‚$WFõvVöâF–Bæ÷B6VÆV7BF†RF–ÖöæB7v÷&Bv—F‚Æ—f–ær ¢²'F&vWBVæFW"F†R7&÷76†—""“°¢Ğ¢ÄôttU"æ–æfò‚"WFõvVöâ6VÆV7FVBF†R7v÷&Bf÷"F†RF&vWBVæFW"F†R7&÷76†—""“°¢Ğ ¢ò¢¢6VæG2Æ–æRg&öÒF†R6W'fW"6ò—B'&—fW2F†Rv’&VÂöæRFöW2ÂæBv—G2f÷"—Bâ¢ğ¢&—fFR7FF–2fö–B6’„6Æ–VçDvÖUFW7D6öçFW‡B6öçFW‡BÂFW7E6–ævÆWÆ–W$6öçFW‡B6–ævÆWÆ–W"Â7G&–ærFW‡B’°¢6–ævÆWÆ–W"ævWE6W'fW"‚’ç'Väöå6W'fW"‡6W'fW"Óà¢6W'fW"ævWEÆ–W$Æ—7B‚’æ'&öF67E7—7FVÔÖW76vR„6ö×öæVçBæÆ—FW&Â‡FW‡B’ÂfÇ6R’“°¢6öçFW‡Bçv—EF–6·2ƒ“°¢Ğ ¢ò¢¢F–ÖW7F×—2&Vf—‚öâF†RÆ–æRÂ6òF†RÆ–æR†2Fò&R&VB&6²Fò6VR—Bâ¢ğ¢&—fFRfö–B&WGFW$6†B„6Æ–VçDvÖUFW7D6öçFW‡B6öçFW‡BÂFW7E6–ævÆWÆ–W$6öçFW‡B6–ævÆWÆ–W"’°¢6öæf–wW&R†6öçFW‡BÂ$&WGFW$6†B"ÂÖöGVÆRÓâ°¢ÖöGVÆRç6WGF–æw2ç6WE6WGF–ær‚'F–ÖW7F×2"ÂG'VR“°¢ÖöGVÆRç6WGF–æw2ç6WE6WGF–ær‚'6V6öæG2"ÂG'VR“°¢Ò“° ¢7G&–ærÆ–âÒ&&WGFW&6†B6öçG&öÂÆ–æR#°¢6’†6öçFW‡BÂ6–ævÆWÆ–W"ÂÆ–â“°¢&ööÆVâ7F×VEv†–ÆTöfbÒ6öçFW‡Bæ6ö×WFTöä6Æ–VçB†6Æ–VçBÓà¢6†Ef–WræÆ–æW2†6Æ–VçB’ç7G&VÒ‚’æç”ÖF6‚†Æ–æRÓâÆ–æRæ6öçF–ç2‡Æ–â’bbÆ–æRæÖF6†W2‚%åÅÅµÅÆEÅÆC¢â¢"’’“°¢–b‡7F×VEv†–ÆTöfb’°¢F‡&÷ræWr76W'F–öäW'&÷"‚&6†BÆ–æRv2Ç&VG’F–ÖW7F×VB&Vf÷&R&WGFW$6†Bv2öâ"“°¢Ğ ¢FövvÆR†6öçFW‡BÂ$&WGFW$6†B"ÂG'VR“°¢7G&–ær7F×VBÒ&&WGFW&6†B7F×VBÆ–æR#°¢6’†6öçFW‡BÂ6–ævÆWÆ–W"Â7F×VB“°¢FövvÆR†6öçFW‡BÂ$&WGFW$6†B"ÂfÇ6R“° ¢7G&–ærÆ–æRÒ6öçFW‡Bæ6ö×WFTöä6Æ–VçB†6Æ–VçBÓâ6†Ef–WræÆ–æW2†6Æ–VçB’ç7G&VÒ‚¢æf–ÇFW"‡FW‡BÓâFW‡Bæ6öçF–ç2‡7F×VB’’æf–æDf—'7B‚’æ÷$VÇ6R‚""’“°¢òò„ƒ¦ÖÓ§72–â'&6¶WG2Â†VBöbF†R6W'fW"w2÷vâFW‡Bà¢–b‚Æ–æRæÖF6†W2‚%åÅÅµÅÆEÅÆC¥ÅÆEÅÆC¥ÅÆEÅÆEÅÅÒâ¢"²¦fçWF–Âç&VvW‚åGFW&âçV÷FR‡7F×VB’²"â¢"’’°¢F‡&÷ræWr76W'F–öäW'&÷"‚$&WGFW$6†BF–Bæ÷BF–ÖW7F×F†RÆ–æS²6†B6†÷w3¢"²Æ–æR“°¢Ğ¢ÄôttU"æ–æfò‚"&WGFW$6†BF–ÖW7F×VBâ'&—f–ærÆ–æR"“°¢Ğ ¢ò¢ ¢¢F†Rf–ÇFW"†–FW2Æ—7FVB‡&6RæBæ÷F†–ærVÇ6RâF†R6V6öæB†Æb—2F†R†ÆbF†BÖGFW'3 ¢¢f–ÇFW"F†B7vÆÆ÷w2WfW'—F†–ærv÷VÆB72â76W'F–öâF†BöæÇ’6†V6·2F†RÆ—7FVBÆ–æRà¢¢ğ¢&—fFRfö–B6†Df–ÇFW"„6Æ–VçDvÖUFW7D6öçFW‡B6öçFW‡BÂFW7E6–ævÆWÆ–W$6öçFW‡B6–ævÆWÆ–W"’°¢òòFVÆ–&W&FVÇ’F—6¦ö–çC¢æöæRöbF†W6RF‡&VR—27V'7G&–æröbæ÷F†W"âF†Rf—'7BG&gBW6V@¢òò6öçG&öÂÆ–æRF†B6öçF–æVBF†R†–FFVâöæRÂ6òF†RÆV²6†V6²f÷VæBF†R6öçG&öÂæ@¢òò&W÷'FVBF†RÖöGVÆR†Bf–ÆVBFò†–FRç—F†–ærà¢7G&–ærÆ—7FVBÒ'V–FçVæ2#°¢7G&–ær6öçG&öÂÒ&6†Ff–ÇFW"6öçG&öÂ6'&–W2V–FçVæ2v†–ÆRöfb#°¢7G&–ær†–FFVâÒ&6†Ff–ÇFW"ÆFW"ÖW76vRÇ6ò6''––ærV–FçVæ2#°¢7G&–ær¶WBÒ&6†Ff–ÇFW"–ææö6VçBÆ–æR#°¢6öæf–wW&R†6öçFW‡BÂ$6†Df–ÇFW""ÂÖöGVÆRÓâ°¢ÖöGVÆRç6WGF–æw2ç6WE6WGF–ær‚&†–FR"ÂÆ—7FVB“°¢òòF†R66Væ&–ò7V·2F‡&÷Vv‚F†R6W'fW"6öç6öÆRÂv†–6‚'&—fW22vÖRÖW76vS²F†P¢òòÖöGVÆRÆVfW2F†÷6RÆöæR'’FVfVÇBà¢ÖöGVÆRç6WGF–æw2ç6WE6WGF–ær‚&vÖTÖW76vW2"ÂG'VR“°¢Ò“° ¢òò'6Væ6R—2öæÇ’Wf–FVæ6R–b&W6Væ6Rv2÷76–&ÆRâv—F†÷WBF†—2Â'&öF67BF†BæWfW ¢òò'&—fVBBÆÂv÷VÆB&VBW†7FÇ’Æ–¶RÆ–æRF†Rf–ÇFW"†–Bà¢6’†6öçFW‡BÂ6–ævÆWÆ–W"Â6öçG&öÂ“°¢&ööÆVâ'&—fW2Ò6öçFW‡Bæ6ö×WFTöä6Æ–VçB†6Æ–VçBÓâ6†Ef–Wræ6öçF–ç2†6Æ–VçBÂ6öçG&öÂ’“°¢–b‚'&—fW2’°¢F‡&÷ræWr76W'F–öäW'&÷"‚&6W'fW"Æ–æRFöW2æ÷B&V6‚6†BBÆÂÂ6ò†–F–æröæR&÷fW2 ¢²&æ÷F†–æs²F†R66Væ&–ò—2'&ö¶VâÂæ÷BF†RÖöGVÆR"“°¢Ğ ¢FövvÆR†6öçFW‡BÂ$6†Df–ÇFW""ÂG'VR“°¢6’†6öçFW‡BÂ6–ævÆWÆ–W"Â†–FFVâ“°¢6’†6öçFW‡BÂ6–ævÆWÆ–W"Â¶WB“°¢FövvÆR†6öçFW‡BÂ$6†Df–ÇFW""ÂfÇ6R“° ¢&ööÆVâÆV¶VBÒ6öçFW‡Bæ6ö×WFTöä6Æ–VçB†6Æ–VçBÓâ6†Ef–Wræ6öçF–ç2†6Æ–VçBÂ†–FFVâ’“°¢–b†ÆV¶VB’°¢F‡&÷ræWr76W'F–öäW'&÷"‚$6†Df–ÇFW"F–Bæ÷B†–FRÆ–æRÖF6†–ærÆ—7FVB‡&6R"“°¢Ğ¢&ööÆVâ7W'f—fVBÒ6öçFW‡Bæ6ö×WFTöä6Æ–VçB†6Æ–VçBÓâ6†Ef–Wræ6öçF–ç2†6Æ–VçBÂ¶WB’“°¢–b‚7W'f—fVB’°¢F‡&÷ræWr76W'F–öäW'&÷"‚$6†Df–ÇFW"†–BÆ–æRF†BÖF6†W2æ÷F†–ær–â—G2Æ—7C² ¢²&f–ÇFW"F†B7vÆÆ÷w2WfW'—F†–ær—2v÷'6RF†âæòf–ÇFW""“°¢Ğ¢ÄôttU"æ–æfò‚"6†Df–ÇFW"†–BF†RÆ—7FVBÆ–æRæBÆVgBF†R÷F†W"ÆöæR"“°¢Ğ ¢ò¢ ¢¢ÖVçF–öâ—2æ÷F–f–6F–öâÂ6òF†Ræ÷F–f–6F–öâ6W'f–6R—2v†W&RF†RVffV7B6†÷w2Wà¢ ¢¢Çå6VçB2Æ–W"6†B&F†W"F†âg&öÒF†R6W'fW"6öç6öÆRÂ&V6W6RF†R6Æ–VçBFVÆ–&W&FVÇ¢¢öffW'2F†—2ÖöGVÆRÆ–W"6†BöæÇ’Ò7—7FVÒÆ–æR—2ÇVv–âFÆ¶–ærÂæ÷B6öÖVöæP¢¢FG&W76–ær–÷RâF†Rf—'7BG&gBW6VB6W'fW"'&öF67BæBF†RÖöGVÆRv2&–v‡BFò–væ÷&R—Bà¢ ¢¢ÇåF†RG&–vvW"—2¶W—v÷&Bg&öÒæ÷F†W"7V¶W"â&÷F‚†ÇfW2&Rf÷&6VC¢F†RÖöGVÆR–væ÷&W0¢¢–÷W"÷vâÖW76vW2Â6òF†RÆ–æR6ææ÷B6öÖRg&öÒF†RÆö6ÂÆ–W"ÂæBv—F‚öæÇ’öæR&VÀ¢¢Æ–W"–âF†Rv÷&ÆBF†R6W'fW"†2Fò7V²f÷"6V6öæBöæRà¢¢ğ¢&—fFRfö–B6†DÖVçF–öç2„6Æ–VçDvÖUFW7D6öçFW‡B6öçFW‡BÂFW7E6–ævÆWÆ–W$6öçFW‡B6–ævÆWÆ–W"’°¢7G&–ær¶W—v÷&BÒ'¦&f&ÆB#°¢6öæf–wW&R†6öçFW‡BÂ$6†DÖVçF–öç2"ÂÖöGVÆRÓâ°¢ÖöGVÆRç6WGF–æw2ç6WE6WGF–ær‚&¶W—v÷&G2"Â¶W—v÷&B“°¢ÖöGVÆRç6WGF–æw2ç6WE6WGF–ær‚&÷väæÖR"ÂfÇ6R“°¢òòF†R7VRv÷VÆB&V6‚f÷"âVF–òFWf–6RF†—2Ö6†–æRFöW2æ÷B†fRà¢ÖöGVÆRç6WGF–æw2ç6WE6WGF–ær‚'6÷VæB"ÂfÇ6R“°¢ÖöGVÆRç6WGF–æw2ç6WE6WGF–ær‚&6ööÆF÷vâ"Âã“°¢Ò“° ¢òòÖVçF–öâ7W&f6W22Fö7BÂæBF†Ræ÷F–f–6F–öç2ÖöGVÆR—2v†BÖ¶W2Fö7G2W†—7C ¢òò—G2öäF—6&ÆR7v—F6†W2F†Rv†öÆRæ÷F–f–6F–öâ6W'f–6RöfbÂæBF†RÆ–fV7–6ÆRFW7BFövvÆV@¢òò—BöfbV&Æ–W"–âF†—2'Vââv—F†÷WBF†—2F†R6W'f–6R6–ÆVçFÇ’G&÷2WfW'’V&Æ—6‚à¢FövvÆR†6öçFW‡BÂ$æ÷F–f–6F–öç2"ÂG'VR“° ¢6öÖV&öG•6—2†6öçFW‡BÂ6–ævÆWÆ–W"Â%6öÖVöæR"Â&6öçG&öÂÆ–æRÖVçF–öæ–ær"²¶W—v÷&B“°¢–b†ÖVçF–öäæ÷F–f–VB†6öçFW‡B’’°¢F‡&÷ræWr76W'F–öäW'&÷"‚&ÖVçF–öâv2&W÷'FVB&Vf÷&R6†DÖVçF–öç2v2Væ&ÆVB"“°¢Ğ ¢FövvÆR†6öçFW‡BÂ$6†DÖVçF–öç2"ÂG'VR“°¢6öÖV&öG•6—2†6öçFW‡BÂ6–ævÆWÆ–W"Â%6öÖVöæR"Â'6V6öæBÆ–æRÖVçF–öæ–ær"²¶W—v÷&B“°¢&ööÆVâæ÷F–6VBÒÖVçF–öäæ÷F–f–VB†6öçFW‡B“°¢FövvÆR†6öçFW‡BÂ$6†DÖVçF–öç2"ÂfÇ6R“°¢FövvÆR†6öçFW‡BÂ$æ÷F–f–6F–öç2"ÂfÇ6R“°¢–b‚æ÷F–6VB’°¢F‡&÷ræWr76W'F–öäW'&÷"‚$6†DÖVçF–öç2F–Bæ÷B&W÷'B6†BÆ–æR6öçF–æ–ær—G2 ¢²&6öæf–wW&VB¶W—v÷&B"“°¢Ğ¢ÄôttU"æ–æfò‚"6†DÖVçF–öç2&W÷'FVB¶W—v÷&B–âÆ–W"6†B"“°¢Ğ ¢ò¢ ¢¢6†BGG&–'WFVBFò6öÖV&öG’v†ò—2æ÷BF†RÆö6ÂÆ–W"à¢ ¢¢Çå6VæF–ær—Bg&öÒF†RÆ–W"–ç7FVBFöW2æ÷Bv÷&²ÂæBF†RÖöGVÆR—2&–v‡B&÷WBF†C¢¢¢Æ–W"6†BÆ–æR'&—fW2&VæFW&VB2´6öFRÅÆ–W#âââçÒÂv†–6‚6öçF–ç2F†RÆ–W"w2÷và¢¢æÖRÂæB6†DÖVçF–öç2FVÆ–&W&FVÇ’&VgW6W2FòG&VB–÷W"÷vâÖW76vR2ÖVçF–öâöb–÷Rà¢¢F†W&R—2öæÇ’öæR&VÂÆ–W"–âFW7Bv÷&ÆBÂ6òF†R6W'fW"7V·2f÷"6V6öæBöæRà¢¢ğ¢&—fFR7FF–2fö–B6öÖV&öG•6—2„6Æ–VçDvÖUFW7D6öçFW‡B6öçFW‡BÂFW7E6–ævÆWÆ–W$6öçFW‡B6–ævÆWÆ–W"À¢7G&–ær7V¶W"Â7G&–ærFW‡B’°¢6–ævÆWÆ–W"ævWE6W'fW"‚’ç'Väöå6W'fW"‡6W'fW"Óâ6W'fW"ævWEÆ–W$Æ—7B‚’æ'&öF67D6†DÖW76vR€¢òòF†R&VÂÆ–W"w2–BÂv—F‚6öÖV&öG’VÇ6Rw2æÖR&÷VæBFòF†RÆ–æRâÖFR×W–B—0¢òò&V¦V7FVB'’F†R6Æ–VçB26†BfÆ–FF–öâW'&÷"Ò—BöæÇ’66WG2ÖW76vW2g&öĞ¢òò6VæFW'2—B¶æ÷w2&÷WBÒæBF†RF—7Æ’æÖR—2ÆÂF†RÖöGVÆR&VG2ç—v’à¢Æ–W$6†DÖW76vRçVç6–væVB‡6–ævÆWÆ–W"ævWD6öææV7F–öâ‚’ævWE6W'fW%Æ–W"‚’ævWEUT”B‚’ÂFW‡B’À¢6W'fW"æ7&VFT6öÖÖæE6÷W&6U7F6²‚’À¢6†EG—Ræ&–æB„6†EG—Rä4„BÂ6W'fW"ç&Vv—7G'”66W72‚’Â6ö×öæVçBæÆ—FW&Â‡7V¶W"’’’“°¢6öçFW‡Bçv—EF–6·2ƒ“°¢Ğ ¢&—fFR7FF–2&ööÆVâÖVçF–öäæ÷F–f–VB„6Æ–VçDvÖUFW7D6öçFW‡B6öçFW‡B’°¢&WGW&â6öçFW‡Bæ6ö×WFTöä6Æ–VçB†æ÷F–6R‚&ÖVçF–öæVB–â6†B"“£§FW7B“°¢Ğ ¢ò¢¢Fö7B—26†÷v–ærv†÷6RFW‡B6öçF–ç2F†—2g&vÖVçBâZŠW«®Šğ®+b-jwZ­Ú.¶›­º$zzb¥æÚ±î¸Â¸­yêë¢°k¢G§¦*^*/
+            ServerPlayer player = singleplayer.getConnection().getServerPlayer();
+            ServerLevel level = player.level();
+            for (int dx = 2; dx <= 6; dx++) {
+                for (int dz = -2; dz <= 2; dz++) {
+                    level.setBlockAndUpdate(stand.offset(dx, -PIT_DEPTH - 1, dz), Blocks.STONE.defaultBlockState());
+                    for (int dy = -1; dy >= -PIT_DEPTH; dy--) {
+                        level.setBlockAndUpdate(stand.offset(dx, dy, dz), Blocks.AIR.defaultBlockState());
+                    }
+                }
+            }
+            return stand;
+        });
+        singleplayer.getConnection().waitForChunksRender();
+        context.waitTicks(20);
+        return dug;
+    }
+
+    /** How the player's height changed during one walk at the pit, relative to where they started. */
+    private record Walk(double drop, double rise) { }
+
+    /**
+     * Puts the player back on the ledge and walks them into the pit.
+     *
+     * <p>The height is sampled throughout rather than only at the end, because a jump and a fall are
+     * told apart by what happened in between: a player who jumps the gap and one who never moved
+     * both finish level with where they started.
+     */
+    private static Walk walkOffAndReport(ClientGameTestContext context, TestSingleplayerContext singleplayer,
+            BlockPos ledge) {
+        singleplayer.getServer().runOnServer(server -> {
+            ServerPlayer player = singleplayer.getConnection().getServerPlayer();
+            player.setGameMode(GameType.SURVIVAL);
+            player.teleportTo(ledge.getX() + 0.5, ledge.getY(), ledge.getZ() + 0.5);
+            // Each walk is its own experiment: a player carrying damage or momentum from the last
+            // one is a different player, and three walks in a row would eventually kill them.
+            player.setHealth(player.getMaxHealth());
+            player.setDeltaMovement(Vec3.ZERO);
+            player.fallDistance = 0;
+        });
+        context.waitTicks(20);
+        context.getInput().lookAt(ledge.offset(4, 0, 0));
+        context.waitTicks(5);
+
+        double startY = position(context).y;
+        double lowest = startY;
+        double highest = startY;
+        context.getInput().holdKey(options -> options.keyUp);
+        for (int tick = 0; tick < 50; tick += 2) {
+            context.waitTicks(2);
+            double y = position(context).y;
+            lowest = Math.min(lowest, y);
+            highest = Math.max(highest, y);
+        }
+        context.getInput().releaseKey(options -> options.keyUp);
+        context.waitTicks(10);
+        // Logged for every walk: when one of these scenarios fails, the three walks' numbers side by
+        // side are the difference between a diagnosis and a guess.
+        LOGGER.info("    walk from y={} drop={} rise={} onGround={}",
+                String.format("%.2f", startY), String.format("%.2f", lowest - startY),
+                String.format("%.2f", highest - startY),
+                context.computeOnClient(client -> client.player.onGround()));
+
+        singleplayer.getServer().runOnServer(server ->
+                singleplayer.getConnection().getServerPlayer().setGameMode(GameType.CREATIVE));
+        return new Walk(lowest - startY, highest - startY);
+    }
+
+    /** Creative flight leaves the player drifting; several modules only act with both feet down. */
+    private static void settleOnGround(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        singleplayer.getServer().runOnServer(server ->
+                singleplayer.getConnection().getServerPlayer().setGameMode(GameType.CREATIVE));
+        context.waitTicks(10);
+    }
+
+    private static Vec3 position(ClientGameTestContext context) {
+        return context.computeOnClient(client -> client.player.position());
+    }
+
+    /** A low hotbar stack with a full one behind it in the inventory should be topped up. */
+    private void autoRefill(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        final int hotbarSlot = 0;
+        final int storageSlot = 20;
+        setInventory(singleplayer, slots -> {
+            slots.setItem(hotbarSlot, new ItemStack(Items.COBBLESTONE, 4));
+            slots.setItem(storageSlot, new ItemStack(Items.COBBLESTONE, 64));
+        });
+        context.waitTicks(10);
+
+        Predicate<Minecraft> toppedUp =
+                client -> client.player.getInventory().getItem(hotbarSlot).getCount() > 4;
+        assertNotYet(context, toppedUp, "the hotbar stack was already above the refill threshold");
+
+        toggle(context, "AutoRefill", true);
+        boolean refilled = settle(context, toppedUp, SETTLE_TICKS * 2);
+        toggle(context, "AutoRefill", false);
+        if (!refilled) {
+            throw new AssertionError("AutoRefill left a 4-item hotbar stack alone with a full stack "
+                    + "of the same item in the inventory");
+        }
+        LOGGER.info("  AutoRefill topped up a low hotbar stack");
+    }
+
+    /**
+     * The one automation here that destroys property, so the scenario cares as much about what
+     * survives as about what goes. An unlisted item in the next slot must still be there afterwards.
+     */
+    private void inventoryCleaner(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        final int junkSlot = 20;
+        final int keepSlot = 21;
+        setInventory(singleplayer, slots -> {
+            slots.setItem(junkSlot, new ItemStack(Items.ROTTEN_FLESH, 8));
+            slots.setItem(keepSlot, new ItemStack(Items.DIAMOND, 8));
+        });
+        context.waitTicks(10);
+
+        Predicate<Minecraft> junkGone =
+                client -> !client.player.getInventory().getItem(junkSlot).is(Items.ROTTEN_FLESH);
+        assertNotYet(context, junkGone, "the junk slot did not contain the junk the scenario placed");
+
+        toggle(context, "InventoryCleaner", true);
+        boolean dropped = settle(context, junkGone, SETTLE_TICKS * 2);
+        toggle(context, "InventoryCleaner", false);
+        if (!dropped) {
+            throw new AssertionError("InventoryCleaner did not drop rotten flesh, which is in its "
+                    + "default junk list");
+        }
+
+        boolean kept = context.computeOnClient(client ->
+                client.player.getInventory().getItem(keepSlot).is(Items.DIAMOND));
+        if (!kept) {
+            throw new AssertionError("InventoryCleaner dropped a diamond, which is not in any junk "
+                    + "list; this module must never remove something nobody listed");
+        }
+        LOGGER.info("  InventoryCleaner dropped the listed junk and left the diamonds alone");
+    }
+
+    /**
+     * With a weapon in the hotbar and something to hit, the selected slot should become the weapon.
+     *
+     * <p>The target is an armour stand rather than the scene's zombie. It is a living entity, which
+     * is all the module asks for, and it does not walk away - a target that moves turns "the module
+     * did not switch" and "the crosshair missed" into the same failure.
+     */
+    private void autoWeapon(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        final int swordSlot = 3;
+        setInventory(singleplayer, slots -> {
+            slots.setItem(0, new ItemStack(Items.COBBLESTONE, 16));
+            slots.setItem(swordSlot, new ItemStack(Items.DIAMOND_SWORD));
+            slots.setSelectedSlot(0);
+        });
+
+        // Away from the pit, on ground the earlier scenarios did not dig out. Spawning the stand
+        // where the player happened to be left it standing in the pit, three blocks below the
+        // crosshair, which the guard below caught but which is the scenario's fault to avoid.
+        BlockPos stand = singleplayer.getServer().computeOnServer(server -> {
+            ServerPlayer player = singleplayer.getConnection().getServerPlayer();
+            BlockPos footing = ledge.offset(-10, 0, 0);
+            player.teleportTo(footing.getX() + 0.5, footing.getY(), footing.getZ() + 0.5);
+            BlockPos spot = footing.offset(2, 0, 0);
+            if (EntityTypes.ARMOR_STAND.spawn(player.level(), spot, EntitySpawnReason.COMMAND) == null) {
+                throw new AssertionError("could not spawn the armour stand at " + spot);
+            }
+            return spot;
+        });
+        context.waitTicks(20);
+        // Its upper half, not its feet: a block-centre aim at the lower block looks below the body.
+        context.getInput().lookAt(stand.above());
+        context.waitTicks(10);
+
+        // Aiming is this scenario's setup, not its claim. If the crosshair is not on the stand the
+        // module is correct to do nothing, and reporting that as a module failure would be a lie.
+        boolean aimed = context.computeOnClient(client ->
+                client.hitResult instanceof net.minecraft.world.phys.EntityHitResult);
+        if (!aimed) {
+            throw new AssertionError("the crosshair is not on the armour stand, so AutoWeapon has "
+                    + "nothing to react to; the scenario is broken, not the module");
+        }
+
+        Predicate<Minecraft> holdingSword =
+                client -> client.player.getInventory().getSelectedSlot() == swordSlot;
+        assertNotYet(context, holdingSword, "the sword slot was already selected before AutoWeapon ran");
+
+        toggle(context, "AutoWeapon", true);
+        boolean switched = settle(context, holdingSword);
+        toggle(context, "AutoWeapon", false);
+        if (!switched) {
+            throw new AssertionError("AutoWeapon did not select the diamond sword with a living "
+                    + "target under the crosshair");
+        }
+        LOGGER.info("  AutoWeapon selected the sword for the target under the crosshair");
+    }
+
+    /** Sends a line from the server so it arrives the way a real one does, and waits for it. */
+    private static void say(ClientGameTestContext context, TestSingleplayerContext singleplayer, String text) {
+        singleplayer.getServer().runOnServer(server ->
+                server.getPlayerList().broadcastSystemMessage(Component.literal(text), false));
+        context.waitTicks(10);
+    }
+
+    /** A timestamp is a prefix on the line, so the line has to be read back to see it. */
+    private void betterChat(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        configure(context, "BetterChat", module -> {
+            module.settings.setSetting("timestamps", true);
+            module.settings.setSetting("seconds", true);
+        });
+
+        String plain = "betterchat control line";
+        say(context, singleplayer, plain);
+        boolean stampedWhileOff = context.computeOnClient(client ->
+                ChatView.lines(client).stream().anyMatch(line -> line.contains(plain) && line.matches("^\\[\\d\\d:.*")));
+        if (stampedWhileOff) {
+            throw new AssertionError("a chat line was already timestamped before BetterChat was on");
+        }
+
+        toggle(context, "BetterChat", true);
+        String stamped = "betterchat stamped line";
+        say(context, singleplayer, stamped);
+        toggle(context, "BetterChat", false);
+
+        String line = context.computeOnClient(client -> ChatView.lines(client).stream()
+                .filter(text -> text.contains(stamped)).findFirst().orElse(""));
+        // HH:mm:ss in brackets, ahead of the server's own text.
+        if (!line.matches("^\\[\\d\\d:\\d\\d:\\d\\d\\] .*" + java.util.regex.Pattern.quote(stamped) + ".*")) {
+            throw new AssertionError("BetterChat did not timestamp the line; chat shows: " + line);
+        }
+        LOGGER.info("  BetterChat timestamped an arriving line");
+    }
+
+    /**
+     * The filter hides a listed phrase and nothing else. The second half is the half that matters:
+     * a filter that swallows everything would pass an assertion that only checks the listed line.
+     */
+    private void chatFilter(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        // Deliberately disjoint: none of these three is a substring of another. The first draft used
+        // a control line that contained the hidden one, so the leak check found the control and
+        // reported the module had failed to hide anything.
+        String listed = "quidnunc";
+        String control = "chatfilter control carries quidnunc while off";
+        String hidden = "chatfilter later message also carrying quidnunc";
+        String kept = "chatfilter innocent line";
+        configure(context, "ChatFilter", module -> {
+            module.settings.setSetting("hide", listed);
+            // The scenario speaks through the server console, which arrives as a game message; the
+            // module leaves those alone by default.
+            module.settings.setSetting("gameMessages", true);
+        });
+
+        // Absence is only evidence if presence was possible. Without this, a broadcast that never
+        // arrived at all would read exactly like a line the filter hid.
+        say(context, singleplayer, control);
+        boolean arrives = context.computeOnClient(client -> ChatView.contains(client, control));
+        if (!arrives) {
+            throw new AssertionError("a server line does not reach chat at all, so hiding one proves "
+                    + "nothing; the scenario is broken, not the module");
+        }
+
+        toggle(context, "ChatFilter", true);
+        say(context, singleplayer, hidden);
+        say(context, singleplayer, kept);
+        toggle(context, "ChatFilter", false);
+
+        boolean leaked = context.computeOnClient(client -> ChatView.contains(client, hidden));
+        if (leaked) {
+            throw new AssertionError("ChatFilter did not hide a line matching a listed phrase");
+        }
+        boolean survived = context.computeOnClient(client -> ChatView.contains(client, kept));
+        if (!survived) {
+            throw new AssertionError("ChatFilter hid a line that matches nothing in its list; a "
+                    + "filter that swallows everything is worse than no filter");
+        }
+        LOGGER.info("  ChatFilter hid the listed line and left the other alone");
+    }
+
+    /**
+     * A mention is a notification, so the notification service is where the effect shows up.
+     *
+     * <p>Sent as player chat rather than from the server console, because the client deliberately
+     * offers this module player chat only - a system line is a plugin talking, not someone
+     * addressing you. The first draft used a server broadcast and the module was right to ignore it.
+     *
+     * <p>The trigger is a keyword from another speaker. Both halves are forced: the module ignores
+     * your own messages, so the line cannot come from the local player, and with only one real
+     * player in the world the server has to speak for a second one.
+     */
+    private void chatMentions(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        String keyword = "zarfblat";
+        configure(context, "ChatMentions", module -> {
+            module.settings.setSetting("keywords", keyword);
+            module.settings.setSetting("ownName", false);
+            // The cue would reach for an audio device this machine does not have.
+            module.settings.setSetting("sound", false);
+            module.settings.setSetting("cooldown", 0.0);
+        });
+
+        // A mention surfaces as a toast, and the Notifications module is what makes toasts exist:
+        // its onDisable switches the whole notification service off, and the lifecycle test toggled
+        // it off earlier in this run. Without this the service silently drops every publish.
+        toggle(context, "Notifications", true);
+
+        somebodySays(context, singleplayer, "Someone", "control line mentioning " + keyword);
+        if (mentionNotified(context)) {
+            throw new AssertionError("a mention was reported before ChatMentions was enabled");
+        }
+
+        toggle(context, "ChatMentions", true);
+        somebodySays(context, singleplayer, "Someone", "second line mentioning " + keyword);
+        boolean noticed = mentionNotified(context);
+        toggle(context, "ChatMentions", false);
+        toggle(context, "Notifications", false);
+        if (!noticed) {
+            throw new AssertionError("ChatMentions did not report a chat line containing its "
+                    + "configured keyword");
+        }
+        LOGGER.info("  ChatMentions reported a keyword in player chat");
+    }
+
+    /**
+     * Chat attributed to somebody who is not the local player.
+     *
+     * <p>Sending it from the player instead does not work, and the module is right about that: a
+     * player chat line arrives rendered as {@code <Player0> ...}, which contains the player's own
+     * name, and ChatMentions deliberately refuses to treat your own message as a mention of you.
+     * There is only one real player in a test world, so the server speaks for a second one.
+     */
+    private static void somebodySays(ClientGameTestContext context, TestSingleplayerContext singleplayer,
+            String speaker, String text) {
+        singleplayer.getServer().runOnServer(server -> server.getPlayerList().broadcastChatMessage(
+                // The real player's id, with somebody else's name bound to the line. A made-up id is
+                // rejected by the client as a chat validation error - it only accepts messages from
+                // senders it knows about - and the display name is all the module reads anyway.
+                PlayerChatMessage.unsigned(singleplayer.getConnection().getServerPlayer().getUUID(), text),
+                server.createCommandSourceStack(),
+                ChatType.bind(ChatType.CHAT, server.registryAccess(), Component.literal(speaker))));
+        context.waitTicks(10);
+    }
+
+    private static boolean mentionNotified(ClientGameTestContext context) {
+        return context.computeOnClient(notice("mentioned in chat")::test);
+    }
+
+    /** A toast is showing whose text contains this fragment. */
     private static Predicate<Minecraft> notice(String fragment) {
         return client -> me.mrhakan.agalarhack.services.ClientServices.require(
                         me.mrhakan.agalarhack.services.NotificationService.class)
@@ -661,8 +1000,337 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
     private void spawnEsp(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
         // A short sweep on purpose. The default radius is forty thousand positions, which is several
         // ticks of a shared budget the other enabled scanners are also drawing on, and the frame is
-        // taken at a fixed moment rather thaµ¨¥zºè¯
-â¶)à²Ö§uªİ¢ëiºĞk¢G§¦*^m«ëŒ+Š×®º+º$zzb¥æâv†VâF†R7vVW†Vç2Fòf–æ—6‚à¢6öæf–wW&R†6öçFW‡BÂ%7väU5"ÂÖöGVÆRÓâ°¢ÖöGVÆRç6WGF–æw2ç6WE6WGF–ær‚&†÷&—¦öçFÅ&ævR"Â"ã“°¢ÖöGVÆRç6WGF–æw2ç6WE6WGF–ær‚'fW'F–6Å&ævR"ÂBã“°¢Ò“° ¢Ö÷fUF†W&R†6öçFW‡BÂ6–ævÆWÆ–W"Â66VæT&6Ræöfg6WBƒÂÂƒ’“°¢6–ævÆWÆ–W"ævWE6W'fW"‚’ç'Väöå6W'fW"‡6W'fW"Óâ°¢6W'fW%Æ–W"Æ–W"Ò6–ævÆWÆ–W"ævWD6öææV7F–öâ‚’ævWE6W'fW%Æ–W"‚“°¢6W'fW$ÆWfVÂÆWfVÂÒÆ–W"æÆWfVÂ‚“°¢6ÆV$VçF—F–W2†ÆWfVÂ“°¢&Æö6µ÷26VçG&RÒÆ–W"æ&Æö6µ÷6—F–öâ‚“°¢òò6VÆVB6†VÆÃ¢vÆÇ2ÂæB&ööbF‡&VR&Æö6·2W6òF†W&R—27FæF–ær&ööÒVæFW"—Bà¢òòF†RfÆö÷"—2&WÆ6VBFöòÂ&V6W6R7WW&fÆBw2w&72F–W2öæ6R—B—2&ööfVB÷fW"æ@¢òòV6‚FVF‚—2&Æö6²WFFRF†B6VæG2F†R66â&6²FòF†R7F'Bà¢f÷"†–çBG‚ÒÓC²G‚ÃÒC²G‚²²’°¢f÷"†–çBG¢ÒÓC²G¢ÃÒC²G¢²²’°¢ÆWfVÂç6WD&Æö6´æEWFFR†6VçG&Ræöfg6WB†G‚ÂÓÂG¢’Â&Æö6·2å5DôäRæFVfVÇD&Æö6µ7FFR‚’“°¢ÆWfVÂç6WD&Æö6´æEWFFR†6VçG&Ræöfg6WB†G‚Â2ÂG¢’Â&Æö6·2äô%4”D”âæFVfVÇD&Æö6µ7FFR‚’“°¢f÷"†–çBG’Ò²G’ÃÒ#²G’²²’°¢&ööÆVâvÆÂÒÖF‚æ'2†G‚’ÓÒBÇÂÖF‚æ'2†G¢’ÓÒC°¢ÆWfVÂç6WD&Æö6´æEWFFR†6VçG&Ræöfg6WB†G‚ÂG’ÂG¢’ÂvÆÀ¢ò&Æö6·2äô%4”D”âæFVfVÇD&Æö6µ7FFR‚’¢&Æö6·2ä•"æFVfVÇD&Æö6µ7FFR‚’“°¢Ğ¢Ğ¢Ğ¢Ò“°¢6–ævÆWÆ–W"ævWD6öææV7F–öâ‚’çv—Df÷$6‡Væ·5&VæFW"‚“°¢òòÆöærVæ÷Vv‚f÷"F†RÆ–v‡BVæv–æRFòF&¶VâF†R6VÆVBföÇVÖR&Vf÷&Rç—F†–ær—266ææVBà¢6öçFW‡Bçv—EF–6·2ƒƒ“°¢òòBF†RfÆö÷"Âv†W&RF†RÖ&¶W'2vòà¢6öçFW‡BævWD–çWB‚’æÆöö´BƒãbÂcãb“°¢6öçFW‡Bçv—EF–6·2ƒ#“°¢G&w56öÖWF†–ær†6öçFW‡BÂ%7väU5"Â&Ö&¶W'2öâF&²fÆö÷""Âã#RÂãsRÀ¢6Æ–VçBÓâvÆ$†6´6Æ–VçBæÖöGVÆTÖævW"ævWDÖöGVÆR‚%7väU5"¢–ç7Fæ6VöbÖRæ×&†¶âævÆ&†6²æÖöGVÆRç&VæFW"å7väU57và¢bb7vâç&W7VÇG2‚’æ—4V×G’‚’“°¢Ğ ¢ò¢ ¢¢ÖöGVÆRv†÷6Rv†öÆR¦ö"—2Fò&V6öæf–wW&R6†&VB6W'f–6RÂ6òF†R6W'f–6R—2F†RWf–FVæ6Rà¢ ¢¢ÇåF†R&W7F÷&R†Æb—2F†RöæRv÷'F‚76W'F–ærâ6Æ–VçBÆVgBöâF†RÆ÷r&öf–ÆRgFW"F†P¢¢ÖöGVÆRv27v—F6†VBöfbv÷VÆB66â6Æ÷vÇ’f÷"F†R&W7BöbF†R6W76–öâÂæBæ÷F†–æröâ67&VVà¢¢v÷VÆB6’v‡’à¢¢ğ¢&—fFRfö–BW&f÷&Öæ6R„6Æ–VçDvÖUFW7D6öçFW‡B6öçFW‡B’°¢f"'V–ÇD–âÒÖRæ×&†¶âævÆ&†6²ç6W'f–6W2ç66ææ–ærå66ä'VFvWG2ä$Ää4TC°¢f"vçFVBÒÖRæ×&†¶âævÆ&†6²ç6W'f–6W2ç66ææ–ærå66ä'VFvWG2æf÷%&öf–ÆR‚&Æ÷r"“°¢f"&Vf÷&RÒ66ä'VFvWG2†6öçFW‡B“°¢–b‚'V–ÇD–âæWVÇ2†&Vf÷&R’’°¢F‡&÷ræWr76W'F–öäW'&÷"‚'F†R6†&VB66ææW"v2Ç&VG’öfb—G2'V–ÇBÖ–â6V–Æ–ær‚"²&Vf÷&P¢²"’&Vf÷&RW&f÷&Öæ6R&ã²F†R66Væ&–ò&÷fW2æ÷F†–ær–âF†B7FFR"“°¢Ğ ¢6öæf–wW&R†6öçFW‡BÂ%W&f÷&Öæ6R"ÂÖöGVÆRÓâÖöGVÆRç6WGF–æw2ç6WE6WGF–ær‚'66ä'VFvWB"Â&Æ÷r"’“°¢FövvÆR†6öçFW‡BÂ%W&f÷&Öæ6R"ÂG'VR“°¢6öçFW‡Bçv—EF–6·2ƒ‚“°¢f"Æ–VBÒ66ä'VFvWG2†6öçFW‡B“°¢FövvÆR†6öçFW‡BÂ%W&f÷&Öæ6R"ÂfÇ6R“°¢6öçFW‡Bçv—EF–6·2ƒ‚“°¢f"&W7F÷&VBÒ66ä'VFvWG2†6öçFW‡B“° ¢–b‚vçFVBæWVÇ2†Æ–VB’’°¢F‡&÷ræWr76W'F–öäW'&÷"‚%W&f÷&Öæ6RöâF†RÆ÷r&öf–ÆRÆVgBF†R6†&VB66ææW"B ¢²Æ–VB²"–ç7FVBöb"²vçFVB“°¢Ğ¢–b‚'V–ÇD–âæWVÇ2‡&W7F÷&VB’’°¢F‡&÷ræWr76W'F–öäW'&÷"‚%W&f÷&Öæ6RÆVgBF†R6†&VB66ææW"B"²&W7F÷&V@¢²"gFW"&V–ærF—6&ÆVB–ç7FVBöb&W7F÷&–ær"²'V–ÇD–â“°¢Ğ¢ÄôttU"æ–æfò‚"W&f÷&Öæ6RÆ÷vW&VBF†R6†&VB66ææ–ær6V–Æ–æræBvfR—B&6²"“°¢Ğ ¢&—fFR7FF–2ÖRæ×&†¶âævÆ&†6²ç6W'f–6W2ç66ææ–ærå66ä'VFvWG266ä'VFvWG2„6Æ–VçDvÖUFW7D6öçFW‡B6öçFW‡B’°¢&WGW&â6öçFW‡Bæ6ö×WFTöä6Æ–VçB†6Æ–VçBÓâÖRæ×&†¶âævÆ&†6²ç6W'f–6W2ä6Æ–VçE6W'f–6W2ç&WV—&R€¢ÖRæ×&†¶âævÆ&†6²ç6W'f–6W2å66ææW%6W'f–6Ræ6Æ72’æ'VFvWG2‚’“°¢Ğ ¢ò¢ ¢¢F†RF–6²f–wW&R—2âW7F–ÖFR'V–ÇBg&öÒ†÷rf"'BF†R6W'fW"w2v÷&ÆB×F–ÖR6¶WG0¢¢'&—fRÂ6òF†R66Væ&–òv—G2f÷"&VÂ6¶WG2&F†W"F†âfVVF–ærF†RÖöGVÆRç—F†–ærà¢ ¢¢Çå–ær—2FVÆ–&W&FVÇ’æ÷B76W'FVC¢F†R–çFVw&FVB6W'fW"&W÷'G2ÆFVæ7’öb¦W&òÂv†–6€¢¢F†RÖöGVÆR6÷'&V7FÇ’FV6Æ–æW2Fò&V6÷&B26×ÆRà¢¢ğ¢&—fFRfö–B6W'fW$–æfò„6Æ–VçDvÖUFW7D6öçFW‡B6öçFW‡B’°¢&VF–6FSÄÖ–æV7&gCâW7F–ÖF–ærÒ6Æ–VçBÓà¢vÆ$†6´6Æ–VçBæÖöGVÆTÖævW"ævWDÖöGVÆR‚%6W'fW$–æfò"¢–ç7Fæ6VöbÖRæ×&†¶âævÆ&†6²æÖöGVÆRæÖ—62å6W'fW$–æfò–æfğ¢bb–æfòçF–6´W7F–ÖFR‚’æ†4W7F–ÖFR‚¢bb–æfòævWDF—7Æ”æÖR‚’ç7F'G5v—F‚‚%6W'fW$–æfò²"“°¢76W'Dæ÷E–WB†6öçFW‡BÂW7F–ÖF–ærÂ%6W'fW$–æfòÇ&VG’†BF–6²W7F–ÖFR&Vf÷&R—Bv2Væ&ÆVB"“° ¢FövvÆR†6öçFW‡BÂ%6W'fW$–æfò"ÂG'VR“°¢òòv÷&ÆBF–ÖR'&—fW2öæ6RWfW'’GvVçG’F–6·2æBGvòöbF†VÒÖ¶RF†Rf—'7B–çFW'fÂà¢&ööÆVâW7F–ÖFVBÒ6WGFÆR†6öçFW‡BÂW7F–ÖF–ærÂ#“°¢F÷V&ÆRG2Ò6öçFW‡Bæ6ö×WFTöä6Æ–VçB†6Æ–VçBÓà¢‚†ÖRæ×&†¶âævÆ&†6²æÖöGVÆRæÖ—62å6W'fW$–æfò’vÆ$†6´6Æ–VçBæÖöGVÆTÖævW ¢ævWDÖöGVÆR‚%6W'fW$–æfò"’’çF–6´W7F–ÖFR‚’æfW&vR‚’“°¢FövvÆR†6öçFW‡BÂ%6W'fW$–æfò"ÂfÇ6R“° ¢–b‚W7F–ÖFVB’°¢F‡&÷ræWr76W'F–öäW'&÷"‚%6W'fW$–æfò&öGV6VBæòF–6²W7F–ÖFRv—F†–â#F–6·2öb'Vææ–ær6W'fW""“°¢Ğ¢òòv–FRöâW'÷6S¢F†—276W'G2F†RW7F–ÖFR—2&FR&F†W"F†âæöç6Vç6RÂæ÷BF†B¢òò†VFÆW724’'VææW"†—G2GvVçG’à¢–b‡G2ÂãÇÂG2âcã’°¢F‡&÷ræWr76W'F–öäW'&÷"‚%6W'fW$–æfòW7F–ÖFVB"²G2²"G2f÷"â–FÆR–çFVw&FVB6W'fW""“°¢Ğ¢ÄôttU"æ–æfò‚"6W'fW$–æfòW7F–ÖFVB·ÒG2g&öÒF†R6W'fW"w2÷vâF–ÖR6¶WG2"À¢7G&–æræf÷&ÖB†¦fçWF–ÂäÆö6ÆRå$ôõBÂ"Rãb"ÂG2’“°¢Ğ ¢ò¢ ¢¢&VÂ6W'fW"×6–FRvÖRÖÖöFRG&ç6—F–öâö'6W'fVBF‡&÷Vv‚F†R6Æ–VçBw2Æ–W"Æ—7Bà¢ ¢¢ÇåF†RÖöGVÆRFVÆ–&W&FVÇ’öÆÇ2F†R6Æ–VçB×f—6–&ÆRÆ—7B–ç7FVBöbFF–æræ÷F†W"6¶W@¢¢Ö—†–ââF†B¶VW2F†RfVGW&RfW'6–öâ×6fRæBÆ–Ö—G2—BFò–æf÷&ÖF–öâF†R6Æ–VçBÇ&VG¢¢†2âF†R&6VÆ–æR—2W7F&Æ—6†VBv†–ÆRF†RÆö6ÂÆ–W"—2–â7W'f—fÂÂF†VâF†R6W'fW ¢¢6†ævW2F†B6ÖRÆ–W"Fò7&VF—fS²Fö7B&÷fW2F†R6†ævRv2ö'6W'fVB&F†W"F†à¢¢ÖW&VÇ’6†÷v–ærF†RÖöGVÆRw2Væ&ÆVBæ÷F–f–6F–öâà¢¢ğ¢&—fFRfö–BvÖVÖöFTÆW'G2„6Æ–VçDvÖUFW7D6öçFW‡B6öçFW‡BÂFW7E6–ævÆWÆ–W$6öçFW‡B6–ævÆWÆ–W"’°¢FövvÆR†6öçFW‡BÂ$æ÷F–f–6F–öç2"ÂG'VR“°¢FövvÆR†6öçFW‡BÂ$vÖVÖöFTÆW'G2"ÂfÇ6R“°¢6öæf–wW&R†6öçFW‡BÂ$vÖVÖöFTÆW'G2"ÂÖöGVÆRÓâ°¢ÖöGVÆRç6WGF–æw2ç6WE6WGF–ær‚'6VÆb"ÂG'VR“°¢ÖöGVÆRç6WGF–æw2ç6WE6WGF–ær‚&÷F†W'2"ÂfÇ6R“°¢ÖöGVÆRç6WGF–æw2ç6WE6WGF–ær‚&ÖöFW2"Â&7&VF—fR"“°¢ÖöGVÆRç6WGF–æw2ç6WE6WGF–ær‚&æ÷F–g•Væ¶æ÷vâ"ÂfÇ6R“°¢Ò“° ¢6–ævÆWÆ–W"ævWE6W'fW"‚’ç'Väöå6W'fW"‡6W'fW"Óà¢6–ævÆWÆ–W"ævWD6öææV7F–öâ‚’ævWE6W'fW%Æ–W"‚’ç6WDvÖTÖöFR„vÖUG—Rå5U%d•dÂ’“°¢6öçFW‡Bçv—EF–6·2ƒ#“° ¢FövvÆR†6öçFW‡BÂ$vÖVÖöFTÆW'G2"ÂG'VR“°¢6öçFW‡Bçv—EF–6·2ƒ#“°¢–b†6öçFW‡Bæ6ö×WFTöä6Æ–VçB†æ÷F–6R‚&6†ævVBvÖVÖöFR"“£§FW7B’’°¢FövvÆR†6öçFW‡BÂ$vÖVÖöFTÆW'G2"ÂfÇ6R“°¢FövvÆR†6öçFW‡BÂ$æ÷F–f–6F–öç2"ÂfÇ6R“°¢F‡&÷ræWr76W'F–öäW'&÷"‚$vÖVÖöFTÆW'G2&W÷'FVB6†ævR&Vf÷&RF†R6W'fW"6†ævVB ¢²'F†RÆö6ÂÆ–W"w2vÖRÖöFR"“°¢Ğ ¢6–ævÆWÆ–W"ævWE6W'fW"‚’ç'Väöå6W'fW"‡6W'fW"Óà¢6–ævÆWÆ–W"ævWD6öææV7F–öâ‚’ævWE6W'fW%Æ–W"‚’ç6WDvÖTÖöFR„vÖUG—Rä5$TD•dR’“°¢&ööÆVâæ÷F–6VBÒ6WGFÆR†6öçFW‡BÂæ÷F–6R‚&6†ævVBvÖVÖöFR"“£§FW7BÂ4UEDÄUõD”4µ2“°¢FövvÆR†6öçFW‡BÂ$vÖVÖöFTÆW'G2"ÂfÇ6R“°¢FövvÆR†6öçFW‡BÂ$æ÷F–f–6F–öç2"ÂfÇ6R“° ¢–b‚æ÷F–6VB’°¢F‡&÷ræWr76W'F–öäW'&÷"‚$vÖVÖöFTÆW'G2F–Bæ÷B&W÷'BF†R&VÂ7W'f—fÂ×FòÖ7&VF—fR ¢²'G&ç6—F–öâg&öÒF†R6Æ–VçB×f—6–&ÆRÆ–W"Æ—7B"“°¢Ğ¢ÄôttU"æ–æfò‚"vÖVÖöFTÆW'G2&W÷'FVB&VÂ6VÆbvÖRÖÖöFR6†ævR"“°¢Ğ ¢ò¢ ¢¢F†R7&—B'VÆR&VBv–ç7BF†RÆ–W"w2&VÂ7FFS¢æò7&—Bv—F‚&÷F‚fVWBöâF†Rw&÷VæBÂ¢¢7&—BöâF†Rv’F÷vââæ÷F†–ær—2fVBFòF†RÖöGVÆR(	B—B&VG2F†R6ÖRÆ–W"F†RvÖRFöW2À¢¢v†–6‚—2F†RöæÇ’v’FòFVÆÂ6÷'&V7B'VÆRg&öÒöæRF†BÇv—2ç7vW'2F†R6ÖRà¢¢ğ¢&—fFRfö–B7&—D–æfò„6Æ–VçDvÖUFW7D6öçFW‡B6öçFW‡BÂFW7E6–ævÆWÆ–W$6öçFW‡B6–ævÆWÆ–W"’°¢&VF–6FSÄÖ–æV7&gCâ7&—GF–ærÒ6Æ–VçBÓà¢vÆ$†6´6Æ–VçBæÖöGVÆTÖævW"ævWDÖöGVÆR‚$7&—D–æfò"¢–ç7Fæ6VöbÖRæ×&†¶âævÆ&†6²æÖöGVÆRæ6öÖ&Bä7&—D–æfò7&—@¢bb7&—Bæ7&—E&VG’‚¢bb$7&—D–æfò·&VG•Ò"æWVÇ2†7&—BævWDF—7Æ”æÖR‚’“° ¢Ö÷fUF†W&R†6öçFW‡BÂ6–ævÆWÆ–W"Â66VæT&6Ræöfg6WBƒÂÂ#’“°¢FövvÆR†6öçFW‡BÂ$7&—D–æfò"ÂG'VR“°¢6öçFW‡Bçv—EF–6·2ƒ#“°¢–b†6öçFW‡Bæ6ö×WFTöä6Æ–VçB†7&—GF–æs£§FW7B’’°¢FövvÆR†6öçFW‡BÂ$7&—D–æfò"ÂfÇ6R“°¢F‡&÷ræWr76W'F–öäW'&÷"‚$7&—D–æfò6–B†—Bv÷VÆB7&—Bv†–ÆRF†RÆ–W"7FööB7F–ÆÂöâF†Rw&÷VæB"“°¢Ğ ¢òò7&VF—fRÂ6òF†—'G’&Æö6·2—2fÆÂ&F†W"F†âFVF‚à¢&Æö6µ÷2&÷fRÒ66VæT&6Ræöfg6WBƒÂ3Â#“°¢6–ævÆWÆ–W"ævWE6W'fW"‚’ç'Väöå6W'fW"‡6W'fW"Óâ°¢6W'fW%Æ–W"Æ–W"Ò6–ævÆWÆ–W"ævWD6öææV7F–öâ‚’ævWE6W'fW%Æ–W"‚“°¢Æ–W"çFVÆW÷'EFò†&÷fRævWE‚‚’²ãRÂ&÷fRævWE’‚’Â&÷fRævWE¢‚’²ãR“°¢Æ–W"ç6WDFVÇFÖ÷fVÖVçB…fV32å¤U$ò“°¢Ò“°¢&ööÆVâ7&—G2Ò6WGFÆR†6öçFW‡BÂ7&—GF–ærÂc“°¢FövvÆR†6öçFW‡BÂ$7&—D–æfò"ÂfÇ6R“°¢–b‚7&—G2’°¢F‡&÷ræWr76W'F–öäW'&÷"‚$7&—D–æfòæWfW"&W÷'FVB7&—F–6Âv†–ÆRF†RÆ–W"v2fÆÆ–ær ¢²'F†—'G’&Æö6·2Âv†–6‚—2W†7FÇ’F†R7FFR#bã"7&—G2–â"“°¢Ğ¢6öçFW‡Bçv—EF–6·2ƒC“°¢ÄôttU"æ–æfò‚"7&—D–æfòFöÆBw&÷VæFVBÆ–W"g&öÒfÆÆ–æröæR"“°¢Ğ ¢ò¢ ¢¢æV&Ç’v÷&âÖ÷WBVÇ—G&6†÷VÆB&RæWw2&Vf÷&RF†RfÆ–v‡BÂæ÷BGW&–ær—Bà¢ ¢¢ÇåF†RGW&&–Æ—G’f–wW&R—2&VBöfbF†Rv÷&â—FVÒ&F†W"F†âwVW76VBÂ6òF†R76W'F–öâ—2öà¢¢F†RW†7BçVÖ&W#¢ÖöGVÆRF†Bv&æVBv—F‚F†R&–v‡BFW‡BæBF†Rw&öær6÷VçBv÷VÆB&Ræğ¢¢W6RFò6öÖV&öG’FV6–F–ærv†WF†W"FòÆVæ6‚à¢¢ğ¢&—fFRfö–BVÇ—G&–æfò„6Æ–VçDvÖUFW7D6öçFW‡B6öçFW‡BÂFW7E6–ævÆWÆ–W$6öçFW‡B6–ævÆWÆ–W"’°¢òòFö7G2öæÇ’W†—7Bv†–ÆRF†Ræ÷F–f–6F–öç2ÖöGVÆR—2öã²F†RÆ–fV7–6ÆRFW7BÆVgB—Böfbà¢FövvÆR†6öçFW‡BÂ$æ÷F–f–6F–öç2"ÂG'VR“° ¢6–ævÆWÆ–W"ævWE6W'fW"‚’ç'Väöå6W'fW"‡6W'fW"Óâ°¢6W'fW%Æ–W"Æ–W"Ò6–ævÆWÆ–W"ævWD6öææV7F–öâ‚’ævWE6W'fW%Æ–W"‚“°¢—FVÕ7F6²VÇ—G&ÒæWr—FVÕ7F6²„—FV×2äTÅ•E$“°¢òòFVâW6W2ÆVgBÂvVÆÂVæFW"F†RGvVçG’×W6RFVfVÇBF‡&W6†öÆBà¢VÇ—G&ç6WDFÖvUfÇVR†VÇ—G&ævWDÖ„FÖvR‚’Ò“°¢Æ–W"ç6WD—FVÕ6Æ÷B„WV—ÖVçE6Æ÷Bä4„U5BÂVÇ—G&“°¢Ò“°¢6öçFW‡Bçv—EF–6·2ƒ#“°¢76W'Dæ÷E–WB†6öçFW‡BÂæ÷F–6R‚$VÇ—G&B"’Â&v÷&âVÇ—G&v2&W÷'FVB&Vf÷&RVÇ—G&–æfòv2Væ&ÆVB"“° ¢FövvÆR†6öçFW‡BÂ$VÇ—G&–æfò"ÂG'VR“°¢&ööÆVâv&æVBÒ6WGFÆR†6öçFW‡BÂæ÷F–6R‚$VÇ—G&BW6W2"’“°¢7G&–ærÆ&VÂÒ6öçFW‡Bæ6ö×WFTöä6Æ–VçB†6Æ–VçBÓà¢vÆ$†6´6Æ–VçBæÖöGVÆTÖævW"ævWDÖöGVÆR‚$VÇ—G&–æfò"’ævWDF—7Æ”æÖR‚’“°¢FövvÆR†6öçFW‡BÂ$VÇ—G&–æfò"ÂfÇ6R“°¢6–ævÆWÆ–W"ævWE6W'fW"‚’ç'Väöå6W'fW"‡6W'fW"Óâ6–ævÆWÆ–W"ævWD6öææV7F–öâ‚’ævWE6W'fW%Æ–W"‚¢ç6WD—FVÕ6Æ÷B„WV—ÖVçE6Æ÷Bä4„U5BÂ—FVÕ7F6²äTÕE’’“° ¢–b‚v&æVB’°¢F‡&÷ræWr76W'F–öäW'&÷"‚$VÇ—G&–æfòF–Bæ÷Bv&â&÷WBâVÇ—G&v—F‚FVâW6W2ÆVgBv—F†–â ¢²4UEDÄUõD”4µ2²"F–6·2"“°¢Ğ¢–b‚Æ&VÂç7F'G5v—F‚‚$VÇ—G&–æfò³GW""’’°¢F‡&÷ræWr76W'F–öäW'&÷"‚$VÇ—G&–æfòv&æVB'WB—G2ÖöGVÆRÖÆ—7BÆ&VÂ&VB"²Æ&VÀ¢²"&F†W"F†âF†RFVâW6W2ÆVgBöâF†Rv÷&âVÇ—G&"“°¢Ğ¢ÄôttU"æ–æfò‚"VÇ—G&–æfòv&æVB&÷WBv÷&âVÇ—G&æB6÷VçFVB—G2W6W2"“°¢Ğ ¢ò¢ ¢¢F÷FVÒ—2÷VBf÷"&VÃ¢F†RÆ–W"—2WB–â7W'f—fÂÂ†æFVBöæRÂæBFVÇBÖ÷&RFÖvP¢¢F†âF†W’†fR†VÇF‚à¢ ¢¢Çä÷&F–æ'’Öv–2FÖvR&F†W"F†â´6öFR¶–ÆÂ‚—ÒÂv†–6‚—2FvvVB2'—76–æp¢¢–çgVÆæW&&–Æ—G’æBv÷VÆBF¶RF†RÆ–W"7G&–v‡B7BF†RF÷FVÒF†R66Væ&–ò—2&÷WBà¢¢ğ¢&—fFRfö–BF÷FVÕG&6¶W"„6Æ–VçDvÖUFW7D6öçFW‡B6öçFW‡BÂFW7E6–ævÆWÆ–W$6öçFW‡B6–ævÆWÆ–W"’°¢FövvÆR†6öçFW‡BÂ$æ÷F–f–6F–öç2"ÂG'VR“°¢Ö÷fUF†W&R†6öçFW‡BÂ6–ævÆWÆ–W"Â66VæT&6Ræöfg6WBƒÂÂ3c’“°¢7G&–ærv†òÒ6öçFW‡Bæ6ö×WFTöä6Æ–VçB†6Æ–VçBÓâ6Æ–VçBçÆ–W"ævWDæÖR‚’ævWE7G&–ær‚’“° ¢6–ævÆWÆ–W"ævWE6W'fW"‚’ç'Väöå6W'fW"‡6W'fW"Óâ°¢6W'fW%Æ–W"Æ–W"Ò6–ævÆWÆ–W"ævWD6öææV7F–öâ‚’ævWE6W'fW%Æ–W"‚“°¢Æ–W"ç6WDvÖTÖöFR„vÖUG—Rå5U%d•dÂ“°¢Æ–W"ç6WD†VÇF‚‡Æ–W"ævWDÖ„†VÇF‚‚’“°¢Æ–W"ç6WD—FVÕ6Æ÷B„WV—ÖVçE6Æ÷Bäôdd„äBÂæWr—FVÕ7F6²„—FV×2åDõDTÕôôeõTäE””är’“°¢Ò“°¢6öçFW‡Bçv—EF–6·2ƒ#“° ¢FövvÆR†6öçFW‡BÂ%F÷FVÕG&6¶W""ÂG'VR“°¢&VF–6FSÄÖ–æV7&gCâ6÷VçFVBÒ6Æ–VçBÓà¢vÆ$†6´6Æ–VçBæÖöGVÆTÖævW"ævWDÖöGVÆR‚%F÷FVÕG&6¶W""¢–ç7Fæ6VöbÖRæ×&†¶âævÆ&†6²æÖöGVÆRæ6öÖ&BåF÷FVÕG&6¶W"G&6¶W ¢bbG&6¶W"ç÷4f÷"‡v†ò’ÓÒ¢bb%F÷FVÕG&6¶W"³Ò"æWVÇ2‡G&6¶W"ævWDF—7Æ”æÖR‚’“°¢–b†6öçFW‡Bæ6ö×WFTöä6Æ–VçB†6÷VçFVC£§FW7B’’°¢FövvÆR†6öçFW‡BÂ%F÷FVÕG&6¶W""ÂfÇ6R“°¢F‡&÷ræWr76W'F–öäW'&÷"‚%F÷FVÕG&6¶W"6÷VçFVB÷&Vf÷&Rç’F÷FVÒ†B&VVâW6VB"“°¢Ğ ¢6–ævÆWÆ–W"ævWE6W'fW"‚’ç'Väöå6W'fW"‡6W'fW"Óâ°¢6W'fW%Æ–W"Æ–W"Ò6–ævÆWÆ–W"ævWD6öææV7F–öâ‚’ævWE6W'fW%Æ–W"‚“°¢Æ–W"æ‡W'E6W'fW"‡Æ–W"æÆWfVÂ‚’ÂÆ–W"æÆWfVÂ‚’æFÖvU6÷W&6W2‚’æÖv–2‚’Âãb“°¢Ò“°¢&ööÆVâ6u÷Ò6WGFÆR†6öçFW‡BÂ6÷VçFVB“°¢&ööÆVâææ÷Væ6VBÒ6öçFW‡Bæ6ö×WFTöä6Æ–VçB†æ÷F–6R‚'÷VBF÷FVÒ‡6VVâ’"“£§FW7B“°¢FövvÆR†6öçFW‡BÂ%F÷FVÕG&6¶W""ÂfÇ6R“° ¢6–ævÆWÆ–W"ævWE6W'fW"‚’ç'Väöå6W'fW"‡6W'fW"Óâ°¢6W'fW%Æ–W"Æ–W"Ò6–ævÆWÆ–W"ævWD6öææV7F–öâ‚’ævWE6W'fW%Æ–W"‚“°¢Æ–W"ç6WD—FVÕ6Æ÷B„WV—ÖVçE6Æ÷Bäôdd„äBÂ—FVÕ7F6²äTÕE’“°¢Æ–W"ç6WD†VÇF‚‡Æ–W"ævWDÖ„†VÇF‚‚’“°¢Æ–W"ç6WDvÖTÖöFR„vÖUG—Rä5$TD•dR“°¢òòF÷FVÒÆVfW2&VvVæW&F–öâæB'6÷'F–öâ'Vææ–ærf÷"F†RæW‡Bf÷'G’Öf—fR6V6öæG2À¢òòæBF†V—"'F–6ÆW2G&–gBF‡&÷Vv‚F†R6ÖW&âF†R&VæFW"66Væ&–÷2F†BföÆÆ÷p¢òòÖV7W&R7F–ÆÂg&ÖRv–ç7B7F–ÆÂg&ÖRÂæBF†B—2æ÷B7F–ÆÂà¢Æ–W"ç&VÖ÷fTÆÄVffV7G2‚“°¢Ò“°¢6öçFW‡Bçv—EF–6·2ƒ“° ¢–b‚6u÷’°¢F‡&÷ræWr76W'F–öäW'&÷"‚%F÷FVÕG&6¶W"F–Bæ÷B6÷VçBF†RF÷FVÒF†RÆ–W"§W7B÷VBv—F†–â ¢²4UEDÄUõD”4µ2²"F–6·2"“°¢Ğ¢–b‚ææ÷Væ6VB’°¢F‡&÷ræWr76W'F–öäW'&÷"‚%F÷FVÕG&6¶W"6÷VçFVBF†R÷'WBV&Æ—6†VBæòæ÷F–f–6F–öâ&÷WB—B"“°¢Ğ¢ÄôttU"æ–æfò‚"F÷FVÕG&6¶W"6÷VçFVBF÷FVÒF†RÆ–W"7GVÆÇ’÷VB"“°¢Ğ ¢ò¢ ¢¢F†RÆörf–ÆÇ2g&öÒ6öÖ&BÂæ÷Bg&öÒ&V–ær7v—F6†VBöââF†R6öçG&öÂ†Æb—2F†Rö–çC¢F†P¢¢ÖöGVÆR6—G2Væ&ÆVBv—F‚¦öÖ&–R–âg&öçBöb—BæB&V6÷&G2æ÷F†–ærVçF–ÂW&Âv†–6‚—2v†@¢¢6WG2F†R6†&VBF&vWBÂ—27v—F6†VBöâFöòà¢¢ğ¢ò¢ ¢¢v†WF†W"F†RFÖvRÖVæ6†çFÖVçBfÖ–Æ–W2&R7GVÆÇ’&V6övæ—6VBöâÆ—fR6Æ–VçBà¢ ¢¢Çç´6öFR–çfVçF÷'•6W'f–6RæfÖ–Ç”ögÒFV6–FW2v†WF†W"6Ö—FR÷"&æRöb'F‡&÷öG2vV–v‡F–æp¢¢Æ–W2ÂæB—BFV6–FW2—B'’6¶–ærv†WF†W"F†RVçF—G’G—R—2–âfæ–ÆÆFrâVçF—G’×G—P¢¢Fw2&RFFÂ6VçB'’F†R6W'fW"æB&÷VæBöçFòF†R&Vv—7G'’†öÆFW'2v†VâF†W’'&—fRÂ6òF†P¢¢v†öÆR'VÆR6âV–WFÇ’ç7vW"tTäU$”2f÷"WfW'—F†–ær–bF†B&–æF–ær—2æ÷BF†W&RöâF†P¢¢6Æ–VçBÒv—F‚æòW†6WF–öâæBæòÆörÆ–æRâæ÷F†–ærFW7FVB—C¢WFõvVöâw2÷vâ66Væ&–ò–×0¢¢Bâ&Ö÷W"7FæBÂv†–6‚—2tTäU$”2Â6ò&÷F‚FvvVB'&æ6†W2vW&RVæW†W&6—6VBà¢ ¢¢ÇåF†—27vç2F†RGvòÖö'2F†RFw2W†—7Bf÷"æB76W'G2F†R6Æ76–f–6F–öâF—&V7FÇ’Âv†–6€¢¢Ç6òÖ¶W2F†RÖ–w&F–öâöbF†RFW&V6FVB&Vv—7G'’66W76÷"&V†–æB—B6†ævRv—F‚FW7@¢¢VæFW"—B&F†W"F†â†÷VgVÂVF—Bà¢¢ğ¢&—fFRfö–BvVöäfÖ–Æ–W2„6Æ–VçDvÖUFW7D6öçFW‡B6öçFW‡BÂFW7E6–ævÆWÆ–W$6öçFW‡B6–ævÆWÆ–W"’°¢Ö÷fUF†W&R†6öçFW‡BÂ6–ævÆWÆ–W"Â66VæT&6Ræöfg6WBƒÂÂ#’“°¢–çEµÒ–G2Ò6–ævÆWÆ–W"ævWE6W'fW"‚’æ6ö×WFTöå6W'fW"‡6W'fW"Óâ°¢6W'fW%Æ–W"Æ–W"Ò6–ævÆWÆ–W"ævWD6öææV7F–öâ‚’ævWE6W'fW%Æ–W"‚“°¢6ÆV$VçF—F–W2‡Æ–W"æÆWfVÂ‚’“°¢&Æö6µ÷2†W&RÒÆ–W"æ&Æö6µ÷6—F–öâ‚“°¢f"¦öÖ&–RÒVçF—G•G—W2å¤ôÔ$”Rç7vâ‡Æ–W"æÆWfVÂ‚’Â†W&Ræöfg6WBƒ"ÂÂ’À¢VçF—G•7vå&V6öâä4ôÔÔäB“°¢f"7–FW"ÒVçF—G•G—W2å5”DU"ç7vâ‡Æ–W"æÆWfVÂ‚’Â†W&Ræöfg6WB‚Ó"ÂÂ’À¢VçF—G•7vå&V6öâä4ôÔÔäB“°¢f"–rÒVçF—G•G—W2å”rç7vâ‡Æ–W"æÆWfVÂ‚’Â†W&Ræöfg6WBƒÂÂ"’À¢VçF—G•7vå&V6öâä4ôÔÔäB“°¢–b‡¦öÖ&–RÓÒçVÆÂÇÂ7–FW"ÓÒçVÆÂÇÂ–rÓÒçVÆÂ’°¢F‡&÷ræWr76W'F–öäW'&÷"‚&6÷VÆBæ÷B7vâF†RF‡&VRÖö'2F†—266Væ&–ò6Æ76–f–W2"“°«ZŠW«®Šğ®+b-jwZ­Ú.¶›­º$zzb¥æÚ±î¸Â¸­yêë¢°k¢G§¦*^            }
+        // taken at a fixed moment rather than when the sweep happens to finish.
+        configure(context, "SpawnESP", module -> {
+            module.settings.setSetting("horizontalRange", 12.0);
+            module.settings.setSetting("verticalRange", 4.0);
+        });
+
+        moveThere(context, singleplayer, sceneBase.offset(0, 0, 180));
+        singleplayer.getServer().runOnServer(server -> {
+            ServerPlayer player = singleplayer.getConnection().getServerPlayer();
+            ServerLevel level = player.level();
+            clearEntities(level);
+            BlockPos centre = player.blockPosition();
+            // A sealed shell: walls, and a roof three blocks up so there is standing room under it.
+            // The floor is replaced too, because superflat's grass dies once it is roofed over and
+            // each death is a block update that sends the scan back to the start.
+            for (int dx = -4; dx <= 4; dx++) {
+                for (int dz = -4; dz <= 4; dz++) {
+                    level.setBlockAndUpdate(centre.offset(dx, -1, dz), Blocks.STONE.defaultBlockState());
+                    level.setBlockAndUpdate(centre.offset(dx, 3, dz), Blocks.OBSIDIAN.defaultBlockState());
+                    for (int dy = 0; dy <= 2; dy++) {
+                        boolean wall = Math.abs(dx) == 4 || Math.abs(dz) == 4;
+                        level.setBlockAndUpdate(centre.offset(dx, dy, dz), wall
+                                ? Blocks.OBSIDIAN.defaultBlockState() : Blocks.AIR.defaultBlockState());
+                    }
+                }
+            }
+        });
+        singleplayer.getConnection().waitForChunksRender();
+        // Long enough for the light engine to darken the sealed volume before anything is scanned.
+        context.waitTicks(80);
+        // At the floor, where the markers go.
+        context.getInput().lookAt(0.0f, 60.0f);
+        context.waitTicks(20);
+        drawsSomething(context, "SpawnESP", "markers on a dark floor", 0.25, 0.75,
+                client -> AgalarHackClient.moduleManager.getModule("SpawnESP")
+                        instanceof me.mrhakan.agalarhack.module.render.SpawnESP spawn
+                        && !spawn.results().isEmpty());
+    }
+
+    /**
+     * A module whose whole job is to reconfigure a shared service, so the service is the evidence.
+     *
+     * <p>The restore half is the one worth asserting. A client left on the low profile after the
+     * module was switched off would scan slowly for the rest of the session, and nothing on screen
+     * would say why.
+     */
+    private void performance(ClientGameTestContext context) {
+        var builtIn = me.mrhakan.agalarhack.services.scanning.ScanBudgets.BALANCED;
+        var wanted = me.mrhakan.agalarhack.services.scanning.ScanBudgets.forProfile("low");
+        var before = scanBudgets(context);
+        if (!builtIn.equals(before)) {
+            throw new AssertionError("the shared scanner was already off its built-in ceiling (" + before
+                    + ") before Performance ran; the scenario proves nothing in that state");
+        }
+
+        configure(context, "Performance", module -> module.settings.setSetting("scanBudget", "low"));
+        toggle(context, "Performance", true);
+        context.waitTicks(8);
+        var applied = scanBudgets(context);
+        toggle(context, "Performance", false);
+        context.waitTicks(8);
+        var restored = scanBudgets(context);
+
+        if (!wanted.equals(applied)) {
+            throw new AssertionError("Performance on the low profile left the shared scanner at "
+                    + applied + " instead of " + wanted);
+        }
+        if (!builtIn.equals(restored)) {
+            throw new AssertionError("Performance left the shared scanner at " + restored
+                    + " after being disabled instead of restoring " + builtIn);
+        }
+        LOGGER.info("  Performance lowered the shared scanning ceiling and gave it back");
+    }
+
+    private static me.mrhakan.agalarhack.services.scanning.ScanBudgets scanBudgets(ClientGameTestContext context) {
+        return context.computeOnClient(client -> me.mrhakan.agalarhack.services.ClientServices.require(
+                me.mrhakan.agalarhack.services.ScannerService.class).budgets());
+    }
+
+    /**
+     * The tick figure is an estimate built from how far apart the server's world-time packets
+     * arrive, so the scenario waits for real packets rather than feeding the module anything.
+     *
+     * <p>Ping is deliberately not asserted: the integrated server reports a latency of zero, which
+     * the module correctly declines to record as a sample.
+     */
+    private void serverInfo(ClientGameTestContext context) {
+        Predicate<Minecraft> estimating = client ->
+                AgalarHackClient.moduleManager.getModule("ServerInfo")
+                        instanceof me.mrhakan.agalarhack.module.misc.ServerInfo info
+                        && info.tickEstimate().hasEstimate()
+                        && info.getDisplayName().startsWith("ServerInfo [");
+        assertNotYet(context, estimating, "ServerInfo already had a tick estimate before it was enabled");
+
+        toggle(context, "ServerInfo", true);
+        // World time arrives once every twenty ticks and two of them make the first interval.
+        boolean estimated = settle(context, estimating, 200);
+        double tps = context.computeOnClient(client ->
+                ((me.mrhakan.agalarhack.module.misc.ServerInfo) AgalarHackClient.moduleManager
+                        .getModule("ServerInfo")).tickEstimate().average());
+        toggle(context, "ServerInfo", false);
+
+        if (!estimated) {
+            throw new AssertionError("ServerInfo produced no tick estimate within 200 ticks of a running server");
+        }
+        // Wide on purpose: this asserts the estimate is a rate rather than nonsense, not that a
+        // headless CI runner hits twenty.
+        if (tps < 1.0 || tps > 60.0) {
+            throw new AssertionError("ServerInfo estimated " + tps + " tps for an idle integrated server");
+        }
+        LOGGER.info("  ServerInfo estimated {} tps from the server's own time packets",
+                String.format(java.util.Locale.ROOT, "%.1f", tps));
+    }
+
+    /**
+     * A real server-side game-mode transition observed through the client's player list.
+     *
+     * <p>The module deliberately polls the client-visible list instead of adding another packet
+     * mixin. That keeps the feature version-safe and limits it to information the client already
+     * has. The baseline is established while the local player is in survival, then the server
+     * changes that same player to creative; a toast proves the change was observed rather than
+     * merely showing the module's enabled notification.
+     */
+    private void gamemodeAlerts(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        toggle(context, "Notifications", true);
+        toggle(context, "GamemodeAlerts", false);
+        configure(context, "GamemodeAlerts", module -> {
+            module.settings.setSetting("self", true);
+            module.settings.setSetting("others", false);
+            module.settings.setSetting("modes", "creative");
+            module.settings.setSetting("notifyUnknown", false);
+        });
+
+        singleplayer.getServer().runOnServer(server ->
+                singleplayer.getConnection().getServerPlayer().setGameMode(GameType.SURVIVAL));
+        context.waitTicks(20);
+
+        toggle(context, "GamemodeAlerts", true);
+        context.waitTicks(20);
+        if (context.computeOnClient(notice("changed gamemode")::test)) {
+            toggle(context, "GamemodeAlerts", false);
+            toggle(context, "Notifications", false);
+            throw new AssertionError("GamemodeAlerts reported a change before the server changed "
+                    + "the local player's game mode");
+        }
+
+        singleplayer.getServer().runOnServer(server ->
+                singleplayer.getConnection().getServerPlayer().setGameMode(GameType.CREATIVE));
+        boolean noticed = settle(context, notice("changed gamemode")::test, SETTLE_TICKS);
+        toggle(context, "GamemodeAlerts", false);
+        toggle(context, "Notifications", false);
+
+        if (!noticed) {
+            throw new AssertionError("GamemodeAlerts did not report the real survival-to-creative "
+                    + "transition from the client-visible player list");
+        }
+        LOGGER.info("  GamemodeAlerts reported a real self game-mode change");
+    }
+
+    /**
+     * The crit rule read against the player's real state: no crit with both feet on the ground, a
+     * crit on the way down. Nothing is fed to the module â€” it reads the same player the game does,
+     * which is the only way to tell a correct rule from one that always answers the same.
+     */
+    private void critInfo(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        Predicate<Minecraft> critting = client ->
+                AgalarHackClient.moduleManager.getModule("CritInfo")
+                        instanceof me.mrhakan.agalarhack.module.combat.CritInfo crit
+                        && crit.critReady()
+                        && "CritInfo [ready]".equals(crit.getDisplayName());
+
+        moveThere(context, singleplayer, sceneBase.offset(0, 0, 210));
+        toggle(context, "CritInfo", true);
+        context.waitTicks(20);
+        if (context.computeOnClient(critting::test)) {
+            toggle(context, "CritInfo", false);
+            throw new AssertionError("CritInfo said a hit would crit while the player stood still on the ground");
+        }
+
+        // Creative, so thirty blocks is a fall rather than a death.
+        BlockPos above = sceneBase.offset(0, 30, 210);
+        singleplayer.getServer().runOnServer(server -> {
+            ServerPlayer player = singleplayer.getConnection().getServerPlayer();
+            player.teleportTo(above.getX() + 0.5, above.getY(), above.getZ() + 0.5);
+            player.setDeltaMovement(Vec3.ZERO);
+        });
+        boolean crits = settle(context, critting, 60);
+        toggle(context, "CritInfo", false);
+        if (!crits) {
+            throw new AssertionError("CritInfo never reported a critical while the player was falling "
+                    + "thirty blocks, which is exactly the state 26.2 crits in");
+        }
+        context.waitTicks(40);
+        LOGGER.info("  CritInfo told a grounded player from a falling one");
+    }
+
+    /**
+     * A nearly worn-out elytra should be news before the flight, not during it.
+     *
+     * <p>The durability figure is read off the worn item rather than guessed, so the assertion is on
+     * the exact number: a module that warned with the right text and the wrong count would be no
+     * use to somebody deciding whether to launch.
+     */
+    private void elytraInfo(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        // Toasts only exist while the Notifications module is on; the lifecycle test left it off.
+        toggle(context, "Notifications", true);
+
+        singleplayer.getServer().runOnServer(server -> {
+            ServerPlayer player = singleplayer.getConnection().getServerPlayer();
+            ItemStack elytra = new ItemStack(Items.ELYTRA);
+            // Ten uses left, well under the twenty-use default threshold.
+            elytra.setDamageValue(elytra.getMaxDamage() - 10);
+            player.setItemSlot(EquipmentSlot.CHEST, elytra);
+        });
+        context.waitTicks(20);
+        assertNotYet(context, notice("Elytra at "), "a worn elytra was reported before ElytraInfo was enabled");
+
+        toggle(context, "ElytraInfo", true);
+        boolean warned = settle(context, notice("Elytra at 10 uses"));
+        String label = context.computeOnClient(client ->
+                AgalarHackClient.moduleManager.getModule("ElytraInfo").getDisplayName());
+        toggle(context, "ElytraInfo", false);
+        singleplayer.getServer().runOnServer(server -> singleplayer.getConnection().getServerPlayer()
+                .setItemSlot(EquipmentSlot.CHEST, ItemStack.EMPTY));
+
+        if (!warned) {
+            throw new AssertionError("ElytraInfo did not warn about an elytra with ten uses left within "
+                    + SETTLE_TICKS + " ticks");
+        }
+        if (!label.startsWith("ElytraInfo [10 dur")) {
+            throw new AssertionError("ElytraInfo warned but its module-list label read " + label
+                    + " rather than the ten uses left on the worn elytra");
+        }
+        LOGGER.info("  ElytraInfo warned about a worn elytra and counted its uses");
+    }
+
+    /**
+     * A totem is popped for real: the player is put in survival, handed one, and dealt more damage
+     * than they have health.
+     *
+     * <p>Ordinary magic damage rather than {@code kill()}, which is tagged as bypassing
+     * invulnerability and would take the player straight past the totem the scenario is about.
+     */
+    private void totemTracker(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        toggle(context, "Notifications", true);
+        moveThere(context, singleplayer, sceneBase.offset(0, 0, 360));
+        String who = context.computeOnClient(client -> client.player.getName().getString());
+
+        singleplayer.getServer().runOnServer(server -> {
+            ServerPlayer player = singleplayer.getConnection().getServerPlayer();
+            player.setGameMode(GameType.SURVIVAL);
+            player.setHealth(player.getMaxHealth());
+            player.setItemSlot(EquipmentSlot.OFFHAND, new ItemStack(Items.TOTEM_OF_UNDYING));
+        });
+        context.waitTicks(20);
+
+        toggle(context, "TotemTracker", true);
+        Predicate<Minecraft> counted = client ->
+                AgalarHackClient.moduleManager.getModule("TotemTracker")
+                        instanceof me.mrhakan.agalarhack.module.combat.TotemTracker tracker
+                        && tracker.popsFor(who) == 1
+                        && "TotemTracker [1]".equals(tracker.getDisplayName());
+        if (context.computeOnClient(counted::test)) {
+            toggle(context, "TotemTracker", false);
+            throw new AssertionError("TotemTracker counted a pop before any totem had been used");
+        }
+
+        singleplayer.getServer().runOnServer(server -> {
+            ServerPlayer player = singleplayer.getConnection().getServerPlayer();
+            player.hurtServer(player.level(), player.level().damageSources().magic(), 1000.0f);
+        });
+        boolean sawPop = settle(context, counted);
+        boolean announced = context.computeOnClient(notice("popped 1 totem (seen)")::test);
+        toggle(context, "TotemTracker", false);
+
+        singleplayer.getServer().runOnServer(server -> {
+            ServerPlayer player = singleplayer.getConnection().getServerPlayer();
+            player.setItemSlot(EquipmentSlot.OFFHAND, ItemStack.EMPTY);
+            player.setHealth(player.getMaxHealth());
+            player.setGameMode(GameType.CREATIVE);
+            // A totem leaves regeneration and absorption running for the next forty-five seconds,
+            // and their particles drift through the camera. The render scenarios that follow
+            // measure a still frame against a still frame, and that is not still.
+            player.removeAllEffects();
+        });
+        context.waitTicks(10);
+
+        if (!sawPop) {
+            throw new AssertionError("TotemTracker did not count the totem the player just popped within "
+                    + SETTLE_TICKS + " ticks");
+        }
+        if (!announced) {
+            throw new AssertionError("TotemTracker counted the pop but published no notification about it");
+        }
+        LOGGER.info("  TotemTracker counted a totem the player actually popped");
+    }
+
+    /**
+     * The log fills from combat, not from being switched on. The control half is the point: the
+     * module sits enabled with a zombie in front of it and records nothing until Aura, which is what
+     * sets the shared target, is switched on too.
+     */
+    /**
+     * Whether the damage-enchantment families are actually recognised on a live client.
+     *
+     * <p>{@code InventoryService.familyOf} decides whether Smite or Bane of Arthropods weighting
+     * applies, and it decides it by asking whether the entity type is in a vanilla tag. Entity-type
+     * tags are data, sent by the server and bound onto the registry holders when they arrive, so the
+     * whole rule can quietly answer GENERIC for everything if that binding is not there on the
+     * client - with no exception and no log line. Nothing tested it: AutoWeapon's own scenario aims
+     * at an armour stand, which is GENERIC, so both tagged branches were unexercised.
+     *
+     * <p>This spawns the two mobs the tags exist for and asserts the classification directly, which
+     * also makes the migration of the deprecated registry accessor behind it a change with a test
+     * under it rather than a hopeful edit.
+     */
+    private void weaponFamilies(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        moveThere(context, singleplayer, sceneBase.offset(0, 0, 200));
+        int[] ids = singleplayer.getServer().computeOnServer(server -> {
+            ServerPlayer player = singleplayer.getConnection().getServerPlayer();
+            clearEntities(player.level());
+            BlockPos here = player.blockPosition();
+            var zombie = EntityTypes.ZOMBIE.spawn(player.level(), here.offset(2, 0, 0),
+                    EntitySpawnReason.COMMAND);
+            var spider = EntityTypes.SPIDER.spawn(player.level(), here.offset(-2, 0, 0),
+                    EntitySpawnReason.COMMAND);
+            var pig = EntityTypes.PIG.spawn(player.level(), here.offset(0, 0, 2),
+                    EntitySpawnReason.COMMAND);
+            if (zombie == null || spider == null || pig == null) {
+                throw new AssertionError("could not spawn the three mobs this scenario classifies");
+            }
             zombie.setNoAi(true);
             spider.setNoAi(true);
             pig.setNoAi(true);
@@ -994,8 +1662,313 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
                     + "the scenario proves nothing in that state");
         }
 
-        toggle(context, "Autµ¨¥zºè¯
-â¶)à²Ö§uªİ¢ëiºĞk¢G§¦*^m«ëŒ+Š×®º+º$zzb¥æõ&W7vâ"ÂG'VR“°¢&ööÆVâ&W7væVBÒ6WGFÆR†6öçFW‡BÂöäFVF…67&VVâææVvFR‚’Â4UEDÄUõD”4µ2¢"“°¢FövvÆR†6öçFW‡BÂ$WFõ&W7vâ"ÂfÇ6R“°¢6–ævÆWÆ–W"ævWE6W'fW"‚’ç'Väöå6W'fW"‡6W'fW"Óà¢6–ævÆWÆ–W"ævWD6öææV7F–öâ‚’ævWE6W'fW%Æ–W"‚’ç6WDvÖTÖöFR„vÖUG—Rä5$TD•dR’“° ¢–b‚&W7væVB’°¢F‡&÷ræWr76W'F–öäW'&÷"‚$WFõ&W7vâÆVgBF†RÆ–W"öâF†RFVF‚67&VVâf÷" ¢²…4UEDÄUõD”4µ2¢"’²"F–6·2"“°¢Ğ¢ÄôttU"æ–æfò‚"WFõ&W7vâ6ÆV&VBFVF‚67&VVâF†RvÖRÆVgB7FæF–ær"“°¢Ğ ¢ò¢ ¢¢F†R67B—2&VÂæBF†R&—FR—2æ÷Bà¢ ¢¢Çä67F–ær—276W'FVBVæBFòVæC¢&öBvöW2–âF†R†÷F&"ÂF†RÖöGVÆR—27v—F6†VBöâÂæB¢¢f—6†–ær†öö²V'2&V6W6RF†RÖöGVÆR6VÆV7FVBF†R6Æ÷BæB&W76VBW6Râæ÷F†–ær&÷WBF†@¢¢—26–×VÆFVBà¢ ¢¢ÇåF†R&—FR—2â6W'fW"–6·2—G2÷vâÖöÖVçB&WGvVVâf—fRæBF†—'G’6V6öæG2Âv†–6‚—2Æöæp¢¢F–ÖRFò†öÆBFW7B÷Vâf÷"&W7VÇBF†B—26ö–âF÷72öâ6Æ÷r'VææW"âv†BF†RÖöGVÆP¢¢7GVÆÇ’vF6†W2f÷"—2F†R&ö&&W"&V–ærVÆÆVBVæFW"(	B—B6—26òÂæB—B6ææ÷B¶æ÷rf—6€¢¢—2F†W&R(	B6òF†R&ö&&W"—2VÆÆVBVæFW"öâF†R6W'fW"–ç7FVBâF†B—2F†R7VR&W&öGV6VBÀ¢¢æ÷BF†RÖöGVÆRw2FV6—6–öã¢v†WF†W"—B&VVÇ2–âÂ†÷rÆöær—Bv—G2æBv†WF†W"—B67G2v–à¢¢&R7F–ÆÂVçF—&VÇ’F†RÖöGVÆRw2âf—6†–ærv–ç7B&VÂ6W'fW"öâ&VÂ6F6‚7F—2öâF†P¢¢ÖçVÂ66WFæ6RÆ—7Bà¢¢ğ¢&—fFRfö–BWFôf—6‚„6Æ–VçDvÖUFW7D6öçFW‡B6öçFW‡BÂFW7E6–ævÆWÆ–W$6öçFW‡B6–ævÆWÆ–W"’°¢Ö÷fUF†W&R†6öçFW‡BÂ6–ævÆWÆ–W"Â66VæT&6Ræöfg6WBƒÂÂ3“’“°¢&Æö6µ÷2ööÂÒ6–ævÆWÆ–W"ævWE6W'fW"‚’æ6ö×WFTöå6W'fW"‡6W'fW"Óâ°¢6W'fW%Æ–W"Æ–W"Ò6–ævÆWÆ–W"ævWD6öææV7F–öâ‚’ævWE6W'fW%Æ–W"‚“°¢6W'fW$ÆWfVÂÆWfVÂÒÆ–W"æÆWfVÂ‚“°¢6ÆV$VçF—F–W2†ÆWfVÂ“°¢òòv–FRööÂ7F'F–ærF‡&VR&Æö6·2†VBÂGvòFVW6ò&ö&&W"fÆöG2&F†W"F†à¢òò&W7F–æröâF†R&÷GFöÒâæòvÆÂ—2'V–ÇB&÷VæB—C¢F†RVçF÷V6†VB7WW&fÆBFW'&–â@¢òòF†R6ÖRFWF‚Ç&VG’†öÆG2F†RvFW"–ââF†Rf—'7BfW'6–öâ&—6VB7FöæRÆ—æ@¢òòF†RÆ—7FööBB†VB†V–v‡B&WGvVVâF†RÆ–W"æBF†RvFW"Â6òWfW'’67B†—B—BĞ¢òòv†–6‚F†R66Væ&–ò&W÷'FVB2F†R&ö&&W"æWfW"&V6†–ærF†RvFW"Â6÷'&V7FÇ’à¢&Æö6µ÷26VçG&RÒÆ–W"æ&Æö6µ÷6—F–öâ‚’æöfg6WBƒ‚ÂÂ“°¢f÷"†–çBG‚ÒÓs²G‚ÃÒs²G‚²²’°¢f÷"†–çBG¢ÒÓs²G¢ÃÒs²G¢²²’°¢ÆWfVÂç6WD&Æö6´æEWFFR†6VçG&Ræöfg6WB†G‚ÂÂG¢’Â&Æö6·2ä•"æFVfVÇD&Æö6µ7FFR‚’“°¢f÷"†–çBG’ÒÓ#²G’ÃÒÓ²G’²²’°¢ÆWfVÂç6WD&Æö6´æEWFFR†6VçG&Ræöfg6WB†G‚ÂG’ÂG¢’Â&Æö6·2åtDU"æFVfVÇD&Æö6µ7FFR‚’“°¢Ğ¢Ğ¢Ğ¢&WGW&â6VçG&S°¢Ò“°¢6–ævÆWÆ–W"ævWD6öææV7F–öâ‚’çv—Df÷$6‡Væ·5&VæFW"‚“°¢6WD–çfVçF÷'’‡6–ævÆWÆ–W"Â6Æ÷G2Óâ°¢6Æ÷G2ç6WD—FVÒƒÂæWr—FVÕ7F6²„—FV×2äd•4„”äuõ$ôB’“°¢6Æ÷G2ç6WD—FVÒƒÂæWr—FVÕ7F6²„—FV×2äd•4„”äuõ$ôB’“°¢6Æ÷G2ç6WE6VÆV7FVE6Æ÷Bƒ“°¢Ò“°¢òò6WD–çfVçF÷'’VF—G2F†R6W'fW"Æ–W"w2–çfVçF÷'’æB'&öF67G26öçF–æW"6Æ÷G2Â'WBF†P¢òò6VÆV7FVB†÷F&"–æFW‚—2æ÷B6öçF–æW"6Æ÷BâÖ—'&÷"—BFòF†R6Æ–VçBFöò6òF†—0¢òò66Væ&–ò7F'G2v—F‚F†R6ÖR6VÆV7FVB&öBöâ&÷F‚6–FW2öbF†R6–ævÆWÆ–W"6öææV7F–öâà¢6öçFW‡Bç'Väöä6Æ–VçB†6Æ–VçBÓâ6Æ–VçBçÆ–W"ævWD–çfVçF÷'’‚’ç6WE6VÆV7FVE6Æ÷Bƒ’“°¢òòBF†RÖ–FFÆRöbF†RööÂâ—B—2F†—'FVVâ&Æö6·27&÷72Â6òç’÷&F–æ'’67BÆæG2–â—Bà¢6öçFW‡BævWD–çWB‚’æÆöö´B‡ööÂ“°¢6öçFW‡Bçv—EF–6·2ƒ#“°¢–b†6öçFW‡Bæ6ö×WFTöä6Æ–VçB†6Æ–VçBÓâ6Æ–VçBçÆ–W"ævWD–çfVçF÷'’‚’ævWE6VÆV7FVE6Æ÷B‚’’Ò’°¢F‡&÷ræWr76W'F–öäW'&÷"‚$WFôf—6‚vÖR×FW7B6WGWF–Bæ÷B6VÆV7BF†R–çFVæFVB&öBöâF†R6Æ–VçB"“°¢Ğ ¢&VF–6FSÄÖ–æV7&gCâ†öö¶VBÒ6Æ–VçBÓâ6Æ–VçBçÆ–W"æf—6†–ærÒçVÆÂbb6Æ–VçBçÆ–W"æf—6†–æræ—4Æ—fR‚“°¢76W'Dæ÷E–WB†6öçFW‡BÂ†öö¶VBÂ&f—6†–ær†öö²v2Ç&VG’÷WB&Vf÷&RWFôf—6‚&â"“° ¢FövvÆR†6öçFW‡BÂ$WFôf—6‚"ÂG'VR“°¢&ööÆVâ67BÒ6WGFÆR†6öçFW‡BÂ†öö¶VB“°¢–b‚67B’°¢FövvÆR†6öçFW‡BÂ$WFôf—6‚"ÂfÇ6R“°¢F‡&÷ræWr76W'F–öäW'&÷"‚$WFôf—6‚æWfW"67Bv—F‚&öB–âF†R6VÆV7FVB†÷F&"6Æ÷B"“°¢Ğ¢–çB6VÆV7FVE&öBÒ6öçFW‡Bæ6ö×WFTöä6Æ–VçB†6Æ–VçBÓâ6Æ–VçBçÆ–W"ævWD–çfVçF÷'’‚’ævWE6VÆV7FVE6Æ÷B‚’“°¢–b‡6VÆV7FVE&öBÒ’°¢FövvÆR†6öçFW‡BÂ$WFôf—6‚"ÂfÇ6R“°¢F‡&÷ræWr76W'F–öäW'&÷"‚$WFôf—6‚6†ævVBF†R6VÆV7FVBf—6†–ær&öBg&öÒ6Æ÷BFò6Æ÷B"²6VÆV7FVE&öB“°¢Ğ¢òòv—F–ærf÷"F†R&ö&&W"Fò6WGFÆR–âF†RvFW#¢F†RFWFV7F÷"–væ÷&W2†öö²F†B—2æ÷B–â—Bà¢fV327F'BÒ÷6—F–öâ†6öçFW‡B“°¢&ööÆVâfÆöF–ærÒ6WGFÆR†6öçFW‡BÂ6Æ–VçBÓâ6Æ–VçBçÆ–W"æf—6†–ærÒçVÆÀ¢bb6Æ–VçBçÆ–W"æf—6†–æræ—4–åvFW"‚’“°¢7G&–ær&ö&&W"Ò6öçFW‡Bæ6ö×WFTöä6Æ–VçB†6Æ–VçBÓâ6Æ–VçBçÆ–W"æf—6†–ærÓÒçVÆÂò&vöæR ¢¢&B"²6Æ–VçBçÆ–W"æf—6†–ærç÷6—F–öâ‚’²"–åvFW#Ò ¢²6Æ–VçBçÆ–W"æf—6†–æræ—4–åvFW"‚’²"öäw&÷VæCÒ ¢²6Æ–VçBçÆ–W"æf—6†–æræöäw&÷VæB‚’“°¢–çBf—'7D†öö²Ò6öçFW‡Bæ6ö×WFTöä6Æ–VçB†6Æ–VçBÓâ6Æ–VçBçÆ–W"æf—6†–ærævWD–B‚’“° ¢òò¶VWVÆÆ–ærF†R&ö&&W"VæFW"VçF–ÂF†RÖöGVÆR&V7G2Â&F†W"F†âW6†–ær—Böæ6Rà¢òğ¢òòöæR–×VÇ6Rv26ö–âF÷72ÂæB—BÆ÷7B4’'Vã¢F†R6W'fW"6WG2F†RfVÆö6—G’ÂF†P¢òò6Æ–VçBw2÷vâ†öö²‡—6–72F†VâÇ’vFW"G&ræB'V÷–æ7’öâF÷öb—BÂæBF†RÖöGVÆP¢òòöæÇ’&VVÇ2–b—B†Vç2Fò6×ÆRF–6²v†W&RF†R6Æ–VçBw26÷’—27F–ÆÂFW66VæF–æp¢òòf7FW"F†âF†RFWFV7F÷"w2F‡&W6†öÆBâ&VÂ&—FR—2ÇVævRÆ7F–ær6WfW&ÂF–6·2ÒF†@¢òò—2v‡’F†RFWFV7F÷"7W&W76W2&WVG2BÆÂÒ6òF†—2&W&öGV6W2ÇVævR–ç7FVBöb¢òò6–ævÆRg&ÖRöböæRâ—BFöW2æ÷B&VÆ‚v†B—276W'FVC¢F†R7VR—27F–ÆÂöæÇ’&ö&&W ¢òòÖ÷f–ærF÷vâÂæBv†WF†W"Fò&VVÂ—27F–ÆÂVçF—&VÇ’F†RÖöGVÆRw2FV6—6–öâà¢F÷V&ÆRFVWW7BÒ°¢&ööÆVâ&VVÆVBÒfÇ6S°¢–b†fÆöF–ær’°¢f÷"†–çB&÷VæBÒ²&÷VæBÂbb&VVÆVC²&÷VæB²²’°¢6–ævÆWÆ–W"ævWE6W'fW"‚’ç'Väöå6W'fW"‡6W'fW"Óâ°¢f"†öö²Ò6–ævÆWÆ–W"ævWD6öææV7F–öâ‚’ævWE6W'fW%Æ–W"‚’æf—6†–æs°¢òòvVÆÂ7BF†RFVfVÇBF‡&W6†öÆBöbV–v‡B‡VæG&VGF‡2öb&Æö6²W"F–6²à¢–b††öö²ÒçVÆÂ’†öö²ç6WDFVÇFÖ÷fVÖVçBƒãÂÓãBÂã“°¢Ò“°¢6öçFW‡Bçv—EF–6·2ƒ"“°¢FVWW7BÒÖF‚æÖ–â†FVWW7BÂ6öçFW‡Bæ6ö×WFTöä6Æ–VçB†6Æ–VçBÓà¢6Æ–VçBçÆ–W"æf—6†–ærÓÒçVÆÂòã ¢¢6Æ–VçBçÆ–W"æf—6†–ærævWDFVÇFÖ÷fVÖVçB‚’ç’’“°¢&VVÆVBÒ6öçFW‡Bæ6ö×WFTöä6Æ–VçB†6Æ–VçBÓâ6Æ–VçBçÆ–W"æf—6†–ærÓÒçVÆÀ¢ÇÂ6Æ–VçBçÆ–W"æf—6†–ærævWD–B‚’Òf—'7D†öö²“°¢Ğ¢òòF†R&VVÂ—G6VÆbv—G2&VVÄFVÆ–F–6·2gFW"F†RVÆÂ—2&V6övæ—6VBÂ6òv—fRF†P¢òòÖöGVÆRF†BÆöæröæ6RF†R7VR†27F÷VB&V–ærÆ–VBà¢–b‚&VVÆVB’°¢&VVÆVBÒ6WGFÆR†6öçFW‡BÂ6Æ–VçBÓâ6Æ–VçBçÆ–W"æf—6†–ærÓÒçVÆÀ¢ÇÂ6Æ–VçBçÆ–W"æf—6†–ærævWD–B‚’Òf—'7D†öö²“°¢Ğ¢Ğ¢FövvÆR†6öçFW‡BÂ$WFôf—6‚"ÂfÇ6R“°¢6–ævÆWÆ–W"ævWE6W'fW"‚’ç'Väöå6W'fW"‡6W'fW"Óâ°¢f"†öö²Ò6–ævÆWÆ–W"ævWD6öææV7F–öâ‚’ævWE6W'fW%Æ–W"‚’æf—6†–æs°¢–b††öö²ÒçVÆÂ’†öö²æF—66&B‚“°¢Ò“° ¢–b‚fÆöF–ær’°¢F‡&÷ræWr76W'F–öäW'&÷"‚'F†R&ö&&W"æWfW"&V6†VBF†RvFW"Â6òF†W&Rv2æò&—FR7VRFò ¢²&v—fRWFôf—6ƒ²F†R66Væ&–ò—2'&ö¶VâÂæ÷BF†RÖöGVÆRâF†R†öö²VæFVB"²&ö&&W ¢²"Âv—F‚F†RÆ–W"B"²7F'B²"æBvFW"g&öÒƒÒ"²‡ööÂævWE‚‚’Òr¢²"FòƒÒ"²‡ööÂævWE‚‚’²r’“°¢Ğ¢–b‚&VVÆVB’°¢òòGvòF–ffW&VçBf–ÇW&W2W6VBFò&öGV6RF†R6ÖRÖW76vRÂæBFVÆÆ–ærF†VÒ'B—0¢òòF†RF–ffW&Væ6R&WGvVVâÖöGVÆR'VræB66Væ&–òF†BæWfW"FVÆ—fW&VB—G27VRà¢–b†FVWW7BâÖÖRæ×&†¶âævÆ&†6²ç6W'f–6W2ä&ö&&W$&—FRäDTdTÅEõD…$U4„ôÄB’°¢F‡&÷ræWr76W'F–öäW'&÷"‚'F†R6Æ–VçBæWfW"6rF†R&ö&&W"VÆÆVBVæFW"ÒF†R ¢²'7FVWW7BFW66VçB—Bö'6W'fVBv2"²FVWW7B²"&Æö6·2W"F–6²v–ç7B ¢²&F‡&W6†öÆBöbÒ"²ÖRæ×&†¶âævÆ&†6²ç6W'f–6W2ä&ö&&W$&—FRäDTdTÅEõD…$U4„ôÄ@¢²"Ò6òWFôf—6‚v2æWfW"v—fVâF†R7VRâF†R66Væ&–ò—2'&ö¶VâÂæ÷BF†R ¢²&ÖöGVÆS¢F†R6W'fW"×6–FRVÆÂ—2æ÷B&V6†–ærF†R6Æ–VçBw26÷’öbF†R†öö²â"“°¢Ğ¢F‡&÷ræWr76W'F–öäW'&÷"‚$WFôf—6‚ÆVgBF†R6ÖR†öö²÷WBÇF†÷Vv‚F†R6Æ–VçB6rF†R ¢²&&ö&&W"VÆÆVBVæFW"B"²FVWW7B²"&Æö6·2W"F–6²Âv†–6‚—2F†RöæR7VR ¢²&—B&VVÇ2–âöâ"“°¢Ğ¢ÄôttU"æ–æfò‚"WFôf—6‚67BÂF†Vâ&VVÆVB–âv†VâF†R&ö&&W"vVçBVæFW"B·Ò"÷B"ÂFVWW7B“°¢Ğ ¢ò¢ ¢¢F†R…TBG&vâBF–ffW&VçB6—¦RÂv†–6‚—2F†RöæRF†–ær66ÆR6öçG&öÂ†2Fò7GVÆÇ’Fòà¢ ¢¢ÇäÖV7W&VB÷fW"F†RF÷ÖÆVgB6÷&æW"&F†W"F†âF†RÖ–FFÆR&æBF†R÷F†W"&VæFW"66Væ&–÷0¢¢W6RÂ&V6W6RF†B—2v†W&RF†R'&æF–ærv–FvWBG&w2æBF†RÖ–FFÆR&æBW†6ÇVFW2—Bâæ'&÷p¢¢öâW'÷6S¢v–FW"&æBF¶W2–âv–FvWG2v†÷6RFW‡B6†ævW2'’—G6VÆb(	Bg&ÖR6÷VçFW"Â¢¢–ærf–wW&R(	BæBF†V—"æö—6R—2–æF—7F–æwV—6†&ÆRg&öÒ6—¦R6†ævRà¢ ¢¢Çå6WBF‡&÷Vv‚´6öFRF†VÖU6W'f–6Rç&Wf–WwÒÂF†R6ÖR6ÆÂF†R6Æ–FW"Ö¶W2Â6òF†—26÷fW'2F†P¢¢F‚g&öÒF†R7F÷&VBF†VÖRFòF†RÆ–÷WB&F†W"F†âö¶–ærF†RÆ–÷WBF—&V7FÇ’à¢¢ğ¢&—fFRfö–B‡VE66ÆR„6Æ–VçDvÖUFW7D6öçFW‡B6öçFW‡BÂFW7E6–ævÆWÆ–W$6öçFW‡B6–ævÆWÆ–W"’°¢Ö÷fUF†W&R†6öçFW‡BÂ6–ævÆWÆ–W"Â66VæT&6Ræöfg6WBƒÂÂC#’“°¢6–ævÆWÆ–W"ævWE6W'fW"‚’ç'Väöå6W'fW"‡6W'fW"Óâ°¢6ÆV$VçF—F–W2‡6–ævÆWÆ–W"ævWD6öææV7F–öâ‚’ævWE6W'fW%Æ–W"‚’æÆWfVÂ‚’“°¢Ò“°¢6öçFW‡Bç'Väöä6Æ–VçB†6Æ–VçBÓâ6Æ–VçBæ÷F–öç2æ6Æ÷VE7FGW2‚’ç6WB†æWBæÖ–æV7&gBæ6Æ–VçBä6Æ÷VE7FGW2äôdb’“°¢òòWBV×G’6·’âF†R&Wf–÷W266Væ&–òÆVfW2F†R6ÖW&ævÆVBF÷vâBööÂÂæBvFW ¢òòæ–ÖFW2Â6òF†R6÷&æW"&V–ærÖV7W&VB†BÖ÷f–ær–7GW&R&V†–æB—Bà¢6öçFW‡BævWD–çWB‚’æÆöö´BƒãbÂÓCãb“°¢6öçFW‡Bçv—EF–6·2ƒC“° ¢òòF†R…TBæ–ÖFW2—G26öÆ÷W'26öçF–çV÷W6Ç’Âv†–6‚6†÷vVBW2æö—6RfÆö÷"öb“cB6†ævV@¢òò—†VÇ2&WGvVVâç’Gvòg&ÖW2†÷vWfW"f"'BÒÖ÷f–ær–7GW&R&F†W"F†â¦—GFW"à¢òò7v—F6†VBöfb†W&RæB&6²öâBF†RVæBÂ6òF†—266Væ&–òÆVfW2F†RF†VÖR2—Bf÷VæB—Bà¢7F–ÆÅF†VÖR†6öçFW‡BÂG'VR“° ¢f–æÂ–çBv–æF÷rÒc°¢6WD‡VE66ÆR†6öçFW‡BÂÖRæ×&†¶âævÆ&†6²ç6W'f–6W2ä‡VE66ÆRäDTdTÅB“°¢¦fææ–òæf–ÆRåF‚f—'7BÒ6öçFW‡BçF¶U67&VVç6†÷B‚&‡VB×66ÆRÓ"“°¢6öçFW‡Bçv—EF–6·2‡v–æF÷r“°¢¦fææ–òæf–ÆRåF‚6V6öæBÒ6öçFW‡BçF¶U67&VVç6†÷B‚&‡VB×66ÆRÓ""“°¢–çBæö—6RÒg&ÖW2æ6†ævVE—†VÇ2†f—'7BÂ6V6öæBÂ%$äEõDõÂ%$äEô$õEDôÒÂãÂ%$äEõ$”t…B“° ¢6WD‡VE66ÆR†6öçFW‡BÂãb“°¢6öçFW‡Bçv—EF–6·2‡v–æF÷r“°¢¦fææ–òæf–ÆRåF‚Æ&vW"Ò6öçFW‡BçF¶U67&VVç6†÷B‚&‡VB×66ÆRÓ2"“°¢–çB6–væÂÒg&ÖW2æ6†ævVE—†VÇ2‡6V6öæBÂÆ&vW"Â%$äEõDõÂ%$äEô$õEDôÒÂãÂ%$äEõ$”t…B“°¢F÷V&ÆRÆ–VBÒ6öçFW‡Bæ6ö×WFTöä6Æ–VçB†6Æ–VçBÓâvÆ$†6´6Æ–VçBä…TEôÄ”õUBç66ÆR‚’“°¢6WD‡VE66ÆR†6öçFW‡BÂÖRæ×&†¶âævÆ&†6²ç6W'f–6W2ä‡VE66ÆRäDTdTÅB“°¢F÷V&ÆR&W7F÷&VBÒ6öçFW‡Bæ6ö×WFTöä6Æ–VçB†6Æ–VçBÓâvÆ$†6´6Æ–VçBä…TEôÄ”õUBç66ÆR‚’“° ¢7F–ÆÅF†VÖR†6öçFW‡BÂfÇ6R“°¢ÄôttU"æ–æfò‚"…TB66ÆR—†VÇ3¢æö—6S×·Ò6–væÃ×·Ò"Âæö—6RÂ6–væÂ“°¢–b†Æ–VBÒãb’°¢F‡&÷ræWr76W'F–öäW'&÷"‚'F†RF†VÖRw2…TB66ÆRöbãb&V6†VBF†RÆ–÷WB2"²Æ–V@¢²"Â6òæ÷F†–ær&VÆ÷rÖV7W&W266ÆVB…TB"“°¢Ğ¢–b‡&W7F÷&VBÒÖRæ×&†¶âævÆ&†6²ç6W'f–6W2ä‡VE66ÆRäDTdTÅB’°¢F‡&÷ræWr76W'F–öäW'&÷"‚'F†R…TB66ÆR7F–VBB"²&W7F÷&VB²"gFW"&V–ær6WB&6²"“°¢Ğ¢76W'DG&Wr‚$…TB66ÆR"Â&…TBç’F–ffW&VçB–â6—¦R"Âæö—6RÂ6–væÂ“°¢Ğ ¢ò¢¢F†R6÷&æW"F†R'&æF–ærv–FvWBö67W–W2Â2g&7F–öâöbF†Rg&ÖRâ¢ğ¢&—fFR7FF–2f–æÂF÷V&ÆR%$äEõDõÒãÂ%$äEô$õEDôÒÒãbÂ%$äEõ$”t…BÒã3S° ¢&—fFR7FF–2fö–B6WD‡VE66ÆR„6Æ–VçDvÖUFW7D6öçFW‡B6öçFW‡BÂF÷V&ÆR66ÆR’°¢6öçFW‡Bç'Väöä6Æ–VçB†6Æ–VçBÓâ°¢f"6W'f–6RÒÖRæ×&†¶âævÆ&†6²ç6W'f–6W2ä6Æ–VçE6W'f–6W2ç&WV—&R€¢ÖRæ×&†¶âævÆ&†6²ç6W'f–6W2åF†VÖU6W'f–6Ræ6Æ72“°¢f"F†VÖRÒ6W'f–6Ræ6÷’‚“°¢F†VÖRæ‡VE66ÆRÒ66ÆS°¢6W'f–6Rç&Wf–Wr‡F†VÖR“°¢Ò“°¢Ğ ¢ò¢ ¢¢F†R6Æ–6´uT’w26FVv÷'’G&ç6—F–öâÂG&—fVâ'’&VÂ6Æ–6²öâ&VÂ'WGFöâà¢ ¢¢Çä76W'FVBöâF†R7G&—Rw2÷6—F–öâ&F†W"F†âöâ—†VÇ3¢v†BF†RG&ç6—F–öâFöW2—2Ö÷fP¢¢6öÖWF†–ærg&öÒöæR&÷rFòæ÷F†W"ÂæB&VF–ærv†W&R—B—26—2F†BF—&V7FÇ’âF†R6öçG&öÂ—0¢¢F†RF†VÖRw2÷vâ&VGV6VBÖÖ÷F–öâ7v—F6‚(	Bv—F‚—BöâF†R7G&—R—2B—G2FW7F–æF–öâöâF†P¢¢f—'7Bg&ÖRÂv†–6‚—2F†Rv†öÆR&öÖ—6RöbF†B6WGF–ærà¢ ¢¢ÇåF†Ræ–ÖF–öâ—26Æ÷vVBf÷"F†RÖV7W&VÖVçBÂæ÷B6†÷'FVæVC¢BF†RFVfVÇB7VVB—BÆ7G0¢¢&÷WBF‡&VRæB†ÆbF–6·2Âv†–6‚—2Föò6Æ÷6RFòF†R6×Æ–ær–çFW'fÂFò&VB&VÆ–&Ç’à¢¢ğ¢&—fFRfö–B6Æ–6´wV•G&ç6—F–öâ„6Æ–VçDvÖUFW7D6öçFW‡B6öçFW‡B’°¢–çBF&vWBÒ3°¢–çBG&fVÆÆVBÒ6FVv÷'•7G&—UG&fVÂ†6öçFW‡BÂF&vWBÂG'VR“°¢–çB7F–ÆÂÒ6FVv÷'•7G&—UG&fVÂ†6öçFW‡BÂF&vWBÂfÇ6R“° ¢òò—BG&—fW2Ö÷F–öâöâæBöfbFòÖ¶R—G2ö–çBÂ6ò—B†æG2F†RF†VÖR&6²Væ6†ævVBà¢7F–ÆÅF†VÖR†6öçFW‡BÂfÇ6R“° ¢–b‡G&fVÆÆVBÃÒ’°¢F‡&÷ræWr76W'F–öäW'&÷"‚'F†R6Æ–6´uT’w26FVv÷'’G&ç6—F–öâv2Ç&VG’f–æ—6†VBöâF†R ¢²&f—'7Bg&ÖRv—F‚Ö÷F–öâöâÂ6òæ÷F†–ærv2æ–ÖFVB"“°¢Ğ¢–b‡7F–ÆÂÒ’°¢F‡&÷ræWr76W'F–öäW'&÷"‚'F†R6Æ–6´uT’G&ç6—F–öâ7F–ÆÂ†B"²7F–ÆÂ²"Fò'Vâv—F‚F†R ¢²'F†VÖRw2&VGV6VBÖ÷F–öâöã²F†B7v—F6‚—27W÷6VBFòÆVfRæ÷F†–æræ–ÖF–ær"“°¢Ğ¢ÄôttU"æ–æfò‚"6Æ–6´uT’æ–ÖFVB—G26FVv÷'’6†ævR‡·ÒFòvòF–6²–â’ÂæBæ÷BBÆÂ ¢²'v—F‚&VGV6VBÖ÷F–öâ"ÂG&fVÆÆVB“°¢Ğ ¢ò¢ ¢¢÷Vç2F†R6Æ–6´uT’Â6Æ–6·26FVv÷'’ÂæB&W÷'G2†÷rf"F†R7G&—R7F–ÆÂ†BFòG&fVÂöæP¢¢F–6²ÆFW"à¢ ¢¢&WGW&â†÷rf"F†RG&ç6—F–öâ7F–ÆÂ†BFò'VâF–6²gFW"F†R6Æ–6³¢F†R7G&—Rw2&VÖ–æ–æp¢¢G&fVÂ–â—†VÇ2ÇW2F†R6öçFVçBfV–Â–â‡VæG&VGF‡2Â6òöæRçVÖ&W"6÷fW'2&÷F€¢¢ğ¢&—fFR–çB6FVv÷'•7G&—UG&fVÂ„6Æ–VçDvÖUFW7D6öçFW‡B6öçFW‡BÂ–çB6FVv÷'’Â&ööÆVâÖ÷F–öâ’°¢6öçFW‡Bç'Väöä6Æ–VçB†6Æ–VçBÓâ°¢f"6W'f–6RÒÖRæ×&†¶âævÆ&†6²ç6W'f–6W2ä6Æ–VçE6W'f–6W2ç&WV—&R€¢ÖRæ×&†¶âævÆ&†6²ç6W'f–6W2åF†VÖU6W'f–6Ræ6Æ72“°¢f"F†VÖRÒ6W'f–6Ræ6÷’‚“°¢F†VÖRçV”æ–ÖF–öç2ÒÖ÷F–öã°¢F†VÖRç&VGV6VDÖ÷F–öâÒÖ÷F–öã°¢òòV'FW"7VVC¢ÆöærVæ÷Vv‚F†BF–6²öb6×Æ–ærÆæG2–ç6–FRF†RG&ç6—F–öâà¢F†VÖRææ–ÖF–öå7VVBÒã#S°¢6W'f–6Rç&Wf–Wr‡F†VÖR“°¢6Æ–VçBæwV’ç6WE67&VVâ†æWrÖRæ×&†¶âævÆ&†6²çV’ä6Æ–6´wV•67&VVâ‚’“°¢Ò“°¢6öçFW‡Bçv—EF–6·2ƒ“° ¢òòv†W&RF†R6FVv÷'’w2÷vâ'WGFöâ—2Â–âv–æF÷r—†VÇ3¢F†R67&VVâ—2G&vâBF†RuT’66ÆRà¢F÷V&ÆUµÒ7÷BÒ6öçFW‡Bæ6ö×WFTöä6Æ–VçB†6Æ–VçBÓâ°¢f"67&VVâÒ†ÖRæ×&†¶âævÆ&†6²çV’ä6Æ–6´wV•67&VVâ’6Æ–VçBæwV’ç67&VVâ‚“°¢F÷V&ÆR66ÆRÒ6Æ–VçBævWEv–æF÷r‚’ævWDwV•66ÆR‚“°¢&WGW&âæWrF÷V&ÆUµ×³S¢66ÆRÀ¢‡67&VVâæ6FVv÷'•&÷u’†6FVv÷'’’²67&VVâæ6FVv÷'•&÷t†V–v‡B‚’ò"ã’¢66ÆWÓ°¢Ò“°¢6öçFW‡BævWD–çWB‚’ç6WD7W'6÷%÷2‡7÷E³ÒÂ7÷E³Ò“°¢6öçFW‡Bçv—EF–6·2ƒ"“°¢6öçFW‡BævWD–çWB‚’ç&W74Ö÷W6Rƒ“°¢6öçFW‡Bçv—EF–6·2ƒ“° ¢–çB&VÖ–æ–ærÒ6öçFW‡Bæ6ö×WFTöä6Æ–VçB†6Æ–VçBÓâ°¢–b‚†6Æ–VçBæwV’ç67&VVâ‚’–ç7Fæ6VöbÖRæ×&†¶âævÆ&†6²çV’ä6Æ–6´wV•67&VVâ67&VVâ’’&WGW&âÓ°¢òòF†RfV–Â6÷fW'2F†R6ÖRG&ç6—F–öâg&öÒF†R÷F†W"VæC¢F†R6öçFVçBfF–ærWöà¢òò÷VâÂöâ6FVv÷'’æBöâvRâ6÷VçFVB–âF†R6ÖRVæ—G26òöæRçVÖ&W"6'&–W0¢òò&÷F‚Ò‡VæG&VGF‚öbF†RfV–Â—2—†VÂw2v÷'F‚öbÖ÷fVÖVçBà¢&WGW&âÖF‚æ'2‡67&VVâæ6FVv÷'•&÷u’†6FVv÷'’’Ò67&VVâç7G&—U’‚’¢²†–çB’ÖF‚ç&÷VæB‡67&VVâæ6öçFVçEfV–Â‚’¢“°¢Ò“°¢6öçFW‡Bç'Väöä6Æ–VçB†6Æ–VçBÓâ6Æ–VçBæwV’ç6WE67&VVâ†çVÆÂ’“°¢6öçFW‡Bçv—EF–6·2ƒR“°¢–b‡&VÖ–æ–ærÂ’°¢F‡&÷ræWr76W'F–öäW'&÷"‚&6Æ–6¶–ærF†R6FVv÷'’B"²7÷E³Ò²"F–Bæ÷BÆVfRF†R ¢²$6Æ–6´uT’÷VâÂ6òF†W&Rv2æò7G&—RFòÖV7W&S²F†R66Væ&–ò—2'&ö¶Vâ"“°¢Ğ¢&WGW&â&VÖ–æ–æs°¢Ğ ¢ò¢ ¢¢F†R6ÖW&ÆVfW2æBF†RÆ–W"FöW2æ÷BÂv†–6‚—2F†Rv†öÆRöbv†Bg&VV6Ò&öÖ—6W2à¢ ¢¢ÇåF‡&VRF†–æw2&R76W'FVB&V6W6RÆÂF‡&VR6â'&V²–æFWVæFVçFÇ“¢F†R6ÖW&&VÆÇ¢¢FWF6†W2æBÖ÷fW2VæFW"F†RÖ÷fVÖVçB¶W—2ÂF†R&öG’7F—2W†7FÇ’v†W&R—Bv2ÂæBF†P¢¢6ÖW&—2†æFVB&6²FòF†RÆ–W"v†VâF†RÖöGVÆR—27v—F6†VBöfbâF†BÆ7BöæR—2F†P¢¢V–WBf–ÇW&R(	B6Æ–VçBÆVgBÆöö¶–ærF‡&÷Vv‚â&Ö÷W"7FZŠW«®Šğ®+b-jwZ­Ú.¶›­º$zzb¥æÚ±î¸Â¸­yêë¢°k¢G§¦*^nd after Freecam is gone.
+        toggle(context, "AutoRespawn", true);
+        boolean respawned = settle(context, onDeathScreen.negate(), SETTLE_TICKS * 2);
+        toggle(context, "AutoRespawn", false);
+        singleplayer.getServer().runOnServer(server ->
+                singleplayer.getConnection().getServerPlayer().setGameMode(GameType.CREATIVE));
+
+        if (!respawned) {
+            throw new AssertionError("AutoRespawn left the player on the death screen for "
+                    + (SETTLE_TICKS * 2) + " ticks");
+        }
+        LOGGER.info("  AutoRespawn cleared a death screen the game left standing");
+    }
+
+    /**
+     * The cast is real and the bite is not.
+     *
+     * <p>Casting is asserted end to end: a rod goes in the hotbar, the module is switched on, and a
+     * fishing hook appears because the module selected the slot and pressed use. Nothing about that
+     * is simulated.
+     *
+     * <p>The bite is. A server picks its own moment between five and thirty seconds, which is a long
+     * time to hold a test open for a result that is a coin toss on a slow runner. What the module
+     * actually watches for is the bobber being pulled under â€” it says so, and it cannot know a fish
+     * is there â€” so the bobber is pulled under on the server instead. That is the cue reproduced,
+     * not the module's decision: whether it reels in, how long it waits and whether it casts again
+     * are still entirely the module's. Fishing against a real server on a real catch stays on the
+     * manual acceptance list.
+     */
+    private void autoFish(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        moveThere(context, singleplayer, sceneBase.offset(0, 0, 390));
+        BlockPos pool = singleplayer.getServer().computeOnServer(server -> {
+            ServerPlayer player = singleplayer.getConnection().getServerPlayer();
+            ServerLevel level = player.level();
+            clearEntities(level);
+            // A wide pool starting three blocks ahead, two deep so a bobber floats rather than
+            // resting on the bottom. No wall is built around it: the untouched superflat terrain at
+            // the same depth already holds the water in. The first version raised a stone lip and
+            // the lip stood at head height between the player and the water, so every cast hit it -
+            // which the scenario reported as the bobber never reaching the water, correctly.
+            BlockPos centre = player.blockPosition().offset(8, 0, 0);
+            for (int dx = -7; dx <= 7; dx++) {
+                for (int dz = -7; dz <= 7; dz++) {
+                    level.setBlockAndUpdate(centre.offset(dx, 0, dz), Blocks.AIR.defaultBlockState());
+                    for (int dy = -2; dy <= -1; dy++) {
+                        level.setBlockAndUpdate(centre.offset(dx, dy, dz), Blocks.WATER.defaultBlockState());
+                    }
+                }
+            }
+            return centre;
+        });
+        singleplayer.getConnection().waitForChunksRender();
+        setInventory(singleplayer, slots -> {
+            slots.setItem(0, new ItemStack(Items.FISHING_ROD));
+            slots.setItem(1, new ItemStack(Items.FISHING_ROD));
+            slots.setSelectedSlot(1);
+        });
+        // setInventory edits the server player's Inventory and broadcasts container slots, but the
+        // selected hotbar index is not a container slot. Mirror it to the client too so this
+        // scenario starts with the same selected rod on both sides of the singleplayer connection.
+        context.runOnClient(client -> client.player.getInventory().setSelectedSlot(1));
+        // At the middle of the pool. It is thirteen blocks across, so any ordinary cast lands in it.
+        context.getInput().lookAt(pool);
+        context.waitTicks(20);
+        if (context.computeOnClient(client -> client.player.getInventory().getSelectedSlot()) != 1) {
+            throw new AssertionError("AutoFish game-test setup did not select the intended rod on the client");
+        }
+
+        Predicate<Minecraft> hooked = client -> client.player.fishing != null && client.player.fishing.isAlive();
+        assertNotYet(context, hooked, "a fishing hook was already out before AutoFish ran");
+
+        toggle(context, "AutoFish", true);
+        boolean cast = settle(context, hooked);
+        if (!cast) {
+            toggle(context, "AutoFish", false);
+            throw new AssertionError("AutoFish never cast with a rod in the selected hotbar slot");
+        }
+        int selectedRod = context.computeOnClient(client -> client.player.getInventory().getSelectedSlot());
+        if (selectedRod != 1) {
+            toggle(context, "AutoFish", false);
+            throw new AssertionError("AutoFish changed the selected fishing rod from slot 1 to slot " + selectedRod);
+        }
+        // Waiting for the bobber to settle in the water: the detector ignores a hook that is not in it.
+        Vec3 start = position(context);
+        boolean floating = settle(context, client -> client.player.fishing != null
+                && client.player.fishing.isInWater());
+        String bobber = context.computeOnClient(client -> client.player.fishing == null ? "gone"
+                : "at " + client.player.fishing.position() + " inWater="
+                        + client.player.fishing.isInWater() + " onGround="
+                        + client.player.fishing.onGround());
+        int firstHook = context.computeOnClient(client -> client.player.fishing.getId());
+
+        // Keep pulling the bobber under until the module reacts, rather than pushing it once.
+        //
+        // One impulse was a coin toss, and it lost a CI run: the server sets the velocity, the
+        // client's own hook physics then apply water drag and buoyancy on top of it, and the module
+        // only reels if it happens to sample a tick where the client's copy is still descending
+        // faster than the detector's threshold. A real bite is a plunge lasting several ticks - that
+        // is why the detector suppresses repeats at all - so this reproduces a plunge instead of a
+        // single frame of one. It does not relax what is asserted: the cue is still only a bobber
+        // moving down, and whether to reel is still entirely the module's decision.
+        double deepest = 0;
+        boolean reeled = false;
+        if (floating) {
+            for (int round = 0; round < 10 && !reeled; round++) {
+                singleplayer.getServer().runOnServer(server -> {
+                    var hook = singleplayer.getConnection().getServerPlayer().fishing;
+                    // Well past the default threshold of eight hundredths of a block per tick.
+                    if (hook != null) hook.setDeltaMovement(0.0, -0.4, 0.0);
+                });
+                context.waitTicks(2);
+                deepest = Math.min(deepest, context.computeOnClient(client ->
+                        client.player.fishing == null ? 0.0
+                                : client.player.fishing.getDeltaMovement().y));
+                reeled = context.computeOnClient(client -> client.player.fishing == null
+                        || client.player.fishing.getId() != firstHook);
+            }
+            // The reel itself waits `reelDelay` ticks after the pull is recognised, so give the
+            // module that long once the cue has stopped being applied.
+            if (!reeled) {
+                reeled = settle(context, client -> client.player.fishing == null
+                        || client.player.fishing.getId() != firstHook);
+            }
+        }
+        toggle(context, "AutoFish", false);
+        singleplayer.getServer().runOnServer(server -> {
+            var hook = singleplayer.getConnection().getServerPlayer().fishing;
+            if (hook != null) hook.discard();
+        });
+
+        if (!floating) {
+            throw new AssertionError("the bobber never reached the water, so there was no bite cue to "
+                    + "give AutoFish; the scenario is broken, not the module. The hook ended " + bobber
+                    + ", with the player at " + start + " and water from x=" + (pool.getX() - 7)
+                    + " to x=" + (pool.getX() + 7));
+        }
+        if (!reeled) {
+            // Two different failures used to produce the same message, and telling them apart is
+            // the difference between a module bug and a scenario that never delivered its cue.
+            if (deepest > -me.mrhakan.agalarhack.services.BobberBite.DEFAULT_THRESHOLD) {
+                throw new AssertionError("the client never saw the bobber pulled under - the "
+                        + "steepest descent it observed was " + deepest + " blocks per tick against "
+                        + "a threshold of -" + me.mrhakan.agalarhack.services.BobberBite.DEFAULT_THRESHOLD
+                        + " - so AutoFish was never given the cue. The scenario is broken, not the "
+                        + "module: the server-side pull is not reaching the client's copy of the hook.");
+            }
+            throw new AssertionError("AutoFish left the same hook out although the client saw the "
+                    + "bobber pulled under at " + deepest + " blocks per tick, which is the one cue "
+                    + "it reels in on");
+        }
+        LOGGER.info("  AutoFish cast, then reeled in when the bobber went under at {} b/t", deepest);
+    }
+
+    /**
+     * The HUD drawn at a different size, which is the one thing a scale control has to actually do.
+     *
+     * <p>Measured over the top-left corner rather than the middle band the other render scenarios
+     * use, because that is where the branding widget draws and the middle band excludes it. Narrow
+     * on purpose: a wider band takes in widgets whose text changes by itself â€” a frame counter, a
+     * ping figure â€” and their noise is indistinguishable from a size change.
+     *
+     * <p>Set through {@code ThemeService.preview}, the same call the slider makes, so this covers the
+     * path from the stored theme to the layout rather than poking the layout directly.
+     */
+    private void hudScale(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        moveThere(context, singleplayer, sceneBase.offset(0, 0, 420));
+        singleplayer.getServer().runOnServer(server -> {
+            clearEntities(singleplayer.getConnection().getServerPlayer().level());
+        });
+        context.runOnClient(client -> client.options.cloudStatus().set(net.minecraft.client.CloudStatus.OFF));
+        // Up at empty sky. The previous scenario leaves the camera angled down at a pool, and water
+        // animates, so the corner being measured had a moving picture behind it.
+        context.getInput().lookAt(0.0f, -40.0f);
+        context.waitTicks(40);
+
+        // The HUD animates its colours continuously, which showed up as a noise floor of 964 changed
+        // pixels between any two frames however far apart - a moving picture rather than jitter.
+        // Switched off here and back on at the end, so this scenario leaves the theme as it found it.
+        stillTheme(context, true);
+
+        final int window = 60;
+        setHudScale(context, me.mrhakan.agalarhack.services.HudScale.DEFAULT);
+        java.nio.file.Path first = context.takeScreenshot("hud-scale-1");
+        context.waitTicks(window);
+        java.nio.file.Path second = context.takeScreenshot("hud-scale-2");
+        int noise = Frames.changedPixels(first, second, BRAND_TOP, BRAND_BOTTOM, 0.0, BRAND_RIGHT);
+
+        setHudScale(context, 1.6);
+        context.waitTicks(window);
+        java.nio.file.Path larger = context.takeScreenshot("hud-scale-3");
+        int signal = Frames.changedPixels(second, larger, BRAND_TOP, BRAND_BOTTOM, 0.0, BRAND_RIGHT);
+        double applied = context.computeOnClient(client -> AgalarHackClient.HUD_LAYOUT.scale());
+        setHudScale(context, me.mrhakan.agalarhack.services.HudScale.DEFAULT);
+        double restored = context.computeOnClient(client -> AgalarHackClient.HUD_LAYOUT.scale());
+
+        stillTheme(context, false);
+        LOGGER.info("    HUD scale pixels: noise={} signal={}", noise, signal);
+        if (applied != 1.6) {
+            throw new AssertionError("the theme's HUD scale of 1.6 reached the layout as " + applied
+                    + ", so nothing below measures a scaled HUD");
+        }
+        if (restored != me.mrhakan.agalarhack.services.HudScale.DEFAULT) {
+            throw new AssertionError("the HUD scale stayed at " + restored + " after being set back");
+        }
+        assertDrew("HUD scale", "a HUD any different in size", noise, signal);
+    }
+
+    /** The corner the branding widget occupies, as a fraction of the frame. */
+    private static final double BRAND_TOP = 0.0, BRAND_BOTTOM = 0.06, BRAND_RIGHT = 0.35;
+
+    private static void setHudScale(ClientGameTestContext context, double scale) {
+        context.runOnClient(client -> {
+            var service = me.mrhakan.agalarhack.services.ClientServices.require(
+                    me.mrhakan.agalarhack.services.ThemeService.class);
+            var theme = service.copy();
+            theme.hudScale = scale;
+            service.preview(theme);
+        });
+    }
+
+    /**
+     * The ClickGUI's category transition, driven by a real click on a real button.
+     *
+     * <p>Asserted on the stripe's position rather than on pixels: what the transition does is move
+     * something from one row to another, and reading where it is says that directly. The control is
+     * the theme's own reduced-motion switch â€” with it on the stripe is at its destination on the
+     * first frame, which is the whole promise of that setting.
+     *
+     * <p>The animation is slowed for the measurement, not shortened: at the default speed it lasts
+     * about three and a half ticks, which is too close to the sampling interval to read reliably.
+     */
+    private void clickGuiTransition(ClientGameTestContext context) {
+        int target = 3;
+        int travelled = categoryStripeTravel(context, target, true);
+        int still = categoryStripeTravel(context, target, false);
+
+        // It drives motion on and off to make its point, so it hands the theme back unchanged.
+        stillTheme(context, false);
+
+        if (travelled <= 0) {
+            throw new AssertionError("the ClickGUI's category transition was already finished on the "
+                    + "first frame with motion on, so nothing was animated");
+        }
+        if (still != 0) {
+            throw new AssertionError("the ClickGUI transition still had " + still + " to run with the "
+                    + "theme's reduced motion on; that switch is supposed to leave nothing animating");
+        }
+        LOGGER.info("  ClickGUI animated its category change ({} to go a tick in), and not at all "
+                + "with reduced motion", travelled);
+    }
+
+    /**
+     * Opens the ClickGUI, clicks a category, and reports how far the stripe still had to travel one
+     * tick later.
+     *
+     * @return how far the transition still had to run a tick after the click: the stripe's remaining
+     *         travel in pixels plus the content veil in hundredths, so one number covers both
+     */
+    private int categoryStripeTravel(ClientGameTestContext context, int category, boolean motion) {
+        context.runOnClient(client -> {
+            var service = me.mrhakan.agalarhack.services.ClientServices.require(
+                    me.mrhakan.agalarhack.services.ThemeService.class);
+            var theme = service.copy();
+            theme.uiAnimations = motion;
+            theme.reducedMotion = !motion;
+            // Quarter speed: long enough that a tick of sampling lands inside the transition.
+            theme.animationSpeed = 0.25;
+            service.preview(theme);
+            client.gui.setScreen(new me.mrhakan.agalarhack.ui.ClickGuiScreen());
+        });
+        context.waitTicks(10);
+
+        // Where the category's own button is, in window pixels: the screen is drawn at the GUI scale.
+        double[] spot = context.computeOnClient(client -> {
+            var screen = (me.mrhakan.agalarhack.ui.ClickGuiScreen) client.gui.screen();
+            double scale = client.getWindow().getGuiScale();
+            return new double[]{50 * scale,
+                    (screen.categoryRowY(category) + screen.categoryRowHeight() / 2.0) * scale};
+        });
+        context.getInput().setCursorPos(spot[0], spot[1]);
+        context.waitTicks(2);
+        context.getInput().pressMouse(0);
+        context.waitTicks(1);
+
+        int remaining = context.computeOnClient(client -> {
+            if (!(client.gui.screen() instanceof me.mrhakan.agalarhack.ui.ClickGuiScreen screen)) return -1;
+            // The veil covers the same transition from the other end: the content fading up on
+            // open, on a category and on a page. Counted in the same units so one number carries
+            // both - a hundredth of the veil is a pixel's worth of movement.
+            return Math.abs(screen.categoryRowY(category) - screen.stripeY())
+                    + (int) Math.round(screen.contentVeil() * 100);
+        });
+        context.runOnClient(client -> client.gui.setScreen(null));
+        context.waitTicks(5);
+        if (remaining < 0) {
+            throw new AssertionError("clicking the category at " + spot[1] + " did not leave the "
+                    + "ClickGUI open, so there was no stripe to measure; the scenario is broken");
+        }
+        return remaining;
+    }
+
+    /**
+     * The camera leaves and the player does not, which is the whole of what Freecam promises.
+     *
+     * <p>Three things are asserted because all three can break independently: the camera really
+     * detaches and moves under the movement keys, the body stays exactly where it was, and the
+     * camera is handed back to the player when the module is switched off. That last one is the
+     * quiet failure â€” a client left looking through an armour stand after Freecam is gone.
      *
      * <p>The distance limit is checked here too, with a short radius so a few seconds of holding a
      * key is enough to reach it.
@@ -1217,8 +2190,7 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
     /**
      * What happens when Baritone is not installed, which is the case this client ships in.
      *
-     * <p>The danger the bridge exists to avoid is one linµ¨¥zºè¯
-â¶)à²Ö§uªİ¢ëiºĞk¢G§¦*^e long: sending {@code #goto 100 64 -200}
+     * <p>The danger the bridge exists to avoid is one line long: sending {@code #goto 100 64 -200}
      * as a chat message puts a player's base coordinates in front of the whole server the moment
      * Baritone is missing or its prefix is off. So the assertion is not only that the player is told
      * something useful â€” it is that <em>no</em> line beginning with the Baritone prefix ever reached
@@ -1316,8 +2288,7 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
         moveThere(context, singleplayer, base);
         setInventory(singleplayer, slots -> { });
         singleplayer.getServer().runOnServer(server -> {
-            ServerPlayer player = siµ¨¥zºè¯
-â¶)à²Ö§uªİ¢ëiºĞk¢G§¦*^ngleplayer.getConnection().getServerPlayer();
+            ServerPlayer player = singleplayer.getConnection().getServerPlayer();
             player.setGameMode(GameType.SURVIVAL);
             player.setHealth(player.getMaxHealth());
             player.setDeltaMovement(Vec3.ZERO);
@@ -1905,7 +2876,7 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
     private static void setInventory(TestSingleplayerContext singleplayer,
             java.util.function.Consumer<net.minecraft.world.entity.player.Inventory> change) {
         singleplayer.getServer().runOnServer(server -> {
-            ServerPlayer player = singleplaµ¨¥Â¸­yêë¢°k¢G§¦*^yer.getConnection().getServerPlayer();
+            ServerPlayer player = singleplayer.getConnection().getServerPlayer();
             player.getInventory().clearContent();
             change.accept(player.getInventory());
             // Without this the client keeps drawing - and the modules keep reading - the old contents.
