@@ -51,6 +51,18 @@ class GrindExecutionPlanTest {
         assertEquals(GrindBook.RAW_IRON, steps.getFirst().item());
     }
 
+    @Test void heldLogsAndTableAreUsedForWoodenPickaxeWithoutGatheringMoreLogs() {
+        List<GrindExecutionPlan.Step> steps = GrindExecutionPlan.plan(GrindBook.WOODEN_PICKAXE, 1,
+                Map.of(GrindBook.LOG, 2, GrindBook.CRAFTING_TABLE, 1), false, false);
+
+        assertTrue(steps.stream().noneMatch(step -> step.action() == GrindExecutionPlan.Action.GATHER
+                && step.item().equals(GrindBook.LOG)), steps.toString());
+        assertTrue(steps.stream().noneMatch(step -> step.action() == GrindExecutionPlan.Action.CRAFT
+                && step.item().equals(GrindBook.CRAFTING_TABLE)), steps.toString());
+        assertTrue(index(steps, GrindExecutionPlan.Action.PLACE_TABLE, GrindBook.CRAFTING_TABLE) >= 0);
+        assertTrue(index(steps, GrindExecutionPlan.Action.CRAFT, GrindBook.WOODEN_PICKAXE) >= 0);
+    }
+
     @Test void ironIngotGoalBuildsFurnaceAndUsesSmeltingAfterResourcesAreReady() {
         List<GrindExecutionPlan.Step> steps = GrindExecutionPlan.plan(
                 GrindBook.IRON_INGOT, 1, Map.of(), false, false);

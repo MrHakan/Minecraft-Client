@@ -2551,6 +2551,13 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
             slots.setItem(1, Items.CRAFTING_TABLE.getDefaultInstance());
             slots.setSelectedSlot(0);
         });
+        boolean woodenPickaxeFixtureSynced = settle(context, client ->
+                countItem(client, Items.OAK_LOG) == 2
+                        && countItem(client, Items.CRAFTING_TABLE) == 1, 240);
+        if (!woodenPickaxeFixtureSynced) {
+            throw new AssertionError("wooden-pickaxe fixture never reached the client: "
+                    + context.computeOnClient(ModuleBehaviourGameTest::inventoryContents));
+        }
         runGrindUntilResolved(context, "wooden_pickaxe 1",
                 client -> countItem(client, Items.WOODEN_PICKAXE) == 1 && hasAdjacentCraftingTable(client, base), 400);
 
@@ -2582,6 +2589,8 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
         // Server-side inventory fixtures broadcast immediately; let the integrated connection
         // deliver that packet before the command takes its live planning snapshot.
         context.waitTicks(10);
+        String startingInventory = context.computeOnClient(ModuleBehaviourGameTest::inventoryContents);
+        LOGGER.info("  AutoGrind {} starts with inventory {}", request, startingInventory);
         context.runOnClient(client -> me.mrhakan.agalarhack.managers.CommandManager.handleChat(
                 me.mrhakan.agalarhack.AgalarHackClient.prefix + "grind run " + request));
         boolean resolved = settle(context, client -> {
@@ -2595,7 +2604,8 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
             var executor = me.mrhakan.agalarhack.services.ClientServices.require(
                     me.mrhakan.agalarhack.services.GrindExecutor.class);
             return "state=" + executor.state() + " task=" + executor.currentTask()
-                    + " failure=" + executor.failure() + " blocked=" + executor.blockedReason();
+                    + " failure=" + executor.failure() + " blocked=" + executor.blockedReason()
+                    + " inventory=" + inventoryContents(client);
         });
         boolean succeeded = context.computeOnClient(client ->
                 me.mrhakan.agalarhack.services.ClientServices.require(
@@ -2655,6 +2665,18 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
             if (stack.is(item)) total += stack.getCount();
         }
         return total;
+    }
+
+    private static String inventoryContents(Minecraft client) {
+        java.util.List<String> contents = new java.util.ArrayList<>();
+        for (int slot = 0; slot < client.player.getInventory().getContainerSize(); slot++) {
+            var stack = client.player.getInventory().getItem(slot);
+            if (!stack.isEmpty()) {
+                contents.add(slot + "=" + net.minecraft.core.registries.BuiltInRegistries.ITEM
+                        .getKey(stack.getItem()) + "x" + stack.getCount());
+            }
+        }
+        return contents.toString();
     }
 
     private static boolean hasAdjacentCraftingTable(Minecraft client, BlockPos base) {
