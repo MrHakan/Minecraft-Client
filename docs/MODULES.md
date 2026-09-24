@@ -648,6 +648,7 @@ Bounded first-party status and error toasts
 | `position` | `bottom_right` | `bottom_right\|top_right\|bottom_left\|top_left` | Default corner; HUD editor can override placement |
 | `animations` | `true` | `true/false or on/off` | Ease notifications into view |
 | `moduleToggles` | `true` | `true/false or on/off` | Notify when a module is enabled or disabled |
+| `updateChecks` | `true` | `true/false or on/off` | Check GitHub once at startup for a newer stable release |
 | `sound` | `false` | `true/false or on/off` | Play a short cue when a notification appears |
 | `soundVolume` | `0.5` | `0.05..1` | Notification cue volume |
 | `soundFor` | `all` | `all\|warnings\|errors` | Which severities are audible |

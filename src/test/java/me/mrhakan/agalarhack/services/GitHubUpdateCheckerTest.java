@@ -30,6 +30,14 @@ class GitHubUpdateCheckerTest {
     }
 
     @Test
+    void respectsUserAndRuntimeUpdateCheckOptOuts() {
+        assertFalse(GitHubUpdateChecker.shouldSkipCheck(true, false, false));
+        assertTrue(GitHubUpdateChecker.shouldSkipCheck(false, false, false));
+        assertTrue(GitHubUpdateChecker.shouldSkipCheck(true, true, false));
+        assertTrue(GitHubUpdateChecker.shouldSkipCheck(true, false, true));
+    }
+
+    @Test
     void ignoresMalformedOrUnstampedReleaseNames() {
         assertNull(GitHubUpdateChecker.parseLatestRelease("not-json"));
         assertNull(GitHubUpdateChecker.parseLatestRelease("{\"name\":\"Agalar Hack v26.2.5\"}"));

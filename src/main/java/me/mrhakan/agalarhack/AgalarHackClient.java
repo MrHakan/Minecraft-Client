@@ -191,7 +191,9 @@ public class AgalarHackClient implements ClientModInitializer {
         var notificationModule = moduleManager.getModule("Notifications");
         notifications.setEnabled(notificationModule != null && notificationModule.isToggled());
         var updateChecker = services.register(me.mrhakan.agalarhack.services.GitHubUpdateChecker.class,
-                new me.mrhakan.agalarhack.services.GitHubUpdateChecker(notifications));
+                new me.mrhakan.agalarhack.services.GitHubUpdateChecker(notifications,
+                        () -> notificationModule != null && notificationModule.isToggled()
+                                && notificationModule.getBooleanSetting("updateChecks", true)));
         updateChecker.register(EVENTS);
         // The bus detaches a listener that throws, which would disable chat handling for every chat
         // module for the rest of the session because they share one callback. Each module runs inside

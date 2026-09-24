@@ -17,6 +17,7 @@ import java.time.Duration;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.BooleanSupplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -32,13 +33,15 @@ public final class GitHubUpdateChecker {
             .build();
 
     private final NotificationService notifications;
+    private final BooleanSupplier updateChecksEnabled;
     private final AtomicBoolean checkStarted = new AtomicBoolean();
     private EventBus events;
     private EventBus.Subscription pendingWorldSubscription;
     private String pendingMessage;
 
-    public GitHubUpdateChecker(NotificationService notifications) {
+    public GitHubUpdateChecker(NotificationService notifications, BooleanSupplier updateChecksEnabled) {
         this.notifications = Objects.requireNonNull(notifications);
+        this.updateChecksEnabled = Objects.requireNonNull(updateChecksEnabled);
     }
 
     public void register(EventBus events) {
@@ -99,9 +102,15 @@ public final class GitHubUpdateChecker {
                 });
     }
 
-    private static boolean shouldSkipCheck() {
-        return FabricLoader.getInstance().isDevelopmentEnvironment()
-                || Boolean.getBoolean("agalarhack.disableUpdateCheck");
+    private boolean shouldSkipCheck() {
+        return shouldSkipCheck(updateChecksEnabled.getAsBoolean(),
+                FabricLoader.getInstance().isDevelopmentEnvironment(),
+                Boolean.getBoolean("agalarhack.disableUpdateCheck"));
+    }
+
+    static boolean shouldSkipCheck(boolean updateChecksEnabled, boolean developmentEnvironment,
+                                   boolean disabledByProperty) {
+        return !updateChecksEnabled || developmentEnvironment || disabledByProperty;
     }
 
     private static String installedCommit() {
