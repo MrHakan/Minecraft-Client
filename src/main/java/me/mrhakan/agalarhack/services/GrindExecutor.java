@@ -293,7 +293,7 @@ public final class GrindExecutor {
         if (ownedStationMenuId < 0 || client == null || client.player == null) return false;
         if (client.player.containerMenu != null && client.player.containerMenu.containerId == ownedStationMenuId
                 && client.gui.screen() != null) {
-            client.setScreen(null);
+            client.gui.setScreen(null);
             ownedStationMenuId = -1;
             rotations.release(OWNER);
             inventory.release(OWNER);
