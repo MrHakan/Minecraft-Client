@@ -34,7 +34,9 @@ jobs:
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          name: Agalar Hack ${{ github.ref_name }}+${{ github.sha }}
           files: build/libs/!(*-sources|*-dev).jar
           generate_release_notes: true
           draft: false
           prerelease: false
+          make_latest: true

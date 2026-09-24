@@ -103,6 +103,12 @@ controls under the Notifications module. Module-toggle notices can be disabled s
 Profile load, friend add, reconnect attempts and config recovery are connected. Queue size
 is capped at 10, text at 180 characters; repeated immediate duplicates are coalesced. Notifications are registered as a draggable HUD component. Optional severity-filtered sound is implemented in Notifications/NotificationSounds.
 
+The client checks GitHub's latest stable release once after startup, asynchronously, and compares
+the release's embedded full commit SHA with the SHA stamped into the installed JAR metadata. If a
+newer build exists, it queues one notification for the first loaded world; the Notifications HUD
+places it in the bottom-right by default. Development runs and automated game-test launches skip
+the network request. Main-branch builds publish full, non-prerelease GitHub releases.
+
 The module config migrates from a legacy bare module map (v0) to:
 
 ```json
