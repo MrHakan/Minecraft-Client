@@ -6,6 +6,7 @@ import me.mrhakan.agalarhack.managers.ModuleManager;
 import me.mrhakan.agalarhack.services.ClientServices;
 import me.mrhakan.agalarhack.services.NotificationService;
 import me.mrhakan.agalarhack.services.ThemeService;
+import me.mrhakan.agalarhack.ui.hud.HudText;
 import me.mrhakan.agalarhack.ui.hud.NotificationLayout;
 import net.minecraft.client.Minecraft;
 
