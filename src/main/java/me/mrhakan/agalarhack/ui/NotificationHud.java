@@ -50,7 +50,8 @@ public final class NotificationHud {
             };
             graphics.fill(x, y, x + bounds.width(), y + bounds.rowHeight(), ClientUiTheme.PANEL);
             graphics.fill(x, y, x + 3, y + bounds.rowHeight(), color);
-            graphics.text(font, HudText.fitWithEllipsis(notice.text(), Math.max(1, bounds.width() - 14), value -> font.width(value)),
+            graphics.text(font, HudText.fitWithEllipsis(notice.text(), Math.max(1, bounds.width() - 14), value -> font.width(value),
+                        (value, width) -> font.plainSubstrByWidth(value, width)),
                     x + 8, y + 8, ClientUiTheme.TEXT, true);
         }
     }
