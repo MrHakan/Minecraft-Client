@@ -452,8 +452,8 @@ public final class GrindExecutor {
         String path = BuiltInRegistries.BLOCK.getKey(state.getBlock()).getPath();
         boolean silkChangesDrop = (GrindBook.COBBLESTONE.equals(resource)
                 && (path.equals("stone") || path.equals("deepslate")))
-                || GrindBook.COAL.equals(resource) && path.endsWith("_coal_ore")
-                || GrindBook.RAW_IRON.equals(resource) && path.endsWith("_iron_ore");
+                || GrindBook.COAL.equals(resource) && (path.equals("coal_ore") || path.endsWith("_coal_ore"))
+                || GrindBook.RAW_IRON.equals(resource) && (path.equals("iron_ore") || path.endsWith("_iron_ore"));
         return !silkChangesDrop || !hasSilkTouch(stack);
     }
 
@@ -476,8 +476,8 @@ public final class GrindExecutor {
         return switch (generic) {
             case GrindBook.COBBLESTONE -> path.equals("stone") || path.equals("cobblestone")
                     || path.equals("deepslate") || path.equals("cobbled_deepslate");
-            case GrindBook.COAL -> path.endsWith("_coal_ore");
-            case GrindBook.RAW_IRON -> path.endsWith("_iron_ore");
+            case GrindBook.COAL -> path.equals("coal_ore") || path.endsWith("_coal_ore");
+            case GrindBook.RAW_IRON -> path.equals("iron_ore") || path.endsWith("_iron_ore");
             default -> false;
         };
     }
