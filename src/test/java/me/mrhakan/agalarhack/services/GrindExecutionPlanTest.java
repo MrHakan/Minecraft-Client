@@ -42,6 +42,15 @@ class GrindExecutionPlanTest {
                 < index(iron, GrindExecutionPlan.Action.GATHER, GrindBook.RAW_IRON));
     }
 
+    @Test void anExistingStonePickaxeIsEnoughToGatherRawIron() {
+        List<GrindExecutionPlan.Step> steps = GrindExecutionPlan.plan(GrindBook.RAW_IRON, 1,
+                Map.of(GrindBook.STONE_PICKAXE, 1), false, false);
+
+        assertEquals(1, steps.size());
+        assertEquals(GrindExecutionPlan.Action.GATHER, steps.getFirst().action());
+        assertEquals(GrindBook.RAW_IRON, steps.getFirst().item());
+    }
+
     @Test void ironIngotGoalBuildsFurnaceAndUsesSmeltingAfterResourcesAreReady() {
         List<GrindExecutionPlan.Step> steps = GrindExecutionPlan.plan(
                 GrindBook.IRON_INGOT, 1, Map.of(), false, false);
