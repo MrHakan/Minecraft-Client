@@ -965,7 +965,12 @@ public final class GrindExecutor {
             this.item = item; this.goal = goal; this.requiresTable = requiresTable;
         }
         @Override public String name() { return "craft " + item + " (" + count(item) + "/" + goal + ")"; }
-        @Override public boolean satisfied() { return count(item) >= goal; }
+        @Override public boolean satisfied() {
+            // The inventory changes optimistically on the client before the final vanilla click
+            // reaches the integrated/server connection. Advancing while our transfer still owns
+            // that click queue can let the next task or command replace the inventory underneath it.
+            return count(item) >= goal && !inventory.transfers().owns(OWNER);
+        }
         @Override public int budgetTicks() {
             CraftingPlan.Recipe recipe = GrindBook.recipes().get(item);
             int recipes = recipe == null ? 1 : Math.max(1, Math.ceilDiv(goal - count(item), recipe.yield()));
@@ -1139,7 +1144,11 @@ public final class GrindExecutor {
 
         SmeltTask(int goal, int rawIron, int coal) { this.goal = goal; this.rawIron = rawIron; this.coal = coal; }
         @Override public String name() { return "smelt iron_ingot (" + count(GrindBook.IRON_INGOT) + "/" + goal + ")"; }
-        @Override public boolean satisfied() { return count(GrindBook.IRON_INGOT) >= goal; }
+        @Override public boolean satisfied() {
+            // Keep the station task alive until its final output/recovery click is acknowledged by
+            // the shared transfer controller, for the same reason as CraftTask above.
+            return count(GrindBook.IRON_INGOT) >= goal && !inventory.transfers().owns(OWNER);
+        }
         @Override public int budgetTicks() { return Math.min(140_000, Math.max(TaskRunner.DEFAULT_BUDGET_TICKS, rawIron * 220 + 4_000)); }
 
         @Override public boolean tick() {
