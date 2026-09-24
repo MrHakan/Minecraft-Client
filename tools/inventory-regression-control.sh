@@ -15,6 +15,8 @@ fixed = '''if (!controls.ready(containerId) || !controls.cursorEmpty(containerId
             plan = new Click[0];
             step = 0;
             recovering = true;
+            recoveryBlocked = !controls.ready(containerId)
+                    || (!controls.cursorEmpty(containerId) && controls.returnStorageMenuSlot(containerId) < 0);
             if (!controls.ready(containerId)) containerId = -1;
             return;
         }'''
@@ -22,6 +24,8 @@ broken = '''if (controls.ready(containerId) && !controls.cursorEmpty(containerId
             plan = new Click[0];
             step = 0;
             recovering = true;
+            recoveryBlocked = !controls.ready(containerId)
+                    || (!controls.cursorEmpty(containerId) && controls.returnStorageMenuSlot(containerId) < 0);
             if (!controls.ready(containerId)) containerId = -1;
             return;
         }'''

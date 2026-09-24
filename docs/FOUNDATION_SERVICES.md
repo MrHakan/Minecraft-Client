@@ -75,7 +75,10 @@ controller can bind bounded clicks to the player's inventory, a 3×3 crafting-ta
 furnace menu; `InventoryTransfers` centralizes their player-slot mappings. Hotbar sources use a
 single atomic SWAP click that never involves the cursor. The tick budget is separate from
 ownership: PICKUP, recovery, SWAP and THROW all consume it, and release or priority changes cannot
-replenish it. `tick()` starts a new budget before module updates; world teardown clears it.
+replenish it. `recovering()` includes a safe return click that can proceed normally;
+`recoveryBlocked()` is true only while the menu is unavailable or no empty player slot can receive
+the cursor stack. Consumers can pause only when recovery needs an external change. `tick()` starts a
+new budget before module updates; world teardown clears it.
 
 AutoArmor, AutoWeapon, AutoTotem and AutoGrind share this channel. AutoGrind binds to a station menu
 only after it opens, checks that the captured menu remains active, and returns a carried stack to

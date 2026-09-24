@@ -467,7 +467,7 @@ public final class GrindExecutor {
     }
 
     private String inventoryRecoveryReason() {
-        return "Free an inventory slot so AutoGrind can return the carried stack, then run .grind resume.";
+        return "Make the inventory menu available and free a slot so AutoGrind can return the carried stack, then run .grind resume.";
     }
 
     private static boolean isTarget(String generic, net.minecraft.world.level.block.state.BlockState state) {
@@ -570,7 +570,7 @@ public final class GrindExecutor {
                     if (!GrindBook.LOG.equals(resource)) {
                     toolSlot = correctToolSlot(client.level.getBlockState(target), resource);
                         if (toolSlot == HOTBAR_PENDING) {
-                            if (inventory.transfers().recovering()) movementReason = inventoryRecoveryReason();
+                            if (inventory.transfers().recoveryBlocked()) movementReason = inventoryRecoveryReason();
                             return true;
                         }
                         if (toolSlot < 0) {
@@ -807,7 +807,7 @@ public final class GrindExecutor {
             }
             int hotbar = prepareHotbarItem(station.item);
             if (hotbar == HOTBAR_PENDING) {
-                if (inventory.transfers().recovering()) movementReason = inventoryRecoveryReason();
+                if (inventory.transfers().recoveryBlocked()) movementReason = inventoryRecoveryReason();
                 return true;
             }
             if (hotbar < 0) {
@@ -993,7 +993,7 @@ public final class GrindExecutor {
                 return true;
             }
             if (inventory.transfers().busy()) {
-                if (inventory.transfers().recovering()) movementReason = inventoryRecoveryReason();
+                if (inventory.transfers().recoveryBlocked()) movementReason = inventoryRecoveryReason();
                 return true;
             }
             int menuId = tableMenu ? client.player.containerMenu.containerId : -1;
@@ -1152,7 +1152,7 @@ public final class GrindExecutor {
                 return true;
             }
             if (inventory.transfers().busy()) {
-                if (inventory.transfers().recovering()) movementReason = inventoryRecoveryReason();
+                if (inventory.transfers().recoveryBlocked()) movementReason = inventoryRecoveryReason();
                 return true;
             }
             int menuId = menu.containerId;

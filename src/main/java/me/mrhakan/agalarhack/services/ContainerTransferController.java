@@ -67,6 +67,8 @@ public final class ContainerTransferController {
     private int delay = 1;
     private int planDelay = 1;
     private boolean recovering;
+    /** True only when cursor recovery cannot make progress without an external change. */
+    private boolean recoveryBlocked;
     // Ownership may end or change after a click; neither gives the current tick another click.
     private boolean clickedThisTick;
 
@@ -120,6 +122,7 @@ public final class ContainerTransferController {
         this.cooldown = 0;
         this.planDelay = clampDelay(delayTicks);
         this.recovering = false;
+        this.recoveryBlocked = false;
         return true;
     }
 
@@ -155,6 +158,7 @@ public final class ContainerTransferController {
             plan = new Click[0];
             step = 0;
             recovering = true;
+            recoveryBlocked = true;
             containerId = -1;
             return;
         }
@@ -173,16 +177,19 @@ public final class ContainerTransferController {
                 controls.pickup(containerId, destination, 0);
                 cooldown = planDelay;
                 recovering = true;
+                recoveryBlocked = false;
                 return;
             }
             // A full inventory holds the channel rather than dropping a carried item.
             recovering = true;
+            recoveryBlocked = true;
             return;
         }
         finish();
     }
 
     public boolean recovering() { return recovering; }
+    public boolean recoveryBlocked() { return recovering && recoveryBlocked; }
 
     /** Releases ownership unless a cursor stack still needs safe recovery. */
     public void release(String owner) {
@@ -191,6 +198,8 @@ public final class ContainerTransferController {
             plan = new Click[0];
             step = 0;
             recovering = true;
+            recoveryBlocked = !controls.ready(containerId)
+                    || (!controls.cursorEmpty(containerId) && controls.returnStorageMenuSlot(containerId) < 0);
             if (!controls.ready(containerId)) containerId = -1;
             return;
         }
@@ -200,10 +209,11 @@ public final class ContainerTransferController {
     /** Unconditional teardown for world changes and player replacement. */
     public void clear() {
         owner = null; priority = 0; plan = new Click[0]; step = 0; containerId = -1;
-        cooldown = 0; recovering = false; clickedThisTick = false;
+        cooldown = 0; recovering = false; recoveryBlocked = false; clickedThisTick = false;
     }
 
     private void finish() {
-        owner = null; priority = 0; plan = new Click[0]; step = 0; containerId = -1; recovering = false;
+        owner = null; priority = 0; plan = new Click[0]; step = 0; containerId = -1;
+        recovering = false; recoveryBlocked = false;
     }
 }

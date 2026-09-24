@@ -92,6 +92,43 @@ class ContainerTransferControllerTest {
         assertFalse(controller.busy());
     }
 
+    @Test void aSafeCursorReturnIsNotReportedAsBlockedRecovery() {
+        var controls = new FakeControls();
+        var controller = controller(controls);
+        assertTrue(controller.beginClicks("autogrind", 50, 7,
+                new ContainerTransferController.Click[]{new ContainerTransferController.Click(12, 0)}, 0));
+
+        controller.tick();
+        controls.cursorEmpty = false;
+        controller.tick();
+
+        assertTrue(controller.recovering());
+        assertFalse(controller.recoveryBlocked());
+        assertEquals(List.of("menu:7:12:0", "menu:7:30:0"), controls.clicks);
+        controls.cursorEmpty = true;
+        controller.tick();
+        assertFalse(controller.busy());
+    }
+
+    @Test void aFullInventoryMarksCursorRecoveryBlockedUntilSpaceIsAvailable() {
+        var controls = new FakeControls();
+        controls.freeSlot = -1;
+        var controller = controller(controls);
+        assertTrue(controller.beginClicks("autogrind", 50, 7,
+                new ContainerTransferController.Click[]{new ContainerTransferController.Click(12, 0)}, 0));
+
+        controller.tick();
+        controls.cursorEmpty = false;
+        controller.tick();
+        assertTrue(controller.recovering());
+        assertTrue(controller.recoveryBlocked());
+
+        controls.freeSlot = 30;
+        controller.tick();
+        assertFalse(controller.recoveryBlocked());
+        assertEquals(List.of("menu:7:12:0", "menu:7:30:0"), controls.clicks);
+    }
+
     @Test void closingAStationScreenDropsTheRemainingPlanBeforeInventoryRecovery() {
         var controls = new FakeControls();
         var controller = controller(controls);
