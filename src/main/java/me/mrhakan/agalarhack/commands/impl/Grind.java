@@ -22,8 +22,8 @@ import net.minecraft.world.item.ItemStack;
  * Plans a deterministic recipe chain, or starts its explicitly bounded raw-resource executor.
  *
  * <p>The short form remains plan-only for compatibility: {@code .grind stone_pickaxe} never starts
- * automation. Execution is opt-in through {@code .grind run}, and crafted chains are refused rather
- * than pretending that Baritone can craft them.
+ * automation. Execution is opt-in through {@code .grind run}; it runs the supported recipe chain
+ * through TaskRunner, vanilla world interactions, and the shared inventory transfer service.
  */
 public class Grind extends Command {
 
@@ -112,16 +112,14 @@ public class Grind extends Command {
         GrindExecutor executor = ClientServices.require(GrindExecutor.class);
         switch (executor.start(target, wanted)) {
             case STARTED -> MessageManager.sendMessagePrefix(ChatFormatting.GREEN
-                    + "AutoGrind started; gathering " + wanted + " " + target + ".");
+                    + "AutoGrind started for " + wanted + " " + target
+                    + "; use .grind status to follow its steps.");
             case ALREADY_SATISFIED -> MessageManager.sendMessagePrefix(ChatFormatting.GREEN
                     + "You already have " + wanted + " " + target + ".");
             case BUSY -> MessageManager.sendMessagePrefix(ChatFormatting.RED
-                    + "AutoGrind is already running " + executor.currentTask() + ".");
+                    + "AutoGrind is already active; use .grind status to see its current step or pause reason.");
             case NO_WORLD -> MessageManager.sendMessagePrefix(ChatFormatting.RED
                     + "You need to be in a world to run AutoGrind.");
-            case UNSUPPORTED -> MessageManager.sendMessagePrefix(ChatFormatting.RED
-                    + "This AutoGrind step is not executable yet. The current executor gathers "
-                    + "nearby logs only; use .grind plan to inspect other plans.");
             case INVALID -> MessageManager.sendMessagePrefix(ChatFormatting.RED
                     + "That AutoGrind request is not valid.");
         }
@@ -197,9 +195,13 @@ public class Grind extends Command {
         for (int i = 0; i < steps.size() && i < MAX_LINES; i++) {
             CraftingPlan.Step step = steps.get(i);
             boolean gather = step.kind() == CraftingPlan.Kind.GATHER;
+            boolean smelt = GrindBook.IRON_INGOT.equals(step.item());
+            String station = smelt ? " (needs a furnace)"
+                    : step.needsTable() ? " (needs a crafting table)" : "";
             MessageManager.sendMessagePrefix((gather ? ChatFormatting.YELLOW : ChatFormatting.AQUA)
-                    + "  " + (gather ? "gather " : "craft ") + step.count() + " " + step.item()
-                    + (step.needsTable() ? ChatFormatting.GRAY + " (needs a crafting table)" : ""));
+                    + "  " + (gather ? "gather " : smelt ? "smelt " : "craft ")
+                    + step.count() + " " + step.item()
+                    + (station.isEmpty() ? "" : ChatFormatting.GRAY + station));
         }
         if (steps.size() > MAX_LINES) {
             MessageManager.sendMessagePrefix(ChatFormatting.GRAY + "  ... and "
