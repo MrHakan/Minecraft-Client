@@ -2501,11 +2501,13 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
         singleplayer.getConnection().waitForChunksRender();
         context.waitTicks(10);
 
-        runGrindUntilResolved(context, "cobblestone 1", client -> countItem(client, Items.COBBLESTONE) == 1, 240);
+        runGrindGatherUntilResolved(context, singleplayer, "cobblestone 1", stone,
+                Items.COBBLESTONE, client -> countItem(client, Items.COBBLESTONE) == 1, 240);
         if (!context.computeOnClient(client -> client.level.getBlockState(stone).isAir())) {
             throw new AssertionError("AutoGrind did not break the stone block for cobblestone");
         }
-        runGrindUntilResolved(context, "coal 1", client -> countItem(client, Items.COAL) == 1, 240);
+        runGrindGatherUntilResolved(context, singleplayer, "coal 1", coalOre,
+                Items.COAL, client -> countItem(client, Items.COAL) == 1, 240);
         if (!context.computeOnClient(client -> client.level.getBlockState(coalOre).isAir())) {
             throw new AssertionError("AutoGrind did not break the coal ore");
         }
@@ -2514,7 +2516,8 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
             slots.setItem(0, Items.STONE_PICKAXE.getDefaultInstance());
             slots.setSelectedSlot(0);
         });
-        runGrindUntilResolved(context, "raw_iron 1", client -> countItem(client, Items.RAW_IRON) == 1, 240);
+        runGrindGatherUntilResolved(context, singleplayer, "raw_iron 1", ironOre,
+                Items.RAW_IRON, client -> countItem(client, Items.RAW_IRON) == 1, 240);
         if (!context.computeOnClient(client -> client.level.getBlockState(ironOre).isAir())) {
             throw new AssertionError("AutoGrind did not break the iron ore with a stone pickaxe");
         }
@@ -2600,6 +2603,45 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
         }
     }
 
+    /** Completes a nearby gather after moving onto a drop when normal pickup range did not reach it. */
+    private static void runGrindGatherUntilResolved(ClientGameTestContext context,
+            TestSingleplayerContext singleplayer, String request, BlockPos source,
+            net.minecraft.world.item.Item drop, Predicate<Minecraft> result, int budget) {
+        context.runOnClient(client -> me.mrhakan.agalarhack.managers.CommandManager.handleChat(
+                me.mrhakan.agalarhack.AgalarHackClient.prefix + "grind run " + request));
+        Predicate<Minecraft> terminal = client -> {
+            var state = me.mrhakan.agalarhack.services.ClientServices.require(
+                    me.mrhakan.agalarhack.services.GrindExecutor.class).state();
+            return state == me.mrhakan.agalarhack.services.TaskRunner.State.DONE
+                    || state == me.mrhakan.agalarhack.services.TaskRunner.State.FAILED
+                    || state == me.mrhakan.agalarhack.services.TaskRunner.State.NEEDS_MOVEMENT;
+        };
+        boolean resolved = settle(context, terminal, budget);
+        var state = context.computeOnClient(client -> me.mrhakan.agalarhack.services.ClientServices.require(
+                me.mrhakan.agalarhack.services.GrindExecutor.class).state());
+        String blocked = context.computeOnClient(client -> me.mrhakan.agalarhack.services.ClientServices.require(
+                me.mrhakan.agalarhack.services.GrindExecutor.class).blockedReason());
+        if (resolved && state == me.mrhakan.agalarhack.services.TaskRunner.State.NEEDS_MOVEMENT
+                && blocked != null && blocked.contains("drop at")) {
+            moveToDroppedItem(context, singleplayer, source, drop);
+            context.runOnClient(client -> me.mrhakan.agalarhack.managers.CommandManager.handleChat(
+                    me.mrhakan.agalarhack.AgalarHackClient.prefix + "grind resume"));
+            resolved = settle(context, terminal, budget);
+        }
+        String diagnostic = context.computeOnClient(client -> {
+            var executor = me.mrhakan.agalarhack.services.ClientServices.require(
+                    me.mrhakan.agalarhack.services.GrindExecutor.class);
+            return "state=" + executor.state() + " task=" + executor.currentTask()
+                    + " failure=" + executor.failure() + " blocked=" + executor.blockedReason();
+        });
+        boolean succeeded = context.computeOnClient(client -> me.mrhakan.agalarhack.services.ClientServices
+                .require(me.mrhakan.agalarhack.services.GrindExecutor.class).state()
+                == me.mrhakan.agalarhack.services.TaskRunner.State.DONE && result.test(client));
+        if (!resolved || !succeeded) {
+            throw new AssertionError("AutoGrind did not complete .grind run " + request + ": " + diagnostic);
+        }
+    }
+
     private static int countItem(Minecraft client, net.minecraft.world.item.Item item) {
         int total = 0;
         for (int slot = 0; slot < client.player.getInventory().getContainerSize(); slot++) {
@@ -2619,6 +2661,11 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
     /** Moves the test player onto the actual world drop, as a manual pickup would. */
     private static void moveToDroppedLog(ClientGameTestContext context,
             TestSingleplayerContext singleplayer, BlockPos near) {
+        moveToDroppedItem(context, singleplayer, near, Items.OAK_LOG);
+    }
+
+    private static void moveToDroppedItem(ClientGameTestContext context,
+            TestSingleplayerContext singleplayer, BlockPos near, net.minecraft.world.item.Item expectedItem) {
         singleplayer.getServer().runOnServer(server -> {
             ServerPlayer player = singleplayer.getConnection().getServerPlayer();
             java.util.List<Entity> present = new java.util.ArrayList<>();
@@ -2628,7 +2675,7 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
             Vec3 target = Vec3.atCenterOf(near);
             for (Entity entity : present) {
                 if (entity instanceof net.minecraft.world.entity.item.ItemEntity item
-                        && item.getItem().is(Items.OAK_LOG)) {
+                        && item.getItem().is(expectedItem)) {
                     double distance = item.position().distanceToSqr(target);
                     if (distance < closestDistance) {
                         closest = item;
@@ -2637,7 +2684,7 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
                 }
             }
             if (closest == null || closestDistance > 64.0) {
-                throw new AssertionError("No real oak log drop was present near " + near);
+                throw new AssertionError("No real " + expectedItem + " drop was present near " + near);
             }
             player.teleportTo(closest.getX(), closest.getY(), closest.getZ());
             player.setDeltaMovement(Vec3.ZERO);
