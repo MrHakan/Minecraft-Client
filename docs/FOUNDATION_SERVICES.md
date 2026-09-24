@@ -70,13 +70,16 @@ an empty cursor. Priority preemption is allowed only while the cursor is empty, 
 boundary with nothing carried always leaves the inventory consistent; a plan holding a carried
 item cannot be preempted, an owner cannot preempt itself, and an owner still returning a stack is
 left alone. Losing the click channel mid-plan drops the remaining clicks instead of guessing, and
-a full inventory holds the channel rather than dropping the player's item on the floor. Hotbar
-sources use a single atomic SWAP click that never involves the cursor. The tick budget is separate
-from ownership: PICKUP, recovery, SWAP and THROW all consume it, and release or priority changes
-cannot replenish it. `tick()` starts a new budget before module updates; world teardown clears it.
+a full inventory holds the channel rather than dropping the player's item on the floor. The
+controller can bind bounded clicks to the player's inventory, a 3×3 crafting-table menu, or a
+furnace menu; `InventoryTransfers` centralizes their player-slot mappings. Hotbar sources use a
+single atomic SWAP click that never involves the cursor. The tick budget is separate from
+ownership: PICKUP, recovery, SWAP and THROW all consume it, and release or priority changes cannot
+replenish it. `tick()` starts a new budget before module updates; world teardown clears it.
 
-AutoArmor (50), AutoWeapon (45 on the hotbar lease) and AutoTotem (90) consume these. Container
-transfers only operate on the player's own inventory menu; other containers are out of scope.
+AutoArmor, AutoWeapon, AutoTotem and AutoGrind share this channel. AutoGrind binds to a station menu
+only after it opens, checks that the captured menu remains active, and returns a carried stack to
+the player's inventory after an interruption. Other container types remain out of scope.
 
 ## Targets and rotations
 
