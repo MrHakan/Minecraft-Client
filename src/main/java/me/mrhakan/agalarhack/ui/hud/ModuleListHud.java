@@ -74,7 +74,7 @@ public final class ModuleListHud {
             int rowY = listY + (motion == null ? 0 : (int) Math.round(motion.y()));
             int alpha = motion == null ? 255 : (int) Math.round(Math.max(0, Math.min(1, motion.alpha())) * 255);
             if (alpha <= 0) continue;
-            String text = mc.font.plainSubstrByWidth(row.text(), Math.max(0, width - padding * 2));
+            String text = HudText.fitWithEllipsis(row.text(), Math.max(0, width - padding * 2), value -> mc.font.width(value));
             int visualHeight = rowHeight - rowGap;
             if (background) g.fill(rowX, rowY, rowX + width, rowY + visualHeight, fade(ClientUiTheme.PANEL, alpha));
             if (sideBar) { int edge = right ? rowX + width - 2 : rowX; g.fill(edge, rowY, edge + 2, rowY + visualHeight, fade(color, alpha)); }
