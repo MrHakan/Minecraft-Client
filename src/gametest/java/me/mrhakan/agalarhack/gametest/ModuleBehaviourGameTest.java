@@ -2579,9 +2579,9 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
 
     private static void runGrindUntilResolved(ClientGameTestContext context, String request,
             Predicate<Minecraft> result, int budget) {
-        // Server-side inventory fixtures broadcast immediately; let the client process that packet
-        // before the command takes its live planning snapshot.
-        context.waitTicks(2);
+        // Server-side inventory fixtures broadcast immediately; let the integrated connection
+        // deliver that packet before the command takes its live planning snapshot.
+        context.waitTicks(10);
         context.runOnClient(client -> me.mrhakan.agalarhack.managers.CommandManager.handleChat(
                 me.mrhakan.agalarhack.AgalarHackClient.prefix + "grind run " + request));
         boolean resolved = settle(context, client -> {
@@ -2610,9 +2610,9 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
     private static void runGrindGatherUntilResolved(ClientGameTestContext context,
             TestSingleplayerContext singleplayer, String request, BlockPos source,
             net.minecraft.world.item.Item drop, Predicate<Minecraft> result, int budget) {
-        // Server-side inventory fixtures broadcast immediately; let the client process that packet
-        // before the command takes its live planning snapshot.
-        context.waitTicks(2);
+        // Server-side inventory fixtures broadcast immediately; let the integrated connection
+        // deliver that packet before the command takes its live planning snapshot.
+        context.waitTicks(10);
         context.runOnClient(client -> me.mrhakan.agalarhack.managers.CommandManager.handleChat(
                 me.mrhakan.agalarhack.AgalarHackClient.prefix + "grind run " + request));
         Predicate<Minecraft> terminal = client -> {
