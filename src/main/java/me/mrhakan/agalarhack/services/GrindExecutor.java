@@ -776,6 +776,7 @@ public final class GrindExecutor {
         private int placementConfirmTicks;
         private boolean placementConfirmed;
         private int primedHotbar = -1;
+        private String placementDiagnostic = "no interaction issued";
         private String movementReason;
         private String failureReason;
 
@@ -833,7 +834,8 @@ public final class GrindExecutor {
                 return true;
             }
             if (hotbar < 0) {
-                failureReason = "the " + station.item + " is not in the inventory";
+                failureReason = "the " + station.item + " is not in the inventory; last placement: "
+                        + placementDiagnostic;
                 return false;
             }
             if (pendingPlace == null) pendingPlace = placementCandidate(attempt);
@@ -871,10 +873,17 @@ public final class GrindExecutor {
                 rotations.release(OWNER);
                 return true;
             }
-            client.gameMode.useItemOn(client.player, InteractionHand.MAIN_HAND, hit);
+            ItemStack heldBefore = client.player.getItemInHand(InteractionHand.MAIN_HAND).copy();
+            var interaction = client.gameMode.useItemOn(client.player, InteractionHand.MAIN_HAND, hit);
             // Derive the predicted placement cell from the actual vanilla hit face instead of
             // assuming every ray reached the support from above.
-            stationPosition(station, hit.getBlockPos().relative(hit.getDirection()));
+            BlockPos predicted = hit.getBlockPos().relative(hit.getDirection());
+            stationPosition(station, predicted);
+            placementDiagnostic = "result=" + interaction + ", held="
+                    + BuiltInRegistries.ITEM.getKey(heldBefore.getItem()) + "x" + heldBefore.getCount()
+                    + ", selected=" + hotbar + ", hit=" + coordinates(hit.getBlockPos())
+                    + ", face=" + hit.getDirection() + ", predicted=" + coordinates(predicted)
+                    + ", immediate=" + client.level.getBlockState(predicted).getBlock();
             awaitingPlacement = true;
             placementWaitTicks = 0;
             primedHotbar = -1;
