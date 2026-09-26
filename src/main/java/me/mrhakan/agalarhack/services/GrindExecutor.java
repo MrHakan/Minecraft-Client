@@ -776,6 +776,7 @@ public final class GrindExecutor {
         private int placementConfirmTicks;
         private boolean placementConfirmed;
         private int primedHotbar = -1;
+        private boolean aimPrimed;
         private String placementDiagnostic = "no interaction issued";
         private String movementReason;
         private String failureReason;
@@ -862,13 +863,23 @@ public final class GrindExecutor {
                 return true;
             }
             aimAt(support);
-            if (!aimedAt(support)) return true;
+            if (!aimedAt(support)) {
+                aimPrimed = false;
+                return true;
+            }
+            // RotationService resolves after this task. Keep the visible vanilla rotation for a
+            // complete network tick before use so the server validates the same face the client hit.
+            if (!aimPrimed) {
+                aimPrimed = true;
+                return true;
+            }
             BlockHitResult hit = hitTarget(support);
             if (hit == null || client.gameMode == null) {
                 attempt++;
                 pendingPlace = null;
                 retryWait = 4;
                 primedHotbar = -1;
+                aimPrimed = false;
                 inventory.release(OWNER);
                 rotations.release(OWNER);
                 return true;
@@ -887,6 +898,7 @@ public final class GrindExecutor {
             awaitingPlacement = true;
             placementWaitTicks = 0;
             primedHotbar = -1;
+            aimPrimed = false;
             inventory.release(OWNER);
             rotations.release(OWNER);
             return true;
