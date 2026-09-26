@@ -2603,9 +2603,15 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
         String diagnostic = context.computeOnClient(client -> {
             var executor = me.mrhakan.agalarhack.services.ClientServices.require(
                     me.mrhakan.agalarhack.services.GrindExecutor.class);
+            var transfers = me.mrhakan.agalarhack.services.ClientServices.require(
+                    me.mrhakan.agalarhack.services.InventoryService.class).transfers();
             return "state=" + executor.state() + " task=" + executor.currentTask()
                     + " failure=" + executor.failure() + " blocked=" + executor.blockedReason()
-                    + " inventory=" + inventoryContents(client);
+                    + " inventory=" + inventoryContents(client)
+                    + " transfer={busy=" + transfers.busy() + ", autogrind="
+                    + transfers.owns("autogrind") + ", recovering=" + transfers.recovering()
+                    + ", recoveryBlocked=" + transfers.recoveryBlocked() + "}"
+                    + " menu=" + menuContents(client);
         });
         boolean succeeded = context.computeOnClient(client ->
                 me.mrhakan.agalarhack.services.ClientServices.require(
@@ -2677,6 +2683,25 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
             }
         }
         return contents.toString();
+    }
+
+    private static String menuContents(Minecraft client) {
+        if (client.player == null || client.player.containerMenu == null) return "none";
+        var menu = client.player.containerMenu;
+        java.util.List<String> contents = new java.util.ArrayList<>();
+        int shown = Math.min(menu.slots.size(), 10);
+        for (int slot = 0; slot < shown; slot++) {
+            var stack = menu.getSlot(slot).getItem();
+            if (!stack.isEmpty()) {
+                contents.add(slot + "=" + net.minecraft.core.registries.BuiltInRegistries.ITEM
+                        .getKey(stack.getItem()) + "x" + stack.getCount());
+            }
+        }
+        var carried = menu.getCarried();
+        String cursor = carried.isEmpty() ? "empty" : net.minecraft.core.registries.BuiltInRegistries.ITEM
+                .getKey(carried.getItem()) + "x" + carried.getCount();
+        return menu.getClass().getSimpleName() + "{id=" + menu.containerId + ", cursor=" + cursor
+                + ", slots=" + contents + "}";
     }
 
     private static boolean hasAdjacentCraftingTable(Minecraft client, BlockPos base) {
