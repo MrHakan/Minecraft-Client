@@ -339,8 +339,22 @@ public final class GrindExecutor {
         return hit instanceof BlockHitResult blockHit && blockHit.getBlockPos().equals(pos) ? blockHit : null;
     }
 
+    /** A stable top-face hit; aiming at a support block's center intersects its upper edge. */
+    private BlockHitResult placementHit(BlockPos support) {
+        Vec3 from = client.player.getEyePosition();
+        Vec3 topCenter = Vec3.atBottomCenterOf(support.above());
+        var sight = client.level.clip(new ClipContext(from, topCenter.add(0, -0.001, 0),
+                ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, client.player));
+        return sight instanceof BlockHitResult blockHit && blockHit.getBlockPos().equals(support)
+                ? new BlockHitResult(topCenter, Direction.UP, support, false) : null;
+    }
+
     private void aimAt(BlockPos pos) {
-        Vec3 delta = Vec3.atCenterOf(pos).subtract(client.player.getEyePosition());
+        aimAt(Vec3.atCenterOf(pos));
+    }
+
+    private void aimAt(Vec3 target) {
+        Vec3 delta = target.subtract(client.player.getEyePosition());
         double horizontal = Math.sqrt(delta.x * delta.x + delta.z * delta.z);
         float yaw = (float) Math.toDegrees(Math.atan2(-delta.x, delta.z));
         float pitch = (float) -Math.toDegrees(Math.atan2(delta.y, horizontal));
@@ -349,7 +363,11 @@ public final class GrindExecutor {
     }
 
     private boolean aimedAt(BlockPos pos) {
-        Vec3 delta = Vec3.atCenterOf(pos).subtract(client.player.getEyePosition());
+        return aimedAt(Vec3.atCenterOf(pos));
+    }
+
+    private boolean aimedAt(Vec3 target) {
+        Vec3 delta = target.subtract(client.player.getEyePosition());
         double horizontal = Math.sqrt(delta.x * delta.x + delta.z * delta.z);
         float yaw = (float) Math.toDegrees(Math.atan2(-delta.x, delta.z));
         float pitch = (float) -Math.toDegrees(Math.atan2(delta.y, horizontal));
@@ -794,7 +812,7 @@ public final class GrindExecutor {
                 // Keep the selected hand and visible aim authoritative until the server either
                 // confirms the block or the bounded acknowledgement window expires.
                 if (primedHotbar >= 0) inventory.select(OWNER, PRIORITY, primedHotbar, false, true);
-                if (pendingPlace != null) aimAt(pendingPlace.below());
+                if (pendingPlace != null) aimAt(Vec3.atBottomCenterOf(pendingPlace));
             }
             BlockPos observed = stationPosition(station);
             if (observed != null && client.level.getBlockState(observed).is(station.block)) {
@@ -874,8 +892,9 @@ public final class GrindExecutor {
                 primedHotbar = hotbar;
                 return true;
             }
-            aimAt(support);
-            if (!aimedAt(support)) {
+            Vec3 placementAim = Vec3.atBottomCenterOf(place);
+            aimAt(placementAim);
+            if (!aimedAt(placementAim)) {
                 aimPrimed = false;
                 return true;
             }
@@ -885,7 +904,7 @@ public final class GrindExecutor {
                 aimPrimed = true;
                 return true;
             }
-            BlockHitResult hit = hitTarget(support);
+            BlockHitResult hit = placementHit(support);
             if (hit == null || client.gameMode == null) {
                 attempt++;
                 pendingPlace = null;
