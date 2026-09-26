@@ -916,13 +916,10 @@ public final class GrindExecutor {
                 return true;
             }
             ItemStack heldBefore = client.player.getItemInHand(InteractionHand.MAIN_HAND).copy();
-            // Pulse the ordinary use binding for one vanilla input tick. Calling gameMode here at
-            // the end of the client tick produced a local prediction before the selected slot and
-            // RotationService state had travelled through vanilla's own input/network ordering.
-            if (!inventory.select(OWNER, PRIORITY, hotbar, true, true)) return true;
+            var interaction = client.gameMode.useItemOn(client.player, InteractionHand.MAIN_HAND, hit);
             BlockPos predicted = hit.getBlockPos().relative(hit.getDirection());
             stationPosition(station, predicted);
-            placementDiagnostic = "input=vanilla-use, held="
+            placementDiagnostic = "result=" + interaction + ", centered-hit, held="
                     + BuiltInRegistries.ITEM.getKey(heldBefore.getItem()) + "x" + heldBefore.getCount()
                     + ", selected=" + hotbar + ", hit=" + coordinates(hit.getBlockPos())
                     + ", face=" + hit.getDirection() + ", predicted=" + coordinates(predicted);
