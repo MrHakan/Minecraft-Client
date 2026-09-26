@@ -790,6 +790,12 @@ public final class GrindExecutor {
         @Override public boolean tick() {
             movementReason = null;
             if (failureReason != null) return false;
+            if (awaitingPlacement) {
+                // Keep the selected hand and visible aim authoritative until the server either
+                // confirms the block or the bounded acknowledgement window expires.
+                if (primedHotbar >= 0) inventory.select(OWNER, PRIORITY, primedHotbar, false, true);
+                if (pendingPlace != null) aimAt(pendingPlace.below());
+            }
             BlockPos observed = stationPosition(station);
             if (observed != null && client.level.getBlockState(observed).is(station.block)) {
                 // Vanilla predicts a placement on the client before the integrated/remote server
@@ -797,6 +803,8 @@ public final class GrindExecutor {
                 // from advancing into a block that a late server correction has already rejected.
                 if (++placementConfirmTicks >= PLACEMENT_CONFIRM_TICKS) {
                     placementConfirmed = true;
+                    inventory.release(OWNER);
+                    rotations.release(OWNER);
                 }
                 return true;
             }
@@ -821,7 +829,11 @@ public final class GrindExecutor {
                 placementWaitTicks = 0;
                 attempt++;
                 pendingPlace = null;
-                retryWait = 2;
+                retryWait = 5;
+                primedHotbar = -1;
+                aimPrimed = false;
+                inventory.release(OWNER);
+                rotations.release(OWNER);
                 return true;
             }
             if (retryWait > 0) { retryWait--; return true; }
@@ -897,10 +909,7 @@ public final class GrindExecutor {
                     + ", immediate=" + client.level.getBlockState(predicted).getBlock();
             awaitingPlacement = true;
             placementWaitTicks = 0;
-            primedHotbar = -1;
             aimPrimed = false;
-            inventory.release(OWNER);
-            rotations.release(OWNER);
             return true;
         }
 
