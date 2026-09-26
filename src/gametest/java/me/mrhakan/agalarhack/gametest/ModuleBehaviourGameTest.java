@@ -2273,17 +2273,10 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
         }
         LOGGER.info("  grind planned a stone pickaxe around the wood already carried");
 
-        context.runOnClient(client -> me.mrhakan.agalarhack.managers.CommandManager.handleChat(
-                me.mrhakan.agalarhack.AgalarHackClient.prefix + "grind run cobblestone 1"));
-        context.waitTicks(10);
-        boolean refusedUnsupported = context.computeOnClient(client ->
-                ChatView.contains(client, "nearby logs only"));
-        if (!refusedUnsupported) {
-            throw new AssertionError("AutoGrind pretended it could gather cobblestone without a "
-                    + "verified executor or failed to explain its current log-only scope");
-        }
-        LOGGER.info("  AutoGrind refused a resource it cannot execute yet");
+        LOGGER.info("  AutoGrind planner counted existing resources without starting execution");
         grindExecutesNearbyLogs(context, singleplayer);
+        grindExecutesBasicResources(context, singleplayer);
+        grindExecutesRecipesAndSmelting(context, singleplayer);
     }
 
     /** A real planner-to-world-to-inventory run, then an inventory-based restart after interruption. */
@@ -2485,6 +2478,226 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
         LOGGER.info("  AutoGrind paused honestly outside reach and resumed after manual movement");
     }
 
+    /** Exercises the other raw-resource drop mappings through vanilla block breaking and pickup. */
+    private void grindExecutesBasicResources(ClientGameTestContext context,
+            TestSingleplayerContext singleplayer) {
+        BlockPos base = sceneBase.offset(0, 0, 560);
+        BlockPos stone = base.offset(0, 1, 1);
+        BlockPos coalOre = base.offset(1, 1, 0);
+        BlockPos ironOre = base.offset(-1, 1, 0);
+        moveThere(context, singleplayer, base);
+        setInventory(singleplayer, slots -> {
+            slots.setItem(0, Items.WOODEN_PICKAXE.getDefaultInstance());
+            slots.setSelectedSlot(0);
+        });
+        singleplayer.getServer().runOnServer(server -> {
+            ServerPlayer player = singleplayer.getConnection().getServerPlayer();
+            player.setGameMode(GameType.SURVIVAL);
+            player.setHealth(player.getMaxHealth());
+            player.level().setBlockAndUpdate(stone, Blocks.STONE.defaultBlockState());
+            player.level().setBlockAndUpdate(coalOre, Blocks.COAL_ORE.defaultBlockState());
+            player.level().setBlockAndUpdate(ironOre, Blocks.IRON_ORE.defaultBlockState());
+        });
+        singleplayer.getConnection().waitForChunksRender();
+        context.waitTicks(10);
+
+        runGrindGatherUntilResolved(context, singleplayer, "cobblestone 1", stone,
+                Items.COBBLESTONE, client -> countItem(client, Items.COBBLESTONE) == 1, 240);
+        if (!context.computeOnClient(client -> client.level.getBlockState(stone).isAir())) {
+            throw new AssertionError("AutoGrind did not break the stone block for cobblestone");
+        }
+        runGrindGatherUntilResolved(context, singleplayer, "coal 1", coalOre,
+                Items.COAL, client -> countItem(client, Items.COAL) == 1, 240);
+        if (!context.computeOnClient(client -> client.level.getBlockState(coalOre).isAir())) {
+            throw new AssertionError("AutoGrind did not break the coal ore");
+        }
+
+        setInventory(singleplayer, slots -> {
+            slots.setItem(0, Items.STONE_PICKAXE.getDefaultInstance());
+            slots.setSelectedSlot(0);
+        });
+        runGrindGatherUntilResolved(context, singleplayer, "raw_iron 1", ironOre,
+                Items.RAW_IRON, client -> countItem(client, Items.RAW_IRON) == 1, 240);
+        if (!context.computeOnClient(client -> client.level.getBlockState(ironOre).isAir())) {
+            throw new AssertionError("AutoGrind did not break the iron ore with a stone pickaxe");
+        }
+        LOGGER.info("  AutoGrind gathered cobblestone, coal, and raw iron and confirmed each drop");
+    }
+
+    /** Runs each current recipe family, including station placement and an eight-item furnace batch. */
+    private void grindExecutesRecipesAndSmelting(ClientGameTestContext context,
+            TestSingleplayerContext singleplayer) {
+        BlockPos base = sceneBase.offset(0, 0, 570);
+        moveThere(context, singleplayer, base);
+        singleplayer.getServer().runOnServer(server -> {
+            ServerPlayer player = singleplayer.getConnection().getServerPlayer();
+            player.setGameMode(GameType.SURVIVAL);
+            player.setHealth(player.getMaxHealth());
+        });
+
+        setInventory(singleplayer, slots -> slots.setItem(0, new ItemStack(Items.OAK_LOG, 1)));
+        runGrindUntilResolved(context, singleplayer, "planks 4", client -> countItem(client, Items.OAK_PLANKS) == 4, 200);
+
+        setInventory(singleplayer, slots -> slots.setItem(0, new ItemStack(Items.OAK_PLANKS, 2)));
+        runGrindUntilResolved(context, singleplayer, "stick 4", client -> countItem(client, Items.STICK) == 4, 200);
+
+        setInventory(singleplayer, slots -> slots.setItem(0, new ItemStack(Items.OAK_PLANKS, 4)));
+        runGrindUntilResolved(context, singleplayer, "crafting_table 1",
+                client -> countItem(client, Items.CRAFTING_TABLE) == 1, 200);
+
+        // A carried crafting table becomes a real nearby block before the wooden pickaxe's 3x3 craft.
+        setInventory(singleplayer, slots -> {
+            slots.setItem(0, new ItemStack(Items.OAK_LOG, 2));
+            slots.setItem(1, Items.CRAFTING_TABLE.getDefaultInstance());
+            slots.setSelectedSlot(0);
+        });
+        boolean woodenPickaxeFixtureSynced = settle(context, client ->
+                countItem(client, Items.OAK_LOG) == 2
+                        && countItem(client, Items.CRAFTING_TABLE) == 1, 240);
+        if (!woodenPickaxeFixtureSynced) {
+            throw new AssertionError("wooden-pickaxe fixture never reached the client: "
+                    + context.computeOnClient(ModuleBehaviourGameTest::inventoryContents));
+        }
+        runGrindUntilResolved(context, singleplayer, "wooden_pickaxe 1",
+                client -> countItem(client, Items.WOODEN_PICKAXE) == 1 && hasAdjacentCraftingTable(client, base), 400);
+
+        setInventory(singleplayer, slots -> {
+            slots.setItem(0, new ItemStack(Items.COBBLESTONE, 3));
+            slots.setItem(1, new ItemStack(Items.STICK, 2));
+        });
+        runGrindUntilResolved(context, singleplayer, "stone_pickaxe 1",
+                client -> countItem(client, Items.STONE_PICKAXE) == 1, 300);
+
+        setInventory(singleplayer, slots -> slots.setItem(0, new ItemStack(Items.COBBLESTONE, 8)));
+        runGrindUntilResolved(context, singleplayer, "furnace 1", client -> countItem(client, Items.FURNACE) == 1, 300);
+
+        setInventory(singleplayer, slots -> {
+            slots.setItem(0, Items.FURNACE.getDefaultInstance());
+            slots.setItem(1, new ItemStack(Items.RAW_IRON, 8));
+            slots.setItem(2, Items.COAL.getDefaultInstance());
+            slots.setItem(3, new ItemStack(Items.STICK, 2));
+        });
+        runGrindUntilResolved(context, singleplayer, "iron_ingot 1", client -> countItem(client, Items.IRON_INGOT) == 8, 2_200);
+
+        runGrindUntilResolved(context, singleplayer, "iron_pickaxe 1",
+                client -> countItem(client, Items.IRON_PICKAXE) == 1, 400);
+        LOGGER.info("  AutoGrind crafted 2x2 and 3x3 recipes, placed both stations, smelted iron, and made an iron pickaxe");
+    }
+
+    private static void runGrindUntilResolved(ClientGameTestContext context,
+            TestSingleplayerContext singleplayer, String request,
+            Predicate<Minecraft> result, int budget) {
+        // Server-side inventory fixtures broadcast immediately; let the integrated connection
+        // deliver that packet before the command takes its live planning snapshot.
+        context.waitTicks(10);
+        String startingInventory = context.computeOnClient(ModuleBehaviourGameTest::inventoryContents);
+        LOGGER.info("  AutoGrind {} starts with inventory {}", request, startingInventory);
+        context.runOnClient(client -> me.mrhakan.agalarhack.managers.CommandManager.handleChat(
+                me.mrhakan.agalarhack.AgalarHackClient.prefix + "grind run " + request));
+        boolean resolved = settle(context, client -> {
+            var state = me.mrhakan.agalarhack.services.ClientServices.require(
+                    me.mrhakan.agalarhack.services.GrindExecutor.class).state();
+            return state == me.mrhakan.agalarhack.services.TaskRunner.State.DONE
+                    || state == me.mrhakan.agalarhack.services.TaskRunner.State.FAILED
+                    || state == me.mrhakan.agalarhack.services.TaskRunner.State.NEEDS_MOVEMENT;
+        }, budget);
+        String diagnostic = context.computeOnClient(client -> {
+            var executor = me.mrhakan.agalarhack.services.ClientServices.require(
+                    me.mrhakan.agalarhack.services.GrindExecutor.class);
+            var transfers = me.mrhakan.agalarhack.services.ClientServices.require(
+                    me.mrhakan.agalarhack.services.InventoryService.class).transfers();
+            return "state=" + executor.state() + " task=" + executor.currentTask()
+                    + " failure=" + executor.failure() + " blocked=" + executor.blockedReason()
+                    + " inventory=" + inventoryContents(client)
+                    + " transfer={busy=" + transfers.busy() + ", autogrind="
+                    + transfers.owns("autogrind") + ", recovering=" + transfers.recovering()
+                    + ", recoveryBlocked=" + transfers.recoveryBlocked() + "}"
+                    + " menu=" + menuContents(client);
+        });
+        boolean succeeded = context.computeOnClient(client ->
+                me.mrhakan.agalarhack.services.ClientServices.require(
+                        me.mrhakan.agalarhack.services.GrindExecutor.class).state()
+                        == me.mrhakan.agalarhack.services.TaskRunner.State.DONE && result.test(client));
+        if (!resolved || !succeeded) {
+            String serverDiagnostic = singleplayer.getServer().computeOnServer(server -> {
+                ServerPlayer player = singleplayer.getConnection().getServerPlayer();
+                java.util.List<BlockPos> stations = new java.util.ArrayList<>();
+                BlockPos origin = player.blockPosition();
+                for (int dy = -4; dy <= 4; dy++) {
+                    for (int dx = -6; dx <= 6; dx++) {
+                        for (int dz = -6; dz <= 6; dz++) {
+                            BlockPos pos = origin.offset(dx, dy, dz);
+                            if (player.level().getBlockState(pos).is(Blocks.CRAFTING_TABLE)
+                                    || player.level().getBlockState(pos).is(Blocks.FURNACE)) {
+                                stations.add(pos.immutable());
+                            }
+                        }
+                    }
+                }
+                ItemStack held = player.getMainHandItem();
+                java.util.List<String> serverInventory = new java.util.ArrayList<>();
+                for (int slot = 0; slot < player.getInventory().getContainerSize(); slot++) {
+                    ItemStack stack = player.getInventory().getItem(slot);
+                    if (!stack.isEmpty()) {
+                        serverInventory.add(slot + "="
+                                + net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(stack.getItem())
+                                + "x" + stack.getCount());
+                    }
+                }
+                return "server={pos=" + origin + ", selected="
+                        + player.getInventory().getSelectedSlot() + ", held="
+                        + net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(held.getItem())
+                        + "x" + held.getCount() + ", yaw=" + player.getYRot() + ", pitch="
+                        + player.getXRot() + ", inventory=" + serverInventory
+                        + ", stations=" + stations + "}";
+            });
+            throw new AssertionError("AutoGrind did not complete .grind run " + request + ": "
+                    + diagnostic + " " + serverDiagnostic);
+        }
+    }
+
+    /** Completes a nearby gather after moving onto a drop when normal pickup range did not reach it. */
+    private static void runGrindGatherUntilResolved(ClientGameTestContext context,
+            TestSingleplayerContext singleplayer, String request, BlockPos source,
+            net.minecraft.world.item.Item drop, Predicate<Minecraft> result, int budget) {
+        // Server-side inventory fixtures broadcast immediately; let the integrated connection
+        // deliver that packet before the command takes its live planning snapshot.
+        context.waitTicks(10);
+        context.runOnClient(client -> me.mrhakan.agalarhack.managers.CommandManager.handleChat(
+                me.mrhakan.agalarhack.AgalarHackClient.prefix + "grind run " + request));
+        Predicate<Minecraft> terminal = client -> {
+            var state = me.mrhakan.agalarhack.services.ClientServices.require(
+                    me.mrhakan.agalarhack.services.GrindExecutor.class).state();
+            return state == me.mrhakan.agalarhack.services.TaskRunner.State.DONE
+                    || state == me.mrhakan.agalarhack.services.TaskRunner.State.FAILED
+                    || state == me.mrhakan.agalarhack.services.TaskRunner.State.NEEDS_MOVEMENT;
+        };
+        boolean resolved = settle(context, terminal, budget);
+        var state = context.computeOnClient(client -> me.mrhakan.agalarhack.services.ClientServices.require(
+                me.mrhakan.agalarhack.services.GrindExecutor.class).state());
+        String blocked = context.computeOnClient(client -> me.mrhakan.agalarhack.services.ClientServices.require(
+                me.mrhakan.agalarhack.services.GrindExecutor.class).blockedReason());
+        if (resolved && state == me.mrhakan.agalarhack.services.TaskRunner.State.NEEDS_MOVEMENT
+                && blocked != null && blocked.contains("drop at")) {
+            moveToDroppedItem(context, singleplayer, source, drop);
+            context.runOnClient(client -> me.mrhakan.agalarhack.managers.CommandManager.handleChat(
+                    me.mrhakan.agalarhack.AgalarHackClient.prefix + "grind resume"));
+            resolved = settle(context, terminal, budget);
+        }
+        String diagnostic = context.computeOnClient(client -> {
+            var executor = me.mrhakan.agalarhack.services.ClientServices.require(
+                    me.mrhakan.agalarhack.services.GrindExecutor.class);
+            return "state=" + executor.state() + " task=" + executor.currentTask()
+                    + " failure=" + executor.failure() + " blocked=" + executor.blockedReason();
+        });
+        boolean succeeded = context.computeOnClient(client -> me.mrhakan.agalarhack.services.ClientServices
+                .require(me.mrhakan.agalarhack.services.GrindExecutor.class).state()
+                == me.mrhakan.agalarhack.services.TaskRunner.State.DONE && result.test(client));
+        if (!resolved || !succeeded) {
+            throw new AssertionError("AutoGrind did not complete .grind run " + request + ": " + diagnostic);
+        }
+    }
+
     private static int countItem(Minecraft client, net.minecraft.world.item.Item item) {
         int total = 0;
         for (int slot = 0; slot < client.player.getInventory().getContainerSize(); slot++) {
@@ -2494,9 +2707,52 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
         return total;
     }
 
+    private static String inventoryContents(Minecraft client) {
+        java.util.List<String> contents = new java.util.ArrayList<>();
+        for (int slot = 0; slot < client.player.getInventory().getContainerSize(); slot++) {
+            var stack = client.player.getInventory().getItem(slot);
+            if (!stack.isEmpty()) {
+                contents.add(slot + "=" + net.minecraft.core.registries.BuiltInRegistries.ITEM
+                        .getKey(stack.getItem()) + "x" + stack.getCount());
+            }
+        }
+        return contents.toString();
+    }
+
+    private static String menuContents(Minecraft client) {
+        if (client.player == null || client.player.containerMenu == null) return "none";
+        var menu = client.player.containerMenu;
+        java.util.List<String> contents = new java.util.ArrayList<>();
+        int shown = Math.min(menu.slots.size(), 10);
+        for (int slot = 0; slot < shown; slot++) {
+            var stack = menu.getSlot(slot).getItem();
+            if (!stack.isEmpty()) {
+                contents.add(slot + "=" + net.minecraft.core.registries.BuiltInRegistries.ITEM
+                        .getKey(stack.getItem()) + "x" + stack.getCount());
+            }
+        }
+        var carried = menu.getCarried();
+        String cursor = carried.isEmpty() ? "empty" : net.minecraft.core.registries.BuiltInRegistries.ITEM
+                .getKey(carried.getItem()) + "x" + carried.getCount();
+        return menu.getClass().getSimpleName() + "{id=" + menu.containerId + ", cursor=" + cursor
+                + ", slots=" + contents + "}";
+    }
+
+    private static boolean hasAdjacentCraftingTable(Minecraft client, BlockPos base) {
+        return client.level.getBlockState(base.offset(1, 0, 0)).is(Blocks.CRAFTING_TABLE)
+                || client.level.getBlockState(base.offset(-1, 0, 0)).is(Blocks.CRAFTING_TABLE)
+                || client.level.getBlockState(base.offset(0, 0, 1)).is(Blocks.CRAFTING_TABLE)
+                || client.level.getBlockState(base.offset(0, 0, -1)).is(Blocks.CRAFTING_TABLE);
+    }
+
     /** Moves the test player onto the actual world drop, as a manual pickup would. */
     private static void moveToDroppedLog(ClientGameTestContext context,
             TestSingleplayerContext singleplayer, BlockPos near) {
+        moveToDroppedItem(context, singleplayer, near, Items.OAK_LOG);
+    }
+
+    private static void moveToDroppedItem(ClientGameTestContext context,
+            TestSingleplayerContext singleplayer, BlockPos near, net.minecraft.world.item.Item expectedItem) {
         singleplayer.getServer().runOnServer(server -> {
             ServerPlayer player = singleplayer.getConnection().getServerPlayer();
             java.util.List<Entity> present = new java.util.ArrayList<>();
@@ -2506,7 +2762,7 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
             Vec3 target = Vec3.atCenterOf(near);
             for (Entity entity : present) {
                 if (entity instanceof net.minecraft.world.entity.item.ItemEntity item
-                        && item.getItem().is(Items.OAK_LOG)) {
+                        && item.getItem().is(expectedItem)) {
                     double distance = item.position().distanceToSqr(target);
                     if (distance < closestDistance) {
                         closest = item;
@@ -2515,7 +2771,7 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
                 }
             }
             if (closest == null || closestDistance > 64.0) {
-                throw new AssertionError("No real oak log drop was present near " + near);
+                throw new AssertionError("No real " + expectedItem + " drop was present near " + near);
             }
             player.teleportTo(closest.getX(), closest.getY(), closest.getZ());
             player.setDeltaMovement(Vec3.ZERO);

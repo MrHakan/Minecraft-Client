@@ -14,6 +14,7 @@ public final class Notifications extends Module {
         addChoiceSetting("position", "bottom_right", "Default corner; HUD editor can override placement", "bottom_right", "top_right", "bottom_left", "top_left");
         addBooleanSetting("animations", true, "Ease notifications into view");
         addBooleanSetting("moduleToggles", true, "Notify when a module is enabled or disabled");
+        addBooleanSetting("updateChecks", true, "Check GitHub once at startup for a newer stable release");
         addBooleanSetting("sound", false, "Play a short cue when a notification appears");
         addNumberSetting("soundVolume", 0.5, 0.05, 1.0, "Notification cue volume");
         addChoiceSetting("soundFor", "all", "Which severities are audible", "all", "warnings", "errors");

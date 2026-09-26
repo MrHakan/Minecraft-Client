@@ -5,6 +5,7 @@ import me.mrhakan.agalarhack.managers.UtilityActionManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.component.DataComponents;
+import net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.Item;
@@ -57,15 +58,63 @@ public final class InventoryService {
                 // Button 1 throws the whole stack, button 0 a single item.
                 click(menuSlot, wholeStack ? 1 : 0, net.minecraft.world.inventory.ContainerInput.THROW);
             }
+            public boolean ready(int containerId) {
+                if (containerId < 0) return ready();
+                if (mc.player == null || mc.level == null || !mc.player.isAlive() || mc.gui.screen() == null
+                        || mc.gameMode == null || mc.player.containerMenu == null
+                        || mc.player.containerMenu.containerId != containerId) return false;
+                return mc.player.containerMenu instanceof net.minecraft.world.inventory.CraftingMenu
+                        || mc.player.containerMenu instanceof net.minecraft.world.inventory.FurnaceMenu;
+            }
+            public boolean cursorEmpty(int containerId) {
+                if (mc.player == null) return true;
+                if (containerId < 0) return mc.player.inventoryMenu.getCarried().isEmpty();
+                return mc.player.containerMenu != null && mc.player.containerMenu.containerId == containerId
+                        && mc.player.containerMenu.getCarried().isEmpty();
+            }
+            public int returnStorageMenuSlot(int containerId) {
+                if (mc.player == null || mc.player.containerMenu == null) return -1;
+                var menu = containerId < 0 ? mc.player.inventoryMenu : mc.player.containerMenu;
+                if (containerId >= 0 && menu.containerId != containerId) return -1;
+                int free = mc.player.getInventory().getFreeSlot();
+                if (free < 0 || free >= InventoryTransfers.INVENTORY_SIZE) return -1;
+                InventoryTransfers.PlayerMenuLayout layout = menu instanceof net.minecraft.world.inventory.CraftingMenu
+                        ? InventoryTransfers.PlayerMenuLayout.CRAFTING_TABLE
+                        : menu instanceof net.minecraft.world.inventory.FurnaceMenu
+                                ? InventoryTransfers.PlayerMenuLayout.FURNACE
+                                : InventoryTransfers.PlayerMenuLayout.INVENTORY;
+                return InventoryTransfers.menuSlot(free, layout);
+            }
+            public void pickup(int containerId, int menuSlot, int button) {
+                if (mc.gameMode == null || mc.player == null) return;
+                int id = containerId < 0 ? mc.player.inventoryMenu.containerId : containerId;
+                click(id, menuSlot, button, net.minecraft.world.inventory.ContainerInput.PICKUP);
+            }
             private void click(int menuSlot, int button, net.minecraft.world.inventory.ContainerInput input) {
                 if (mc.gameMode == null || mc.player == null) return;
-                mc.gameMode.handleContainerInput(mc.player.inventoryMenu.containerId, menuSlot, button, input, mc.player);
+                click(mc.player.inventoryMenu.containerId, menuSlot, button, input);
+            }
+            private void click(int containerId, int menuSlot, int button, net.minecraft.world.inventory.ContainerInput input) {
+                if (mc.gameMode == null || mc.player == null) return;
+                mc.gameMode.handleContainerInput(containerId, menuSlot, button, input, mc.player);
             }
         }, actions);
         leases = new InventoryLeaseController<>(new InventoryLeaseController.Controls<LocalPlayer>() {
             public LocalPlayer currentPlayer() { return mc.player; }
             public int selected(LocalPlayer player) { return player.getInventory().getSelectedSlot(); }
-            public void select(LocalPlayer player, int slot) { player.getInventory().setSelectedSlot(slot); }
+            public void select(LocalPlayer player, int slot) {
+                if (player.getInventory().getSelectedSlot() == slot) return;
+                player.getInventory().setSelectedSlot(slot);
+                // Changing Inventory's local index does not itself publish the held slot. Most
+                // vanilla input paths do that later through MultiPlayerGameMode, but a leased
+                // action can use the selected hand immediately (station placement is one such
+                // action). Send the one normal carried-item update at the ownership boundary so
+                // the server evaluates that action with the same hand. The equality guard keeps
+                // persistent leases from sending a packet every tick and also covers swap-back.
+                if (player.connection != null) {
+                    player.connection.send(new ServerboundSetCarriedItemPacket(slot));
+                }
+            }
             public void use(boolean down) { mc.options.keyUse.setDown(down); }
             public boolean physicalUseDown() {
                 var key = net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper.getBoundKeyOf(mc.options.keyUse);
