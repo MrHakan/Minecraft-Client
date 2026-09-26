@@ -2635,11 +2635,21 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
                     }
                 }
                 ItemStack held = player.getMainHandItem();
+                java.util.List<String> serverInventory = new java.util.ArrayList<>();
+                for (int slot = 0; slot < player.getInventory().getContainerSize(); slot++) {
+                    ItemStack stack = player.getInventory().getItem(slot);
+                    if (!stack.isEmpty()) {
+                        serverInventory.add(slot + "="
+                                + net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(stack.getItem())
+                                + "x" + stack.getCount());
+                    }
+                }
                 return "server={pos=" + origin + ", selected="
                         + player.getInventory().getSelectedSlot() + ", held="
                         + net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(held.getItem())
                         + "x" + held.getCount() + ", yaw=" + player.getYRot() + ", pitch="
-                        + player.getXRot() + ", stations=" + stations + "}";
+                        + player.getXRot() + ", inventory=" + serverInventory
+                        + ", stations=" + stations + "}";
             });
             throw new AssertionError("AutoGrind did not complete .grind run " + request + ": "
                     + diagnostic + " " + serverDiagnostic);
