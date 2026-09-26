@@ -766,26 +766,38 @@ public final class GrindExecutor {
     }
 
     private final class PlaceStationTask implements TaskRunner.Task {
+        private static final int PLACEMENT_CONFIRM_TICKS = 5;
         private final Station station;
         private int attempt;
         private int retryWait;
         private BlockPos pendingPlace;
         private boolean awaitingPlacement;
         private int placementWaitTicks;
+        private int placementConfirmTicks;
+        private boolean placementConfirmed;
         private String movementReason;
         private String failureReason;
 
         PlaceStationTask(Station station) { this.station = station; }
         @Override public String name() { return "place " + station.item; }
         @Override public boolean satisfied() {
-            BlockPos pos = stationPosition(station);
-            return pos != null && client.level.getBlockState(pos).is(station.block);
+            return placementConfirmed;
         }
 
         @Override public boolean tick() {
             movementReason = null;
             if (failureReason != null) return false;
-            if (satisfied()) return true;
+            BlockPos observed = stationPosition(station);
+            if (observed != null && client.level.getBlockState(observed).is(station.block)) {
+                // Vanilla predicts a placement on the client before the integrated/remote server
+                // accepts it. Requiring a short stable observation keeps the following open task
+                // from advancing into a block that a late server correction has already rejected.
+                if (++placementConfirmTicks >= PLACEMENT_CONFIRM_TICKS) {
+                    placementConfirmed = true;
+                }
+                return true;
+            }
+            placementConfirmTicks = 0;
             if (closeOwnedStationMenu()) return true;
             if (client.gui.screen() != null || client.player.containerMenu != client.player.inventoryMenu) {
                 movementReason = "Close the open screen before AutoGrind can place " + station.item + ".";
