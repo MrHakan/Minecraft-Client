@@ -2536,13 +2536,13 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
         });
 
         setInventory(singleplayer, slots -> slots.setItem(0, new ItemStack(Items.OAK_LOG, 1)));
-        runGrindUntilResolved(context, "planks 4", client -> countItem(client, Items.OAK_PLANKS) == 4, 200);
+        runGrindUntilResolved(context, singleplayer, "planks 4", client -> countItem(client, Items.OAK_PLANKS) == 4, 200);
 
         setInventory(singleplayer, slots -> slots.setItem(0, new ItemStack(Items.OAK_PLANKS, 2)));
-        runGrindUntilResolved(context, "stick 4", client -> countItem(client, Items.STICK) == 4, 200);
+        runGrindUntilResolved(context, singleplayer, "stick 4", client -> countItem(client, Items.STICK) == 4, 200);
 
         setInventory(singleplayer, slots -> slots.setItem(0, new ItemStack(Items.OAK_PLANKS, 4)));
-        runGrindUntilResolved(context, "crafting_table 1",
+        runGrindUntilResolved(context, singleplayer, "crafting_table 1",
                 client -> countItem(client, Items.CRAFTING_TABLE) == 1, 200);
 
         // A carried crafting table becomes a real nearby block before the wooden pickaxe's 3x3 craft.
@@ -2558,18 +2558,18 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
             throw new AssertionError("wooden-pickaxe fixture never reached the client: "
                     + context.computeOnClient(ModuleBehaviourGameTest::inventoryContents));
         }
-        runGrindUntilResolved(context, "wooden_pickaxe 1",
+        runGrindUntilResolved(context, singleplayer, "wooden_pickaxe 1",
                 client -> countItem(client, Items.WOODEN_PICKAXE) == 1 && hasAdjacentCraftingTable(client, base), 400);
 
         setInventory(singleplayer, slots -> {
             slots.setItem(0, new ItemStack(Items.COBBLESTONE, 3));
             slots.setItem(1, new ItemStack(Items.STICK, 2));
         });
-        runGrindUntilResolved(context, "stone_pickaxe 1",
+        runGrindUntilResolved(context, singleplayer, "stone_pickaxe 1",
                 client -> countItem(client, Items.STONE_PICKAXE) == 1, 300);
 
         setInventory(singleplayer, slots -> slots.setItem(0, new ItemStack(Items.COBBLESTONE, 8)));
-        runGrindUntilResolved(context, "furnace 1", client -> countItem(client, Items.FURNACE) == 1, 300);
+        runGrindUntilResolved(context, singleplayer, "furnace 1", client -> countItem(client, Items.FURNACE) == 1, 300);
 
         setInventory(singleplayer, slots -> {
             slots.setItem(0, Items.FURNACE.getDefaultInstance());
@@ -2577,14 +2577,15 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
             slots.setItem(2, Items.COAL.getDefaultInstance());
             slots.setItem(3, new ItemStack(Items.STICK, 2));
         });
-        runGrindUntilResolved(context, "iron_ingot 1", client -> countItem(client, Items.IRON_INGOT) == 8, 2_200);
+        runGrindUntilResolved(context, singleplayer, "iron_ingot 1", client -> countItem(client, Items.IRON_INGOT) == 8, 2_200);
 
-        runGrindUntilResolved(context, "iron_pickaxe 1",
+        runGrindUntilResolved(context, singleplayer, "iron_pickaxe 1",
                 client -> countItem(client, Items.IRON_PICKAXE) == 1, 400);
         LOGGER.info("  AutoGrind crafted 2x2 and 3x3 recipes, placed both stations, smelted iron, and made an iron pickaxe");
     }
 
-    private static void runGrindUntilResolved(ClientGameTestContext context, String request,
+    private static void runGrindUntilResolved(ClientGameTestContext context,
+            TestSingleplayerContext singleplayer, String request,
             Predicate<Minecraft> result, int budget) {
         // Server-side inventory fixtures broadcast immediately; let the integrated connection
         // deliver that packet before the command takes its live planning snapshot.
@@ -2618,7 +2619,30 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
                         me.mrhakan.agalarhack.services.GrindExecutor.class).state()
                         == me.mrhakan.agalarhack.services.TaskRunner.State.DONE && result.test(client));
         if (!resolved || !succeeded) {
-            throw new AssertionError("AutoGrind did not complete .grind run " + request + ": " + diagnostic);
+            String serverDiagnostic = singleplayer.getServer().computeOnServer(server -> {
+                ServerPlayer player = singleplayer.getConnection().getServerPlayer();
+                java.util.List<BlockPos> stations = new java.util.ArrayList<>();
+                BlockPos origin = player.blockPosition();
+                for (int dy = -4; dy <= 4; dy++) {
+                    for (int dx = -6; dx <= 6; dx++) {
+                        for (int dz = -6; dz <= 6; dz++) {
+                            BlockPos pos = origin.offset(dx, dy, dz);
+                            if (player.level().getBlockState(pos).is(Blocks.CRAFTING_TABLE)
+                                    || player.level().getBlockState(pos).is(Blocks.FURNACE)) {
+                                stations.add(pos.immutable());
+                            }
+                        }
+                    }
+                }
+                ItemStack held = player.getMainHandItem();
+                return "server={pos=" + origin + ", selected="
+                        + player.getInventory().getSelectedSlot() + ", held="
+                        + net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(held.getItem())
+                        + "x" + held.getCount() + ", yaw=" + player.getYRot() + ", pitch="
+                        + player.getXRot() + ", stations=" + stations + "}";
+            });
+            throw new AssertionError("AutoGrind did not complete .grind run " + request + ": "
+                    + diagnostic + " " + serverDiagnostic);
         }
     }
 
