@@ -59,7 +59,29 @@ class ContainerTransferControllerTest {
         assertTrue(controller.busy());
         controller.tick();
         assertEquals(List.of("menu:7:5:1", "menu:7:0:0"), controls.clicks);
+        controller.tick(); controller.tick();
+        assertTrue(controller.busy(), "recipe plan released before its confirmation window");
         controller.tick();
+        assertFalse(controller.busy());
+    }
+
+    @Test void lateRecipeCursorCorrectionIsRecoveredBeforeOwnershipReleases() {
+        var controls = new FakeControls();
+        var controller = controller(controls);
+        assertTrue(controller.beginClicks("autogrind", 50, -1,
+                new ContainerTransferController.Click[]{new ContainerTransferController.Click(12, 0)}, 0));
+
+        controller.tick();
+        controller.tick(); // First optimistic empty-cursor observation.
+        controls.cursorEmpty = false; // Server correction arrives after the local click looked done.
+        controller.tick();
+
+        assertTrue(controller.owns("autogrind"));
+        assertTrue(controller.recovering());
+        assertEquals(List.of("pickup:12", "pickup:30"), controls.clicks);
+
+        controls.cursorEmpty = true;
+        controller.tick(); controller.tick(); controller.tick();
         assertFalse(controller.busy());
     }
 
@@ -88,7 +110,7 @@ class ContainerTransferControllerTest {
         assertTrue(controller.recovering());
         assertEquals(List.of("menu:7:12:0", "menu:7:30:0"), controls.clicks);
         controls.cursorEmpty = true;
-        controller.tick();
+        controller.tick(); controller.tick(); controller.tick();
         assertFalse(controller.busy());
     }
 
@@ -106,7 +128,7 @@ class ContainerTransferControllerTest {
         assertFalse(controller.recoveryBlocked());
         assertEquals(List.of("menu:7:12:0", "menu:7:30:0"), controls.clicks);
         controls.cursorEmpty = true;
-        controller.tick();
+        controller.tick(); controller.tick(); controller.tick();
         assertFalse(controller.busy());
     }
 

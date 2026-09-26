@@ -44,6 +44,11 @@ public final class ContainerTransferController {
     /** Existing equipment transfers stay short; crafting layouts use a separately bounded queue. */
     private static final int MAX_PLAN = 3;
     private static final int MAX_CLICK_PLAN = 256;
+    /**
+     * Container clicks are applied optimistically on the client. Keep recipe/station ownership for
+     * a few empty-cursor observations so a late server correction can still enter safe recovery.
+     */
+    private static final int SERVER_CONFIRM_TICKS = 3;
 
     /** A vanilla PICKUP click. Button 0 takes/places a stack; button 1 places one item. */
     public record Click(int menuSlot, int button) {
@@ -66,6 +71,9 @@ public final class ContainerTransferController {
     private int cooldown;
     private int delay = 1;
     private int planDelay = 1;
+    private boolean confirmServer;
+    private boolean awaitingConfirmation;
+    private int emptyConfirmTicks;
     private boolean recovering;
     /** True only when cursor recovery cannot make progress without an external change. */
     private boolean recoveryBlocked;
@@ -101,7 +109,7 @@ public final class ContainerTransferController {
         } catch (IllegalArgumentException invalid) {
             return false;
         }
-        return beginClicks(owner, priority, -1, clicks, delayTicks);
+        return beginClicks(owner, priority, -1, clicks, delayTicks, false);
     }
 
     /**
@@ -109,6 +117,11 @@ public final class ContainerTransferController {
      * cursor checks, one-click-per-tick budget, and recovery path used by inventory modules apply.
      */
     public boolean beginClicks(String owner, int priority, int containerId, Click[] clicks, int delayTicks) {
+        return beginClicks(owner, priority, containerId, clicks, delayTicks, true);
+    }
+
+    private boolean beginClicks(String owner, int priority, int containerId, Click[] clicks,
+            int delayTicks, boolean confirmServer) {
         if (owner == null || owner.isBlank() || containerId < -1 || clicks == null
                 || clicks.length == 0 || clicks.length > MAX_CLICK_PLAN) return false;
         for (Click click : clicks) if (click == null) return false;
@@ -121,6 +134,9 @@ public final class ContainerTransferController {
         this.containerId = containerId;
         this.cooldown = 0;
         this.planDelay = clampDelay(delayTicks);
+        this.confirmServer = confirmServer;
+        this.awaitingConfirmation = false;
+        this.emptyConfirmTicks = 0;
         this.recovering = false;
         this.recoveryBlocked = false;
         return true;
@@ -167,14 +183,20 @@ public final class ContainerTransferController {
             Click click = plan[step++];
             clickedThisTick = true;
             controls.pickup(containerId, click.menuSlot(), click.button());
+            if (confirmServer && step == plan.length) {
+                awaitingConfirmation = true;
+                emptyConfirmTicks = 0;
+            }
             cooldown = planDelay;
             return;
         }
         if (!controls.cursorEmpty(containerId)) {
+            emptyConfirmTicks = 0;
             int destination = controls.returnStorageMenuSlot(containerId);
             if (destination >= 0) {
                 clickedThisTick = true;
                 controls.pickup(containerId, destination, 0);
+                awaitingConfirmation = confirmServer;
                 cooldown = planDelay;
                 recovering = true;
                 recoveryBlocked = false;
@@ -185,6 +207,7 @@ public final class ContainerTransferController {
             recoveryBlocked = true;
             return;
         }
+        if (awaitingConfirmation && ++emptyConfirmTicks < SERVER_CONFIRM_TICKS) return;
         finish();
     }
 
@@ -203,17 +226,20 @@ public final class ContainerTransferController {
             if (!controls.ready(containerId)) containerId = -1;
             return;
         }
+        if (awaitingConfirmation && emptyConfirmTicks < SERVER_CONFIRM_TICKS) return;
         finish();
     }
 
     /** Unconditional teardown for world changes and player replacement. */
     public void clear() {
         owner = null; priority = 0; plan = new Click[0]; step = 0; containerId = -1;
-        cooldown = 0; recovering = false; recoveryBlocked = false; clickedThisTick = false;
+        cooldown = 0; confirmServer = false; awaitingConfirmation = false; emptyConfirmTicks = 0;
+        recovering = false; recoveryBlocked = false; clickedThisTick = false;
     }
 
     private void finish() {
         owner = null; priority = 0; plan = new Click[0]; step = 0; containerId = -1;
+        confirmServer = false; awaitingConfirmation = false; emptyConfirmTicks = 0;
         recovering = false; recoveryBlocked = false;
     }
 }
