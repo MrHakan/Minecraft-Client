@@ -775,6 +775,7 @@ public final class GrindExecutor {
         private int placementWaitTicks;
         private int placementConfirmTicks;
         private boolean placementConfirmed;
+        private int primedHotbar = -1;
         private String movementReason;
         private String failureReason;
 
@@ -805,6 +806,15 @@ public final class GrindExecutor {
             }
             if (awaitingPlacement) {
                 if (++placementWaitTicks <= 40) return true;
+                // The interaction result records the clicked face, while a replaceable block or
+                // a server-side placement rule can still choose a nearby position. Reconcile once
+                // after the acknowledgement window before consuming another station item.
+                BlockPos nearby = findNearbyBlock(station.block);
+                if (nearby != null) {
+                    stationPosition(station, nearby);
+                    placementConfirmTicks = 1;
+                    return true;
+                }
                 awaitingPlacement = false;
                 placementWaitTicks = 0;
                 attempt++;
@@ -838,7 +848,17 @@ public final class GrindExecutor {
                         + " to place " + station.item + ".";
                 return true;
             }
-            if (!inventory.select(OWNER, PRIORITY, hotbar, false, true)) return true;
+            if (!inventory.select(OWNER, PRIORITY, hotbar, false, true)) {
+                primedHotbar = -1;
+                return true;
+            }
+            // Give vanilla one client tick to publish the leased selected slot before issuing the
+            // use interaction. Other inventory leases often act through a later key tick; station
+            // placement is immediate and otherwise risks the server evaluating the previous hand.
+            if (primedHotbar != hotbar) {
+                primedHotbar = hotbar;
+                return true;
+            }
             aimAt(support);
             if (!aimedAt(support)) return true;
             BlockHitResult hit = hitTarget(support);
@@ -846,14 +866,18 @@ public final class GrindExecutor {
                 attempt++;
                 pendingPlace = null;
                 retryWait = 4;
+                primedHotbar = -1;
                 inventory.release(OWNER);
                 rotations.release(OWNER);
                 return true;
             }
             client.gameMode.useItemOn(client.player, InteractionHand.MAIN_HAND, hit);
-            stationPosition(station, place);
+            // Derive the predicted placement cell from the actual vanilla hit face instead of
+            // assuming every ray reached the support from above.
+            stationPosition(station, hit.getBlockPos().relative(hit.getDirection()));
             awaitingPlacement = true;
             placementWaitTicks = 0;
+            primedHotbar = -1;
             inventory.release(OWNER);
             rotations.release(OWNER);
             return true;
