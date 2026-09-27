@@ -2594,13 +2594,43 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
         LOGGER.info("  AutoGrind {} starts with inventory {}", request, startingInventory);
         context.runOnClient(client -> me.mrhakan.agalarhack.managers.CommandManager.handleChat(
                 me.mrhakan.agalarhack.AgalarHackClient.prefix + "grind run " + request));
-        boolean resolved = settle(context, client -> {
+        Predicate<Minecraft> terminal = client -> {
             var state = me.mrhakan.agalarhack.services.ClientServices.require(
                     me.mrhakan.agalarhack.services.GrindExecutor.class).state();
             return state == me.mrhakan.agalarhack.services.TaskRunner.State.DONE
                     || state == me.mrhakan.agalarhack.services.TaskRunner.State.FAILED
                     || state == me.mrhakan.agalarhack.services.TaskRunner.State.NEEDS_MOVEMENT;
-        }, budget);
+        };
+        java.util.List<String> stationTrace = new java.util.ArrayList<>();
+        boolean resolved = false;
+        for (int waited = 0; waited < budget; waited += 4) {
+            context.waitTicks(4);
+            if (request.equals("wooden_pickaxe 1")) {
+                String sample = singleplayer.getServer().computeOnServer(server -> {
+                    ServerPlayer player = singleplayer.getConnection().getServerPlayer();
+                    java.util.List<BlockPos> stations = new java.util.ArrayList<>();
+                    BlockPos origin = player.blockPosition();
+                    for (int dx = -3; dx <= 3; dx++) {
+                        for (int dz = -3; dz <= 3; dz++) {
+                            BlockPos pos = origin.offset(dx, 0, dz);
+                            if (player.level().getBlockState(pos).is(Blocks.CRAFTING_TABLE)) {
+                                stations.add(pos.immutable());
+                            }
+                        }
+                    }
+                    ItemStack held = player.getMainHandItem();
+                    return "selected=" + player.getInventory().getSelectedSlot() + ", held="
+                            + net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(held.getItem())
+                            + "x" + held.getCount() + ", pos=" + player.position() + ", yaw="
+                            + player.getYRot() + ", pitch=" + player.getXRot() + ", stations=" + stations;
+                });
+                if (stationTrace.isEmpty() || !stationTrace.getLast().equals(sample)) stationTrace.add(sample);
+            }
+            if (context.computeOnClient(terminal::test)) {
+                resolved = true;
+                break;
+            }
+        }
         String diagnostic = context.computeOnClient(client -> {
             var executor = me.mrhakan.agalarhack.services.ClientServices.require(
                     me.mrhakan.agalarhack.services.GrindExecutor.class);
@@ -2652,7 +2682,7 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
                         + ", stations=" + stations + "}";
             });
             throw new AssertionError("AutoGrind did not complete .grind run " + request + ": "
-                    + diagnostic + " " + serverDiagnostic);
+                    + diagnostic + " " + serverDiagnostic + " stationTrace=" + stationTrace);
         }
     }
 
