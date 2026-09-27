@@ -79,6 +79,8 @@ public final class GrindExecutor {
     private BlockPos craftingTablePos;
     private BlockPos furnacePos;
     private int ownedStationMenuId = -1;
+    private long statusCacheTick = Long.MIN_VALUE;
+    private String statusCache = "AutoGrind idle";
 
     public GrindExecutor(Minecraft client, InventoryService inventory, ScannerService scanner,
             RotationService rotations) {
@@ -90,6 +92,7 @@ public final class GrindExecutor {
 
     /** Starts a complete execution plan derived from the same live inventory snapshot as the planner. */
     public StartResult start(String requestedTarget, int wanted) {
+        invalidateStatus();
         String target = GrindBook.generic(requestedTarget);
         if (!GrindBook.knows(target) || wanted < 1 || wanted > MAX_GOAL) return StartResult.INVALID;
         if (runner.running() || runner.state() == TaskRunner.State.NEEDS_MOVEMENT) return StartResult.BUSY;
@@ -126,7 +129,11 @@ public final class GrindExecutor {
     }
 
     /** Resume a task paused for direct reach, an open screen, or a missing free inventory slot. */
-    public boolean resume() { return runner.resume(); }
+    public boolean resume() {
+        boolean resumed = runner.resume();
+        if (resumed) invalidateStatus();
+        return resumed;
+    }
 
     /** Advances one task tick on the client thread. Container clicks remain owned by InventoryService. */
     public void tick() {
@@ -139,6 +146,7 @@ public final class GrindExecutor {
         if (!runner.running()) return;
         String previousTask = runner.currentTask();
         runner.tick();
+        invalidateStatus();
         String nextTask = runner.currentTask();
         TaskRunner.State state = runner.state();
         if (!java.util.Objects.equals(previousTask, nextTask) || state == TaskRunner.State.NEEDS_MOVEMENT
@@ -163,6 +171,7 @@ public final class GrindExecutor {
         closeOwnedStationMenu();
         ownerPlayer = null;
         ownerLevel = null;
+        invalidateStatus();
         return wasActive;
     }
 
@@ -174,6 +183,18 @@ public final class GrindExecutor {
     public int total() { return runner.total(); }
     public String failure() { return runner.failure(); }
     public String blockedReason() { return runner.blockedReason(); }
+
+    /** Cached for HUD callers: width measurement and rendering may ask several times per frame. */
+    public String statusLine() {
+        long tick = client != null && client.level != null ? client.level.getGameTime() : Long.MIN_VALUE + 1;
+        if (tick == statusCacheTick) return statusCache;
+        statusCacheTick = tick;
+        statusCache = GrindStatusText.format(runner.state(), runner.currentTask(), runner.completed(),
+                runner.total(), runner.blockedReason(), runner.failure());
+        return statusCache;
+    }
+
+    private void invalidateStatus() { statusCacheTick = Long.MIN_VALUE; }
 
     private void releaseControls() {
         rotations.release(OWNER);

@@ -32,6 +32,11 @@ whole world. A target outside vanilla's 4.5-block interaction reach, behind an o
 a drop outside pickup reach pauses in `NEEDS_MOVEMENT`. Status reports the coordinates and the
 missing movement capability; move manually and use `.grind resume`. AutoGrind has no pathfinder.
 
+The HUD editor also exposes an optional `AutoGrind` status widget. It is hidden by default and
+shows the current step, completion ratio, movement pause, or failure at a glance when enabled.
+Long pause/failure text is fitted to the available HUD width with an ellipsis. Its source text is
+cached per game tick, so HUD measurement and rendering do not rebuild the same status every frame.
+
 2×2 crafting, crafting-table transfers, and furnace transfers all use
 `InventoryService` / `ContainerTransferController`. They keep container ownership, one click per
 tick, cursor recovery, and bounded click plans. 3×3 recipes require an available table block, and
