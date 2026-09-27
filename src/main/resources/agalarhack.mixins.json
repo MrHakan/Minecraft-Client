@@ -9,6 +9,7 @@
     "ConnectionMixin",
     "GameRendererMixin",
     "KeyboardInputMixin",
+    "MultiPlayerGameModeAccessor",
     "PlayerEdgeMixin"
   ],
   "injectors": {

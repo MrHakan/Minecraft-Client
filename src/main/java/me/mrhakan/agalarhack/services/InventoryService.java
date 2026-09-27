@@ -2,10 +2,10 @@ package me.mrhakan.agalarhack.services;
 
 import java.util.function.Predicate;
 import me.mrhakan.agalarhack.managers.UtilityActionManager;
+import me.mrhakan.agalarhack.mixin.MultiPlayerGameModeAccessor;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.component.DataComponents;
-import net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.Item;
@@ -105,14 +105,14 @@ public final class InventoryService {
             public void select(LocalPlayer player, int slot) {
                 if (player.getInventory().getSelectedSlot() == slot) return;
                 player.getInventory().setSelectedSlot(slot);
-                // Changing Inventory's local index does not itself publish the held slot. Most
-                // vanilla input paths do that later through MultiPlayerGameMode, but a leased
-                // action can use the selected hand immediately (station placement is one such
-                // action). Send the one normal carried-item update at the ownership boundary so
-                // the server evaluates that action with the same hand. The equality guard keeps
-                // persistent leases from sending a packet every tick and also covers swap-back.
-                if (player.connection != null) {
-                    player.connection.send(new ServerboundSetCarriedItemPacket(slot));
+                // Changing Inventory's local index does not itself update MultiPlayerGameMode's
+                // carried-slot cache. Ask vanilla to publish the change immediately, before a
+                // leased action can use that hand. This keeps vanilla's cache and packet ordering
+                // together; sending the packet directly left the cache authoritative at the old
+                // slot in a real client/server game test. The equality guard keeps persistent
+                // leases from doing any work every tick and also covers swap-back.
+                if (mc.gameMode != null) {
+                    ((MultiPlayerGameModeAccessor) mc.gameMode).agalarhack$ensureHasSentCarriedItem();
                 }
             }
             public void use(boolean down) { mc.options.keyUse.setDown(down); }
