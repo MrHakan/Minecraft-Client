@@ -613,7 +613,8 @@ Style, sort and align the enabled-module HUD
 | `textShadow` | `true` | `true/false or on/off` | Draw a shadow behind module names |
 | `showCount` | `false` | `true/false or on/off` | Show a compact visible/total module count above the list |
 | `rowGap` | `0` | `0..6` | Extra vertical spacing between module rows |
-| `maximumRows` | `32` | `1..64` | Maximum rows, further limited by the screen height |\n| `overflowIndicator` | `true` | `true/false or on/off` | Show a +N more row when screen space or the row limit hides enabled modules |
+| `maximumRows` | `32` | `1..64` | Maximum rows, further limited by the screen height |
+| `overflowIndicator` | `true` | `true/false or on/off` | Show a +N more row when screen space or the row limit hides enabled modules |
 | `rowAnimations` | `true` | `true/false or on/off` | Slide and fade rows in and out instead of jumping |
 | `animationSpeed` | `0.25` | `0.05..1` | How quickly rows settle; 1 is instant |
 | `slideDistance` | `14` | `0..60` | How far a row slides in from, in pixels |
