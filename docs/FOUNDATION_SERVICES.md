@@ -70,13 +70,19 @@ an empty cursor. Priority preemption is allowed only while the cursor is empty, 
 boundary with nothing carried always leaves the inventory consistent; a plan holding a carried
 item cannot be preempted, an owner cannot preempt itself, and an owner still returning a stack is
 left alone. Losing the click channel mid-plan drops the remaining clicks instead of guessing, and
-a full inventory holds the channel rather than dropping the player's item on the floor. Hotbar
-sources use a single atomic SWAP click that never involves the cursor. The tick budget is separate
-from ownership: PICKUP, recovery, SWAP and THROW all consume it, and release or priority changes
-cannot replenish it. `tick()` starts a new budget before module updates; world teardown clears it.
+a full inventory holds the channel rather than dropping the player's item on the floor. The
+controller can bind bounded clicks to the player's inventory, a 3×3 crafting-table menu, or a
+furnace menu; `InventoryTransfers` centralizes their player-slot mappings. Hotbar sources use a
+single atomic SWAP click that never involves the cursor. The tick budget is separate from
+ownership: PICKUP, recovery, SWAP and THROW all consume it, and release or priority changes cannot
+replenish it. `recovering()` includes a safe return click that can proceed normally;
+`recoveryBlocked()` is true only while the menu is unavailable or no empty player slot can receive
+the cursor stack. Consumers can pause only when recovery needs an external change. `tick()` starts a
+new budget before module updates; world teardown clears it.
 
-AutoArmor (50), AutoWeapon (45 on the hotbar lease) and AutoTotem (90) consume these. Container
-transfers only operate on the player's own inventory menu; other containers are out of scope.
+AutoArmor, AutoWeapon, AutoTotem and AutoGrind share this channel. AutoGrind binds to a station menu
+only after it opens, checks that the captured menu remains active, and returns a carried stack to
+the player's inventory after an interruption. Other container types remain out of scope.
 
 ## Targets and rotations
 
@@ -102,6 +108,14 @@ Notifications render status/error toasts, with duration, queue bound, corner and
 controls under the Notifications module. Module-toggle notices can be disabled separately.
 Profile load, friend add, reconnect attempts and config recovery are connected. Queue size
 is capped at 10, text at 180 characters; repeated immediate duplicates are coalesced. Notifications are registered as a draggable HUD component. Optional severity-filtered sound is implemented in Notifications/NotificationSounds.
+
+The client checks GitHub's latest stable release once after startup, asynchronously, and compares
+the release's embedded full commit SHA with the SHA stamped into the installed JAR metadata. If a
+newer build exists, it queues one notification for the first loaded world; the Notifications HUD
+places it in the bottom-right by default. The Notifications `updateChecks` setting controls the
+startup request; disabling Notifications or that setting prevents the request entirely. Development
+runs and automated game-test launches also skip it. Main-branch builds publish full, non-prerelease
+GitHub releases.
 
 The module config migrates from a legacy bare module map (v0) to:
 

@@ -11,6 +11,7 @@ class ContainerTransferControllerTest {
     static final class FakeControls implements ContainerTransferController.Controls {
         boolean ready = true;
         boolean cursorEmpty = true;
+        boolean externalReady = true;
         int freeSlot = 30;
         final List<String> clicks = new ArrayList<>();
         public boolean ready() { return ready; }
@@ -19,6 +20,13 @@ class ContainerTransferControllerTest {
         public void pickup(int menuSlot) { clicks.add("pickup:" + menuSlot); }
         public void swap(int menuSlot, int hotbarIndex) { clicks.add("swap:" + menuSlot + ":" + hotbarIndex); }
         public void drop(int menuSlot, boolean wholeStack) { clicks.add("drop:" + menuSlot + ":" + wholeStack); }
+        public boolean ready(int containerId) { return containerId < 0 ? ready : externalReady; }
+        public boolean cursorEmpty(int containerId) { return cursorEmpty; }
+        public int returnStorageMenuSlot(int containerId) { return freeSlot; }
+        public void pickup(int containerId, int menuSlot, int button) {
+            if (containerId < 0 && button == 0) pickup(menuSlot);
+            else clicks.add("menu:" + containerId + ":" + menuSlot + ":" + button);
+        }
     }
 
     private static ContainerTransferController controller(FakeControls controls) {
@@ -36,6 +44,124 @@ class ContainerTransferControllerTest {
         assertEquals(List.of("pickup:10", "pickup:6", "pickup:10"), controls.clicks);
         assertTrue(controller.busy());
         controller.tick();
+        assertFalse(controller.busy());
+    }
+
+    @Test void recipeClicksUseTheCapturedMenuAndStillRunOnePerTick() {
+        var controls = new FakeControls();
+        var controller = controller(controls);
+        assertTrue(controller.beginClicks("autogrind", 50, 7,
+                new ContainerTransferController.Click[]{new ContainerTransferController.Click(5, 1),
+                        new ContainerTransferController.Click(0, 0)}, 0));
+
+        controller.tick();
+        assertEquals(List.of("menu:7:5:1"), controls.clicks);
+        assertTrue(controller.busy());
+        controller.tick();
+        assertEquals(List.of("menu:7:5:1", "menu:7:0:0"), controls.clicks);
+        controller.tick(); controller.tick();
+        assertTrue(controller.busy(), "recipe plan released before its confirmation window");
+        controller.tick();
+        assertFalse(controller.busy());
+    }
+
+    @Test void lateRecipeCursorCorrectionIsRecoveredBeforeOwnershipReleases() {
+        var controls = new FakeControls();
+        var controller = controller(controls);
+        assertTrue(controller.beginClicks("autogrind", 50, -1,
+                new ContainerTransferController.Click[]{new ContainerTransferController.Click(12, 0)}, 0));
+
+        controller.tick();
+        controller.tick(); // First optimistic empty-cursor observation.
+        controls.cursorEmpty = false; // Server correction arrives after the local click looked done.
+        controller.tick();
+
+        assertTrue(controller.owns("autogrind"));
+        assertTrue(controller.recovering());
+        assertEquals(List.of("pickup:12", "pickup:30"), controls.clicks);
+
+        controls.cursorEmpty = true;
+        controller.tick(); controller.tick(); controller.tick();
+        assertFalse(controller.busy());
+    }
+
+    @Test void stationClickQueueIsBoundedForLargeFurnaceLoads() {
+        var controls = new FakeControls();
+        var controller = controller(controls);
+        var largest = new ContainerTransferController.Click[256];
+        java.util.Arrays.fill(largest, new ContainerTransferController.Click(0, 1));
+        assertTrue(controller.beginClicks("autogrind", 50, 7, largest, 0));
+        controller.clear();
+
+        var tooLarge = new ContainerTransferController.Click[257];
+        java.util.Arrays.fill(tooLarge, new ContainerTransferController.Click(0, 1));
+        assertFalse(controller.beginClicks("autogrind", 50, 7, tooLarge, 0));
+        assertFalse(controller.busy());
+    }
+
+    @Test void stationPlanRecoversItsCursorStackThroughTheCapturedMenu() {
+        var controls = new FakeControls();
+        var controller = controller(controls);
+        assertTrue(controller.beginClicks("autogrind", 50, 7,
+                new ContainerTransferController.Click[]{new ContainerTransferController.Click(12, 0)}, 0));
+        controller.tick();
+        controls.cursorEmpty = false;
+        controller.tick();
+        assertTrue(controller.recovering());
+        assertEquals(List.of("menu:7:12:0", "menu:7:30:0"), controls.clicks);
+        controls.cursorEmpty = true;
+        controller.tick(); controller.tick(); controller.tick();
+        assertFalse(controller.busy());
+    }
+
+    @Test void aSafeCursorReturnIsNotReportedAsBlockedRecovery() {
+        var controls = new FakeControls();
+        var controller = controller(controls);
+        assertTrue(controller.beginClicks("autogrind", 50, 7,
+                new ContainerTransferController.Click[]{new ContainerTransferController.Click(12, 0)}, 0));
+
+        controller.tick();
+        controls.cursorEmpty = false;
+        controller.tick();
+
+        assertTrue(controller.recovering());
+        assertFalse(controller.recoveryBlocked());
+        assertEquals(List.of("menu:7:12:0", "menu:7:30:0"), controls.clicks);
+        controls.cursorEmpty = true;
+        controller.tick(); controller.tick(); controller.tick();
+        assertFalse(controller.busy());
+    }
+
+    @Test void aFullInventoryMarksCursorRecoveryBlockedUntilSpaceIsAvailable() {
+        var controls = new FakeControls();
+        controls.freeSlot = -1;
+        var controller = controller(controls);
+        assertTrue(controller.beginClicks("autogrind", 50, 7,
+                new ContainerTransferController.Click[]{new ContainerTransferController.Click(12, 0)}, 0));
+
+        controller.tick();
+        controls.cursorEmpty = false;
+        controller.tick();
+        assertTrue(controller.recovering());
+        assertTrue(controller.recoveryBlocked());
+
+        controls.freeSlot = 30;
+        controller.tick();
+        assertFalse(controller.recoveryBlocked());
+        assertEquals(List.of("menu:7:12:0", "menu:7:30:0"), controls.clicks);
+    }
+
+    @Test void closingAStationScreenDropsTheRemainingPlanBeforeInventoryRecovery() {
+        var controls = new FakeControls();
+        var controller = controller(controls);
+        assertTrue(controller.beginClicks("autogrind", 50, 7,
+                new ContainerTransferController.Click[]{new ContainerTransferController.Click(5, 1),
+                        new ContainerTransferController.Click(6, 1)}, 0));
+        controller.tick();
+        controls.externalReady = false;
+        controller.tick();
+        controller.tick();
+        assertEquals(List.of("menu:7:5:1"), controls.clicks);
         assertFalse(controller.busy());
     }
 

@@ -29,6 +29,17 @@ class InventoryTransfersTest {
         assertEquals(35, InventoryTransfers.menuSlot(35));
     }
 
+    @Test void craftingAndFurnaceMenusMapTheirEmbeddedPlayerInventory() {
+        assertEquals(37, InventoryTransfers.menuSlot(0, InventoryTransfers.PlayerMenuLayout.CRAFTING_TABLE));
+        assertEquals(45, InventoryTransfers.menuSlot(8, InventoryTransfers.PlayerMenuLayout.CRAFTING_TABLE));
+        assertEquals(10, InventoryTransfers.menuSlot(9, InventoryTransfers.PlayerMenuLayout.CRAFTING_TABLE));
+        assertEquals(36, InventoryTransfers.menuSlot(35, InventoryTransfers.PlayerMenuLayout.CRAFTING_TABLE));
+        assertEquals(30, InventoryTransfers.menuSlot(0, InventoryTransfers.PlayerMenuLayout.FURNACE));
+        assertEquals(38, InventoryTransfers.menuSlot(8, InventoryTransfers.PlayerMenuLayout.FURNACE));
+        assertEquals(3, InventoryTransfers.menuSlot(9, InventoryTransfers.PlayerMenuLayout.FURNACE));
+        assertEquals(29, InventoryTransfers.menuSlot(35, InventoryTransfers.PlayerMenuLayout.FURNACE));
+    }
+
     @Test void conversionRoundTripsForEveryInventoryIndex() {
         for (int index = 0; index < InventoryTransfers.INVENTORY_SIZE; index++) {
             assertEquals(index, InventoryTransfers.inventoryIndex(InventoryTransfers.menuSlot(index)));

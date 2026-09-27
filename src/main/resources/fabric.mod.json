@@ -2,6 +2,9 @@
   "schemaVersion": 1,
   "id": "agalarhack",
   "version": "${version}",
+  "custom": {
+    "agalarhack:commit": "${commit}"
+  },
   "name": "Agalar Hack",
   "description": "An anarchy utility mod for agalar.",
   "authors": [

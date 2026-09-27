@@ -28,18 +28,17 @@ player-visible risk or add a behavior that can be proven end-to-end.
 | P1 | Scanner/render performance | **Substantial** | Shared budgets, chunk-aware caches, culling and timings exist. Profile before changing; never scan the world from a render callback or trade boundedness for a continuous rescan. |
 | P1 | UX/HUD | **Substantial** | Dynamic registry, editor, themes, accessibility and typed controls exist. Remaining work is primarily visual inspection at multiple GUI scales, not another widget rewrite. |
 | P1 | Visual acceptance | **Manual-only** | Inspect TargetHUD skin layers, ESP/nametag geometry, waypoint beams, trajectories, rainbow phases and AMOLED/light/high-contrast themes with a real client. Pixel-difference tests only establish drawing activity. |
-| P2 | AutoGrind execution | **First executor slice implemented and verified** | `.grind run log N` scans loaded nearby blocks under ScannerService's shared budget, aims with RotationService, breaks through vanilla game-mode calls and checks inventory completion. Out-of-reach blocks or uncollected drops pause for manual movement; stop/restart replans from inventory. The nearby-log, pickup and resumability game tests passed on 26.2 in CI run 35861603084. Crafting, smelting and automated movement remain unsupported; no pathfinding claim is made. |
+| P2 | AutoGrind execution | **Full current GrindBook executor implemented; this branch's full CI is pending** | `.grind run` now covers the current raw resources, 2×2/3×3 recipes, table/furnace placement and iron smelting through TaskRunner and the shared inventory transfer channel. Local client game tests exercise real block drops, crafting, station use, resumability and manual movement. No pathfinding claim is made. |
 | P2 | Addon installation | **Three-stage production test passed** | CI installed the 26.2 production `jar` with a separately packaged addon, saved addon and built-in settings, restarted with the addon present, removed it, then verified the base client config still loaded. All three stage markers passed in run 35861603084. The monitor checks at Fabric's client-started lifecycle event before the first title-screen render; a watchdog and 15-minute step limit retain failure diagnostics. Missing-dependency loader messaging remains manual. |
 | P2 | Dedicated multiplayer | **Opt-in/manual** | Use the existing harness only with owner-approved `-PacceptServerEula=true`; then test latency, reconnect, packet scoping and automation. Do not enable it in CI silently. |
 | P3 | Documentation/release | **Current checkpoint reconciled** | This update aligns module counts, CI evidence, AutoGrind and production-addon acceptance; generated `docs/MODULES.md` remains source-driven. The documentation-only full CI run validates this reconciliation. |
 
 ## Conditional module candidates
 
-Do not add modules just to increase the catalogue. AutoGrind now has a bounded raw-resource
-executor; its remaining recipe crafting/smelting work is a service concern, not a reason to add a
-duplicate module. Any extension must use the existing RotationService, InventoryService and action
-ownership, restore all input/state on disable or world replacement, and carry real 26.2 game-test
-evidence.
+Do not add modules just to increase the catalogue. AutoGrind now executes every goal in the current
+GrindBook through the existing shared services. Broader presets and automated movement are later
+work; any extension must preserve TaskRunner resumability, use RotationService, InventoryService and
+action ownership, and carry real 26.2 game-test evidence.
 
 Other original roadmap bullets are already represented by existing modules or services (for example
 Movement Stats, Ping Graph, ItemESP, ProjectileWarning, SafeWalk, AutoArmor and AutoTotem). Before
@@ -75,8 +74,8 @@ shared consumer over creating a duplicate.
 
 No packet flooding, crash/dupe exploits, malformed packet tricks, anti-cheat bypass presets, hidden
 server-authoritative claims, or silent rotations intended to defeat server checks. Turkish setting
-description localization is cancelled and must not be restarted. AutoGrind executes only its proven
-raw-resource boundary; crafting and smelting remain out of scope until their inventory/container
-executors are proven. The production-like addon test covers installation, restart persistence and
-removal; missing-dependency messaging remains manual. Baritone reflection must never be written from
-guessed signatures.
+description localization is cancelled and must not be restarted. AutoGrind supports the current
+GrindBook vocabulary but still requires manual movement between out-of-reach targets. Add no custom
+pathfinder; only bridge a verified 26.2-compatible Baritone API. The production-like addon test
+covers installation, restart persistence and removal; missing-dependency messaging remains manual.
+Baritone reflection must never be written from guessed signatures.

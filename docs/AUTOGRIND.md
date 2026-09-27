@@ -1,53 +1,70 @@
 # AutoGrind
 
-AutoGrind keeps planning and Minecraft actions separate. `.grind <item> [count]` and `.grind plan`
-show a deterministic `CraftingPlan`; `.grind run` opts into the executor.
+AutoGrind separates the inventory-only `CraftingPlan` from Minecraft actions. `.grind <item>
+[count]` and `.grind plan` remain read-only plans. `.grind run <item> [count]` builds a
+`GrindExecutionPlan`, then runs its ordered work through `TaskRunner` against live inventory and
+world state. Starting a new run takes a fresh inventory snapshot, so collected items and completed
+crafts reduce the remaining work after a stop, death, disconnect, or world change.
 
-## Implemented execution slice
+## Executable GrindBook goals
 
-`GrindExecutor` currently executes raw log gathering only. It asks `ScannerService` to inspect a
-bounded 6-block horizontal / 4-block vertical area of already-loaded chunks, using the shared scan
-budget. It chooses the nearest log within vanilla's 4.5-block interaction range, requests a normal
-client rotation through `RotationService`, verifies the ray hit after turning, then uses
-`MultiPlayerGameMode` block breaking. The task advances only after `InventoryService` observes the
-drop in the player's inventory.
+Every current generic goal can be run:
 
-If a matching log is found outside direct reach or behind a block, TaskRunner pauses in
-`NEEDS_MOVEMENT` and `.grind status` reports the target coordinates and that movement automation is
-unavailable. After breaking a log, the task waits for its drop; if it is still not in the inventory
-after 60 ticks, it pauses with the drop coordinates. Move close enough to collect the drop and run
-`.grind resume`. Pauses release temporary rotation ownership. There is no pathfinder connected to
-AutoGrind; the existing Baritone bridge remains an optional `.goto` integration, not a claim that
-grind can path or mine remotely.
+| Goal | Execution |
+| --- | --- |
+| `log` | Find a loaded nearby log, turn with `RotationService`, break through vanilla block interaction, and wait until the drop is in inventory. |
+| `planks`, `stick`, `crafting_table` | Use the 2×2 inventory recipe grid. |
+| `cobblestone`, `coal`, `raw_iron` | Scan loaded chunks with the shared bounded scanner, choose a compatible carried pickaxe, mine with vanilla interaction, and confirm the matching drop. |
+| `wooden_pickaxe`, `stone_pickaxe`, `iron_pickaxe` | Craft the required inputs in the 3×3 table grid; prerequisites add the needed pickaxe tier and table. |
+| `furnace` | Craft the 3×3 recipe from eight cobblestone. |
+| `iron_ingot` | Use a nearby or newly placed furnace, load raw iron and coal, wait for vanilla smelting, and collect the ingots. `GrindBook` represents furnace work in eight-ingot loads, so a smaller request may leave surplus ingots. |
 
-The task's goal is an absolute inventory total calculated from the plan's initial inventory
-snapshot. Stopping and starting `.grind run log N` again plans against the live inventory, so drops
-already collected reduce the remaining work. Disconnect, world replacement, player replacement,
-death, or explicit stop cancels the active block interaction and releases rotation ownership.
+The executor expands prerequisites without changing `CraftingPlan`. It places a carried crafting
+table or furnace when the requested chain needs one; if no table is carried, it crafts one first.
+Resource gathering adds a wooden pickaxe before cobblestone or coal and a stone pickaxe before raw
+iron. Existing suitable tools and nearby stations are reused.
 
-## Current boundaries
+## Interactions and resumability
 
-- `.grind run log [count]` is executable; other raw resources and every craft/smelt chain remain
-  plan-only and are refused before any world action.
-- Resource scans never load chunks and share scanner budgets with module scanners.
-- The executor does not click containers, craft, smelt, or implement pathfinding.
-- `TaskRunner` has per-task time budgets, skips already-satisfied tasks, pauses for movement, and
-  reports task failures.
+Resource searches cover a 6-block horizontal / 4-block vertical area in already-loaded chunks and
+consume `ScannerService`'s shared per-tick block budget. AutoGrind does not load chunks or scan the
+whole world. A target outside vanilla's 4.5-block interaction reach, behind an obstruction, or with
+a drop outside pickup reach pauses in `NEEDS_MOVEMENT`. Status reports the coordinates and the
+missing movement capability; move manually and use `.grind resume`. AutoGrind has no pathfinder.
+
+2×2 crafting, crafting-table transfers, and furnace transfers all use
+`InventoryService` / `ContainerTransferController`. They keep container ownership, one click per
+tick, cursor recovery, and bounded click plans. 3×3 recipes require an available table block, and
+smelting requires an available furnace block. AutoGrind only inserts into an empty furnace when it
+starts a new smelt task; unrelated contents are left untouched. A task can continue after a station
+screen closes: it rechecks the crafting grid, furnace slots, and inventory before queuing remaining
+clicks. If cursor recovery has no empty inventory slot, it pauses and asks for space before resume.
+
+The task runner advances only when the expected inventory total or world state is observed. It
+rechecks each task before running it, releases temporary aim/tool ownership at task boundaries,
+cancels on player/world replacement or death, and reports missing resources, incompatible tools,
+unavailable blocks, occupied stations, or exhausted task budgets explicitly. Manual movement is the
+only movement path; no guessed Baritone API or custom pathfinder is used.
 
 ## Evidence
 
-- `TaskRunnerTest` verifies task order, satisfied-task skipping, bounded failure, cancellation, and
-  movement pause/resume. `ScanSchedulerTest` verifies an AutoGrind query consumes only the remaining
-  shared per-tick scan budget.
-- `ModuleBehaviourGameTest.grindExecutesNearbyLogs` starts with one oak log in the offhand, breaks
-  two real nearby oak logs through vanilla interaction, confirms a drop pause while the item remains
-  out of pickup reach, moves onto the real dropped item, and resumes. It then interrupts and restarts
-  from the updated inventory count before breaking the next log. The next drop may complete immediately
-  if already picked up, or pause for movement and resume if it remains outside pickup reach. The test
-  also checks turning from an intentionally incorrect view, temporary aim restoration, and the
-  `NEEDS_MOVEMENT`/manual-resume path for a farther log.
-- `ModuleBehaviourGameTest.grindPlan` continues to prove the planner counts carried wood and that an
-  unsupported gather step is refused honestly.
+- `GrindExecutionPlanTest` verifies the prerequisite order for wooden, stone, iron, furnace and
+  ingot work, and verifies that carried tools/stations avoid unnecessary work.
+- `GrindExecutionPlanTest` checks every crafting recipe's input count, grid bounds, and unique
+  cells. `InventoryTransfersTest` checks player-slot mappings
+  for inventory, crafting-table, and furnace menus.
+- `ContainerTransferControllerTest` checks one-click pacing, captured station-menu ownership,
+  interrupted-menu recovery, bounded recipe plans, and safe cursor return.
+- `ModuleBehaviourGameTest` exercises real block breaking and pickup for logs, stone/cobblestone,
+  coal ore, and iron ore. It crafts 2×2 and 3×3 recipes, places stations, smelts a full furnace
+  batch, crafts an iron pickaxe, and verifies the existing stop/restart and manual-movement paths.
 
-Crafting through 2x2/3x3 menus and furnace smelting should be added only through the existing
-`InventoryService` / `ContainerTransferController` ownership rules and with game-test evidence.
+## Current limits
+
+- Gathering only considers loaded blocks within the bounded local scan radius. The player must move
+  between resource locations and resume paused tasks.
+- Silk Touch is not used when it would produce a block instead of the requested raw resource.
+- A non-empty furnace at the start of a smelt task is never overwritten; resolve its contents
+  manually before retrying.
+- `iron_ingot` uses the recipe book's eight-item furnace batch, so it can produce more than the
+  requested minimum. Other crafts follow vanilla recipe yields and retain their surplus.

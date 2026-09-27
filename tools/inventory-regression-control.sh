@@ -11,14 +11,30 @@ python3 - <<'PY'
 from pathlib import Path
 path = Path('src/main/java/me/mrhakan/agalarhack/services/ContainerTransferController.java')
 text = path.read_text()
-fixed = 'if (!controls.ready() || !controls.cursorEmpty()) { plan = new int[0]; step = 0; recovering = true; return; }'
-broken = 'if (controls.ready() && !controls.cursorEmpty()) { plan = new int[0]; step = 0; recovering = true; return; }'
+fixed = '''if (!controls.ready(containerId) || !controls.cursorEmpty(containerId)) {
+            plan = new Click[0];
+            step = 0;
+            recovering = true;
+            recoveryBlocked = !controls.ready(containerId)
+                    || (!controls.cursorEmpty(containerId) && controls.returnStorageMenuSlot(containerId) < 0);
+            if (!controls.ready(containerId)) containerId = -1;
+            return;
+        }'''
+broken = '''if (controls.ready(containerId) && !controls.cursorEmpty(containerId)) {
+            plan = new Click[0];
+            step = 0;
+            recovering = true;
+            recoveryBlocked = !controls.ready(containerId)
+                    || (!controls.cursorEmpty(containerId) && controls.returnStorageMenuSlot(containerId) < 0);
+            if (!controls.ready(containerId)) containerId = -1;
+            return;
+        }'''
 assert text.count(fixed) == 1, 'Recovery source changed; update the regression control explicitly'
-budget = '        if (clickedThisTick) return false;\n'
+budget = 'if (clickedThisTick || '
 assert text.count(budget) == 2, 'Atomic click guards changed; update the regression control explicitly'
-# Removing the two guards recreates the old same-tick behavior. The other budget assignments
-# become inert, so the control changes no cursor, priority or plan logic to provoke the failures.
-path.write_text(text.replace(fixed, broken).replace(budget, ''))
+# Removing the two per-tick clauses recreates the old same-tick behavior. The other budget
+# assignments become inert, so the control changes no cursor, priority or plan logic to provoke failures.
+path.write_text(text.replace(fixed, broken).replace(budget, 'if ('))
 PY
 report=build/test-results/test/TEST-me.mrhakan.agalarhack.services.ContainerTransferControllerTest.xml
 # A previous run of this script leaves a report containing exactly the failure checked for below.

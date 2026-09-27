@@ -5,6 +5,21 @@ plugins {
 version = project.mod_version
 group = project.maven_group
 
+def buildCommit = System.getenv("GITHUB_SHA")
+if (buildCommit == null || !(buildCommit ==~ /(?i)[0-9a-f]{40}/)) {
+    try {
+        def git = new ProcessBuilder("git", "rev-parse", "HEAD")
+                .directory(rootDir)
+                .redirectErrorStream(true)
+                .start()
+        def localCommit = git.inputStream.getText("UTF-8").trim()
+        buildCommit = git.waitFor() == 0 && localCommit ==~ /(?i)[0-9a-f]{40}/ ? localCommit : "unknown"
+    } catch (Exception ignored) {
+        buildCommit = "unknown"
+    }
+}
+buildCommit = buildCommit.toLowerCase(Locale.ROOT)
+
 base {
     archivesName = project.archives_base_name
 }
@@ -37,9 +52,10 @@ fabricApi {
 
 processResources {
     inputs.property "version", project.version
+    inputs.property "commit", buildCommit
 
     filesMatching("fabric.mod.json") {
-        expand "version": project.version
+        expand "version": project.version, "commit": buildCommit
     }
 }
 
@@ -156,6 +172,7 @@ tasks.register('productionAddonInstallFirstLaunch', net.fabricmc.loom.task.prod.
     mods.from(configurations.runtimeClasspath.filter { it.name.startsWith('fabric-api-') })
     jvmArgs.add("-Dagalarhack.productionProbeStage=write")
     jvmArgs.add("-Dagalarhack.productionProbeMarker=${productionMarkerDir.absolutePath}")
+    jvmArgs.add("-Dagalarhack.disableUpdateCheck=true")
     javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(25) }
     outputs.upToDateWhen { false }
     doLast { archiveProductionRunLog('write') }
@@ -171,6 +188,7 @@ tasks.register('productionAddonRestartWithAddon', net.fabricmc.loom.task.prod.Cl
     mods.from(configurations.runtimeClasspath.filter { it.name.startsWith('fabric-api-') })
     jvmArgs.add("-Dagalarhack.productionProbeStage=verify-addon")
     jvmArgs.add("-Dagalarhack.productionProbeMarker=${productionMarkerDir.absolutePath}")
+    jvmArgs.add("-Dagalarhack.disableUpdateCheck=true")
     javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(25) }
     outputs.upToDateWhen { false }
     doLast { archiveProductionRunLog('verify-addon') }
@@ -185,6 +203,7 @@ tasks.register('productionAddonRemovalThirdLaunch', net.fabricmc.loom.task.prod.
     mods.from(configurations.runtimeClasspath.filter { it.name.startsWith('fabric-api-') })
     jvmArgs.add("-Dagalarhack.productionProbeStage=verify-removed")
     jvmArgs.add("-Dagalarhack.productionProbeMarker=${productionMarkerDir.absolutePath}")
+    jvmArgs.add("-Dagalarhack.disableUpdateCheck=true")
     javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(25) }
     doFirst { delete new File(productionRunDir, 'mods') }
     outputs.upToDateWhen { false }
@@ -212,6 +231,7 @@ tasks.register('productionAddonInstallationTest') {
 tasks.matching { it.name == 'runClientGameTest' }.configureEach {
     dependsOn 'addonFixtureJar', 'brokenAddonFixtureJar'
     classpath += files(tasks.named('addonFixtureJar'), tasks.named('brokenAddonFixtureJar'))
+    systemProperty 'agalarhack.disableUpdateCheck', 'true'
 
     // Dedicated-server scenarios need Minecraft's server EULA accepted, and a dedicated server
     // recreates its run directory every run, so the acceptance has to be written by automation.

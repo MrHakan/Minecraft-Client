@@ -24,6 +24,8 @@ public final class InventoryTransfers {
     public static final int INVENTORY_SIZE = 36;
     public static final int HOTBAR_SIZE = 9;
 
+    public enum PlayerMenuLayout { INVENTORY, CRAFTING_TABLE, FURNACE }
+
     /** Armour menu slots descend from the head, matching the vanilla screen order. */
     public enum ArmorPiece {
         HEAD(0), CHEST(1), LEGS(2), FEET(3);
@@ -38,6 +40,20 @@ public final class InventoryTransfers {
             throw new IllegalArgumentException("Inventory index must be 0..35, got " + inventoryIndex);
         }
         return inventoryIndex < HOTBAR_SIZE ? MENU_HOTBAR_START + inventoryIndex : inventoryIndex;
+    }
+
+    /** Converts a player inventory index into the embedded player section of a vanilla station. */
+    public static int menuSlot(int inventoryIndex, PlayerMenuLayout layout) {
+        if (inventoryIndex < 0 || inventoryIndex >= INVENTORY_SIZE) {
+            throw new IllegalArgumentException("Inventory index must be 0..35, got " + inventoryIndex);
+        }
+        return switch (layout) {
+            case INVENTORY -> menuSlot(inventoryIndex);
+            // CraftingMenu: result/input occupy 0..9, storage is 10..36, hotbar 37..45.
+            case CRAFTING_TABLE -> inventoryIndex < HOTBAR_SIZE ? inventoryIndex + 37 : inventoryIndex + 1;
+            // FurnaceMenu: input/fuel/result occupy 0..2, storage is 3..29, hotbar 30..38.
+            case FURNACE -> inventoryIndex < HOTBAR_SIZE ? inventoryIndex + 30 : inventoryIndex - 6;
+        };
     }
 
     /** Inverse of {@link #menuSlot(int)}; -1 for armour, offhand, crafting and unknown ids. */

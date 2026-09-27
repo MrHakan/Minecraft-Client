@@ -122,12 +122,13 @@ jobs:
             !build/libs/*-sources.jar
           if-no-files-found: error
 
-      - name: Rolling release (main only)
+      - name: Stable release (main only)
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.run_id }}
-          name: Rolling build v${{ steps.getModVersion.outputs.mod_version }}+${{ github.sha }}
+          name: Agalar Hack v${{ steps.getModVersion.outputs.mod_version }}+${{ github.sha }}
           draft: false
-          prerelease: true
+          prerelease: false
+          make_latest: true
           files: build/libs/!(*-sources|*-dev).jar
