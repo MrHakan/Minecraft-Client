@@ -2560,6 +2560,12 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
         }
         runGrindUntilResolved(context, singleplayer, "wooden_pickaxe 1",
                 client -> countItem(client, Items.WOODEN_PICKAXE) == 1 && hasAdjacentCraftingTable(client, base), 400);
+        boolean tableMenuClosed = settle(context, client -> client.gui.screen() == null
+                && client.player.containerMenu == client.player.inventoryMenu, 40);
+        if (!tableMenuClosed) {
+            throw new AssertionError("AutoGrind left its crafting-table menu bound after completing a recipe: "
+                    + context.computeOnClient(ModuleBehaviourGameTest::menuContents));
+        }
 
         setInventory(singleplayer, slots -> {
             slots.setItem(0, new ItemStack(Items.COBBLESTONE, 3));

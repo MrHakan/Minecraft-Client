@@ -291,9 +291,12 @@ public final class GrindExecutor {
 
     private boolean closeOwnedStationMenu() {
         if (ownedStationMenuId < 0 || client == null || client.player == null) return false;
-        if (client.player.containerMenu != null && client.player.containerMenu.containerId == ownedStationMenuId
-                && client.gui.screen() != null) {
-            client.gui.setScreen(null);
+        if (client.player.containerMenu != null && client.player.containerMenu.containerId == ownedStationMenuId) {
+            // Hiding the screen alone leaves LocalPlayer.containerMenu bound to the station. A
+            // later recipe then sees a ghost CraftingMenu while the transfer service correctly
+            // refuses clicks because no container screen is visible. Use vanilla's close path so
+            // the close packet, local menu reset and screen lifecycle stay in sync.
+            client.player.closeContainer();
             ownedStationMenuId = -1;
             rotations.release(OWNER);
             inventory.release(OWNER);
