@@ -3045,6 +3045,13 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
             change.accept(player.getInventory());
             // Without this the client keeps drawing - and the modules keep reading - the old contents.
             player.containerMenu.broadcastChanges();
+            // The selected hotbar index is not a container slot. Keep both halves of this real
+            // singleplayer connection on the same hand as well; otherwise a fixture that selects
+            // slot 0 on the server can leave the client and MultiPlayerGameMode cache on slot 1,
+            // and the next ordinary use interaction correctly declines to publish a slot it
+            // believes is unchanged.
+            player.connection.send(new net.minecraft.network.protocol.game.ClientboundSetCarriedItemPacket(
+                    player.getInventory().getSelectedSlot()));
         });
     }
 

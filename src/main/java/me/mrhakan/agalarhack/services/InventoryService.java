@@ -2,7 +2,6 @@ package me.mrhakan.agalarhack.services;
 
 import java.util.function.Predicate;
 import me.mrhakan.agalarhack.managers.UtilityActionManager;
-import me.mrhakan.agalarhack.mixin.MultiPlayerGameModeAccessor;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.component.DataComponents;
@@ -102,19 +101,7 @@ public final class InventoryService {
         leases = new InventoryLeaseController<>(new InventoryLeaseController.Controls<LocalPlayer>() {
             public LocalPlayer currentPlayer() { return mc.player; }
             public int selected(LocalPlayer player) { return player.getInventory().getSelectedSlot(); }
-            public void select(LocalPlayer player, int slot) {
-                if (player.getInventory().getSelectedSlot() == slot) return;
-                player.getInventory().setSelectedSlot(slot);
-                // Changing Inventory's local index does not itself update MultiPlayerGameMode's
-                // carried-slot cache. Ask vanilla to publish the change immediately, before a
-                // leased action can use that hand. This keeps vanilla's cache and packet ordering
-                // together; sending the packet directly left the cache authoritative at the old
-                // slot in a real client/server game test. The equality guard keeps persistent
-                // leases from doing any work every tick and also covers swap-back.
-                if (mc.gameMode != null) {
-                    ((MultiPlayerGameModeAccessor) mc.gameMode).agalarhack$ensureHasSentCarriedItem();
-                }
-            }
+            public void select(LocalPlayer player, int slot) { player.getInventory().setSelectedSlot(slot); }
             public void use(boolean down) { mc.options.keyUse.setDown(down); }
             public boolean physicalUseDown() {
                 var key = net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper.getBoundKeyOf(mc.options.keyUse);
