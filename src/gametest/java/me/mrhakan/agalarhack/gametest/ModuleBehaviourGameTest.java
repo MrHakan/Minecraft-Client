@@ -3050,7 +3050,7 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
             // slot 0 on the server can leave the client and MultiPlayerGameMode cache on slot 1,
             // and the next ordinary use interaction correctly declines to publish a slot it
             // believes is unchanged.
-            player.connection.send(new net.minecraft.network.protocol.game.ClientboundSetCarriedItemPacket(
+            player.connection.send(new net.minecraft.network.protocol.game.ClientboundSetHeldSlotPacket(
                     player.getInventory().getSelectedSlot()));
         });
     }
