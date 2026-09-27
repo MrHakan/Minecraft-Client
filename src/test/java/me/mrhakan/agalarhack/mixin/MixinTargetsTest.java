@@ -36,6 +36,10 @@ class MixinTargetsTest {
                     "net.minecraft.network.protocol.game.ClientboundEntityEventPacket"),
             new Target("net.minecraft.client.multiplayer.ClientPacketListener", "handleSetTime",
                     "net.minecraft.network.protocol.game.ClientboundSetTimePacket"),
+            // InventoryService invokes vanilla's private cache-aware publication path rather than
+            // duplicating a carried-item packet and leaving MultiPlayerGameMode's cache stale.
+            new Target("net.minecraft.client.multiplayer.MultiPlayerGameMode",
+                    "ensureHasSentCarriedItem"),
             new Target("net.minecraft.world.entity.player.Player", "isStayingOnGroundSurface"),
             // Where the keyboard is turned into the movement record. Modules run a tick earlier, so
             // this is the only point at which a requested key survives to be read.
