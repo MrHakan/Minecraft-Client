@@ -37,4 +37,28 @@ class ModuleListModelTest {
             assertEquals("I".repeat(128), rows.getFirst().text());
         } finally { Locale.setDefault(old); }
     }
+
+
+    @Test void overflowIndicatorMakesClippingExplicitButKeepsARealModuleAtTinyLimits() {
+        var many = List.of(new Entry("A", "A", "Render"), new Entry("B", "B", "Render"),
+                new Entry("C", "C", "Render"), new Entry("D", "D", "Render"));
+        var rows = ModuleListModel.rows(many, "Name", "Normal", "Name", 3, String::length, true);
+        assertEquals(3, rows.size());
+        assertEquals(List.of("A", "B"), rows.subList(0, 2).stream().map(ModuleListModel.Row::id).toList());
+        assertEquals("+2 more", rows.getLast().text());
+        assertTrue(ModuleListModel.isOverflow(rows.getLast()));
+
+        var one = ModuleListModel.rows(many, "Name", "Normal", "Name", 1, String::length, true);
+        assertEquals("A", one.getFirst().id());
+        assertFalse(ModuleListModel.isOverflow(one.getFirst()), "a one-row HUD must still identify a module");
+    }
+
+    @Test void displaySuffixChangesDoNotChangeAnimationIdentity() {
+        var before = ModuleListModel.rows(List.of(new Entry("Speed", "Speed [1.0x]", "Movement")),
+                "Display", "Normal", "Name", 8, String::length).getFirst();
+        var after = ModuleListModel.rows(List.of(new Entry("Speed", "Speed [1.2x]", "Movement")),
+                "Display", "Normal", "Name", 8, String::length).getFirst();
+        assertEquals(before.id(), after.id());
+        assertNotEquals(before.text(), after.text());
+    }
 }

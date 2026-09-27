@@ -17,9 +17,9 @@ public final class ModuleList extends Module {
         addBooleanSetting("background", false, "Draw the theme panel behind each row");
         addBooleanSetting("sideBar", false, "Draw an accent strip on the aligned edge");
         addBooleanSetting("textShadow", true, "Draw a shadow behind module names");
-        addBooleanSetting("showCount", false, "Show a compact enabled-module count above the list");
+        addBooleanSetting("showCount", false, "Show a compact visible/total module count above the list");
         addNumberSetting("rowGap", 0, 0, 6, "Extra vertical spacing between module rows");
-        addNumberSetting("maximumRows", 32, 1, 64, "Maximum rows, further limited by the screen height");
+        addNumberSetting("maximumRows", 32, 1, 64, "Maximum rows, further limited by the screen height");\n        addBooleanSetting("overflowIndicator", true, "Show a +N more row when screen space or the row limit hides enabled modules");
         addBooleanSetting("rowAnimations", true, "Slide and fade rows in and out instead of jumping");
         addNumberSetting("animationSpeed", 0.25, 0.05, 1.0, "How quickly rows settle; 1 is instant");
         addNumberSetting("slideDistance", 14, 0, 60, "How far a row slides in from, in pixels");
