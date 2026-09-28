@@ -143,10 +143,9 @@ public class ClickGuiScreen extends Screen implements me.mrhakan.agalarhack.ui.C
             rowVisuals.add(new RowVisual(contentLeft, y, cardWidth, ROW_HEIGHT - 4, module, description));
             int settingsWidth = 70;
             int toggleWidth = 66;
-            addRenderableWidget(Button.builder(Component.literal(module.isToggled() ? "ON" : "OFF"), b -> {
-                module.toggle();
-                minecraft.gui.setScreen(new ClickGuiScreen(searchBox.getValue(), safePage, categoryIndex));
-            }).bounds(contentRight - settingsWidth - toggleWidth - 8, y + 7, toggleWidth, 20).build());
+            addRenderableWidget(Button.builder(Component.literal(module.isToggled() ? "● ON" : "○ OFF"), b ->
+                    toggleModule(module, b))
+                    .bounds(contentRight - settingsWidth - toggleWidth - 8, y + 7, toggleWidth, 20).build());
             addRenderableWidget(Button.builder(Component.literal("Settings"), b ->
                     minecraft.gui.setScreen(new ModuleSettingsScreen(this, module)))
                     .bounds(contentRight - settingsWidth, y + 7, settingsWidth, 20).build());
@@ -282,6 +281,26 @@ public class ClickGuiScreen extends Screen implements me.mrhakan.agalarhack.ui.C
             minecraft.gui.setScreen(new ModuleActionsScreen(this,row.module));return true;
         }
         return super.mouseClicked(event,doubleClick);
+    }
+
+    /**
+     * Toggle without rebuilding the whole control center when the current view can stay valid.
+     *
+     * <p>The module row already renders its panel/name directly from {@link Module#isToggled()},
+     * so recreating every widget just to refresh ON/OFF wasted allocations and also reset search-box
+     * focus. The Enabled filter must remove a disabled row, and Recent sorting must move the module
+     * after its last-used timestamp changes, so those two cases intentionally keep the old rebuild.
+     */
+    private void toggleModule(Module module, Button button) {
+        boolean before = module.isToggled();
+        module.toggle();
+        boolean after = module.isToggled();
+        if (before != after) enabledCount += after ? 1 : -1;
+        button.setMessage(Component.literal(after ? "● ON" : "○ OFF"));
+
+        if ("Enabled".equals(filter) || "Recent".equals(sort)) {
+            openSearch(searchBox.getValue(), safePage, categoryIndex);
+        }
     }
 
     private void openSearch(String search, int targetPage, int targetCategory) {

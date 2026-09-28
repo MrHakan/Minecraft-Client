@@ -22,6 +22,7 @@ public class AutoTool extends Module {
     public void selfSettings() {
         addBooleanSetting("swapBack", true, "Return to the previous hotbar slot after mining");
         addBooleanSetting("miningOnly", true, "Only switch tools while the attack key is held");
+        addBooleanSetting("skipCreative", true, "Do not switch tools in Creative mode, where blocks already break instantly");
         addBooleanSetting("preferCurrent", true, "Keep the selected tool when it is effectively as fast as the best option");
         addNumberSetting("minDurability", 5.0, 0.0, 1000.0, "Avoid damageable tools with this many or fewer uses remaining");
         addNumberSetting("switchThreshold", 0.15, 0.0, 5.0, "Minimum destroy-speed improvement required before switching tools");
@@ -32,7 +33,9 @@ public class AutoTool extends Module {
     @Override
     public void onUpdate() {
         InventoryService inventory = service(InventoryService.class);
-        if (mc.player == null || mc.level == null || mc.gui.screen() != null || mc.player.isUsingItem()) {
+        if (mc.player == null || mc.level == null || mc.gui.screen() != null || mc.player.isUsingItem()
+                || AutoToolPolicy.skipForCreative(mc.player.getAbilities().instabuild,
+                        getBooleanSetting("skipCreative", true))) {
             releaseNow(inventory);
             return;
         }
@@ -111,4 +114,14 @@ public class AutoTool extends Module {
 
     @Override public void onDisable() { releaseNow(service(InventoryService.class)); }
     @Override public void onDisconnect() { onDisable(); }
+}
+
+
+/** Minecraft-free policy kept separate so Creative-mode behavior can be regression-tested cheaply. */
+final class AutoToolPolicy {
+    private AutoToolPolicy() {}
+
+    static boolean skipForCreative(boolean creative, boolean skipCreative) {
+        return creative && skipCreative;
+    }
 }
