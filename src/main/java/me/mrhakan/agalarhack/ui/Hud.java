@@ -33,6 +33,7 @@ public class Hud implements HudElement {
     private final List<ItemStack> targetEquipment = new ArrayList<>(TARGET_EQUIPMENT.length);
     private final List<MobEffectInstance> targetEffects = new ArrayList<>(12);
     private final me.mrhakan.agalarhack.ui.hud.HudRegistry registry = me.mrhakan.agalarhack.services.ClientServices.require(me.mrhakan.agalarhack.ui.hud.HudRegistry.class);
+    private final me.mrhakan.agalarhack.services.GrindExecutor grind = me.mrhakan.agalarhack.services.ClientServices.require(me.mrhakan.agalarhack.services.GrindExecutor.class);
     public Hud() {
         new me.mrhakan.agalarhack.ui.hud.ScannerDebugHud(
                 me.mrhakan.agalarhack.services.ClientServices.require(me.mrhakan.agalarhack.services.ScannerService.class),
@@ -62,6 +63,12 @@ public class Hud implements HudElement {
         textComponent("time","Time (overworld)",Hud::timeLine);
         textComponent("biome","Biome",Hud::biomeLine);
         textComponent("light","Light Level",Hud::lightLine);
+        registry.register(new me.mrhakan.agalarhack.ui.hud.HudRegistry.Component(
+                        "autogrind", "AutoGrind", this::autoGrindWidth,
+                        () -> Minecraft.getInstance().font.lineHeight,
+                        event -> renderAutoGrind(event.graphics())),
+                new me.mrhakan.agalarhack.managers.HudLayoutManager.WidgetState(
+                        me.mrhakan.agalarhack.managers.HudLayoutManager.Anchor.BOTTOM_LEFT, 8, 28, false));
         registry.register(new me.mrhakan.agalarhack.ui.hud.HudRegistry.Component("ping_graph","Ping Graph",()->104,()->34,event->renderPingGraph(event.graphics())),
                 new me.mrhakan.agalarhack.managers.HudLayoutManager.WidgetState(me.mrhakan.agalarhack.managers.HudLayoutManager.Anchor.TOP_LEFT,8,150,false));
         textComponent("direction","Direction",()->Minecraft.getInstance().player==null?"Facing --":"Facing "+Minecraft.getInstance().player.getDirection());
@@ -158,6 +165,31 @@ public class Hud implements HudElement {
         int block=engine.getLayerListener(net.minecraft.world.level.LightLayer.BLOCK).getLightValue(pos);
         int sky=engine.getLayerListener(net.minecraft.world.level.LightLayer.SKY).getLightValue(pos);
         return "Light "+block+" block / "+sky+" sky";
+    }
+
+    private int autoGrindWidth() {
+        Font font = Minecraft.getInstance().font;
+        return Math.min(220, font.width(grind.statusLine()));
+    }
+
+    /** Optional bounded status line; hidden by default and enabled through the HUD editor. */
+    private void renderAutoGrind(GuiGraphicsExtractor graphics) {
+        Font font = Minecraft.getInstance().font;
+        int available = Math.max(1, Math.min(220, AgalarHackClient.HUD_LAYOUT.logicalWidth(
+                graphics.guiWidth()) - 16));
+        String text = me.mrhakan.agalarhack.ui.hud.HudText.fitWithEllipsis(grind.statusLine(), available,
+                font::width, font::plainSubstrByWidth);
+        int width = font.width(text);
+        int color = switch (grind.state()) {
+            case RUNNING, DONE -> 0xFF55FF88;
+            case NEEDS_MOVEMENT -> 0xFFFFCC55;
+            case FAILED -> 0xFFFF5555;
+            case IDLE -> ClientUiTheme.MUTED;
+        };
+        graphics.text(font, text, AgalarHackClient.HUD_LAYOUT.resolveX("autogrind",
+                        graphics.guiWidth(), width),
+                AgalarHackClient.HUD_LAYOUT.resolveY("autogrind", graphics.guiHeight(), font.lineHeight),
+                color, true);
     }
 
     /** Counted, not estimated: the client either received a packet or it did not. */
