@@ -102,7 +102,7 @@ class GrindExecutionPlanTest {
 
     @Test void craftingLayoutsMatchEveryCraftingRecipeAndStayInsideTheirGrid() {
         for (var entry : GrindBook.recipes().entrySet()) {
-            if (GrindBook.IRON_INGOT.equals(entry.getKey())) continue;
+            if (GrindBook.smelted(entry.getKey()) || GrindBook.smithing(entry.getKey())) continue;
             boolean table = entry.getValue().needsTable();
             Map<String, List<Integer>> layout = GrindRecipeLayouts.inputs(entry.getKey(), table);
             assertFalse(layout.isEmpty(), entry.getKey());

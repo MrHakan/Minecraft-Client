@@ -21,6 +21,8 @@ import baritone.api.process.IMineProcess;
 public final class BaritoneAPI {
     public static Goal lastGoal;
     public static int cancels;
+    public static int goalCancels;
+    public static boolean goalActive;
     public static int mineCancels;
     public static int lastMineQuantity;
     public static String[] lastMineBlocks;
@@ -31,7 +33,7 @@ public final class BaritoneAPI {
 
     public static void reset() {
         lastGoal = null;
-        cancels = 0;
+        cancels = 0; goalCancels = 0; goalActive = false;
         mineCancels = 0;
         lastMineQuantity = 0;
         lastMineBlocks = null;
@@ -47,7 +49,11 @@ public final class BaritoneAPI {
 
     public static final class Instance {
         public ICustomGoalProcess getCustomGoalProcess() {
-            return goal -> lastGoal = goal;
+            return new ICustomGoalProcess() {
+                @Override public void setGoal(Goal goal) { lastGoal = goal; goalActive = true; }
+                @Override public boolean isActive() { return goalActive; }
+                @Override public void onLostControl() { goalCancels++; goalActive = false; }
+            };
         }
 
         public IMineProcess getMineProcess() {

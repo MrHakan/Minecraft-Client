@@ -17,6 +17,8 @@ public final class ContainerTransferController {
     public interface Controls {
         /** Play state is normal: world and living player, no screen open, own inventory menu present. */
         boolean ready();
+        /** Menu-bound validation; ordinary inventory clients retain the old 0..45 boundary. */
+        default boolean validSlot(int containerId, int slot) { return slot >= 0 && slot <= InventoryTransfers.MENU_OFFHAND; }
         /** Whether the mouse cursor currently carries a stack. */
         boolean cursorEmpty();
         /** Menu slot id of an empty storage slot, or -1 when the inventory is full. */
@@ -53,8 +55,8 @@ public final class ContainerTransferController {
     /** A vanilla PICKUP click. Button 0 takes/places a stack; button 1 places one item. */
     public record Click(int menuSlot, int button) {
         public Click {
-            if (menuSlot < 0 || menuSlot > InventoryTransfers.MENU_OFFHAND) {
-                throw new IllegalArgumentException("Menu slot must be 0..45, got " + menuSlot);
+            if (menuSlot < 0 || menuSlot > 89) {
+                throw new IllegalArgumentException("Menu slot must be 0..89, got " + menuSlot);
             }
             if (button < 0 || button > 1) throw new IllegalArgumentException("Pickup button must be 0 or 1");
         }
@@ -124,7 +126,7 @@ public final class ContainerTransferController {
             int delayTicks, boolean confirmServer) {
         if (owner == null || owner.isBlank() || containerId < -1 || clicks == null
                 || clicks.length == 0 || clicks.length > MAX_CLICK_PLAN) return false;
-        for (Click click : clicks) if (click == null) return false;
+        for (Click click : clicks) if (click == null || !controls.validSlot(containerId, click.menuSlot())) return false;
         if (!controls.ready(containerId) || !controls.cursorEmpty(containerId)) return false;
         if (!canPreempt(owner, priority)) return false;
         this.owner = owner;

@@ -152,6 +152,13 @@ public final class TaskRunner {
         }
     }
 
+    /** Keeps task progress while releasing execution until the player resolves a safety condition. */
+    public void pause(String reason) {
+        if (state != State.RUNNING) return;
+        state = State.NEEDS_MOVEMENT;
+        blockedReason = Objects.requireNonNull(reason);
+    }
+
     /**
      * Walks past tasks whose goal already holds.
      *

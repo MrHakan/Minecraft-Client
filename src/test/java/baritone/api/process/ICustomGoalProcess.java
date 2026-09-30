@@ -11,6 +11,8 @@ import baritone.api.pathing.goals.Goal;
  */
 public interface ICustomGoalProcess {
     void setGoal(Goal goal);
+    default boolean isActive() { return false; }
+    default void onLostControl() { }
 
     default void setGoalAndPath(Goal goal) { setGoal(goal); }
 }

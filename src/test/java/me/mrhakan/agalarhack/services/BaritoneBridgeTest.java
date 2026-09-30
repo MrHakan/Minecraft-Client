@@ -70,6 +70,18 @@ class BaritoneBridgeTest {
         assertEquals(0, BaritoneAPI.lastMineQuantity);
     }
 
+    @Test void customGoalCancellationLeavesTheMiningProcessAlone() {
+        bridge.mineByName(0, "coal_ore");
+        bridge.pathTo(4, 64, 8);
+        assertTrue(bridge.goalActive());
+        assertEquals(BaritoneBridge.Result.STARTED, bridge.cancelGoal());
+        assertFalse(bridge.goalActive());
+        assertTrue(bridge.mining());
+        assertEquals(1, BaritoneAPI.goalCancels);
+        assertEquals(0, BaritoneAPI.mineCancels);
+        assertEquals(0, BaritoneAPI.cancels);
+    }
+
     @Test void cancellingReachesCancelEverything() {
         assertEquals(BaritoneBridge.Result.STARTED, bridge.cancel());
         assertEquals(1, BaritoneAPI.cancels);

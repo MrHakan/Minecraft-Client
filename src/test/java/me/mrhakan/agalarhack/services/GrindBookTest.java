@@ -87,9 +87,9 @@ class GrindBookTest {
 
     @Test void baritoneNamesNormalizeRealIdsAndDoNotExposeMutableState() {
         String[] names = GrindBook.baritoneNames("minecraft:cobbled_deepslate");
-        assertArrayEquals(new String[]{"cobblestone", "cobbled_deepslate"}, names);
+        assertArrayEquals(new String[]{"stone", "deepslate"}, names);
         names[0] = "not_a_block";
-        assertEquals("cobblestone", GrindBook.baritoneNames(GrindBook.COBBLESTONE)[0]);
+        assertEquals("stone", GrindBook.baritoneNames(GrindBook.COBBLESTONE)[0]);
     }
 
     @Test void theBookRecognisesWhatItCanBeAskedFor() {

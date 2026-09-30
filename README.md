@@ -28,7 +28,7 @@ AI contributors: read [handover.md](handover.md) for current progress, architect
 
 1. Install Fabric Loader for Minecraft 26.2.
 2. Put Fabric API and `agalarhack-*.jar` in `.minecraft/mods/`.
-3. Launch the Fabric profile. The HUD should report **Agalar Hack 26.2.5**.
+3. Launch the Fabric profile. The HUD should report **Agalar Hack 26.2.6**.
 
 ## Control Center
 
@@ -70,10 +70,14 @@ Profiles store complete module state/settings/keybinds, Global Target Policy and
 | `.profile duplicate|rename <source> <target>` | Copies/renames profiles |
 | `.profile export|import <name>` | Clipboard profile JSON |
 | `.grind <item> [count]` / `.grind plan <item> [count]` | Plans what it would take to obtain an item, counting what you already carry (planning only) |
-| `.grind run log [count]` | Scans loaded nearby blocks, turns to and breaks a reachable log through vanilla interaction; waits for each drop to reach your inventory |
-| `.grind resume` / `.grind stop` / `.grind status` | Resumes after moving to a target or dropped item, cancels a run, or reports its state |
+| `.grind survival [tier]` | Runs live survival milestones: `iron`, `diamond`, or `max` (default), including food, equipment, a starter house, storage annex, Netherite and enchanting |
+| `.grind run <item> [count]` | Executes a supported item goal with gathering, tool/station preparation, crafting, cooking or smithing |
+| `.grind baritone on` / `.grind baritone off` | Enables/disables optional Baritone mining and travel; survival campaigns enable it automatically |
+| `.grind resume` / `.grind stop` / `.grind status` | Resumes after resolving a pause, cancels a run, or reports the current milestone and pause reason |
 | `.gui` | Opens the Control Center |
 | `.panic` | Disables all active modules |
+
+See [AutoGrind](docs/AUTOGRIND.md) for setup, progression and limits. Start on a flat, clear Overworld plot. Continuous travel requires a separately installed compatible Baritone; the first Netherite Upgrade template requires player looting, and enchantments use vanilla level-30 offers.
 
 ## Modules
 

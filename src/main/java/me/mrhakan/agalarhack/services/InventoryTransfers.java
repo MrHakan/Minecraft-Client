@@ -24,7 +24,7 @@ public final class InventoryTransfers {
     public static final int INVENTORY_SIZE = 36;
     public static final int HOTBAR_SIZE = 9;
 
-    public enum PlayerMenuLayout { INVENTORY, CRAFTING_TABLE, FURNACE }
+    public enum PlayerMenuLayout { INVENTORY, CRAFTING_TABLE, FURNACE, CHEST, SMITHING, ENCHANTING }
 
     /** Armour menu slots descend from the head, matching the vanilla screen order. */
     public enum ArmorPiece {
@@ -53,6 +53,10 @@ public final class InventoryTransfers {
             case CRAFTING_TABLE -> inventoryIndex < HOTBAR_SIZE ? inventoryIndex + 37 : inventoryIndex + 1;
             // FurnaceMenu: input/fuel/result occupy 0..2, storage is 3..29, hotbar 30..38.
             case FURNACE -> inventoryIndex < HOTBAR_SIZE ? inventoryIndex + 30 : inventoryIndex - 6;
+            // Single chest: 27 storage slots, then player storage/hotbar.
+            case CHEST -> inventoryIndex < HOTBAR_SIZE ? inventoryIndex + 54 : inventoryIndex + 18;
+            case SMITHING -> inventoryIndex < HOTBAR_SIZE ? inventoryIndex + 31 : inventoryIndex - 5;
+            case ENCHANTING -> inventoryIndex < HOTBAR_SIZE ? inventoryIndex + 29 : inventoryIndex - 7;
         };
     }
 

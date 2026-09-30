@@ -63,7 +63,15 @@ public final class InventoryService {
                         || mc.gameMode == null || mc.player.containerMenu == null
                         || mc.player.containerMenu.containerId != containerId) return false;
                 return mc.player.containerMenu instanceof net.minecraft.world.inventory.CraftingMenu
-                        || mc.player.containerMenu instanceof net.minecraft.world.inventory.FurnaceMenu;
+                        || mc.player.containerMenu instanceof net.minecraft.world.inventory.FurnaceMenu
+                        || mc.player.containerMenu instanceof net.minecraft.world.inventory.SmithingMenu
+                        || mc.player.containerMenu instanceof net.minecraft.world.inventory.EnchantmentMenu
+                        || mc.player.containerMenu instanceof net.minecraft.world.inventory.ChestMenu chest && chest.getRowCount() == 3;
+            }
+            public boolean validSlot(int containerId, int slot) {
+                if (containerId < 0) return slot >= 0 && slot <= InventoryTransfers.MENU_OFFHAND;
+                return mc.player != null && mc.player.containerMenu != null
+                        && mc.player.containerMenu.containerId == containerId && slot >= 0 && slot < mc.player.containerMenu.slots.size();
             }
             public boolean cursorEmpty(int containerId) {
                 if (mc.player == null) return true;
@@ -81,6 +89,9 @@ public final class InventoryService {
                         ? InventoryTransfers.PlayerMenuLayout.CRAFTING_TABLE
                         : menu instanceof net.minecraft.world.inventory.FurnaceMenu
                                 ? InventoryTransfers.PlayerMenuLayout.FURNACE
+                                : menu instanceof net.minecraft.world.inventory.SmithingMenu ? InventoryTransfers.PlayerMenuLayout.SMITHING
+                                : menu instanceof net.minecraft.world.inventory.EnchantmentMenu ? InventoryTransfers.PlayerMenuLayout.ENCHANTING
+                                : menu instanceof net.minecraft.world.inventory.ChestMenu ? InventoryTransfers.PlayerMenuLayout.CHEST
                                 : InventoryTransfers.PlayerMenuLayout.INVENTORY;
                 return InventoryTransfers.menuSlot(free, layout);
             }

@@ -11,7 +11,7 @@ import java.util.Set;
 public final class GrindExecutionPlan {
     private GrindExecutionPlan() { }
 
-    public enum Action { GATHER, CRAFT, PLACE_TABLE, OPEN_TABLE, PLACE_FURNACE, OPEN_FURNACE, SMELT }
+    public enum Action { GATHER, CRAFT, PLACE_TABLE, OPEN_TABLE, PLACE_FURNACE, OPEN_FURNACE, SMELT, SMITH }
 
     /** Counts are item totals, matching {@link CraftingPlan.Step#count()}. */
     public record Step(Action action, String item, int count, boolean needsTable) { }
@@ -71,7 +71,7 @@ public final class GrindExecutionPlan {
                 return;
             }
 
-            if (GrindBook.IRON_INGOT.equals(work.item())) {
+            if (GrindBook.smelted(work.item())) {
                 if (!furnacePlaced) {
                     ensureFurnace();
                     return;
@@ -82,6 +82,12 @@ public final class GrindExecutionPlan {
                 return;
             }
 
+            if (GrindBook.smithing(work.item())) {
+                compileGoal("smithing_table", 1);
+                steps.add(new Step(Action.SMITH, work.item(), work.count(), false));
+                simulateCraft(work.item(), work.count());
+                return;
+            }
             if (work.needsTable()) {
                 if (!tablePlaced) {
                     ensureTable();
@@ -96,8 +102,9 @@ public final class GrindExecutionPlan {
         private void ensurePickaxe(int tier) {
             if (hasPickaxe(tier) || !ensuringTools.add(tier)) return;
             try {
-                if (tier >= 2) ensurePickaxe(1);
-                compileGoal(tier >= 2 ? GrindBook.STONE_PICKAXE : GrindBook.WOODEN_PICKAXE, 1);
+                if (tier >= 2) ensurePickaxe(tier - 1);
+                compileGoal(switch (tier) { case 4 -> "diamond_pickaxe"; case 3 -> GrindBook.IRON_PICKAXE;
+                    case 2 -> GrindBook.STONE_PICKAXE; default -> GrindBook.WOODEN_PICKAXE; }, 1);
             } finally {
                 ensuringTools.remove(tier);
             }
@@ -142,7 +149,9 @@ public final class GrindExecutionPlan {
     private static int toolTierFor(String resource) {
         return switch (resource) {
             case GrindBook.COBBLESTONE, GrindBook.COAL -> 1;
-            case GrindBook.RAW_IRON -> 2;
+            case GrindBook.RAW_IRON, "lapis_lazuli" -> 2;
+            case "diamond", "raw_gold" -> 3;
+            case "obsidian", "ancient_debris" -> 4;
             default -> 0;
         };
     }
@@ -153,8 +162,8 @@ public final class GrindExecutionPlan {
         return switch (genericItem) {
             case GrindBook.WOODEN_PICKAXE, "golden_pickaxe" -> 1;
             case GrindBook.STONE_PICKAXE, "copper_pickaxe" -> 2;
-            case GrindBook.IRON_PICKAXE, "diamond_pickaxe" -> 3;
-            case "netherite_pickaxe" -> 4;
+            case GrindBook.IRON_PICKAXE -> 3;
+            case "diamond_pickaxe", "netherite_pickaxe" -> 4;
             default -> 0;
         };
     }

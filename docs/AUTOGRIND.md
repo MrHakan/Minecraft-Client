@@ -1,70 +1,87 @@
 # AutoGrind
 
-AutoGrind separates the inventory-only `CraftingPlan` from Minecraft actions. `.grind <item>
-[count]` and `.grind plan` remain read-only plans. `.grind run <item> [count]` builds a
-`GrindExecutionPlan`, then runs its ordered work through `TaskRunner` against live inventory and
-world state. Starting a new run takes a fresh inventory snapshot, so collected items and completed
-crafts reduce the remaining work after a stop, death, disconnect, or world change.
+`.grind survival` starts the full survival campaign. Choose a flat, empty plot in the Overworld before starting;
+its southwest floor corner is two blocks east of the starting position. `.grind status` reports the
+current milestone or actionable pause, `.grind stop` cancels it, and `.grind resume` continues the
+same task after a pause. A new campaign in the same loaded world reuses its base location and checks
+live inventory again. Disconnecting or loading an unrelated world clears the base.
 
-## Executable GrindBook goals
-
-Every current generic goal can be run:
-
-| Goal | Execution |
+| Command | Result |
 | --- | --- |
-| `log` | Find a loaded nearby log, turn with `RotationService`, break through vanilla block interaction, and wait until the drop is in inventory. |
-| `planks`, `stick`, `crafting_table` | Use the 2×2 inventory recipe grid. |
-| `cobblestone`, `coal`, `raw_iron` | Scan loaded chunks with the shared bounded scanner, choose a compatible carried pickaxe, mine with vanilla interaction, and confirm the matching drop. |
-| `wooden_pickaxe`, `stone_pickaxe`, `iron_pickaxe` | Craft the required inputs in the 3×3 table grid; prerequisites add the needed pickaxe tier and table. |
-| `furnace` | Craft the 3×3 recipe from eight cobblestone. |
-| `iron_ingot` | Use a nearby or newly placed furnace, load raw iron and coal, wait for vanilla smelting, and collect the ingots. `GrindBook` represents furnace work in eight-ingot loads, so a smaller request may leave surplus ingots. |
+| `.grind survival iron` | Bare hands → wood/stone tools → food → iron tools and full armor, shield, bucket, torches → 5×5 starter house and surplus chest. |
+| `.grind survival diamond` | Iron campaign, then diamond tools/full armor, a larger food reserve, and a 7×7 storage annex with three categorized chests and a connecting walkway. |
+| `.grind survival max` | Diamond campaign, then a Nether portal, ancient debris, upgrade-template duplication, full Netherite tools/armor, an enchanting area with 15 bookshelves, and level-30 vanilla enchanting offers. |
+| `.grind survival` | Same as `max`. |
+| `.grind run <item> [count]` | Execute one supported item goal, including its tools, stations, crafting, smelting or smithing prerequisites. |
+| `.grind <item> [count]` / `.grind plan <item> [count]` | Read-only inventory plan. |
+| `.grind baritone on` / `.grind baritone off` | Enable/disable optional mining and travel for individual goals. Campaigns enable it automatically. |
 
-The executor expands prerequisites without changing `CraftingPlan`. It places a carried crafting
-table or furnace when the requested chain needs one; if no table is carried, it crafts one first.
-Resource gathering adds a wooden pickaxe before cobblestone or coal and a stone pickaxe before raw
-iron. Existing suitable tools and nearby stations are reused.
+## Progression and world interactions
 
-## Interactions and resumability
+`SurvivalProgression` defines milestones rather than one stale inventory estimate. Each item
+milestone compiles a fresh `GrindExecutionPlan` from live inventory. Carried higher-tier equipment
+satisfies earlier-tier campaign milestones, and equipment tasks wear stronger armor and equip the
+shield through `InventoryService`. Worn diamond armor is safely moved into inventory before smithing.
+A resource goal can rebuild its prerequisites if its pickaxe breaks, with bounded retries.
 
-Resource searches cover a 6-block horizontal / 4-block vertical area in already-loaded chunks and
-consume `ScannerService`'s shared per-tick block budget. AutoGrind does not load chunks or scan the
-whole world. A target outside vanilla's 4.5-block interaction reach, behind an obstruction, or with
-a drop outside pickup reach pauses in `NEEDS_MOVEMENT`. Status reports the coordinates and the
-missing movement capability; move manually and use `.grind resume`. AutoGrind has no pathfinder.
+Food tasks hunt loaded adult cows/pigs/sheep/chickens, excluding named animals. They use vanilla
+attack cooldown, line of sight and `RotationService`, and wait for real drops. Carried wheat can be
+made into bread; meat is cooked in a furnace. Campaign upkeep eats ordinary food through the shared
+inventory lease, excluding golden apples and poisonous foods. Low health, fire or exhausted food
+pauses work for recovery. Smelting uses eight-item batches per coal and may retain surplus output.
 
-2×2 crafting, crafting-table transfers, and furnace transfers all use
-`InventoryService` / `ContainerTransferController`. They keep container ownership, one click per
-tick, cursor recovery, and bounded click plans. 3×3 recipes require an available table block, and
-smelting requires an available furnace block. AutoGrind only inserts into an empty furnace when it
-starts a new smelt task; unrelated contents are left untouched. A task can continue after a station
-screen closes: it rechecks the crafting grid, furnace slots, and inventory before queuing remaining
-clicks. If cursor recovery has no empty inventory slot, it pauses and asks for space before resume.
+Buildings use ordered, exact world placements: a raised floor, walls, roof, door, lighting and
+fixtures. The annex contains three separated single chests for building materials, minerals and
+other surplus. Sorting keeps equipment, templates, food and useful supplies carried and preserves
+custom-named items. Transfers use captured menu ownership, one click per tick and cursor recovery;
+full chests or blocked plots pause without erasing terrain. Local gathering excludes recorded campaign placements; Baritone cobblestone requests target natural stone/deepslate, and portal/enchanting obsidian is collected together before building the portal. A build requests small batches of
+materials rather than filling inventory with an entire house at once.
 
-The task runner advances only when the expected inventory total or world state is observed. It
-rechecks each task before running it, releases temporary aim/tool ownership at task boundaries,
-cancels on player/world replacement or death, and reports missing resources, incompatible tools,
-unavailable blocks, occupied stations, or exhausted task budgets explicitly. Manual movement is the
-only movement path; no guessed Baritone API or custom pathfinder is used.
+The max campaign gathers spare diamonds for copying templates before entering the Nether. **The
+first Netherite Upgrade template must be looted from a bastion by the player.** AutoGrind pauses
+there and duplicates the remaining templates using the vanilla seven-diamond/netherrack recipe.
+Smithing uses the real template/base/ingot menu slots. The Nether portal is built and lit with
+vanilla interactions, and campaign-controlled dimension transitions preserve the runner. Other
+world changes, death and disconnect cancel work.
 
-## Evidence
+Enchanting builds a table and 15 shelves with a clear one-block gap. Each unenchanted Netherite
+piece uses the third vanilla offer after its advertised level/lapis requirements arrive. If XP is
+insufficient, the campaign mines coal in small batches and stores surplus before trying again.
+Enchantment rolls are vanilla RNG: this provides level-30 enchanted equipment, not a guarantee of
+specific maximum-level enchantments, Mending, or a complete villager/anvil optimization pipeline.
 
-- `GrindExecutionPlanTest` verifies the prerequisite order for wooden, stone, iron, furnace and
-  ingot work, and verifies that carried tools/stations avoid unnecessary work.
-- `GrindExecutionPlanTest` checks every crafting recipe's input count, grid bounds, and unique
-  cells. `InventoryTransfersTest` checks player-slot mappings
-  for inventory, crafting-table, and furnace menus.
-- `ContainerTransferControllerTest` checks one-click pacing, captured station-menu ownership,
-  interrupted-menu recovery, bounded recipe plans, and safe cursor return.
-- `ModuleBehaviourGameTest` exercises real block breaking and pickup for logs, stone/cobblestone,
-  coal ore, and iron ore. It crafts 2×2 and 3×3 recipes, places stations, smelts a full furnace
-  batch, crafts an iron pickaxe, and verifies the existing stop/restart and manual-movement paths.
+## Optional Baritone
 
-## Current limits
+Install a Baritone build compatible with your Minecraft version separately. It is an optional
+runtime API, not a bundled dependency. Raw gathering delegates to its mining process when enabled;
+live AutoGrind inventory totals determine completion, and only the owned mining process is stopped.
+Quantity zero lets AutoGrind own the stopping condition across mixed log/stone variants. Task tick
+budgets still bound every attempt. Wood-specific door recipes count exact oak inputs without
+counting the same stacks again through their generic aliases.
 
-- Gathering only considers loaded blocks within the bounded local scan radius. The player must move
-  between resource locations and resume paused tasks.
-- Silk Touch is not used when it would produce a block instead of the requested raw resource.
-- A non-empty furnace at the start of a smelt task is never overwritten; resolve its contents
-  manually before retrying.
-- `iron_ingot` uses the recipe book's eight-item furnace batch, so it can produce more than the
-  requested minimum. Other crafts follow vanilla recipe yields and retain their surplus.
+Travel uses the documented custom-goal API and clear standing positions near stations/build cells.
+AutoGrind relinquishes only its custom goal; it never sends Baritone commands or coordinates to
+server chat, and it refuses to take over an already-active mining/pathing/custom-goal process.
+Lost portable crafting/furnace stations can be recreated near the player after a mining journey.
+
+Without Baritone, resource scans remain bounded to loaded chunks within 6 horizontal / 4 vertical
+blocks and use `ScannerService`'s shared budget. Direct interactions stay within vanilla reach.
+Outside reach, occluded interactions, uncollected drops and absent local resources pause for manual
+movement and `.grind resume`. A compatible Baritone installation is required for continuous travel
+and remote mining. Hunting only targets loaded animals; unseen animals/loot are not inferred.
+
+## Validation and limits
+
+Unit tests cover all campaign item prerequisite chains, gear tiers, crafting layouts, smithing
+ordering, building/portal geometry, storage reserves, station slot arithmetic and owned Baritone
+process cancellation. Real-client scenarios cover ordinary resource breaking and pickup, crafting,
+station placement, cooking, diamond/iron equipment recipes, Netherite smithing, survival startup and
+stop, exact building placements, chest transfers and automatic equipment.
+
+The test runtime has no Baritone installed. Its bridge is tested against API-shaped stubs, while
+absence is exercised in the real client. A complete randomly generated survival world from empty
+inventory through the Nether and all enchants is not a deterministic integration-test fixture.
+Baritone availability, terrain access, animal/resource availability and server interaction rules
+can require manual intervention. Build footprints need clear supports; existing blocks are not
+removed. Full chests, unrelated station contents, and server-rejected placements remain resumable
+pauses or specific failures. Eight-item smelting batches can exceed the requested minimum.

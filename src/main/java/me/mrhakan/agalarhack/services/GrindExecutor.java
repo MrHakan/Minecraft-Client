@@ -69,10 +69,21 @@ public final class GrindExecutor {
         Station(Block block, String item) { this.block = block; this.item = item; }
     }
 
-    private final Minecraft client;
-    private final InventoryService inventory;
+    final Minecraft client;
+    final InventoryService inventory;
     private final ScannerService scanner;
-    private final RotationService rotations;
+    final RotationService rotations;
+    private final BaritoneBridge baritone;
+    private boolean useBaritone;
+    private boolean ownsMining;
+    private BlockPos movementGoal;
+    private boolean survival;
+    private boolean changingDimension;
+    private int transitionWait;
+    private SurvivalTasks survivalTasks;
+    private BlockPos survivalBase;
+    private ClientLevel homeWorld;
+    private final Map<net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level>, Set<BlockPos>> protectedBlocks = new LinkedHashMap<>();
     private final TaskRunner runner = new TaskRunner();
     private LocalPlayer ownerPlayer;
     private ClientLevel ownerLevel;
@@ -82,6 +93,12 @@ public final class GrindExecutor {
 
     public GrindExecutor(Minecraft client, InventoryService inventory, ScannerService scanner,
             RotationService rotations) {
+        this(client, inventory, scanner, rotations, new BaritoneBridge());
+    }
+
+    public GrindExecutor(Minecraft client, InventoryService inventory, ScannerService scanner,
+            RotationService rotations, BaritoneBridge baritone) {
+        this.baritone = baritone;
         this.client = client;
         this.inventory = inventory;
         this.scanner = scanner;
@@ -90,7 +107,7 @@ public final class GrindExecutor {
 
     /** Starts a complete execution plan derived from the same live inventory snapshot as the planner. */
     public StartResult start(String requestedTarget, int wanted) {
-        String target = GrindBook.generic(requestedTarget);
+        String target = GrindBook.knows(requestedTarget) ? requestedTarget : GrindBook.generic(requestedTarget);
         if (!GrindBook.knows(target) || wanted < 1 || wanted > MAX_GOAL) return StartResult.INVALID;
         if (runner.running() || runner.state() == TaskRunner.State.NEEDS_MOVEMENT) return StartResult.BUSY;
         runner.cancel();
@@ -100,7 +117,8 @@ public final class GrindExecutor {
             return StartResult.NO_WORLD;
         }
 
-        Map<String, Integer> have = carried();
+        survival = false;
+        Map<String, Integer> have = planningInventory(target);
         try {
             if (CraftingPlan.plan(target, wanted, have, GrindBook.recipes()).isEmpty()) {
                 runner.start(List.of());
@@ -125,18 +143,47 @@ public final class GrindExecutor {
         }
     }
 
+    public StartResult startSurvival(SurvivalProgression.Tier tier) {
+        if (runner.running() || runner.state() == TaskRunner.State.NEEDS_MOVEMENT) return StartResult.BUSY;
+        if (client.player == null || client.level == null || client.gameMode == null) return StartResult.NO_WORLD;
+        if (client.level.dimension() != net.minecraft.world.level.Level.OVERWORLD) return StartResult.INVALID;
+        stop();
+        survival = true;
+        useBaritone = true;
+        ownerPlayer = client.player;
+        ownerLevel = client.level;
+        if (survivalBase == null || homeWorld != client.level) {
+            survivalBase = client.player.blockPosition().offset(2, 0, 0).immutable(); homeWorld = client.level;
+        }
+        survivalTasks = new SurvivalTasks(this, tier, survivalBase);
+        runner.start(survivalTasks.tasks());
+        return StartResult.STARTED;
+    }
+    public boolean baritoneAvailable() { return baritone.available(); }
+    public void useBaritone(boolean enabled) { useBaritone = enabled; if (!enabled) cancelAutomation(); }
+    public boolean usingBaritone() { return useBaritone; }
+    public String survivalTier() { return survival && survivalTasks != null ? survivalTasks.tier.name().toLowerCase(java.util.Locale.ROOT) : null; }
+
     /** Resume a task paused for direct reach, an open screen, or a missing free inventory slot. */
     public boolean resume() { return runner.resume(); }
 
     /** Advances one task tick on the client thread. Container clicks remain owned by InventoryService. */
     public void tick() {
         if (!runner.running() && runner.state() != TaskRunner.State.NEEDS_MOVEMENT) return;
+        if (changingDimension) {
+            if (client.player == null || client.level == null) { if (++transitionWait > 200) stop(); return; }
+            if (client.level == ownerLevel) { if (++transitionWait > 200) stop(); return; }
+            ownerLevel = client.level; ownerPlayer = client.player;
+            if (client.level.dimension() == net.minecraft.world.level.Level.OVERWORLD) homeWorld = client.level;
+            changingDimension = false; transitionWait = 0;
+        }
         if (client == null || client.player == null || client.level == null
                 || client.player != ownerPlayer || client.level != ownerLevel || !client.player.isAlive()) {
             stop();
             return;
         }
         if (!runner.running()) return;
+        if (survival && survivalTasks.maintain()) return;
         String previousTask = runner.currentTask();
         runner.tick();
         String nextTask = runner.currentTask();
@@ -148,6 +195,7 @@ public final class GrindExecutor {
             rotations.release(OWNER);
         } else if (state == TaskRunner.State.DONE || state == TaskRunner.State.FAILED) {
             inventory.transfers().release(OWNER);
+            cancelAutomation();
             closeOwnedStationMenu();
             ownerPlayer = null;
             ownerLevel = null;
@@ -158,6 +206,9 @@ public final class GrindExecutor {
     public boolean stop() {
         boolean wasActive = runner.running() || runner.state() == TaskRunner.State.NEEDS_MOVEMENT;
         runner.cancel();
+        cancelAutomation();
+        survival = false;
+        changingDimension = false;
         releaseControls();
         inventory.transfers().release(OWNER);
         closeOwnedStationMenu();
@@ -166,7 +217,7 @@ public final class GrindExecutor {
         return wasActive;
     }
 
-    public void reset() { stop(); }
+    public void reset() { stop(); survivalBase = null; homeWorld = null; protectedBlocks.clear(); }
     public boolean running() { return runner.running(); }
     public TaskRunner.State state() { return runner.state(); }
     public String currentTask() { return runner.currentTask(); }
@@ -175,12 +226,77 @@ public final class GrindExecutor {
     public String failure() { return runner.failure(); }
     public String blockedReason() { return runner.blockedReason(); }
 
+    public void worldChanged() {
+        if (survival && survivalTasks != null && survivalTasks.expectingDimension) {
+            cancelAutomation(); releaseControls(); inventory.transfers().release(OWNER);
+            ownedStationMenuId = -1; craftingTablePos = null; furnacePos = null;
+            changingDimension = true; transitionWait = 0;
+        } else reset();
+    }
+    public String baseCoordinates() { return survivalBase == null ? "unset" : coordinates(survivalBase); }
+    void pause(String reason) { cancelAutomation(); releaseControls(); inventory.transfers().release(OWNER); closeOwnedStationMenu(); runner.pause(reason); }
+    boolean moveTo(BlockPos target) {
+        if (!useBaritone || !baritone.available()) return false;
+        if (movementGoal != null && movementGoal.equals(target) && (baritone.pathing() || baritone.goalActive())) return true;
+        cancelMovement();
+        if (baritone.mining() || baritone.pathing() || baritone.goalActive()) return false;
+        if (baritone.pathTo(target.getX(), target.getY(), target.getZ()) != BaritoneBridge.Result.STARTED) return false;
+        movementGoal = target; return true;
+    }
+
+    boolean moveNear(BlockPos target) {
+        if (!useBaritone || !baritone.available()) return false;
+        rotations.release(OWNER); inventory.release(OWNER);
+        if (movementGoal != null) {
+            if (!baritone.pathing() && !baritone.goalActive()) movementGoal = null;
+            else return true;
+        }
+        if (baritone.mining() || baritone.pathing() || baritone.goalActive()) return false;
+        // GoalBlock is a supported API; choose a clear standing position beside the interaction.
+        BlockPos best = null;
+        double distance = Double.MAX_VALUE;
+        for (int dy = -5; dy <= 1; dy++) for (Direction side : Direction.Plane.HORIZONTAL) {
+            BlockPos feet = target.relative(side).offset(0, dy, 0);
+            if (!client.level.hasChunkAt(feet)) continue;
+            if (!client.level.getBlockState(feet).getCollisionShape(client.level, feet).isEmpty()
+                    || !client.level.getBlockState(feet.above()).getCollisionShape(client.level, feet.above()).isEmpty()
+                    || client.level.getBlockState(feet.below()).getCollisionShape(client.level, feet.below()).isEmpty()
+                    || !client.level.getFluidState(feet).isEmpty()) continue;
+            double d = client.player.position().distanceToSqr(Vec3.atBottomCenterOf(feet));
+            if (d < distance && Vec3.atBottomCenterOf(feet).add(0, 1.62, 0).distanceToSqr(Vec3.atCenterOf(target)) < 19) {
+                best = feet; distance = d;
+            }
+        }
+        if (best == null) return false;
+        if (baritone.pathTo(best.getX(), best.getY(), best.getZ()) != BaritoneBridge.Result.STARTED) return false;
+        movementGoal = best;
+        return true;
+    }
+    void cancelMovement() { if (movementGoal != null) { baritone.cancelGoal(); movementGoal = null; } }
+    void cancelAutomation() {
+        if (ownsMining) { baritone.cancelMining(); ownsMining = false; }
+        cancelMovement();
+    }
+    void protect(BlockPos pos) { protectedBlocks.computeIfAbsent(client.level.dimension(), ignored -> new java.util.HashSet<>()).add(pos.immutable()); }
+    boolean protectedBlock(BlockPos pos) { return protectedBlocks.getOrDefault(client.level.dimension(), Set.of()).contains(pos); }
+    void ownMenu() { ownedStationMenuId = client.player.containerMenu.containerId; }
+
+    Map<String, Integer> planningInventory(String target) {
+        Map<String, Integer> have = carried();
+        if (target.equals("oak_door") || target.equals("oak_planks") || target.equals("oak_log")) {
+            // Exact wood and its generic alias describe the same stacks, never two supplies.
+            have.merge(GrindBook.PLANKS, -have.getOrDefault("oak_planks", 0), Integer::sum);
+            have.merge(GrindBook.LOG, -have.getOrDefault("oak_log", 0), Integer::sum);
+        }
+        return have;
+    }
+
     private void releaseControls() {
         rotations.release(OWNER);
         inventory.release(OWNER);
     }
 
-    private List<TaskRunner.Task> createTasks(List<GrindExecutionPlan.Step> plan,
+    List<TaskRunner.Task> createTasks(List<GrindExecutionPlan.Step> plan,
             Map<String, Integer> startingInventory) {
         List<TaskRunner.Task> tasks = new ArrayList<>(plan.size());
         Map<String, Integer> simulated = new LinkedHashMap<>(startingInventory);
@@ -190,7 +306,10 @@ public final class GrindExecutor {
             switch (step.action()) {
                 case GATHER -> {
                     int goal = simulated.getOrDefault(step.item(), 0) + step.count();
-                    tasks.add(new GatherResourceTask(step.item(), goal));
+                    tasks.add(step.item().equals("netherite_upgrade_smithing_template")
+                            ? new SurvivalTasks.TemplateTask(this, goal)
+                            : SurvivalTasks.hunted(step.item()) ? new SurvivalTasks.HuntTask(this, step.item(), goal)
+                            : new GatherResourceTask(step.item(), goal));
                     simulated.merge(step.item(), step.count(), Integer::sum);
                 }
                 case CRAFT -> {
@@ -214,16 +333,21 @@ public final class GrindExecutor {
                     simulated.merge(GrindBook.FURNACE, -1, Integer::sum);
                 }
                 case OPEN_FURNACE -> {
-                    tasks.add(new MoveOffhandTask(Set.of(GrindBook.RAW_IRON, GrindBook.COAL)));
+                    tasks.add(new MoveOffhandTask(next == null ? Set.of(GrindBook.COAL) : ingredients(next.item())));
                     tasks.add(new OpenStationTask(Station.FURNACE));
+                }
+                case SMITH -> {
+                    int goal = simulated.getOrDefault(step.item(), 0) + step.count();
+                    tasks.add(new SurvivalTasks.SmithTask(this, step.item(), goal));
+                    simulateRecipe(simulated, step.item(), step.count());
                 }
                 case SMELT -> {
                     CraftingPlan.Recipe recipe = GrindBook.recipes().get(step.item());
                     int batches = step.count() / recipe.yield();
-                    int rawIron = recipe.ingredients().getOrDefault(GrindBook.RAW_IRON, 0) * batches;
+                    int rawIron = recipe.ingredients().getOrDefault(GrindBook.smeltInput(step.item()), 0) * batches;
                     int fuel = recipe.ingredients().getOrDefault(GrindBook.COAL, 0) * batches;
                     int goal = simulated.getOrDefault(step.item(), 0) + step.count();
-                    tasks.add(new SmeltTask(goal, rawIron, fuel));
+                    tasks.add(new SmeltTask(step.item(), goal, rawIron, fuel));
                     simulateRecipe(simulated, step.item(), step.count());
                 }
             }
@@ -289,7 +413,7 @@ public final class GrindExecutor {
                 : client.player.containerMenu instanceof FurnaceMenu;
     }
 
-    private boolean closeOwnedStationMenu() {
+    boolean closeOwnedStationMenu() {
         if (ownedStationMenuId < 0 || client == null || client.player == null) return false;
         if (client.player.containerMenu != null && client.player.containerMenu.containerId == ownedStationMenuId) {
             // Hiding the screen alone leaves LocalPlayer.containerMenu bound to the station. A
@@ -308,7 +432,7 @@ public final class GrindExecutor {
         return false;
     }
 
-    private BlockPos findNearbyBlock(Block block) {
+    BlockPos findNearbyBlock(Block block) {
         if (client == null || client.player == null || client.level == null) return null;
         BlockPos origin = client.player.blockPosition();
         Vec3 eye = client.player.getEyePosition();
@@ -330,11 +454,11 @@ public final class GrindExecutor {
         return nearest;
     }
 
-    private boolean withinReach(BlockPos pos) {
+    boolean withinReach(BlockPos pos) {
         return client.player.getEyePosition().distanceToSqr(Vec3.atCenterOf(pos)) <= MAX_REACH * MAX_REACH;
     }
 
-    private BlockHitResult hitTarget(BlockPos pos) {
+    BlockHitResult hitTarget(BlockPos pos) {
         Vec3 from = client.player.getEyePosition();
         Vec3 to = Vec3.atCenterOf(pos);
         var hit = client.level.clip(new ClipContext(from, to, ClipContext.Block.OUTLINE,
@@ -352,11 +476,11 @@ public final class GrindExecutor {
                 ? new BlockHitResult(topCenter, Direction.UP, support, false) : null;
     }
 
-    private void aimAt(BlockPos pos) {
+    void aimAt(BlockPos pos) {
         aimAt(Vec3.atCenterOf(pos));
     }
 
-    private void aimAt(Vec3 target) {
+    void aimAt(Vec3 target) {
         Vec3 delta = target.subtract(client.player.getEyePosition());
         double horizontal = Math.sqrt(delta.x * delta.x + delta.z * delta.z);
         float yaw = (float) Math.toDegrees(Math.atan2(-delta.x, delta.z));
@@ -365,11 +489,11 @@ public final class GrindExecutor {
                 yaw, pitch, 360f, 180f, 180f, true));
     }
 
-    private boolean aimedAt(BlockPos pos) {
+    boolean aimedAt(BlockPos pos) {
         return aimedAt(Vec3.atCenterOf(pos));
     }
 
-    private boolean aimedAt(Vec3 target) {
+    boolean aimedAt(Vec3 target) {
         Vec3 delta = target.subtract(client.player.getEyePosition());
         double horizontal = Math.sqrt(delta.x * delta.x + delta.z * delta.z);
         float yaw = (float) Math.toDegrees(Math.atan2(-delta.x, delta.z));
@@ -395,11 +519,11 @@ public final class GrindExecutor {
     }
 
     /** Moves a carried item into the hotbar through the shared owner/click channel when needed. */
-    private int prepareHotbarItem(String generic) {
+    int prepareHotbarItem(String generic) {
         int hotbar = findHotbarItem(generic);
         if (hotbar >= 0) return hotbar;
         int source = findCarriedSlot(generic);
-        if (source < 0) return -1;
+        if (source < 0 && source != SOURCE_OFFHAND) return -1;
         if (inventory.transfers().busy()) return HOTBAR_PENDING;
         int destination = -1;
         for (int slot = 0; slot < InventoryTransfers.HOTBAR_SIZE; slot++) {
@@ -413,7 +537,7 @@ public final class GrindExecutor {
         return HOTBAR_PENDING;
     }
 
-    private int correctToolSlot(net.minecraft.world.level.block.state.BlockState state, String resource) {
+    int correctToolSlot(net.minecraft.world.level.block.state.BlockState state, String resource) {
         int bestSlot = -1;
         double bestSpeed = -1;
         for (int slot = 0; slot < InventoryTransfers.HOTBAR_SIZE; slot++) {
@@ -474,7 +598,8 @@ public final class GrindExecutor {
         boolean silkChangesDrop = (GrindBook.COBBLESTONE.equals(resource)
                 && (path.equals("stone") || path.equals("deepslate")))
                 || GrindBook.COAL.equals(resource) && (path.equals("coal_ore") || path.endsWith("_coal_ore"))
-                || GrindBook.RAW_IRON.equals(resource) && (path.equals("iron_ore") || path.endsWith("_iron_ore"));
+                || GrindBook.RAW_IRON.equals(resource) && (path.equals("iron_ore") || path.endsWith("_iron_ore"))
+                || resource.equals("diamond") || resource.equals("lapis_lazuli") || resource.equals("raw_gold");
         return !silkChangesDrop || !hasSilkTouch(stack);
     }
 
@@ -499,16 +624,22 @@ public final class GrindExecutor {
                     || path.equals("deepslate") || path.equals("cobbled_deepslate");
             case GrindBook.COAL -> path.equals("coal_ore") || path.endsWith("_coal_ore");
             case GrindBook.RAW_IRON -> path.equals("iron_ore") || path.endsWith("_iron_ore");
+            case "diamond" -> path.equals("diamond_ore") || path.equals("deepslate_diamond_ore");
+            case "raw_gold" -> path.equals("gold_ore") || path.equals("deepslate_gold_ore");
+            case "ancient_debris", "obsidian", "oak_log", "netherrack", "sugar_cane" -> path.equals(generic);
+            case "lapis_lazuli" -> path.equals("lapis_ore") || path.equals("deepslate_lapis_ore");
+            case "flint" -> path.equals("gravel");
+            case "wheat" -> state.getBlock() instanceof net.minecraft.world.level.block.CropBlock crop && crop.isMaxAge(state);
             default -> false;
         };
     }
 
-    private static String coordinates(BlockPos pos) {
+    static String coordinates(BlockPos pos) {
         return pos == null ? "unknown" : pos.getX() + " " + pos.getY() + " " + pos.getZ();
     }
 
     /** Counts through the shared inventory snapshot boundary rather than a second inventory path. */
-    private Map<String, Integer> carried() {
+    Map<String, Integer> carried() {
         Map<String, Integer> have = new LinkedHashMap<>();
         if (client == null || client.player == null) return have;
         for (int slot = 0; slot < InventoryTransfers.INVENTORY_SIZE; slot++) addStack(have, inventory.stackAt(slot));
@@ -516,7 +647,7 @@ public final class GrindExecutor {
         return have;
     }
 
-    private int count(String generic) {
+    int count(String generic) {
         if (client == null || client.player == null) return 0;
         int total = 0;
         for (int slot = 0; slot < InventoryTransfers.INVENTORY_SIZE; slot++) {
@@ -527,14 +658,18 @@ public final class GrindExecutor {
     }
 
     private static void addStack(Map<String, Integer> have, ItemStack stack) {
-        if (stack.isEmpty()) return;
+        if (stack.isEmpty() || (stack.isDamageableItem() && stack.getMaxDamage() - stack.getDamageValue() <= 1)) return;
         String id = BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
-        have.merge(GrindBook.generic(id), stack.getCount(), Integer::sum);
+        String generic = GrindBook.generic(id);
+        have.merge(generic, stack.getCount(), Integer::sum);
+        String exact = BuiltInRegistries.ITEM.getKey(stack.getItem()).getPath();
+        if (!exact.equals(generic)) have.merge(exact, stack.getCount(), Integer::sum);
     }
 
-    private static int countStack(ItemStack stack, String generic) {
+    static int countStack(ItemStack stack, String generic) {
         return !stack.isEmpty()
-                && GrindBook.generic(BuiltInRegistries.ITEM.getKey(stack.getItem()).toString()).equals(generic)
+                && (GrindBook.generic(BuiltInRegistries.ITEM.getKey(stack.getItem()).toString()).equals(generic)
+                || BuiltInRegistries.ITEM.getKey(stack.getItem()).getPath().equals(generic))
                 ? stack.getCount() : 0;
     }
 
@@ -561,7 +696,12 @@ public final class GrindExecutor {
 
         GatherResourceTask(String resource, int goal) { this.resource = resource; this.goal = goal; }
         @Override public String name() { return "gather " + resource + " (" + count(resource) + "/" + goal + ")"; }
-        @Override public boolean satisfied() { return count(resource) >= goal; }
+        @Override public boolean satisfied() {
+            if (count(resource) < goal) return false;
+            if (ownsMining) { baritone.cancelMining(); ownsMining = false; }
+            cancelMovement();
+            return true;
+        }
         @Override public int budgetTicks() { return Math.max(TaskRunner.DEFAULT_BUDGET_TICKS, Math.min(70_000, (goal - count(resource)) * 100 + 4_000)); }
 
         @Override
@@ -573,6 +713,24 @@ public final class GrindExecutor {
             if (client.gui.screen() != null) {
                 movementReason = "Close the open screen before AutoGrind can gather " + resource + ".";
                 return true;
+            }
+
+            if (resource.equals("netherite_upgrade_smithing_template")) {
+                movementReason = "Find Netherite Upgrade templates in bastion loot (need " + goal
+                        + "). AutoGrind cannot infer unseen loot; collect them, then .grind resume.";
+                return true;
+            }
+            if (resource.equals("ancient_debris") && client.level.dimension() != net.minecraft.world.level.Level.NETHER) {
+                movementReason = "Enter the Nether to gather ancient debris, then .grind resume.";
+                return true;
+            }
+            if (resource.equals("flint") && useBaritone && baritone.available()) {
+                // Gravel drops flint probabilistically; live flint count is the completion signal.
+                return tickBaritone(new String[]{"gravel"});
+            }
+            String[] names = GrindBook.baritoneNames(resource);
+            if (useBaritone && baritone.available() && names.length > 0) {
+                return tickBaritone(names);
             }
 
             if (target != null) {
@@ -588,7 +746,7 @@ public final class GrindExecutor {
                         return true;
                     }
                     int toolSlot = -1;
-                    if (!GrindBook.LOG.equals(resource)) {
+                    if (!Set.of(GrindBook.LOG, "oak_log", "sugar_cane", "wheat", "flint").contains(resource)) {
                     toolSlot = correctToolSlot(client.level.getBlockState(target), resource);
                         if (toolSlot == HOTBAR_PENDING) {
                             if (inventory.transfers().recoveryBlocked()) movementReason = inventoryRecoveryReason();
@@ -622,6 +780,9 @@ public final class GrindExecutor {
                 }
             }
 
+            if (waitingForPickup && resource.equals("flint") && pickupWait >= 20 && nearPickupPosition()) {
+                waitingForPickup = false; scanStarted = false; pickupPosition = null;
+            }
             if (waitingForPickup) {
                 if (count(resource) > inventoryBeforeMining) {
                     waitingForPickup = false;
@@ -645,9 +806,10 @@ public final class GrindExecutor {
                 scanReady = false;
                 target = nearestInReach != null ? nearestInReach : nearestOverall;
                 if (target == null) {
-                    failureReason = "found no " + resource + " block in loaded chunks within "
-                            + SCAN_HORIZONTAL + " blocks; no block was broken";
-                    return false;
+                    movementReason = "found no " + resource + " block in loaded chunks within "
+                            + SCAN_HORIZONTAL + " blocks; move to resources or enable Baritone, then .grind resume.";
+                    scanStarted = false;
+                    return true;
                 }
                 if (!withinReach(target)) {
                     movementReason = movementMessage(target,
@@ -659,6 +821,26 @@ public final class GrindExecutor {
                 scanner.offerClientTask(this, ScanScheduler.Priority.NEAR, SCAN_STEPS_PER_TICK, scanTask);
             }
             return true;
+        }
+
+        private boolean tickBaritone(String[] names) {
+                scanner.cancel(this);
+                rotations.release(OWNER); inventory.release(OWNER);
+                if (!ownsMining) {
+                    if (baritone.mining() || baritone.pathing() || baritone.goalActive()) {
+                        movementReason = "Another Baritone process is active; stop it before .grind resume.";
+                        return true;
+                    }
+                    if (baritone.mineByName(0, names) != BaritoneBridge.Result.STARTED) {
+                        movementReason = "Baritone could not start " + resource + " mining; inspect its log or disable it.";
+                        return true;
+                    }
+                    ownsMining = true;
+                } else if (!baritone.mining()) {
+                    ownsMining = false;
+                    movementReason = "Baritone ended mining before " + resource + " reached its inventory goal; .grind resume to retry.";
+                }
+                return true;
         }
 
         private ScanScheduler.Result scanStep(ScanScheduler.Budget budget) {
@@ -691,6 +873,7 @@ public final class GrindExecutor {
         }
 
         private void consider(BlockPos pos) {
+            if (protectedBlock(pos)) return;
             double distance = client.player.getEyePosition().distanceToSqr(Vec3.atCenterOf(pos));
             if (distance < nearestOverallDistance) {
                 nearestOverallDistance = distance;
@@ -741,6 +924,8 @@ public final class GrindExecutor {
         @Override
         public void cancel() {
             scanner.cancel(this);
+            if (ownsMining) { baritone.cancelMining(); ownsMining = false; }
+            cancelMovement();
             stopBreaking();
             rotations.release(OWNER);
             inventory.release(OWNER);
@@ -954,6 +1139,8 @@ public final class GrindExecutor {
     private final class OpenStationTask implements TaskRunner.Task {
         private final Station station;
         private boolean interactionIssued;
+        private SurvivalTasks.ItemGoalTask portableSupply;
+        private PlaceStationTask portablePlacement;
         private int waitTicks;
         private String movementReason;
         private String failureReason;
@@ -990,14 +1177,29 @@ public final class GrindExecutor {
                 stationPosition(station, pos);
             }
             if (pos == null) {
-                failureReason = "no placed " + station.item + " was found in loaded chunks nearby";
-                return false;
+                if (useBaritone || survival) {
+                    if (portableSupply == null) portableSupply = new SurvivalTasks.ItemGoalTask(GrindExecutor.this, station.item, 1, false);
+                    if (!portableSupply.satisfied()) {
+                        boolean progress = portableSupply.tick(); movementReason = portableSupply.blockedReason();
+                        failureReason = portableSupply.failureReason(); return progress;
+                    }
+                    if (portablePlacement == null) portablePlacement = new PlaceStationTask(station);
+                    if (!portablePlacement.satisfied()) {
+                        boolean progress = portablePlacement.tick(); movementReason = portablePlacement.blockedReason();
+                        failureReason = portablePlacement.failureReason(); return progress;
+                    }
+                    pos = stationPosition(station);
+                } else {
+                    failureReason = "no placed " + station.item + " was found in loaded chunks nearby"; return false;
+                }
             }
             if (!withinReach(pos)) {
+                if (moveNear(pos)) return true;
                 movementReason = "Target " + station.item + " at " + coordinates(pos)
-                        + " is outside reach; movement automation is unavailable.";
+                        + " is outside reach; enable Baritone or move closer.";
                 return true;
             }
+            cancelMovement();
             aimAt(pos);
             if (!aimedAt(pos)) return true;
             BlockHitResult hit = hitTarget(pos);
@@ -1032,7 +1234,11 @@ public final class GrindExecutor {
 
         @Override public String blockedReason() { return movementReason; }
         @Override public String failureReason() { return failureReason; }
-        @Override public void cancel() { rotations.release(OWNER); inventory.release(OWNER); closeOwnedStationMenu(); }
+        @Override public void cancel() {
+            if (portableSupply != null) portableSupply.cancel();
+            if (portablePlacement != null) portablePlacement.cancel();
+            cancelMovement(); rotations.release(OWNER); inventory.release(OWNER); closeOwnedStationMenu();
+        }
     }
 
     private final class CraftTask implements TaskRunner.Task {
@@ -1097,7 +1303,7 @@ public final class GrindExecutor {
             if (resultClickQueued) {
                 if (satisfied()) return true;
                 if (count(item) <= outputCountBeforeClick) {
-                    if (++resultWaitTicks > 10 && resultItem(menuId).equals(item)) {
+                    if (++resultWaitTicks > 10 && resultItem(menuId, item).equals(item)) {
                         resultClickQueued = false;
                         resultWaitTicks = 0;
                         return true;
@@ -1110,7 +1316,7 @@ public final class GrindExecutor {
                 }
                 resultClickQueued = false;
             }
-            if (resultItem(menuId).equals(item)) {
+            if (resultItem(menuId, item).equals(item)) {
                 if (!inventory.transfers().beginClicks(OWNER, PRIORITY, menuId,
                         new ContainerTransferController.Click[]{new ContainerTransferController.Click(0, 0)}, 0)) {
                     return true;
@@ -1158,8 +1364,7 @@ public final class GrindExecutor {
             String wanted = expected.get(slot);
             if (placed.isEmpty()) {
                 if (wanted != null) emptyTargets.computeIfAbsent(wanted, ignored -> new ArrayList<>()).add(slot);
-            } else if (wanted == null || !wanted.equals(
-                    GrindBook.generic(BuiltInRegistries.ITEM.getKey(placed.getItem()).toString()))) {
+            } else if (wanted == null || countStack(placed, wanted) == 0) {
                 return null;
             }
         }
@@ -1207,14 +1412,16 @@ public final class GrindExecutor {
         return remaining == 0;
     }
 
-    private String resultItem(int menuId) {
+    private String resultItem(int menuId, String expected) {
         if (client.player == null || client.player.containerMenu == null
                 || (menuId >= 0 && client.player.containerMenu.containerId != menuId)) return "";
         ItemStack output = client.player.containerMenu.getSlot(0).getItem();
-        return output.isEmpty() ? "" : GrindBook.generic(BuiltInRegistries.ITEM.getKey(output.getItem()).toString());
+        return countStack(output, expected) > 0 ? expected : "";
     }
 
     private final class SmeltTask implements TaskRunner.Task {
+        private final String output;
+        private final String inputItem;
         private final int goal;
         private final int rawIron;
         private final int coal;
@@ -1227,12 +1434,12 @@ public final class GrindExecutor {
         private String movementReason;
         private String failureReason;
 
-        SmeltTask(int goal, int rawIron, int coal) { this.goal = goal; this.rawIron = rawIron; this.coal = coal; }
-        @Override public String name() { return "smelt iron_ingot (" + count(GrindBook.IRON_INGOT) + "/" + goal + ")"; }
+        SmeltTask(String output, int goal, int rawIron, int coal) { this.output = output; this.inputItem = GrindBook.smeltInput(output); this.goal = goal; this.rawIron = rawIron; this.coal = coal; }
+        @Override public String name() { return "smelt " + output + " (" + count(output) + "/" + goal + ")"; }
         @Override public boolean satisfied() {
             // Keep the station task alive until its final output/recovery click is acknowledged by
             // the shared transfer controller, for the same reason as CraftTask above.
-            return count(GrindBook.IRON_INGOT) >= goal && !inventory.transfers().owns(OWNER);
+            return count(output) >= goal && !inventory.transfers().owns(OWNER);
         }
         @Override public int budgetTicks() { return Math.min(140_000, Math.max(TaskRunner.DEFAULT_BUDGET_TICKS, rawIron * 220 + 4_000)); }
 
@@ -1251,17 +1458,17 @@ public final class GrindExecutor {
             }
             int menuId = menu.containerId;
             if (!initialized) {
-                if (!menu.getSlot(0).getItem().isEmpty() || !menu.getSlot(1).getItem().isEmpty()) {
+                if (!menu.getSlot(0).getItem().isEmpty() || !menu.getSlot(1).getItem().isEmpty() || !menu.getSlot(2).getItem().isEmpty()) {
                     failureReason = "the nearby furnace already contains items; AutoGrind left them untouched";
                     return false;
                 }
-                initialIngotCount = count(GrindBook.IRON_INGOT);
+                initialIngotCount = count(output);
                 initialCoalCount = count(GrindBook.COAL);
                 initialized = true;
             }
             if (outputClickQueued) {
                 if (satisfied()) return true;
-                if (count(GrindBook.IRON_INGOT) <= outputCountBeforeClick) {
+                if (count(output) <= outputCountBeforeClick) {
                     resultWaitTicks++;
                     if (resultWaitTicks > 10 && !menu.getSlot(2).getItem().isEmpty()) {
                         outputClickQueued = false;
@@ -1278,12 +1485,12 @@ public final class GrindExecutor {
             }
             ItemStack result = menu.getSlot(2).getItem();
             if (!result.isEmpty()) {
-                if (!GrindBook.IRON_INGOT.equals(
+                if (!output.equals(
                         GrindBook.generic(BuiltInRegistries.ITEM.getKey(result.getItem()).toString()))) {
                     failureReason = "the furnace contains an unrelated output; AutoGrind left it untouched";
                     return false;
                 }
-                outputCountBeforeClick = count(GrindBook.IRON_INGOT);
+                outputCountBeforeClick = count(output);
                 if (!inventory.transfers().beginClicks(OWNER, PRIORITY, menuId,
                         new ContainerTransferController.Click[]{new ContainerTransferController.Click(2, 0)}, 0)) return true;
                 outputClickQueued = true;
@@ -1292,7 +1499,7 @@ public final class GrindExecutor {
             }
 
             ItemStack input = menu.getSlot(0).getItem();
-            if (!input.isEmpty() && !GrindBook.RAW_IRON.equals(
+            if (!input.isEmpty() && !inputItem.equals(
                     GrindBook.generic(BuiltInRegistries.ITEM.getKey(input.getItem()).toString()))) {
                 failureReason = "the furnace input is not raw iron; AutoGrind left it untouched";
                 return false;
@@ -1307,7 +1514,7 @@ public final class GrindExecutor {
             // Raw iron already cooking, output waiting in the result slot, and ingots already
             // collected all count toward the same task. This lets a resumed task continue after
             // the click queue was safely cancelled when a station screen closed.
-            int produced = Math.max(0, count(GrindBook.IRON_INGOT) - initialIngotCount);
+            int produced = Math.max(0, count(output) - initialIngotCount);
             int availableOutput = 0;
             ItemStack pendingOutput = menu.getSlot(2).getItem();
             if (!pendingOutput.isEmpty()) availableOutput = pendingOutput.getCount();
@@ -1318,12 +1525,12 @@ public final class GrindExecutor {
             int rawSlotRoom = Math.max(0, 64 - inputInFurnace);
             int loadRaw = Math.min(remainingRaw, rawSlotRoom);
             if (loadRaw > 0 || remainingFuel > 0) {
-                if (count(GrindBook.RAW_IRON) < loadRaw || count(GrindBook.COAL) < remainingFuel) {
+                if (count(inputItem) < loadRaw || count(GrindBook.COAL) < remainingFuel) {
                     failureReason = "missing raw iron or coal in the inventory for the remaining smelting batch";
                     return false;
                 }
                 List<ContainerTransferController.Click> clicks = new ArrayList<>();
-                if (loadRaw > 0 && !appendFurnaceInput(clicks, GrindBook.RAW_IRON, loadRaw, 0)
+                if (loadRaw > 0 && !appendFurnaceInput(clicks, inputItem, loadRaw, 0)
                         || remainingFuel > 0 && !appendFurnaceInput(clicks, GrindBook.COAL, remainingFuel, 1)) {
                     failureReason = "could not prepare the remaining raw iron or coal for smelting";
                     return false;

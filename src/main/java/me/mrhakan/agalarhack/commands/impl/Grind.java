@@ -12,6 +12,7 @@ import me.mrhakan.agalarhack.services.ClientServices;
 import me.mrhakan.agalarhack.services.CraftingPlan;
 import me.mrhakan.agalarhack.services.GrindBook;
 import me.mrhakan.agalarhack.services.GrindExecutor;
+import me.mrhakan.agalarhack.services.SurvivalProgression;
 import me.mrhakan.agalarhack.services.InventoryService;
 import me.mrhakan.agalarhack.services.InventoryTransfers;
 import net.minecraft.ChatFormatting;
@@ -36,7 +37,7 @@ public class Grind extends Command {
 
     public Grind() {
         super("grind", "Plans or executes a bounded resource grind",
-                "grind <item> [count] | grind run <item> [count] | grind resume | grind stop | grind status", "plan");
+                "grind survival [iron|diamond|max] | grind run <item> [count] | grind baritone on|off | grind resume|stop|status", "plan");
     }
 
     @Override
@@ -48,6 +49,28 @@ public class Grind extends Command {
         }
 
         String selector = args[1].toLowerCase(Locale.ROOT);
+        if ("survival".equals(selector)) {
+            if (args.length > 3) { sendUsage(); return; }
+            try {
+                SurvivalProgression.Tier tier = SurvivalProgression.Tier.parse(args.length > 2 ? args[2] : "max");
+                GrindExecutor executor = ClientServices.require(GrindExecutor.class);
+                GrindExecutor.StartResult result = executor.startSurvival(tier);
+                if (result == GrindExecutor.StartResult.INVALID) { MessageManager.sendMessagePrefix(ChatFormatting.RED + "Start the survival campaign in the Overworld."); return; }
+                MessageManager.sendMessagePrefix((result == GrindExecutor.StartResult.STARTED ? ChatFormatting.GREEN : ChatFormatting.RED)
+                        + "Survival " + tier.name().toLowerCase(Locale.ROOT) + ": " + result
+                        + (result == GrindExecutor.StartResult.STARTED ? ". Baritone " + (executor.baritoneAvailable() ? "available" : "absent; movement pauses need manual help")
+                        + ". Base floor corner: " + executor.baseCoordinates() + ". Use .grind status, .grind stop or .grind resume." : ""));
+            } catch (IllegalArgumentException invalid) { sendUsage(); }
+            return;
+        }
+        if ("baritone".equals(selector)) {
+            GrindExecutor executor = ClientServices.require(GrindExecutor.class);
+            if (args.length != 3 || !(args[2].equalsIgnoreCase("on") || args[2].equalsIgnoreCase("off"))) { sendUsage(); return; }
+            executor.useBaritone(args[2].equalsIgnoreCase("on"));
+            MessageManager.sendMessagePrefix(ChatFormatting.GRAY + "AutoGrind Baritone " + (executor.usingBaritone() ? "enabled" : "disabled")
+                    + "; API " + (executor.baritoneAvailable() ? "available" : "absent") + ".");
+            return;
+        }
         if ("stop".equals(selector)) {
             stop();
             return;
@@ -74,7 +97,8 @@ public class Grind extends Command {
             return;
         }
 
-        String target = GrindBook.generic(args[itemIndex]);
+        String exact = args[itemIndex].toLowerCase(Locale.ROOT).replace("minecraft:", "");
+        String target = GrindBook.knows(exact) ? exact : GrindBook.generic(exact);
         if (!GrindBook.knows(target)) {
             MessageManager.sendMessagePrefix(ChatFormatting.RED + "Nothing in the book for \""
                     + args[itemIndex] + "\".");
@@ -144,7 +168,7 @@ public class Grind extends Command {
             case RUNNING -> MessageManager.sendMessagePrefix(ChatFormatting.GREEN + "AutoGrind running: "
                     + executor.currentTask() + " (" + executor.completed() + "/" + executor.total() + ").");
             case NEEDS_MOVEMENT -> MessageManager.sendMessagePrefix(ChatFormatting.YELLOW
-                    + "AutoGrind needs movement: " + executor.blockedReason());
+                    + "AutoGrind paused: " + executor.blockedReason());
             case DONE -> MessageManager.sendMessagePrefix(ChatFormatting.GREEN + "AutoGrind complete.");
             case FAILED -> MessageManager.sendMessagePrefix(ChatFormatting.RED + "AutoGrind failed: "
                     + executor.failure());
@@ -168,6 +192,8 @@ public class Grind extends Command {
         String name = GrindBook.generic(
                 net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(stack.getItem()).toString());
         have.merge(name, stack.getCount(), Integer::sum);
+        String exact = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(stack.getItem()).getPath();
+        if (!exact.equals(name)) have.merge(exact, stack.getCount(), Integer::sum);
     }
 
     private static void plan(String target, int wanted) {
@@ -195,7 +221,7 @@ public class Grind extends Command {
         for (int i = 0; i < steps.size() && i < MAX_LINES; i++) {
             CraftingPlan.Step step = steps.get(i);
             boolean gather = step.kind() == CraftingPlan.Kind.GATHER;
-            boolean smelt = GrindBook.IRON_INGOT.equals(step.item());
+            boolean smelt = GrindBook.smelted(step.item());
             String station = smelt ? " (needs a furnace)"
                     : step.needsTable() ? " (needs a crafting table)" : "";
             MessageManager.sendMessagePrefix((gather ? ChatFormatting.YELLOW : ChatFormatting.AQUA)
@@ -212,10 +238,10 @@ public class Grind extends Command {
     }
 
     private static void known() {
-        MessageManager.sendMessagePrefix(ChatFormatting.GRAY + "Known: " + GrindBook.LOG + ", "
+        MessageManager.sendMessagePrefix(ChatFormatting.GRAY + "Known survival goals: " + GrindBook.LOG + ", "
                 + GrindBook.PLANKS + ", " + GrindBook.STICK + ", " + GrindBook.CRAFTING_TABLE + ", "
                 + GrindBook.COBBLESTONE + ", " + GrindBook.COAL + ", " + GrindBook.RAW_IRON + ", "
                 + GrindBook.IRON_INGOT + ", " + GrindBook.FURNACE + ", " + GrindBook.WOODEN_PICKAXE
-                + ", " + GrindBook.STONE_PICKAXE + ", " + GrindBook.IRON_PICKAXE);
+                + ", " + GrindBook.STONE_PICKAXE + ", " + GrindBook.IRON_PICKAXE + ", diamond/netherite tools and armor, shield, food, chest, torch, stations. Campaign: .grind survival [iron|diamond|max]");
     }
 }

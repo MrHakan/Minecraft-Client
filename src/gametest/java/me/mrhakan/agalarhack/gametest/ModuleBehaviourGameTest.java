@@ -2277,6 +2277,7 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
         grindExecutesNearbyLogs(context, singleplayer);
         grindExecutesBasicResources(context, singleplayer);
         grindExecutesRecipesAndSmelting(context, singleplayer);
+        grindExecutesSurvivalRecipes(context, singleplayer);
     }
 
     /** A real planner-to-world-to-inventory run, then an inventory-based restart after interruption. */
@@ -2588,6 +2589,47 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
         runGrindUntilResolved(context, singleplayer, "iron_pickaxe 1",
                 client -> countItem(client, Items.IRON_PICKAXE) == 1, 400);
         LOGGER.info("  AutoGrind crafted 2x2 and 3x3 recipes, placed both stations, smelted iron, and made an iron pickaxe");
+    }
+
+    private void grindExecutesSurvivalRecipes(ClientGameTestContext context,
+            TestSingleplayerContext singleplayer) {
+        setInventory(singleplayer, slots -> {
+            slots.setItem(0, new ItemStack(Items.IRON_INGOT, 32));
+            slots.setItem(1, new ItemStack(Items.OAK_PLANKS, 32));
+            slots.setItem(2, new ItemStack(Items.DIAMOND, 32));
+            slots.setItem(3, new ItemStack(Items.STICK, 16));
+        });
+        runGrindUntilResolved(context, singleplayer, "shield 1", client -> countItem(client, Items.SHIELD) == 1, 500);
+        runGrindUntilResolved(context, singleplayer, "iron_chestplate 1", client -> countItem(client, Items.IRON_CHESTPLATE) == 1, 500);
+        runGrindUntilResolved(context, singleplayer, "diamond_pickaxe 1", client -> countItem(client, Items.DIAMOND_PICKAXE) == 1, 500);
+        runGrindUntilResolved(context, singleplayer, "diamond_boots 1", client -> countItem(client, Items.DIAMOND_BOOTS) == 1, 500);
+        runGrindUntilResolved(context, singleplayer, "chest 1", client -> countItem(client, Items.CHEST) == 1, 500);
+        runGrindUntilResolved(context, singleplayer, "oak_door 1", client -> countItem(client, Items.OAK_DOOR) == 3, 500);
+        setInventory(singleplayer, slots -> {
+            slots.setItem(0, new ItemStack(Items.BEEF, 8));
+            slots.setItem(1, new ItemStack(Items.COAL, 1));
+        });
+        runGrindUntilResolved(context, singleplayer, "cooked_beef 2", client -> countItem(client, Items.COOKED_BEEF) == 8, 2200);
+        setInventory(singleplayer, slots -> {
+            slots.setItem(0, new ItemStack(Items.DIAMOND_CHESTPLATE));
+            slots.setItem(1, new ItemStack(Items.NETHERITE_INGOT));
+            slots.setItem(2, new ItemStack(Items.NETHERITE_UPGRADE_SMITHING_TEMPLATE));
+            slots.setItem(3, new ItemStack(Items.SMITHING_TABLE));
+        });
+        runGrindUntilResolved(context, singleplayer, "netherite_chestplate 1", client -> countItem(client, Items.NETHERITE_CHESTPLATE) == 1, 600);
+        context.runOnClient(client -> {
+            var executor = me.mrhakan.agalarhack.services.ClientServices.require(me.mrhakan.agalarhack.services.GrindExecutor.class);
+            if (executor.startSurvival(me.mrhakan.agalarhack.services.SurvivalProgression.Tier.IRON)
+                    != me.mrhakan.agalarhack.services.GrindExecutor.StartResult.STARTED) throw new AssertionError("Survival run failed to start");
+        });
+        context.waitTicks(10);
+        context.runOnClient(client -> {
+            var executor = me.mrhakan.agalarhack.services.ClientServices.require(me.mrhakan.agalarhack.services.GrindExecutor.class);
+            executor.stop();
+            if (executor.state() != me.mrhakan.agalarhack.services.TaskRunner.State.IDLE) throw new AssertionError("Survival did not stop cleanly");
+            executor.useBaritone(false);
+        });
+        LOGGER.info("  AutoGrind survival armor, shield, diamond tools, food cooking and smithing scenarios passed");
     }
 
     private static void runGrindUntilResolved(ClientGameTestContext context,

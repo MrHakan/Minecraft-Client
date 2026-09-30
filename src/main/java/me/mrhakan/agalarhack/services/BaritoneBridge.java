@@ -121,6 +121,20 @@ public final class BaritoneBridge {
         }
     }
 
+    /** Relinquishes the custom goal process without cancelling unrelated mine/build processes. */
+    public Result cancelGoal() {
+        Class<?> loaded = api();
+        if (loaded == null) return Result.ABSENT;
+        try { call(call(primaryBaritone(loaded), "getCustomGoalProcess"), "onLostControl"); return Result.STARTED; }
+        catch (ReflectiveOperationException | RuntimeException failure) { return report("cancel the custom goal", failure); }
+    }
+    public boolean goalActive() {
+        Class<?> loaded = api();
+        if (loaded == null) return false;
+        try { return Boolean.TRUE.equals(call(call(primaryBaritone(loaded), "getCustomGoalProcess"), "isActive")); }
+        catch (ReflectiveOperationException | RuntimeException failure) { report("read custom goal state", failure); return false; }
+    }
+
     /** Stops pathing and every process that could start it again. */
     public Result cancel() {
         Class<?> loaded = api();
