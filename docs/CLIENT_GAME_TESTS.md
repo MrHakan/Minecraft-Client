@@ -176,6 +176,7 @@ nothing here exercises the network paths a busy multiplayer server produces.
 export JAVA_HOME=/path/to/jdk-25
 ./tools/smoke-client.sh            # game tests + mixin verification, as CI runs it
 ./gradlew runClientGameTest        # just the game tests
+./tools/test-baritone.sh          # separate real Baritone 1.19.0 / 26.2 travel/mining/return fixture
 ```
 
 Headless machines need `xvfb` and Mesa's software rasteriser; `tools/smoke-client.sh` sets the

@@ -55,6 +55,75 @@ public final class SurvivalTasksGameTest implements FabricClientGameTest {
             if (!context.computeOnClient(c -> c.player.getItemBySlot(EquipmentSlot.CHEST).is(Items.IRON_CHESTPLATE)
                     && c.player.getItemBySlot(EquipmentSlot.OFFHAND).is(Items.SHIELD))) throw new AssertionError("Survival equipment was not worn");
             context.runOnClient(c -> g.stop());
+            // A full chest still has capacity inside an existing stack.
+            world.getServer().runOnServer(server -> {
+                var entity = (net.minecraft.world.level.block.entity.ChestBlockEntity) world.getConnection().getServerPlayer().level().getBlockEntity(chest);
+                for (int i = 1; i < 27; i++) entity.setItem(i, new ItemStack(Items.DIRT, 64));
+            });
+            inventory(world, p -> {
+                p.getInventory().setItem(0, new ItemStack(Items.IRON_PICKAXE));
+                p.getInventory().setItem(9, new ItemStack(Items.OAK_PLANKS, 64));
+            });
+            context.waitTicks(20);
+            run(context, new SurvivalTasks.StorageTask(g, List.of(chest)), 240);
+            if (context.computeOnClient(c -> g.count("planks")) != 32)
+                throw new AssertionError("Storage did not merge planks into the full chest");
+            world.getServer().runOnServer(server -> {
+                var entity = (net.minecraft.world.level.block.entity.ChestBlockEntity) world.getConnection().getServerPlayer().level().getBlockEntity(chest);
+                entity.setItem(1, ItemStack.EMPTY);
+            });
+            inventory(world, p -> {
+                p.getInventory().setItem(0, new ItemStack(Items.IRON_PICKAXE));
+                p.getInventory().setItem(1, new ItemStack(Items.WOODEN_PICKAXE));
+            });
+            context.waitTicks(20);
+            run(context, new SurvivalTasks.StorageTask(g, List.of(chest)), 160);
+            if (context.computeOnClient(c -> g.count("wooden_pickaxe")) != 0 || context.computeOnClient(c -> g.count("iron_pickaxe")) != 1)
+                throw new AssertionError("Storage did not retain the iron tool and deposit obsolete gear");
+            context.runOnClient(c -> g.stop());
+            // Inventory pressure must keep a large active goal and return every carried stack.
+            world.getServer().runOnServer(server -> {
+                var entity = (net.minecraft.world.level.block.entity.ChestBlockEntity) world.getConnection().getServerPlayer().level().getBlockEntity(chest);
+                entity.clearContent();
+            });
+            inventory(world, p -> {
+                for (int i = 0; i < 36; i++) p.getInventory().setItem(i, new ItemStack(Items.DIRT));
+                p.getInventory().setItem(0, new ItemStack(Items.DIAMOND, 49));
+                p.getInventory().setItem(1, new ItemStack(Items.IRON_PICKAXE));
+            });
+            context.waitTicks(20);
+            context.runOnClient(c -> {
+                g.startSurvival(SurvivalProgression.Tier.MAX);
+                g.registerStorage(List.of(chest));
+                g.stop();
+                // Restarting in the same loaded world must retain completed base storage.
+                g.startSurvival(SurvivalProgression.Tier.MAX);
+                g.useBaritone(false);
+            });
+            for (int i = 0; i < 300; i++) {
+                context.waitTicks(1);
+                if (i > 0 && context.computeOnClient(c -> c.player.getInventory().getFreeSlot() >= 0
+                        && (g.currentTask() == null || !g.currentTask().startsWith("inventory recovery:")))) break;
+            }
+            if (!context.computeOnClient(c -> g.count("diamond") == 49
+                    && c.player.getInventory().getFreeSlot() >= 0 && c.player.containerMenu.getCarried().isEmpty()))
+                throw new AssertionError("Pressure storage lost the active diamond goal or left a cursor stack");
+            context.runOnClient(c -> g.stop());
+            // A pickaxe with only one use remaining must trigger a replacement prerequisite.
+            inventory(world, p -> {
+                ItemStack worn = new ItemStack(Items.IRON_PICKAXE); worn.setDamageValue(worn.getMaxDamage() - 1);
+                p.getInventory().setItem(0, worn);
+                p.getInventory().setItem(1, new ItemStack(Items.OAK_PLANKS, 3));
+                p.getInventory().setItem(2, new ItemStack(Items.STICK, 2));
+                p.getInventory().setItem(3, new ItemStack(Items.CRAFTING_TABLE));
+            });
+            context.waitTicks(20);
+            if (context.computeOnClient(c -> SurvivalTasks.gearSatisfied(g, "iron_pickaxe", 1)))
+                throw new AssertionError("Near-broken pickaxe incorrectly satisfied a gear milestone");
+            run(context, new SurvivalTasks.ItemGoalTask(g, "cobblestone", 1, false), 600);
+            if (context.computeOnClient(c -> g.count("cobblestone")) < 1 || context.computeOnClient(c -> g.count("wooden_pickaxe")) < 1)
+                throw new AssertionError("Resource goal did not rebuild a usable pickaxe");
+            context.runOnClient(c -> g.stop());
             inventory(world, p -> {
                 p.getInventory().setItem(0, new ItemStack(Items.NETHERITE_UPGRADE_SMITHING_TEMPLATE));
                 p.getInventory().setItem(1, new ItemStack(Items.DIAMOND, 7));

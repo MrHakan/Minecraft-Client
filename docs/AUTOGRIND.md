@@ -23,6 +23,8 @@ milestone compiles a fresh `GrindExecutionPlan` from live inventory. Carried hig
 satisfies earlier-tier campaign milestones, and equipment tasks wear stronger armor and equip the
 shield through `InventoryService`. Worn diamond armor is safely moved into inventory before smithing.
 A resource goal can rebuild its prerequisites if its pickaxe breaks, with bounded retries.
+Pickaxes with at most one durability point remaining do not satisfy gear goals or planning stock;
+installed-Baritone mining also checks harvesting capability and Silk Touch before continuing.
 
 Food tasks hunt loaded adult cows/pigs/sheep/chickens, excluding named animals. They use vanilla
 attack cooldown, line of sight and `RotationService`, and wait for real drops. Carried wheat can be
@@ -63,6 +65,18 @@ Travel uses the documented custom-goal API and clear standing positions near sta
 AutoGrind relinquishes only its custom goal; it never sends Baritone commands or coordinates to
 server chat, and it refuses to take over an already-active mining/pathing/custom-goal process.
 Lost portable crafting/furnace stations can be recreated near the player after a mining journey.
+Distant unloaded build/storage chunks are approached by column first, then a standing cell is resolved
+from loaded collision data. Replaced goals are left with their new owner. A minute without movement
+pauses travel with a resumable route diagnostic instead of waiting for the entire milestone budget.
+
+Campaign inventory pressure interrupts work when fewer than two slots remain. After base storage is
+built, its chest locations are reused when restarting in the same loaded world. Overworld trips
+sort surplus into those chests and resume the same milestone from live stock.
+Reserves include the current recipe and unfinished campaign recipes, keeping earlier debris and
+copying diamonds for later milestones. Compatible chest stacks are filled before new slots are used;
+obsolete unenchanted gear can be stored once a usable stronger piece exists. Named and enchanted
+gear is retained. Before storage exists, in the Nether, or when protected supplies/chest capacity leave
+insufficient space, free two slots manually and resume. Stored supplies are not automatically withdrawn.
 
 Without Baritone, resource scans remain bounded to loaded chunks within 6 horizontal / 4 vertical
 blocks and use `ScannerService`'s shared budget. Direct interactions stay within vanilla reach.
@@ -78,8 +92,15 @@ process cancellation. Real-client scenarios cover ordinary resource breaking and
 station placement, cooking, diamond/iron equipment recipes, Netherite smithing, survival startup and
 stop, exact building placements, chest transfers and automatic equipment.
 
-The test runtime has no Baritone installed. Its bridge is tested against API-shaped stubs, while
-absence is exercised in the real client. A complete randomly generated survival world from empty
+The regular client suite verifies Baritone absence; bridge unit tests also use API-shaped stubs.
+`tools/test-baritone.sh` runs a separate installed-Baritone 1.19.0 / Minecraft 26.2 fixture with a
+checksum-pinned upstream Fabric jar. It covers a 384-block journey, actual remote iron/diamond mining, mid-goal pickaxe rebuilding, return
+to an unloaded base chunk, door/chest access, deposit accounting and player replacement-goal ownership.
+It runs in CI before publication and never adds Baritone to the distributable jar. Baritone 1.19.0
+leaves non-daemon cache workers alive at client shutdown under 26.2; the fixture closes its pinned
+executor after the world is saved/closed so Minecraft's shutdown watchdog can exit cleanly. This
+test-only cleanup does not fix or establish clean shutdown for a normal installed-Baritone client. The regular client
+suite also exercises pressure storage, full-chest stack merging and near-broken tool replacement. A complete randomly generated survival world from empty
 inventory through the Nether and all enchants is not a deterministic integration-test fixture.
 Baritone availability, terrain access, animal/resource availability and server interaction rules
 can require manual intervention. Build footprints need clear supports; existing blocks are not

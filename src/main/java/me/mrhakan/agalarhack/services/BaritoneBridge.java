@@ -49,6 +49,7 @@ public final class BaritoneBridge {
     private Class<?> api;
     private boolean missing;
     private boolean warned;
+    private Object ownedGoal;
 
     /** True when Baritone's API is on the classpath. */
     public boolean available() {
@@ -125,8 +126,20 @@ public final class BaritoneBridge {
     public Result cancelGoal() {
         Class<?> loaded = api();
         if (loaded == null) return Result.ABSENT;
-        try { call(call(primaryBaritone(loaded), "getCustomGoalProcess"), "onLostControl"); return Result.STARTED; }
+        try {
+            Object process = call(primaryBaritone(loaded), "getCustomGoalProcess");
+            if (ownedGoal != null && call(process, "getGoal") == ownedGoal) call(process, "onLostControl");
+            ownedGoal = null;
+            return Result.STARTED;
+        }
         catch (ReflectiveOperationException | RuntimeException failure) { return report("cancel the custom goal", failure); }
+    }
+    /** A player may replace the shared custom goal while AutoGrind is travelling. */
+    public boolean ownsGoal() {
+        Class<?> loaded = api();
+        if (loaded == null || ownedGoal == null) return false;
+        try { return call(call(primaryBaritone(loaded), "getCustomGoalProcess"), "getGoal") == ownedGoal; }
+        catch (ReflectiveOperationException | RuntimeException failure) { report("read custom goal ownership", failure); return false; }
     }
     public boolean goalActive() {
         Class<?> loaded = api();
@@ -170,6 +183,7 @@ public final class BaritoneBridge {
                     .getConstructor(types).newInstance(coordinates);
             Class<?> goalType = Class.forName(GOAL, true, loaded.getClassLoader());
             findMethod(process.getClass(), "setGoalAndPath", goalType).invoke(process, goal);
+            ownedGoal = goal;
             return Result.STARTED;
         } catch (ReflectiveOperationException | RuntimeException failure) {
             return report("start pathing", failure);
@@ -252,5 +266,6 @@ public final class BaritoneBridge {
         api = null;
         missing = false;
         warned = false;
+        ownedGoal = null;
     }
 }

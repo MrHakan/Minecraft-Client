@@ -28,7 +28,7 @@ AI contributors: read [handover.md](handover.md) for current progress, architect
 
 1. Install Fabric Loader for Minecraft 26.2.
 2. Put Fabric API and `agalarhack-*.jar` in `.minecraft/mods/`.
-3. Launch the Fabric profile. The HUD should report **Agalar Hack 26.2.6**.
+3. Launch the Fabric profile. The HUD should report **Agalar Hack 26.2.7**.
 
 ## Control Center
 
@@ -77,7 +77,7 @@ Profiles store complete module state/settings/keybinds, Global Target Policy and
 | `.gui` | Opens the Control Center |
 | `.panic` | Disables all active modules |
 
-See [AutoGrind](docs/AUTOGRIND.md) for setup, progression and limits. Start on a flat, clear Overworld plot. Continuous travel requires a separately installed compatible Baritone; the first Netherite Upgrade template requires player looting, and enchantments use vanilla level-30 offers.
+See [AutoGrind](docs/AUTOGRIND.md) for setup, progression, inventory-pressure recovery and limits. Start on a flat, clear Overworld plot. Continuous travel requires a separately installed compatible Baritone; the first Netherite Upgrade template requires player looting, and enchantments use vanilla level-30 offers.
 
 ## Modules
 

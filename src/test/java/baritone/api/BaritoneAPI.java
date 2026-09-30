@@ -51,6 +51,7 @@ public final class BaritoneAPI {
         public ICustomGoalProcess getCustomGoalProcess() {
             return new ICustomGoalProcess() {
                 @Override public void setGoal(Goal goal) { lastGoal = goal; goalActive = true; }
+                @Override public Goal getGoal() { return lastGoal; }
                 @Override public boolean isActive() { return goalActive; }
                 @Override public void onLostControl() { goalCancels++; goalActive = false; }
             };

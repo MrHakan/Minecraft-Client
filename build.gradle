@@ -232,6 +232,9 @@ tasks.matching { it.name == 'runClientGameTest' }.configureEach {
     dependsOn 'addonFixtureJar', 'brokenAddonFixtureJar'
     classpath += files(tasks.named('addonFixtureJar'), tasks.named('brokenAddonFixtureJar'))
     systemProperty 'agalarhack.disableUpdateCheck', 'true'
+    if (project.hasProperty('baritoneTestJar')) {
+        classpath += files(project.property('baritoneTestJar'))
+    }
 
     // Dedicated-server scenarios need Minecraft's server EULA accepted, and a dedicated server
     // recreates its run directory every run, so the acceptance has to be written by automation.
@@ -241,6 +244,19 @@ tasks.matching { it.name == 'runClientGameTest' }.configureEach {
     // long-lived Gradle daemon cannot be relied on to see a newly exported environment variable.
     if (project.findProperty('acceptServerEula') == 'true') {
         systemProperty 'agalarhack.acceptServerEula', 'true'
+    }
+}
+
+// An opt-in installed-Baritone run gets its own entrypoint; the regular suite verifies absence.
+tasks.named('processGametestResources') {
+    inputs.property 'installedBaritone', project.hasProperty('baritoneTestJar')
+    doLast {
+        if (project.hasProperty('baritoneTestJar')) {
+            def metadata = new File(destinationDir, 'fabric.mod.json')
+            def json = new groovy.json.JsonSlurper().parse(metadata)
+            json.entrypoints['fabric-client-gametest'] = ['me.mrhakan.agalarhack.services.BaritoneCampaignGameTest']
+            metadata.text = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(json))
+        }
     }
 }
 

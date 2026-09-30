@@ -87,6 +87,16 @@ class BaritoneBridgeTest {
         assertEquals(1, BaritoneAPI.cancels);
     }
 
+    @Test void cancellingAnOwnedJourneyDoesNotCancelAPlayerReplacementGoal() {
+        bridge.pathTo(4, 64, 8);
+        assertTrue(bridge.ownsGoal());
+        BaritoneAPI.lastGoal = new GoalXZ(200, 300);
+        assertFalse(bridge.ownsGoal());
+        bridge.cancelGoal();
+        assertTrue(BaritoneAPI.goalActive);
+        assertEquals(0, BaritoneAPI.goalCancels);
+    }
+
     @Test void thePathingStateIsRead() {
         assertFalse(bridge.pathing());
         BaritoneAPI.pathing = true;

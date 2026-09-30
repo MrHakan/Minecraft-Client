@@ -91,6 +91,26 @@ class SurvivalProgressionTest {
             }
         }
     }
+    @Test void pressureStoragePreservesLargeGoalsAndTheirSharedIngredients() {
+        var templates = GrindStoragePolicy.reservesFor("netherite_upgrade_smithing_template", 8);
+        assertEquals(8, templates.get("netherite_upgrade_smithing_template"));
+        var shelves = GrindStoragePolicy.reservesFor("bookshelf", 15);
+        assertEquals(15, shelves.get("bookshelf"));
+        assertEquals(45, shelves.get("book"));
+        assertEquals(90, shelves.get("planks"));
+        assertEquals(135, shelves.get("sugar_cane"));
+        assertEquals(49, GrindStoragePolicy.reservesFor("diamond", 49).get("diamond"));
+    }
+    @Test void pressureReservesReleaseConsumedMilestonesAndCountEquipCompanionsOnce() {
+        var debris = new SurvivalProgression.Goal(SurvivalProgression.Kind.ITEM, "ancient_debris", 32);
+        var boots = new SurvivalProgression.Goal(SurvivalProgression.Kind.ITEM, "netherite_boots", 1);
+        var pickaxe = new SurvivalProgression.Goal(SurvivalProgression.Kind.ITEM, "netherite_pickaxe", 1);
+        var tasks = List.of(debris, debris, boots, boots, pickaxe, pickaxe);
+        // Each individual recipe reserves an eight-item furnace batch, including its leftovers.
+        assertEquals(16, GrindStoragePolicy.remainingReserves(tasks, 2, goal -> false).get("ancient_debris"));
+        assertEquals(8, GrindStoragePolicy.remainingReserves(tasks, 2, goal -> goal.equals(boots)).get("ancient_debris"));
+        assertTrue(GrindStoragePolicy.remainingReserves(tasks, 6, goal -> false).isEmpty());
+    }
     private static int find(List<SurvivalProgression.Goal> goals, String item) {
         for (int i = 0; i < goals.size(); i++) if (goals.get(i).item().equals(item)) return i;
         return -1;

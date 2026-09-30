@@ -32,12 +32,16 @@ final class SurvivalTasks {
     boolean expectingDimension;
     boolean eating;
     int eatingTicks;
+    List<BlockPos> storageChests = List.of();
+    TaskRunner storageWork;
+    final List<SurvivalProgression.Goal> taskGoals = new ArrayList<>();
 
     SurvivalTasks(GrindExecutor grind, SurvivalProgression.Tier tier, BlockPos base) {
         this.grind = grind; this.tier = tier; this.base = base.immutable();
     }
     List<TaskRunner.Task> tasks() {
         List<TaskRunner.Task> tasks = new ArrayList<>();
+        taskGoals.clear();
         for (SurvivalProgression.Goal goal : SurvivalProgression.goals(tier)) {
             switch (goal.kind()) {
                 case ITEM -> { tasks.add(new ItemGoalTask(grind, goal.item(), goal.count(), true)); tasks.add(new EquipTask(grind)); }
@@ -46,13 +50,14 @@ final class SurvivalTasks {
                 case STORAGE -> {
                     List<BlockPos> chests = goal.count() == 1 ? List.of(base.offset(1, 1, 3))
                             : List.of(base.offset(7, 1, 5), base.offset(9, 1, 5), base.offset(11, 1, 5));
-                    tasks.add(new StorageTask(grind, chests));
+                    tasks.add(new StorageTask(grind, chests, Map.of(), true));
                 }
                 case PORTAL -> tasks.add(new PortalTask(grind, base.offset(-5, 0, 0)));
                 case NETHER -> tasks.add(new DimensionTask(true));
                 case OVERWORLD -> tasks.add(new DimensionTask(false));
                 case ENCHANT -> { tasks.add(new EnchantTask(grind, base.offset(8, 0, 10))); tasks.add(new EquipTask(grind)); }
             }
+            while (taskGoals.size() < tasks.size()) taskGoals.add(goal);
         }
         return List.copyOf(tasks);
     }
@@ -63,16 +68,16 @@ final class SurvivalTasks {
             grind.pause("Low health or fire: reach safety and recover, then .grind resume.");
             return true;
         }
-        if (grind.client.gui.screen() != null) return false;
-        if (grind.client.player.getFoodData().getFoodLevel() > 14 && !eating) return false;
-        if (!grind.client.player.getFoodData().needsFood()) { grind.inventory.release(OWNER); eating = false; eatingTicks = 0; return false; }
+        if (grind.client.gui.screen() != null) return maintainInventory();
+        if (grind.client.player.getFoodData().getFoodLevel() > 14 && !eating) return maintainInventory();
+        if (!grind.client.player.getFoodData().needsFood()) { grind.inventory.release(OWNER); eating = false; eatingTicks = 0; return maintainInventory(); }
         int source = grind.inventory.findInventory(stack -> safeFood(id(stack)));
         if (source < 0) {
             eating = false; eatingTicks = 0; grind.inventory.release(OWNER);
             if (grind.client.player.getFoodData().getFoodLevel() <= 6) {
                 grind.pause("Food exhausted: collect food, then .grind resume."); return true;
             }
-            return false;
+            return maintainInventory();
         }
         eating = true;
         if (++eatingTicks > 200) { grind.pause("Eating did not complete; check food access, then .grind resume."); eating = false; eatingTicks = 0; return true; }
@@ -82,6 +87,51 @@ final class SurvivalTasks {
         grind.inventory.select(OWNER, 60, hotbar, true, true);
         return true;
     }
+    private int freeSlots() {
+        int free = 0;
+        for (int slot = 0; slot < InventoryTransfers.INVENTORY_SIZE; slot++)
+            if (grind.inventory.stackAt(slot).isEmpty()) free++;
+        return free;
+    }
+    private boolean maintainInventory() {
+        if (storageWork == null) {
+            if (freeSlots() >= 2 || grind.inventory.transfers().busy()) return false;
+            if (grind.client.gui.screen() != null && !grind.closeOwnedStationMenu()) return false;
+            grind.cancelAutomation();
+            if (storageChests.isEmpty() || grind.client.level.dimension() != Level.OVERWORLD) {
+                grind.pause("Inventory nearly full: free two slots, then .grind resume. Base storage is not built yet or unavailable in this dimension.");
+                return true;
+            }
+            storageWork = new TaskRunner();
+            storageWork.start(List.of(new StorageTask(grind, storageChests, pressureReserves())));
+        }
+        if (storageWork.state() == TaskRunner.State.NEEDS_MOVEMENT) storageWork.resume();
+        storageWork.tick();
+        if (storageWork.state() == TaskRunner.State.NEEDS_MOVEMENT) grind.pause(storageWork.blockedReason());
+        else if (storageWork.state() == TaskRunner.State.FAILED) {
+            String reason = storageWork.failure(); storageWork = null;
+            grind.pause("Base storage failed: " + reason + "; resolve access and .grind resume.");
+        } else if (storageWork.state() == TaskRunner.State.DONE) {
+            storageWork = null;
+            if (freeSlots() < 2) grind.pause("Storage could not free two slots while preserving campaign supplies; free space manually, then .grind resume.");
+        }
+        return true;
+    }
+    private Map<String, Integer> pressureReserves() {
+        Map<String, Integer> remaining = GrindStoragePolicy.remainingReserves(taskGoals, grind.completed(),
+                goal -> gearSatisfied(grind, goal.item(), goal.count()));
+        if (tier == SurvivalProgression.Tier.MAX) {
+            // Debris and diamonds gathered earlier are still needed by later smithing/copying.
+            int templates = grind.count("netherite_upgrade_smithing_template");
+            if (taskGoals.subList(Math.min(grind.completed(), taskGoals.size()), taskGoals.size()).stream()
+                    .anyMatch(goal -> goal.item().equals("netherite_upgrade_smithing_template")))
+                remaining.merge("diamond", Math.max(0, 8 - Math.max(1, templates)) * 7, Math::max);
+            remaining.merge("lapis_lazuli", 24, Math::max);
+        }
+        grind.campaignReserves.forEach((item, count) -> remaining.merge(item, count, Math::max));
+        return Map.copyOf(remaining);
+    }
+    void cancel() { if (storageWork != null) storageWork.cancel(); storageWork = null; }
     static String id(ItemStack stack) { return stack.isEmpty() ? "" : BuiltInRegistries.ITEM.getKey(stack.getItem()).getPath(); }
     static boolean safeFood(String item) {
         return Set.of("bread", "cooked_beef", "cooked_porkchop", "cooked_mutton", "cooked_chicken",
@@ -132,6 +182,7 @@ final class SurvivalTasks {
         public int budgetTicks() { return 240_000; }
         public boolean tick() {
             blocked = null;
+            g.campaignReserves = GrindStoragePolicy.reservesFor(item, wanted);
             if (work == null || work.state() == TaskRunner.State.DONE) {
                 Map<String, Integer> have = g.planningInventory(item);
                 work = new TaskRunner();
@@ -229,7 +280,7 @@ final class SurvivalTasks {
             if (target != null && !target.isAlive()) { drop = target.blockPosition(); target = null; wait = 0; }
             if (drop != null) {
                 if (g.client.player.position().distanceToSqr(Vec3.atCenterOf(drop)) > 2.5) {
-                    if (!g.moveNear(drop)) blocked = "Walk over animal drops at " + GrindExecutor.coordinates(drop) + ", then .grind resume.";
+                    if (!g.moveNear(drop)) blocked = g.movementProblem("Walk over animal drops at " + GrindExecutor.coordinates(drop) + ", then .grind resume.");
                     return true;
                 }
                 g.cancelMovement();
@@ -245,7 +296,7 @@ final class SurvivalTasks {
             }
             if (g.client.player.getEyePosition().distanceToSqr(target.getBoundingBox().getCenter()) > 9
                     || !g.client.player.hasLineOfSight(target)) {
-                if (!g.moveNear(target.blockPosition())) blocked = "Move within sight of the animal at " + GrindExecutor.coordinates(target.blockPosition()) + ".";
+                if (!g.moveNear(target.blockPosition())) blocked = g.movementProblem("Move within sight of the animal at " + GrindExecutor.coordinates(target.blockPosition()) + ".");
                 return true;
             }
             g.cancelMovement();
@@ -307,7 +358,7 @@ final class SurvivalTasks {
             blocked = null;
             if (matches()) { confirm++; g.cancelMovement(); g.inventory.release(OWNER); g.rotations.release(OWNER); return true; }
             confirm = 0;
-            if (!g.client.level.hasChunkAt(pos)) { if (!g.moveNear(pos)) blocked = "Load the build plot at " + GrindExecutor.coordinates(pos) + "."; return true; }
+            if (!g.loaded(pos)) { if (!g.moveNear(pos)) blocked = g.movementProblem("Load the build plot at " + GrindExecutor.coordinates(pos) + "."); return true; }
             if (g.closeOwnedStationMenu() || g.inventory.transfers().busy()) return true;
             if (g.client.gui.screen() != null) { blocked = "Close the open screen before building."; return true; }
             if (issued) {
@@ -319,10 +370,10 @@ final class SurvivalTasks {
                 blocked = "Build plot occupied at " + GrindExecutor.coordinates(pos) + "; clear it, then .grind resume."; return true;
             }
             if (g.client.player.getBoundingBox().intersects(new net.minecraft.world.phys.AABB(pos))) {
-                if (!g.moveNear(pos)) blocked = "Step out of placement at " + GrindExecutor.coordinates(pos) + "."; return true;
+                if (!g.moveNear(pos)) blocked = g.movementProblem("Step out of placement at " + GrindExecutor.coordinates(pos) + "."); return true;
             }
             BlockHitResult hit = placementHit();
-            if (hit == null) { if (!g.moveNear(pos)) blocked = "Move to a visible solid support beside " + GrindExecutor.coordinates(pos) + "."; return true; }
+            if (hit == null) { if (!g.moveNear(pos)) blocked = g.movementProblem("Move to a visible solid support beside " + GrindExecutor.coordinates(pos) + "."); return true; }
             g.cancelMovement();
             int hotbar = g.prepareHotbarItem(item);
             if (hotbar == -2) return true;
@@ -380,7 +431,7 @@ final class SurvivalTasks {
             if (g.closeOwnedStationMenu()) return true;
             if (g.client.gui.screen() != null) { blocked = "Close the open screen before station access."; return true; }
             BlockHitResult hit = g.hitTarget(pos);
-            if (!g.withinReach(pos) || hit == null) { if (!g.moveNear(pos)) blocked = "Move within sight of station at " + GrindExecutor.coordinates(pos) + "."; return true; }
+            if (!g.withinReach(pos) || hit == null) { if (!g.moveNear(pos)) blocked = g.movementProblem("Move within sight of station at " + GrindExecutor.coordinates(pos) + "."); return true; }
             g.cancelMovement();
             int slot = -1;
             for (int i = 0; i < 9; i++) if (g.inventory.stackAt(i).isEmpty() || !(g.inventory.stackAt(i).getItem() instanceof net.minecraft.world.item.BlockItem)) { slot = i; break; }
@@ -394,11 +445,23 @@ final class SurvivalTasks {
     }
 
     static final class StorageTask implements TaskRunner.Task {
-        final GrindExecutor g; final List<BlockPos> chests; int chest;
+        final GrindExecutor g; final List<BlockPos> chests; final Map<String, Integer> reserves; int chest;
+        final boolean registerBase;
         OpenTask open; String blocked;
-        StorageTask(GrindExecutor g, List<BlockPos> chests) { this.g = g; this.chests = chests; }
+        StorageTask(GrindExecutor g, List<BlockPos> chests) { this(g, chests, Map.of()); }
+        StorageTask(GrindExecutor g, List<BlockPos> chests, Map<String, Integer> reserves) {
+            this(g, chests, reserves, false);
+        }
+        StorageTask(GrindExecutor g, List<BlockPos> chests, Map<String, Integer> reserves, boolean registerBase) {
+            this.g = g; this.chests = List.copyOf(chests); this.reserves = Map.copyOf(reserves); this.registerBase = registerBase;
+        }
         public String name() { return "sort surplus into chest " + (chest + 1) + "/" + chests.size(); }
-        public boolean satisfied() { return chest >= chests.size() && !g.inventory.transfers().owns(OWNER); }
+        public boolean satisfied() {
+            boolean done = chest >= chests.size() && !g.inventory.transfers().owns(OWNER);
+            if (done && registerBase) g.registerStorage(chests);
+            return done;
+        }
+        public int budgetTicks() { return 60_000; }
         public boolean tick() {
             blocked = null;
             if (g.inventory.transfers().busy()) return true;
@@ -410,10 +473,17 @@ final class SurvivalTasks {
                 ItemStack stack = g.inventory.stackAt(index); if (stack.isEmpty() || stack.has(DataComponents.CUSTOM_NAME)) continue;
                 String item = GrindBook.generic(id(stack));
                 if (chests.size() > 1 && GrindStoragePolicy.category(item) != chest) continue;
-                int excess = g.count(item) - GrindStoragePolicy.reserve(item);
+                int keep = Math.max(GrindStoragePolicy.reserve(item), reserves.getOrDefault(item, 0));
+                int excess = reserves.getOrDefault(item, 0) == 0 && obsolete(stack, item) ? stack.getCount() : g.count(item) - keep;
                 int amount = Math.min(excess, stack.getCount()); if (amount < 1) continue;
                 int destination = -1;
-                for (int slot = 0; slot < 27; slot++) if (menu.getSlot(slot).getItem().isEmpty()) { destination = slot; break; }
+                for (int slot = 0; slot < 27; slot++) {
+                    ItemStack stored = menu.getSlot(slot).getItem();
+                    if (!stored.isEmpty() && ItemStack.isSameItemSameComponents(stored, stack) && stored.getCount() < stored.getMaxStackSize()) {
+                        destination = slot; amount = Math.min(amount, stored.getMaxStackSize() - stored.getCount()); break;
+                    }
+                }
+                if (destination < 0) for (int slot = 0; slot < 27; slot++) if (menu.getSlot(slot).getItem().isEmpty()) { destination = slot; break; }
                 if (destination < 0) { blocked = "Storage chest " + (chest + 1) + " is full; free a slot and .grind resume."; return true; }
                 int source = InventoryTransfers.menuSlot(index, InventoryTransfers.PlayerMenuLayout.CHEST);
                 List<ContainerTransferController.Click> clicks = new ArrayList<>();
@@ -424,6 +494,17 @@ final class SurvivalTasks {
                 return true;
             }
             g.closeOwnedStationMenu(); chest++; open = null; return true;
+        }
+        private boolean obsolete(ItemStack stack, String item) {
+            if (stack.get(DataComponents.ENCHANTMENTS) != null && !stack.get(DataComponents.ENCHANTMENTS).isEmpty()) return false;
+            if (!GrindExecutor.usable(stack)) return true;
+            String[] bits = item.split("_", 2);
+            if (bits.length != 2) return false;
+            List<String> tiers = List.of("wooden", "stone", "iron", "diamond", "netherite");
+            int tier = tiers.indexOf(bits[0]);
+            if (tier < 0) return false;
+            for (int n = tier + 1; n < tiers.size(); n++) if (g.count(tiers.get(n) + "_" + bits[1]) > 0) return true;
+            return false;
         }
         public String blockedReason() { return blocked; }
         public void cancel() { g.inventory.transfers().release(OWNER); g.closeOwnedStationMenu(); g.cancelMovement(); }
@@ -566,7 +647,7 @@ final class SurvivalTasks {
             blocked = null;
             if (!build.satisfied()) { boolean result = build.tick(); blocked = build.blockedReason(); return result; }
             BlockPos bottom = origin.offset(1, 0, 0);
-            if (!g.withinReach(bottom) || g.hitTarget(bottom) == null) { if (!g.moveNear(bottom)) blocked = "Move near the portal frame to light it."; return true; }
+            if (!g.withinReach(bottom) || g.hitTarget(bottom) == null) { if (!g.moveNear(bottom)) blocked = g.movementProblem("Move near the portal frame to light it."); return true; }
             g.cancelMovement();
             int slot = g.prepareHotbarItem("flint_and_steel"); if (slot < 0) return true;
             if (!g.inventory.select(OWNER, PRIORITY, slot, false, true)) return true;
@@ -594,7 +675,7 @@ final class SurvivalTasks {
             BlockPos portal = entering ? base.offset(-4, 1, 0) : netherEntry;
             if (portal == null) { blocked = "Locate a return portal and enter it, then .grind resume."; return true; }
             if (grind.client.player.isOnPortalCooldown()) return true;
-            if (!grind.moveTo(portal)) blocked = "Enter the portal at " + GrindExecutor.coordinates(portal) + "; Baritone pathing is unavailable.";
+            if (!grind.moveTo(portal)) blocked = grind.movementProblem("Enter the portal at " + GrindExecutor.coordinates(portal) + "; Baritone pathing is unavailable.");
             if (++wait > 600 && grind.client.player.blockPosition().closerThan(portal, 2)) {
                 blocked = "Stand inside the portal until the dimension changes, then .grind resume."; wait = 0;
             }

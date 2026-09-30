@@ -1,6 +1,41 @@
 # Agalar Hack — AI agent handover
 
-## CURRENT STATE — authoritative checkpoint (2026-09-23)
+## CURRENT STATE — AutoGrind continuation (2026-09-30)
+
+- Base main was `468fa2ec1b63569f2a9ec793e4300cb36bfdd902` (26.2.6), with green full
+  [CI 36654528751](https://github.com/MrHakan/Minecraft-Client/actions/runs/36654528751)
+  and its matching stable release. The survival campaign implementation is retained.
+- PR #9's shared services remain the architecture. Main is the authorized publication branch;
+  PR #13 (optional AutoGrind HUD) is still separate and has not been merged or modified here.
+- Version 26.2.7 adds unloaded-base approach/refinement, bounded stalled-travel pauses,
+  replacement custom-goal ownership, installed-Baritone tool checks and consistent near-broken
+  equipment counting. Resource plans can rebuild tools instead of treating a one-use tool as stock.
+- Campaign inventory pressure uses the existing `TaskRunner` and `InventoryService` to visit
+  already-built Overworld storage (retained across same-world restarts), preserve current and unfinished campaign ingredients, merge
+  chest stacks and store obsolete unenchanted gear. Named/enchanted gear stays carried. Before
+  storage exists, in the Nether, or if protected supplies/capacity prevent freeing two slots,
+  the campaign pauses for manual inventory intervention. Stored supplies are not withdrawn.
+- `tools/test-baritone.sh` installs only into the test runtime: upstream Fabric Baritone 1.19.0
+  explicitly targets Minecraft 26.2, and its jar is SHA-256 pinned. Its separate entrypoint tests
+  384-block travel, actual remote iron/diamond mining, mid-goal pickaxe rebuilding,
+  an unloaded-base return, intact-room door/chest
+  access, inventory accounting and preservation of a player replacement goal. Default client
+  tests still check Baritone absence. Upstream non-daemon cache workers trigger the 26.2 shutdown
+  watchdog; the fixture closes its pinned executor after world close. That cleanup is test-only
+  and does not certify normal installed-Baritone shutdown. CI requires both before its stable-release step.
+- Unit build, full regular client suite, focused survival recheck, production addon
+  install/restart/removal, checksum-pinned real-Baritone gameplay plus clean fixture exit, and four inventory
+  old-behaviour regression controls passed locally. The expanded
+  unit suite contains 871 tests. Consult live main CI and release metadata for commit-specific
+  publication results rather than treating this note as an exact-commit CI certificate.
+- These fixtures do not prove a random empty-inventory survival world through Netherite and
+  enchanting without intervention. The first upgrade template still needs player looting;
+  vanilla enchant RNG, loaded-animal hunting, clear building plots, full/unreachable chests and
+  server interaction rules retain the documented limits. Dedicated-server EULA tests stay opt-in.
+- This worker uses Java 25, a local unpacked Xvfb, proxy/CA settings and a workspace-only Maven
+  mirror init script because Maven Central returned 429. Those setup files are not repository changes.
+
+## PREVIOUS CHECKPOINT — superseded by live source (2026-09-23)
 
 Authority order: live source > live tests > latest main-branch CI > generated docs > this checkpoint >
 historical records. The chronological record below is retained for context and is not a current TODO

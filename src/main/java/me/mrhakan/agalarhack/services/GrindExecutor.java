@@ -77,11 +77,18 @@ public final class GrindExecutor {
     private boolean useBaritone;
     private boolean ownsMining;
     private BlockPos movementGoal;
+    private BlockPos movementTarget;
+    private boolean approachingUnloaded;
+    private String travelProblem;
+    private final GrindTravelProgress travelProgress = new GrindTravelProgress();
+    private final GrindBaritoneTransition baritoneTransition = new GrindBaritoneTransition();
+    Map<String, Integer> campaignReserves = Map.of();
     private boolean survival;
     private boolean changingDimension;
     private int transitionWait;
     private SurvivalTasks survivalTasks;
     private BlockPos survivalBase;
+    private List<BlockPos> survivalStorage = List.of();
     private ClientLevel homeWorld;
     private final Map<net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level>, Set<BlockPos>> protectedBlocks = new LinkedHashMap<>();
     private final TaskRunner runner = new TaskRunner();
@@ -149,13 +156,16 @@ public final class GrindExecutor {
         if (client.level.dimension() != net.minecraft.world.level.Level.OVERWORLD) return StartResult.INVALID;
         stop();
         survival = true;
+        campaignReserves = Map.of();
         useBaritone = true;
         ownerPlayer = client.player;
         ownerLevel = client.level;
         if (survivalBase == null || homeWorld != client.level) {
             survivalBase = client.player.blockPosition().offset(2, 0, 0).immutable(); homeWorld = client.level;
+            survivalStorage = List.of();
         }
         survivalTasks = new SurvivalTasks(this, tier, survivalBase);
+        survivalTasks.storageChests = survivalStorage;
         runner.start(survivalTasks.tasks());
         return StartResult.STARTED;
     }
@@ -206,6 +216,7 @@ public final class GrindExecutor {
     public boolean stop() {
         boolean wasActive = runner.running() || runner.state() == TaskRunner.State.NEEDS_MOVEMENT;
         runner.cancel();
+        if (survivalTasks != null) survivalTasks.cancel();
         cancelAutomation();
         survival = false;
         changingDimension = false;
@@ -217,10 +228,13 @@ public final class GrindExecutor {
         return wasActive;
     }
 
-    public void reset() { stop(); survivalBase = null; homeWorld = null; protectedBlocks.clear(); }
+    public void reset() { stop(); survivalBase = null; homeWorld = null; survivalStorage = List.of(); protectedBlocks.clear(); }
     public boolean running() { return runner.running(); }
     public TaskRunner.State state() { return runner.state(); }
-    public String currentTask() { return runner.currentTask(); }
+    public String currentTask() {
+        return runner.running() && survival && survivalTasks != null && survivalTasks.storageWork != null
+                ? "inventory recovery: " + survivalTasks.storageWork.currentTask() : runner.currentTask();
+    }
     public int completed() { return runner.completed(); }
     public int total() { return runner.total(); }
     public String failure() { return runner.failure(); }
@@ -236,28 +250,44 @@ public final class GrindExecutor {
     public String baseCoordinates() { return survivalBase == null ? "unset" : coordinates(survivalBase); }
     void pause(String reason) { cancelAutomation(); releaseControls(); inventory.transfers().release(OWNER); closeOwnedStationMenu(); runner.pause(reason); }
     boolean moveTo(BlockPos target) {
+        travelProblem = null;
         if (!useBaritone || !baritone.available()) return false;
-        if (movementGoal != null && movementGoal.equals(target) && (baritone.pathing() || baritone.goalActive())) return true;
+        rotations.release(OWNER); inventory.release(OWNER);
+        if (movementGoal != null && movementGoal.equals(target)) {
+            if (client.player.blockPosition().closerThan(target, 1.5)) { cancelMovement(); return true; }
+            return continueTravel();
+        }
         cancelMovement();
+        if (awaitCancellation()) return true;
         if (baritone.mining() || baritone.pathing() || baritone.goalActive()) return false;
         if (baritone.pathTo(target.getX(), target.getY(), target.getZ()) != BaritoneBridge.Result.STARTED) return false;
-        movementGoal = target; return true;
+        movementGoal = target; movementTarget = target; return true;
     }
 
     boolean moveNear(BlockPos target) {
+        travelProblem = null;
         if (!useBaritone || !baritone.available()) return false;
         rotations.release(OWNER); inventory.release(OWNER);
         if (movementGoal != null) {
-            if (!baritone.pathing() && !baritone.goalActive()) movementGoal = null;
-            else return true;
+            if (!target.equals(movementTarget) || approachingUnloaded && loaded(target)) cancelMovement();
+            else return continueTravel();
         }
+        if (awaitCancellation()) return true;
         if (baritone.mining() || baritone.pathing() || baritone.goalActive()) return false;
+        // Distant base chunks have no collision data yet. Approach their column, then resolve
+        // a visible standing cell once the target loads instead of refusing the return journey.
+        if (!loaded(target)) {
+            if (baritone.pathTo(target.getX(), target.getZ()) != BaritoneBridge.Result.STARTED) return false;
+            movementGoal = target; movementTarget = target; approachingUnloaded = true;
+            return true;
+        }
         // GoalBlock is a supported API; choose a clear standing position beside the interaction.
         BlockPos best = null;
         double distance = Double.MAX_VALUE;
         for (int dy = -5; dy <= 1; dy++) for (Direction side : Direction.Plane.HORIZONTAL) {
             BlockPos feet = target.relative(side).offset(0, dy, 0);
-            if (!client.level.hasChunkAt(feet)) continue;
+            if (!loaded(feet)) continue;
+            if (client.player.position().distanceToSqr(Vec3.atBottomCenterOf(feet)) < 0.25) continue;
             if (!client.level.getBlockState(feet).getCollisionShape(client.level, feet).isEmpty()
                     || !client.level.getBlockState(feet.above()).getCollisionShape(client.level, feet.above()).isEmpty()
                     || client.level.getBlockState(feet.below()).getCollisionShape(client.level, feet.below()).isEmpty()
@@ -269,26 +299,66 @@ public final class GrindExecutor {
         }
         if (best == null) return false;
         if (baritone.pathTo(best.getX(), best.getY(), best.getZ()) != BaritoneBridge.Result.STARTED) return false;
-        movementGoal = best;
+        movementGoal = best; movementTarget = target;
         return true;
     }
-    void cancelMovement() { if (movementGoal != null) { baritone.cancelGoal(); movementGoal = null; } }
+    private boolean continueTravel() {
+        if (!baritone.ownsGoal()) travelProblem = "Baritone travel goal was replaced; finish the other task, then .grind resume.";
+        else if (!baritone.pathing() && !baritone.goalActive()) travelProblem = "Baritone stopped before access was reached; check the route, then .grind resume.";
+        else if (travelProgress.stalled(client.player.getX(), client.player.getY(), client.player.getZ()))
+            travelProblem = "Baritone made no travel progress for 60 seconds; clear the route, then .grind resume.";
+        if (travelProblem == null) return true;
+        cancelMovement();
+        return false;
+    }
+    String movementProblem(String fallback) { return travelProblem == null ? fallback : travelProblem; }
+    /** ClientLevel.hasChunk always returns true in 26.2; use the shared non-loading lookup. */
+    boolean loaded(BlockPos pos) { return scanner.loadedChunk(pos.getX() >> 4, pos.getZ() >> 4) != null; }
+    void cancelMovement() {
+        if (movementGoal != null) {
+            boolean owned = baritone.ownsGoal();
+            baritone.cancelGoal();
+            if (owned) baritoneTransition.cancelled();
+        }
+        movementGoal = null; movementTarget = null; approachingUnloaded = false; travelProgress.reset();
+    }
+    private boolean awaitCancellation() {
+        return baritoneTransition.waiting(baritone.pathing(), baritone.mining(), baritone.goalActive());
+    }
+    private void cancelOwnedMining() {
+        if (!ownsMining) return;
+        baritone.cancelMining(); ownsMining = false; baritoneTransition.cancelled();
+    }
     void cancelAutomation() {
-        if (ownsMining) { baritone.cancelMining(); ownsMining = false; }
+        cancelOwnedMining();
         cancelMovement();
     }
     void protect(BlockPos pos) { protectedBlocks.computeIfAbsent(client.level.dimension(), ignored -> new java.util.HashSet<>()).add(pos.immutable()); }
     boolean protectedBlock(BlockPos pos) { return protectedBlocks.getOrDefault(client.level.dimension(), Set.of()).contains(pos); }
     void ownMenu() { ownedStationMenuId = client.player.containerMenu.containerId; }
+    void registerStorage(List<BlockPos> chests) {
+        if (survival && survivalTasks != null) {
+            survivalStorage = List.copyOf(chests);
+            survivalTasks.storageChests = survivalStorage;
+        }
+    }
 
     Map<String, Integer> planningInventory(String target) {
         Map<String, Integer> have = carried();
+        // A Silk Touch pickaxe cannot provide ore drops for prerequisite chains.
+        for (int slot = 0; slot < InventoryTransfers.INVENTORY_SIZE; slot++) excludeSilkTool(have, target, inventory.stackAt(slot));
+        excludeSilkTool(have, target, inventory.equipped(EquipmentSlot.OFFHAND));
         if (target.equals("oak_door") || target.equals("oak_planks") || target.equals("oak_log")) {
             // Exact wood and its generic alias describe the same stacks, never two supplies.
             have.merge(GrindBook.PLANKS, -have.getOrDefault("oak_planks", 0), Integer::sum);
             have.merge(GrindBook.LOG, -have.getOrDefault("oak_log", 0), Integer::sum);
         }
         return have;
+    }
+    private static void excludeSilkTool(Map<String, Integer> have, String target, ItemStack stack) {
+        String item = SurvivalTasks.id(stack);
+        if (!item.equals(target) && item.endsWith("_pickaxe") && usable(stack) && hasSilkTouch(stack))
+            have.merge(item, -stack.getCount(), Integer::sum);
     }
 
     private void releaseControls() {
@@ -658,7 +728,7 @@ public final class GrindExecutor {
     }
 
     private static void addStack(Map<String, Integer> have, ItemStack stack) {
-        if (stack.isEmpty() || (stack.isDamageableItem() && stack.getMaxDamage() - stack.getDamageValue() <= 1)) return;
+        if (!usable(stack)) return;
         String id = BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
         String generic = GrindBook.generic(id);
         have.merge(generic, stack.getCount(), Integer::sum);
@@ -667,10 +737,13 @@ public final class GrindExecutor {
     }
 
     static int countStack(ItemStack stack, String generic) {
-        return !stack.isEmpty()
+        return usable(stack)
                 && (GrindBook.generic(BuiltInRegistries.ITEM.getKey(stack.getItem()).toString()).equals(generic)
                 || BuiltInRegistries.ITEM.getKey(stack.getItem()).getPath().equals(generic))
                 ? stack.getCount() : 0;
+    }
+    static boolean usable(ItemStack stack) {
+        return !stack.isEmpty() && (!stack.isDamageableItem() || stack.getMaxDamage() - stack.getDamageValue() > 1);
     }
 
     private final class GatherResourceTask implements TaskRunner.Task {
@@ -698,7 +771,7 @@ public final class GrindExecutor {
         @Override public String name() { return "gather " + resource + " (" + count(resource) + "/" + goal + ")"; }
         @Override public boolean satisfied() {
             if (count(resource) < goal) return false;
-            if (ownsMining) { baritone.cancelMining(); ownsMining = false; }
+            cancelOwnedMining();
             cancelMovement();
             return true;
         }
@@ -826,7 +899,28 @@ public final class GrindExecutor {
         private boolean tickBaritone(String[] names) {
                 scanner.cancel(this);
                 rotations.release(OWNER); inventory.release(OWNER);
+                if (GrindExecutionPlan.toolTierFor(resource) > 0) {
+                    var state = switch (resource) {
+                        case "cobblestone" -> Blocks.STONE.defaultBlockState();
+                        case "coal" -> Blocks.COAL_ORE.defaultBlockState();
+                        case "raw_iron" -> Blocks.IRON_ORE.defaultBlockState();
+                        case "diamond" -> Blocks.DIAMOND_ORE.defaultBlockState();
+                        case "raw_gold" -> Blocks.GOLD_ORE.defaultBlockState();
+                        case "lapis_lazuli" -> Blocks.LAPIS_ORE.defaultBlockState();
+                        case "ancient_debris" -> Blocks.ANCIENT_DEBRIS.defaultBlockState();
+                        default -> Blocks.OBSIDIAN.defaultBlockState();
+                    };
+                    boolean tool = validTool(inventory.equipped(EquipmentSlot.OFFHAND), state, resource);
+                    for (int slot = 0; slot < InventoryTransfers.INVENTORY_SIZE && !tool; slot++)
+                        tool = validTool(inventory.stackAt(slot), state, resource);
+                    if (!tool) {
+                        cancelAutomation();
+                        failureReason = "no carried pickaxe can harvest " + resource;
+                        return false;
+                    }
+                }
                 if (!ownsMining) {
+                    if (awaitCancellation()) return true;
                     if (baritone.mining() || baritone.pathing() || baritone.goalActive()) {
                         movementReason = "Another Baritone process is active; stop it before .grind resume.";
                         return true;
@@ -924,7 +1018,7 @@ public final class GrindExecutor {
         @Override
         public void cancel() {
             scanner.cancel(this);
-            if (ownsMining) { baritone.cancelMining(); ownsMining = false; }
+            cancelOwnedMining();
             cancelMovement();
             stopBreaking();
             rotations.release(OWNER);

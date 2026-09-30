@@ -146,7 +146,7 @@ public final class GrindExecutionPlan {
         }
     }
 
-    private static int toolTierFor(String resource) {
+    static int toolTierFor(String resource) {
         return switch (resource) {
             case GrindBook.COBBLESTONE, GrindBook.COAL -> 1;
             case GrindBook.RAW_IRON, "lapis_lazuli" -> 2;
