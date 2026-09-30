@@ -254,7 +254,7 @@ public final class GrindExecutor {
         if (!useBaritone || !baritone.available()) return false;
         rotations.release(OWNER); inventory.release(OWNER);
         if (movementGoal != null && movementGoal.equals(target)) {
-            if (client.player.blockPosition().closerThan(target, 1.5)) { cancelMovement(); return true; }
+            if (client.player.blockPosition().equals(target)) { cancelMovement(); return true; }
             return continueTravel();
         }
         cancelMovement();

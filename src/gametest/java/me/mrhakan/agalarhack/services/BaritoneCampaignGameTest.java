@@ -112,6 +112,16 @@ public final class BaritoneCampaignGameTest implements FabricClientGameTest {
                 return true;
             });
             if (!roomIntact) throw new AssertionError("Return access damaged the room instead of using its door");
+            context.waitTicks(20);
+            context.runOnClient(c -> {
+                g.stop();
+                BlockPos adjacent = c.player.blockPosition().offset(1, 0, 0);
+                if (!g.moveTo(adjacent) || !bridge.goalActive()) throw new AssertionError("Adjacent exact goal did not start");
+                if (!g.moveTo(adjacent) || !bridge.goalActive())
+                    throw new AssertionError("AutoGrind completed an exact goal before entering its block");
+                g.cancelMovement();
+            });
+            context.waitTicks(20);
             context.runOnClient(c -> {
                 g.stop();
                 if (!g.moveTo(remote)) throw new AssertionError("Ownership fixture did not start");
