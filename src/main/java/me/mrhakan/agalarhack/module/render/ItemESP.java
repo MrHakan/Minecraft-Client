@@ -7,7 +7,6 @@ import me.mrhakan.agalarhack.module.Module;
 import me.mrhakan.agalarhack.services.ItemIdList;
 import me.mrhakan.agalarhack.services.ScannerService;
 import me.mrhakan.agalarhack.services.scanning.ScanScheduler;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.Rarity;
 
@@ -61,7 +60,7 @@ public class ItemESP extends Module {
 
     private boolean allowed(ItemEntity drop, Set<String> ids, String mode) {
         if (ids.isEmpty() || "off".equalsIgnoreCase(mode)) return true;
-        String id = BuiltInRegistries.ITEM.getKey(drop.getItem().getItem()).toString();
+        String id = me.mrhakan.agalarhack.services.StableIds.item(drop.getItem().getItem());
         return "whitelist".equalsIgnoreCase(mode) == ids.contains(id);
     }
 
