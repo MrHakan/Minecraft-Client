@@ -1,12 +1,17 @@
 package me.mrhakan.agalarhack.services;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
+import java.util.function.Function;
 import me.mrhakan.agalarhack.AgalarHackClient;
 import me.mrhakan.agalarhack.module.Module;
 import me.mrhakan.agalarhack.services.scanning.ScanBudgets;
 import me.mrhakan.agalarhack.services.scanning.ScanScheduler;
+import me.mrhakan.agalarhack.services.scanning.SharedEntityWalk;
 import net.minecraft.client.Minecraft;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.chunk.status.ChunkStatus;
 
@@ -21,16 +26,10 @@ public final class ScannerService {
     private final Minecraft mc;
     private long lastElapsedNanos;
     private final Map<Long, LevelChunk> chunks = new HashMap<>();
-    private final ScanScheduler<Object> scheduler = new ScanScheduler<>((owner, error) -> {
-        if (owner instanceof Module module) {
-            AgalarHackClient.LOGGER.error("Scanner failed for {}", module.getName(), error);
-            module.setToggled(false);
-            ClientServices.require(NotificationService.class).publish(NotificationService.Type.ERROR,
-                    module.getName() + " disabled after a scanner error");
-        } else {
-            AgalarHackClient.LOGGER.error("Bounded client scan failed for {}", owner.getClass().getName(), error);
-        }
-    });
+    private final ScanScheduler<Object> scheduler = new ScanScheduler<>(ScannerService::reportFailure);
+    /** One entity walk per tick for every module that asked for one; see {@link SharedEntityWalk}. */
+    private final SharedEntityWalk<Object, Entity> entityWalk =
+            new SharedEntityWalk<>(EntityDiscovery.MAX_OBSERVATIONS, ScannerService::reportFailure);
     private ScanScheduler.Usage lastUsage = new ScanScheduler.Usage(0, 0, 0, 0);
     public ScannerService(Minecraft mc) { this.mc = mc; }
     public void offer(Module owner, ScanScheduler.Priority priority, int steps, ScanScheduler.Task task) {
@@ -41,9 +40,17 @@ public final class ScannerService {
             ScanScheduler.Task task) {
         scheduler.offer(owner, priority, steps, task);
     }
-    public void cancel(Object owner) { scheduler.cancel(owner); }
+    /**
+     * Adds the owner to this tick's shared entity walk. The results reach {@code sink} when the walk
+     * ends; like any scan, the request has to be repeated every tick.
+     */
+    public <T> void offerEntities(Module owner, ScanScheduler.Priority priority, int maximumResults, double range,
+            Function<Entity, T> select, Consumer<List<T>> sink) {
+        if (owner.isToggled()) entityWalk.subscribe(owner, priority, maximumResults, range, select, sink);
+    }
+    public void cancel(Object owner) { scheduler.cancel(owner); entityWalk.cancel(owner); }
     public void reset() {
-        scheduler.clear(); chunks.clear(); lastElapsedNanos = 0;
+        scheduler.clear(); entityWalk.clear(); chunks.clear(); lastElapsedNanos = 0;
         lastUsage = new ScanScheduler.Usage(0, 0, 0, 0);
     }
     public void tick() {
@@ -52,12 +59,38 @@ public final class ScannerService {
         long started = System.nanoTime();
         ScanBudgets tickBudgets = budgets;
         try {
+            offerEntityWalk();
             scheduler.run(new ScanScheduler.Budget(tickBudgets.blocks(),
                     tickBudgets.chunkLookups(), tickBudgets.entities()));
             lastUsage = scheduler.lastUsage();
         }
         finally { lastElapsedNanos = Math.max(0, System.nanoTime() - started); chunks.clear(); }
     }
+    /**
+     * Queues the shared walk alongside the other scans. The world and player are captured here, as
+     * each module's own walk used to capture them, so a replacement while it runs empties every
+     * subscriber's result rather than mixing two worlds.
+     */
+    private void offerEntityWalk() {
+        if (entityWalk.isEmpty()) return;
+        var level = mc.level;
+        var player = mc.player;
+        scheduler.offer(entityWalk, entityWalk.priority(), entityWalk.maximumSteps(),
+                entityWalk.start(level.entitiesForRendering().iterator(), player::distanceToSqr, Entity::getId,
+                        () -> mc.level == level && mc.player == player));
+    }
+
+    private static void reportFailure(Object owner, RuntimeException error) {
+        if (owner instanceof Module module) {
+            AgalarHackClient.LOGGER.error("Scanner failed for {}", module.getName(), error);
+            module.setToggled(false);
+            ClientServices.require(NotificationService.class).publish(NotificationService.Type.ERROR,
+                    module.getName() + " disabled after a scanner error");
+        } else {
+            AgalarHackClient.LOGGER.error("Bounded client scan failed for {}", owner.getClass().getName(), error);
+        }
+    }
+
     public long lastElapsedNanos() { return lastElapsedNanos; }
     public ScanBudgets budgets() { return budgets; }
     /**
