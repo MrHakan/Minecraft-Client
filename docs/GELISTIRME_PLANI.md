@@ -1,0 +1,108 @@
+# Agalar Hack — Geliştirme ve Optimizasyon Planı
+
+Bu plan, 26.2.7 sürümündeki kod tabanının (`main`, `4da9bb5`) incelenmesiyle hazırlandı. Yeni
+modül ekleyip kataloğu büyütmek yerine, oyuncunun hissettiği iki şeye odaklanıyor: **doğru
+çalışma** ve **her karede (frame) yapılan gereksiz işin azaltılması**. Kuralların çoğu
+[RELEASE_PLAN.md](RELEASE_PLAN.md) içindeki kanıt kapılarından geliyor: önce ölç, sınırlı (bounded)
+işi koru, render callback'lerini ucuz tut, kalıcı veriyi güvenli tut.
+
+## Başlangıç durumu
+
+- Minecraft 26.2, Fabric Loader 0.19.3, Fabric API 0.157.0+26.2, Java 25.
+- 56 yerleşik modül, 380 Java dosyası (~25.700 satır `src/main`).
+- Java 25 ile `./gradlew test`: **871 test, 0 hata**.
+- Açık PR yok (PR #13 kapatıldı: `.grind status` komutunun zaten verdiği bilgiyi HUD'a ekliyordu).
+
+## İncelemede bulunan sorunlar
+
+| # | Tür | Yer | Sorun |
+| --- | --- | --- | --- |
+| 1 | Hata | `AgalarHackClient.VERSION` | Sürüm `"26.2.5"` olarak elle yazılmış. 26.2.7 yüklüyken HUD markası, Control Center başlığı ve güncelleme kontrolünün `User-Agent` başlığı yanlış sürümü gösteriyor. |
+| 2 | Performans | `HudLayoutManager.get()` | Her çağrı `ensureDefaults()` çalıştırıyor. Bu da `putIfAbsent(id, state.copy())` ile **her varsayılan widget için yeni bir nesne** oluşturuyor (kopya, anahtar zaten varken de üretiliyor). `get`/`resolveX`/`resolveY` her karede onlarca kez çağrıldığı için kare başına binlerce gereksiz nesne çıkıyor. |
+| 3 | Performans | `HudRegistry.ids()` / `render()` | Widget sırası her karede `stream().sorted(...).toList()` ile yeniden hesaplanıyor. Karşılaştırıcı her adımda `layout.get()` çağırdığı için 2 numaralı sorunu katlıyor. |
+| 4 | Performans | `FriendManager.isFriend()` | Her çağrıda listedeki **her arkadaşın adı** yeniden küçük harfe çevriliyor (O(n) + n adet string). ESP rengi, ESP etiketi, Nametags, TargetHUD ve hedef seçimi bunu oyuncu başına, kare başına çağırıyor. |
+| 5 | Performans | `WorldOverlayRenderer` (StorageESP / BlockESP) | Her blok için her karede `BuiltInRegistries...getKey(...).toString()` ile yeni bir id string'i üretiliyor. Mesafe iki kez hesaplanıyor, aynı ayar döngü içinde tekrar tekrar okunuyor. |
+| 6 | Performans | `Hud.rainbow()` | Module List'te her satır için her karede bir `java.awt.Color` nesnesi ve bir servis `Optional`'ı oluşturuluyor. |
+| 7 | Performans | `WorldOverlayRenderer` (ESP) | `entityEspColor` / `espFadeFactor` her varlık için ~12 ayarı yeniden okuyor; bu değerler kare boyunca değişmiyor. |
+| 8 | Performans | `ViewCulling.isVisible(BlockPos)` | Her blok testi için yeni bir `AABB` oluşturuluyor. |
+| 9 | Performans | Metin HUD widget'ları | Metin üreticisi bir kez ölçüm, bir kez çizim için çalışıyor. `String.format` aynı karede iki kez çalışıyor. |
+| 10 | Kapasite | `EntityDiscovery` | Beş ESP tüketicisi aynı varlık bütçesini ayrı ayrı yürüyor. Kalabalık sunucuda (~800+ varlık) birbirlerini kesiyorlar. Tek ortak yürüyüş bu tavanı kaldırır. |
+| 11 | Kod sağlığı | `GrindExecutor` (1.650 satır), `SurvivalTasks` (782), `WorldOverlayRenderer` (747) | Tek dosyada çok fazla sorumluluk var. Değişiklik riski yüksek ve okunması zor. |
+| 12 | Kod sağlığı | Genel | Tam nitelikli sınıf adları (`me.mrhakan.agalarhack.services.X`) satır içinde yaygın, bazı dosyalarda boşluksuz yoğun biçim var. |
+
+## Fazlar
+
+### Faz 1 — Doğruluk ve sıcak yol (bu çalışma)
+
+Hedef: oyuncuya görünen hatayı düzeltmek ve her karede çalışan HUD/render kodundaki gereksiz nesne
+üretimini kaldırmak. Davranış değişmeyecek; her madde birim testiyle korunacak.
+
+1. **Sürüm tek kaynaktan.** `VERSION`, `fabric.mod.json` üzerinden `gradle.properties` içindeki
+   `mod_version` değerinden okunur. Okunamazsa `"dev"` kullanılır. (#1)
+2. **`HudLayoutManager.get()` nesne üretmez.** Varsayılan yalnızca widget gerçekten eksikse
+   kopyalanır, `ensureDefaults()` da yalnızca eksik anahtar için kopya yapar. (#2)
+3. **HUD sırası önbellekte.** Sıra, kayıt ya da z-order değişince yeniden hesaplanır. Sabit
+   durumda kare başına sıralama ve liste üretimi yapılmaz. Eşit z-order'da kayıt sırası korunur. (#3)
+4. **Arkadaş araması indeksli.** Küçük harfli bir `Set` ile O(1) arama yapılır. Kayıtlı görünen
+   adlar ve dosya biçimi aynı kalır. (#4)
+5. **Blok id önbelleği ve döngü dışı ayarlar.** StorageESP ve BlockESP blok başına string
+   üretmez. Menzil ve alfa ayarları döngü dışında bir kez okunur, mesafe bir kez hesaplanır. (#5)
+6. **Gökkuşağı rengi nesnesiz.** `Color.HSBtoRGB` statik çağrısı kullanılır ve tema bir kez
+   çözülür. (#6)
+
+Kanıt: `./gradlew build` (birim testler + gametest derlemesi) ve `tools/smoke-client.sh` ile
+gerçek istemcide game testleri.
+
+### Faz 2 — Render yolunun kalanı
+
+1. ESP stilini (renkler, alfa, solma eşikleri, arkadaş/takım ayarları) kare başına bir kez çözen
+   küçük bir değer nesnesi yazmak. (#7)
+2. `ViewCulling.isVisible(int x, int y, int z)` aşırı yüklemesi ya da tek bir yeniden kullanılan
+   kutu ile blok testlerini nesnesiz yapmak. (#8)
+3. Metin widget'larında değeri tick başına önbelleğe almak, ölçüm ve çizimin aynı string'i
+   kullanmasını sağlamak. (#9)
+4. Trajectories simülasyonunda adım başına `Vec3`/`ClipContext` üretimini azaltmak. Çarpışma
+   doğruluğu korunmalı ve mevcut game testleri ölçüt olmalı.
+5. Her adımdan önce Performance/debug HUD ile ölçüm yapmak. Ölçülemeyen bir kazanç için kod
+   eklenmez.
+
+### Faz 3 — Ölçek
+
+1. `EntityDiscovery` için tek bir ortak varlık yürüyüşü kurmak: ESP, Tracers, Nametags, ItemESP
+   ve ProjectileESP aynı geçişten beslenir, tavan ve tick'ler arası rastgele kesilme ortadan
+   kalkar. (#10)
+2. Kalabalık sunucu senaryosu için bir game testi eklemek (çok sayıda varlık, sonuçların
+   kesilmediğinin doğrulanması).
+
+### Faz 4 — Kod sağlığı
+
+1. `GrindExecutor`'ı mevcut servis sınırları boyunca bölmek (seyahat, istasyon yönetimi,
+   envanter baskısı, kampanya durumu). `TaskRunner` sürdürülebilirliği ve sahiplik kuralları
+   korunur. Bölme yalnızca davranışı değiştirmeyen, testle güvenceye alınmış adımlarla yapılır. (#11)
+2. `WorldOverlayRenderer`'ı overlay ailelerine ayırmak (varlık, blok, çizgi, etiket). (#11)
+3. Dokunulan dosyalarda tam nitelikli adları `import`'a çevirmek. Toplu biçimlendirme commit'i
+   yapılmaz, yalnızca değişen kod düzeltilir. (#12)
+
+### Faz 5 — Kabul (manuel)
+
+[RELEASE_PLAN.md](RELEASE_PLAN.md) içindeki manuel maddeler geçerli: farklı GUI ölçeklerinde ve
+temalarda görsel kontrol, doğal balık tutma, gecikmeli çok oyunculu sunucu, dedicated server
+(EULA yalnızca sahibin onayıyla), eksik addon bağımlılığı mesajı.
+
+## Kurallar ve kapsam dışı
+
+- Her faz ayrı ve incelenebilir commit'lerle ilerler. Her commit `./gradlew build` ile yeşil olmalı.
+- Ölçülmüş bir sıcak yol olmadan mikro optimizasyon yapılmaz. Önbellekler; blok güncellemesi,
+  chunk boşaltma, boyut/dünya değişimi, oyuncu değişimi ve ayar değişimiyle geçersiz kılınmalı.
+- Kapsam dışı olanlar değişmedi: paket flood, crash/dupe exploit'leri, anti-cheat bypass
+  presetleri ve gizli rotasyonlar eklenmez.
+
+## Durum
+
+| Faz | Durum |
+| --- | --- |
+| Faz 1 | Uygulanıyor |
+| Faz 2 | Planlandı |
+| Faz 3 | Planlandı |
+| Faz 4 | Planlandı |
+| Faz 5 | Manuel, sahibin testine bağlı |
