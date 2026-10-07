@@ -9,10 +9,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
-import java.util.LinkedHashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
-import java.util.Set;
+import java.util.Map;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -27,8 +27,24 @@ import net.fabricmc.loader.api.FabricLoader;
  */
 public class FriendManager {
     private final Gson gson = new GsonBuilder().setPrettyPrinting().create();
-    private final Path path = FabricLoader.getInstance().getConfigDir().resolve("agalarhack-friends.json");
-    private final Set<String> friends = new LinkedHashSet<>();
+    private final Path path;
+    /**
+     * Case-insensitive key to the name as it was added, in insertion order.
+     *
+     * <p>Keyed rather than scanned because {@link #isFriend} is asked per player per frame by ESP,
+     * Nametags and TargetHUD, and per candidate per tick by targeting. The scan it replaced lower-cased
+     * every stored name on every one of those calls.
+     */
+    private final Map<String, String> friends = new LinkedHashMap<>();
+
+    public FriendManager() {
+        this(FabricLoader.getInstance().getConfigDir().resolve("agalarhack-friends.json"));
+    }
+
+    /** @param path the friend-list file */
+    public FriendManager(Path path) {
+        this.path = path;
+    }
 
     public synchronized void load() {
         friends.clear();
@@ -40,9 +56,7 @@ public class FriendManager {
             List<String> loaded = gson.fromJson(reader, new TypeToken<List<String>>(){}.getType());
             if (loaded != null) {
                 for (String name : loaded) {
-                    if (isValidName(name) && !containsIgnoreCase(name)) {
-                        friends.add(name.trim());
-                    }
+                    if (isValidName(name)) friends.putIfAbsent(key(name), name.trim());
                 }
             }
         } catch (JsonSyntaxException e) {
@@ -53,10 +67,10 @@ public class FriendManager {
     }
 
     public synchronized boolean add(String name) {
-        if (!isValidName(name) || containsIgnoreCase(name)) {
+        if (!isValidName(name) || friends.containsKey(key(name))) {
             return false;
         }
-        friends.add(name.trim());
+        friends.put(key(name), name.trim());
         save();
         me.mrhakan.agalarhack.services.ClientServices.registry().find(me.mrhakan.agalarhack.services.NotificationService.class)
                 .ifPresent(service -> service.publish(me.mrhakan.agalarhack.services.NotificationService.Type.SUCCESS, "Friend added: " + name.trim()));
@@ -64,11 +78,9 @@ public class FriendManager {
     }
 
     public synchronized boolean remove(String name) {
-        String existing = findIgnoreCase(name);
-        if (existing == null) {
+        if (name == null || friends.remove(key(name)) == null) {
             return false;
         }
-        friends.remove(existing);
         save();
         return true;
     }
@@ -83,11 +95,11 @@ public class FriendManager {
     }
 
     public synchronized boolean isFriend(String name) {
-        return findIgnoreCase(name) != null;
+        return name != null && friends.containsKey(key(name));
     }
 
     public synchronized List<String> getFriends() {
-        return List.copyOf(friends);
+        return List.copyOf(friends.values());
     }
 
     private void save() {
@@ -101,7 +113,7 @@ public class FriendManager {
             Files.createDirectories(parent);
             temp = Files.createTempFile(parent, "agalarhack-friends-", ".tmp");
             try (Writer writer = Files.newBufferedWriter(temp, StandardCharsets.UTF_8)) {
-                gson.toJson(new ArrayList<>(friends), writer);
+                gson.toJson(new ArrayList<>(friends.values()), writer);
             }
             try {
                 Files.move(temp, path, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
@@ -121,21 +133,9 @@ public class FriendManager {
         }
     }
 
-    private boolean containsIgnoreCase(String name) {
-        return findIgnoreCase(name) != null;
-    }
-
-    private String findIgnoreCase(String name) {
-        if (name == null) {
-            return null;
-        }
-        String normalized = name.trim().toLowerCase(Locale.ROOT);
-        for (String friend : friends) {
-            if (friend.toLowerCase(Locale.ROOT).equals(normalized)) {
-                return friend;
-            }
-        }
-        return null;
+    /** Allocation-free for an already-trimmed lower-case name, which is what most player names are. */
+    private static String key(String name) {
+        return name.trim().toLowerCase(Locale.ROOT);
     }
 
     private static boolean isValidName(String name) {
