@@ -104,7 +104,7 @@ public final class ModuleListHud {
             else color = switch (options.getStringSetting("colorMode", "Rainbow")) {
                 case "Accent" -> ClientUiTheme.ACCENT;
                 case "Category" -> categoryColor(row.category());
-                default -> Hud.rainbow(++rainbowIndex * 300);
+                default -> Hud.rainbow(++rainbowIndex * 300, theme);
             };
 
             var motion = motionById.get(row.id());

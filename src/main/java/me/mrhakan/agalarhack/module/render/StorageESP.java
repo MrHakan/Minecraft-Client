@@ -15,7 +15,6 @@ import java.util.List;
 import me.mrhakan.agalarhack.module.Category;
 import me.mrhakan.agalarhack.module.Module;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.chunk.LevelChunk;
 
@@ -76,7 +75,7 @@ public class StorageESP extends Module {
             if (event.level() != mc.level || mc.player == null || signature.isEmpty()) return;
             BlockPos pos = event.entity().getBlockPos();
             if (!withinRange(pos) || live.size() >= maximumResults) return;
-            if (!matches(BuiltInRegistries.BLOCK.getKey(event.entity().getBlockState().getBlock()).toString())) return;
+            if (!matches(me.mrhakan.agalarhack.services.StableIds.block(event.entity().getBlockState().getBlock()))) return;
             if (live.add(pos.immutable())) snapshotDirty = true;
         });
         blockEntityUnload = events.subscribe(ClientEvents.BlockEntityUnloaded.class, "storage-esp-unload", 0, event -> {
@@ -157,7 +156,7 @@ public class StorageESP extends Module {
             double dx = pos.getX() + 0.5 - mc.player.getX(), dy = pos.getY() + 0.5 - mc.player.getY();
             double dz = pos.getZ() + 0.5 - mc.player.getZ();
             if (dx * dx + dy * dy + dz * dz <= range * (double)range
-                    && matches(BuiltInRegistries.BLOCK.getKey(entity.getBlockState().getBlock()).toString())) {
+                    && matches(me.mrhakan.agalarhack.services.StableIds.block(entity.getBlockState().getBlock()))) {
                 // immutable() over a defensive copy: a block entity's position is already immutable,
                 // so this is the same object rather than an allocation per match (ported from main's dfe6e95).
                 passMatches.add(pos.immutable());

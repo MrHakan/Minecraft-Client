@@ -14,7 +14,6 @@ import java.util.Set;
 import me.mrhakan.agalarhack.module.Category;
 import me.mrhakan.agalarhack.module.Module;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.level.block.state.BlockState;
 
 /** Incremental, bounded block scanner for valuable/interesting blocks already loaded client-side. */
@@ -84,7 +83,7 @@ public class BlockESP extends Module {
             if (event.level() != mc.level || !anchorSet) return;
             BlockPos pos = event.pos();
             if (!withinScanBox(pos)) return;
-            String id = BuiltInRegistries.BLOCK.getKey(event.state().getBlock()).toString();
+            String id = me.mrhakan.agalarhack.services.StableIds.block(event.state().getBlock());
             if (matches(id)) {
                 recordMatch(pos);
             } else if (matches.remove(pos)) {
@@ -188,7 +187,7 @@ public class BlockESP extends Module {
         }
         probe.set(x, y, z);
         BlockState state = chunk.getBlockState(probe);
-        String id = BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString();
+        String id = me.mrhakan.agalarhack.services.StableIds.block(state.getBlock());
         if (matches(id)) {
             recordMatch(probe);
         } else if (matches.remove(probe)) snapshotDirty = true;

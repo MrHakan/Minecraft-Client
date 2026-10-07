@@ -479,9 +479,17 @@ public class Hud implements HudElement {
 
     public static int rainbow(int delay) {
         var themes = me.mrhakan.agalarhack.services.ClientServices.registry().find(me.mrhakan.agalarhack.services.ThemeService.class);
-        if (themes.isPresent() && (!themes.get().current().motionEnabled() || themes.get().current().highContrast))
-            return ClientUiTheme.ACCENT;
+        return rainbow(delay, themes.map(me.mrhakan.agalarhack.services.ThemeService::current).orElse(null));
+    }
+
+    /**
+     * For callers that already hold the theme. The Module List asks once per row per frame, which
+     * used to cost a service {@code Optional} and a {@code Color} object every time; this costs neither.
+     */
+    public static int rainbow(int delay, me.mrhakan.agalarhack.services.ThemeService.Theme theme) {
+        if (theme != null && (!theme.motionEnabled() || theme.highContrast)) return ClientUiTheme.ACCENT;
         double rainbowState = Math.ceil((System.currentTimeMillis() + delay) / 25.0) % 360;
-        return Color.getHSBColor((float) (rainbowState / 360.0f), 1f, 1f).getRGB();
+        // HSBtoRGB already sets full alpha, exactly as Color.getRGB() did.
+        return Color.HSBtoRGB((float) (rainbowState / 360.0f), 1f, 1f);
     }
 }

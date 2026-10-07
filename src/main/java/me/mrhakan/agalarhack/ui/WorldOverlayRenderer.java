@@ -17,7 +17,6 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.component.DataComponents;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.Style;
 import net.minecraft.network.chat.TextColor;
@@ -218,14 +217,17 @@ public final class WorldOverlayRenderer {
     }
 
     private static void renderStorageEsp(Minecraft mc, StorageESP module, Vec3 camera, PoseStack.Pose pose, VertexConsumer buffer, ViewCulling culling) {
+        // Settings are fixed for the frame; read once rather than per marker.
         double range = module.getNumberSetting("range", 64.0);
+        double alphaSetting = module.getNumberSetting("alpha", 220.0);
+        boolean distanceFade = module.getBooleanSetting("distanceFade", true);
         for (BlockPos pos : module.getCachedPositions()) {
             if (!culling.isVisible(pos)) continue;
-            if (blockDistance(mc, pos) > module.getNumberSetting("range", 64.0)
-                    || !mc.level.hasChunk(pos.getX() >> 4, pos.getZ() >> 4)) continue;
+            double distance = blockDistance(mc, pos);
+            if (distance > range || !mc.level.hasChunk(pos.getX() >> 4, pos.getZ() >> 4)) continue;
             String id = blockId(mc, pos);
             if (!module.matches(id)) continue;
-            int alpha = fadedAlpha(module.getNumberSetting("alpha", 220.0), blockDistance(mc, pos), range, module.getBooleanSetting("distanceFade", true));
+            int alpha = fadedAlpha(alphaSetting, distance, range, distanceFade);
             AABB block = new AABB(pos.getX(), pos.getY(), pos.getZ(), pos.getX() + 1.0, pos.getY() + 1.0, pos.getZ() + 1.0)
                     .inflate(0.02).move(-camera.x, -camera.y, -camera.z);
             box(buffer, pose, block, (alpha << 24) | storageRgb(id));
@@ -255,8 +257,9 @@ public final class WorldOverlayRenderer {
 
     private static void renderStorageLabels(LevelRenderContext ctx, Minecraft mc, StorageESP module, Vec3 camera) {
         PoseStack stack = ctx.poseStack();
+        double range = module.getNumberSetting("range", 64.0);
         for (BlockPos pos : module.getCachedPositions()) {
-            if (blockDistance(mc, pos) > module.getNumberSetting("range", 64.0)
+            if (blockDistance(mc, pos) > range
                     || !mc.level.hasChunk(pos.getX() >> 4, pos.getZ() >> 4)) continue;
             String id = blockId(mc, pos);
             if (!module.matches(id)) continue;
@@ -274,12 +277,14 @@ public final class WorldOverlayRenderer {
     private static void renderBlockEsp(Minecraft mc, BlockESP module, Vec3 camera, PoseStack.Pose pose, VertexConsumer buffer, ViewCulling culling) {
         double range = module.getNumberSetting("horizontalRange", 24.0);
         int rgb = moduleRgb(module, module.getNumberSetting("red", 255.0), module.getNumberSetting("green", 100.0), module.getNumberSetting("blue", 220.0), 0.0);
+        double alphaSetting = module.getNumberSetting("alpha", 220.0);
+        boolean distanceFade = module.getBooleanSetting("distanceFade", true);
         for (BlockPos pos : module.getMatches()) {
             if (!culling.isVisible(pos)) continue;
             if (!mc.level.hasChunk(pos.getX() >> 4, pos.getZ() >> 4)) continue;
             String id = blockId(mc, pos);
             if (!module.matches(id)) continue;
-            int alpha = fadedAlpha(module.getNumberSetting("alpha", 220.0), blockDistance(mc, pos), range, module.getBooleanSetting("distanceFade", true));
+            int alpha = fadedAlpha(alphaSetting, blockDistance(mc, pos), range, distanceFade);
             AABB block = new AABB(pos.getX(), pos.getY(), pos.getZ(), pos.getX() + 1.0, pos.getY() + 1.0, pos.getZ() + 1.0)
                     .inflate(0.015).move(-camera.x, -camera.y, -camera.z);
             box(buffer, pose, block, (alpha << 24) | module.colorFor(id, rgb));
@@ -494,8 +499,9 @@ public final class WorldOverlayRenderer {
         }
     }
 
+    /** Cached per block type: this runs for every marker on every frame. */
     private static String blockId(Minecraft mc, BlockPos pos) {
-        return BuiltInRegistries.BLOCK.getKey(mc.level.getBlockState(pos).getBlock()).toString();
+        return me.mrhakan.agalarhack.services.StableIds.block(mc.level.getBlockState(pos).getBlock());
     }
 
     private static double blockDistance(Minecraft mc, BlockPos pos) {
