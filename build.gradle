@@ -5,6 +5,13 @@ plugins {
 version = project.mod_version
 group = project.maven_group
 
+// 2.x.yy: x is the major line, yy a two-digit minor update. Checked here so a release can never go
+// out under the old Minecraft-derived 26.2.x numbering, or with a one-digit update that would
+// display differently from the rest.
+if (!(project.mod_version ==~ /2\.(0|[1-9][0-9]*)\.[0-9]{2}/)) {
+    throw new GradleException("mod_version must follow 2.x.yy (x = major, yy = two-digit minor update), was: ${project.mod_version}")
+}
+
 def buildCommit = System.getenv("GITHUB_SHA")
 if (buildCommit == null || !(buildCommit ==~ /(?i)[0-9a-f]{40}/)) {
     try {

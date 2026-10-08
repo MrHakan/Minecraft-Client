@@ -38,6 +38,14 @@ public class ModuleLifecycleGameTest implements FabricClientGameTest {
 
     @Override
     public void runTest(ClientGameTestContext context) {
+        // The HUD, the Control Center and the update checker all print this. It has to be the
+        // 2.x.yy string exactly as written in gradle.properties: Fabric's parsed version would turn
+        // 2.0.01 into 2.0.1, and a literal once left 26.2.7 announcing itself as 26.2.5.
+        String version = AgalarHackClient.VERSION;
+        if (!version.matches("2\\.(0|[1-9][0-9]*)\\.[0-9]{2}")) {
+            throw new AssertionError("the client reports version '" + version + "', not a 2.x.yy release number");
+        }
+        LOGGER.info("Client reports version {}", version);
         try (TestSingleplayerContext singleplayer = context.worldBuilder()
                 .setUseConsistentSettings(true)
                 .create()) {

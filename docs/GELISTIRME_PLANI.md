@@ -112,6 +112,14 @@ temalarda görsel kontrol, doğal balık tutma, gecikmeli çok oyunculu sunucu, 
   yenileme, yüklenmemiş üsse dönüş, kapı/sandık erişimi ve hedef sahipliği geçti.
 - Dedicated server senaryoları EULA onayı gerektirdiği için çalıştırılmadı.
 
+## Sürümleme
+
+Sürümler artık **2.x.yy** biçiminde. `x` büyük (major) sürüm, `yy` iki haneli küçük güncelleme
+(00–99). Her normal yayında `yy` artar. Büyük bir güncellemede `x` artar ve `yy` `00`'a döner.
+Örnek: `2.0.00` → `2.0.01` → … → `2.1.00`. Bu çalışma `2.0.00`, yani yeni şemadaki ilk sürüm.
+Minecraft sürümü (26.2) bu numaradan bağımsız. `build.gradle` başka bir biçimdeki `mod_version`'ı
+reddediyor. HUD'da da iki haneli biçim korunuyor (`agalarhack:version` özel alanı).
+
 ## Kurallar ve kapsam dışı
 
 - Her faz ayrı ve incelenebilir commit'lerle ilerler. Her commit `./gradlew build` ile yeşil olmalı.

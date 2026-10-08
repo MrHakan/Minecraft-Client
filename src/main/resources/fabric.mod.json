@@ -3,7 +3,8 @@
   "id": "agalarhack",
   "version": "${version}",
   "custom": {
-    "agalarhack:commit": "${commit}"
+    "agalarhack:commit": "${commit}",
+    "agalarhack:version": "${version}"
   },
   "name": "Agalar Hack",
   "description": "An anarchy utility mod for agalar.",

@@ -21,8 +21,13 @@
   `sharedEntityWalk` checks the scanner counter over 300 entities with all five overlays on.
 - `HudLayoutManager(Path)` and `FriendManager(Path)` constructors exist for tests; production uses the
   Fabric config directory as before.
+- Versioning is now **2.x.yy** (x = major, yy = two-digit minor update, 00-99); this batch is
+  `2.0.00`, the first release under it. `build.gradle` rejects any other `mod_version`.
+  `fabric.mod.json` carries the raw string in `agalarhack:version`, because Fabric's parsed version
+  drops the leading zero (2.0.01 -> 2.0.1); `ModuleLifecycleGameTest` checks the displayed value.
+  The Minecraft target (26.2) is independent of this number.
 - Not done (see the plan): Trajectories per-step entity queries (measure first), splitting
-  `GrindExecutor` and `WorldOverlayRenderer`, import clean-up. The version was not bumped.
+  `GrindExecutor` and `WorldOverlayRenderer`, import clean-up.
 - Local validation used Java 25 (Temurin) and the system Xvfb; consult CI for commit-specific results.
 
 ## PREVIOUS CHECKPOINT — AutoGrind continuation (2026-09-30)
