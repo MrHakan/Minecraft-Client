@@ -23,7 +23,7 @@ import me.mrhakan.agalarhack.ui.HudEditorScreen;
 import me.mrhakan.agalarhack.ui.ModuleSettingsScreen;
 import me.mrhakan.agalarhack.ui.ProfileScreen;
 import me.mrhakan.agalarhack.ui.TargetPolicyScreen;
-import me.mrhakan.agalarhack.ui.WorldOverlayRenderer;
+import me.mrhakan.agalarhack.ui.overlay.WorldOverlays;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
 import net.fabricmc.fabric.api.client.message.v1.ClientSendMessageEvents;
@@ -298,7 +298,7 @@ public class AgalarHackClient implements ClientModInitializer {
 
         Hud hud = new Hud();
         EVENTS.subscribe(ClientEvents.HudRender.class, "hud", 0, event -> hud.extractRenderState(event.graphics(), event.delta()));
-        EVENTS.subscribe(ClientEvents.RenderSubmit.class, "world-overlays", 0, event -> WorldOverlayRenderer.collect(event.context()));
+        EVENTS.subscribe(ClientEvents.RenderSubmit.class, "world-overlays", 0, event -> WorldOverlays.collect(event.context()));
         FabricEventBridge.register(EVENTS);
     }
 

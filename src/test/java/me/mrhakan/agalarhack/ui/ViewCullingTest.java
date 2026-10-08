@@ -13,7 +13,18 @@ import net.minecraft.world.phys.AABB;
 import org.junit.jupiter.api.Test;
 
 class ViewCullingTest {
-    private static final Path RENDERER = Path.of("src/main/java/me/mrhakan/agalarhack/ui/WorldOverlayRenderer.java");
+    /** Every overlay family; the render methods moved out of one file into these in 2.0.03. */
+    private static final Path OVERLAYS = Path.of("src/main/java/me/mrhakan/agalarhack/ui/overlay");
+
+    private static String overlaySources() throws IOException {
+        StringBuilder all = new StringBuilder();
+        try (var files = Files.list(OVERLAYS)) {
+            for (Path file : files.filter(path -> path.toString().endsWith(".java")).sorted().toList()) {
+                all.append(Files.readString(file)).append('\n');
+            }
+        }
+        return all.toString();
+    }
 
     /**
      * Line overlays are deliberately never culled: a tracer or a breadcrumb trail has its far end off
@@ -37,7 +48,7 @@ class ViewCullingTest {
 
     @Test
     void lineOverlaysAreNotCulled() throws IOException {
-        String source = Files.readString(RENDERER);
+        String source = overlaySources();
         List<String> offenders = new ArrayList<>();
         for (String method : MUST_NOT_CULL) {
             String body = methodBody(source, method);
@@ -49,7 +60,7 @@ class ViewCullingTest {
 
     @Test
     void theBoxOverlaysAreCulled() throws IOException {
-        String source = Files.readString(RENDERER);
+        String source = overlaySources();
         List<String> unculled = new ArrayList<>();
         for (String method : List.of("renderBlockEsp", "renderStorageEsp", "renderSpawns",
                 "renderHoles", "renderItemEsp", "renderWaypoints")) {
@@ -62,7 +73,7 @@ class ViewCullingTest {
     void culledBoxesAreTestedInWorldSpace() throws IOException {
         // The frustum is prepared in world space, so a camera-relative box would test the wrong
         // place - and quietly, because the answer is still a plausible-looking boolean.
-        String source = Files.readString(RENDERER);
+        String source = overlaySources();
         List<String> wrongSpace = new ArrayList<>();
         for (String line : source.lines().toList()) {
             if (!line.contains("culling.isVisible")) continue;
@@ -73,17 +84,18 @@ class ViewCullingTest {
 
     @Test
     void theGuardWouldNoticeIfTheMethodsWereRenamed() throws IOException {
-        String source = Files.readString(RENDERER);
+        String source = overlaySources();
         for (String method : MUST_NOT_CULL) {
             assertFalse(methodBody(source, method).isEmpty(), method + " no longer exists");
         }
     }
 
     /** From the declaration to the next one at the same indent; coarse, but enough to see a call. */
+    /** From the declaration to the next class-level line, which is the method's own closing brace. */
     private static String methodBody(String source, String method) {
-        int start = source.indexOf("private static void " + method + "(");
+        int start = source.indexOf("static void " + method + "(");
         if (start < 0) return "";
-        int next = source.indexOf("\n    private static ", start + 1);
-        return next < 0 ? source.substring(start) : source.substring(start, next);
+        var end = java.util.regex.Pattern.compile("\n    \\S").matcher(source);
+        return end.find(start) ? source.substring(start, end.start()) : source.substring(start);
     }
 }

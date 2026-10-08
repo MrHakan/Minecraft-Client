@@ -4,6 +4,14 @@ Releases are numbered **2.x.yy**: `x` is the major version and `yy` a two-digit 
 [Versioning](README.md#versioning)). Every version needs a section here before it can be merged; CI
 publishes the section as the GitHub release notes.
 
+## [2.0.03] - 2026-10-08
+
+### Internal
+- The world overlay renderer is split by overlay family. Each module's overlay is one small class
+  in `ui/overlay` (entity, block and path families), drawing primitives live in one helper, and a
+  single ordered list drives labels and lines. Method bodies were moved unchanged, the draw order
+  and per-module failure isolation are the same, and a unit test pins the order. No visible change.
+
 ## [2.0.02] - 2026-10-08
 
 ### Verified
