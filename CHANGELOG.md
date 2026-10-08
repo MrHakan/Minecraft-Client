@@ -6,6 +6,13 @@ publishes the section as the GitHub release notes.
 
 ## [2.0.05] - 2026-10-08
 
+### Added
+- The Module Timings developer widget now also shows the costliest world overlays per frame
+  (labels and lines together, over the last 120 frames), under the existing tick costs. Like the
+  tick figures, it measures only while the widget is open; otherwise an overlay frame costs one
+  extra call. A game test checks the five entity overlays are each measured with 300 entities in
+  view.
+
 ### Internal
 - AutoGrind's Baritone travel, its crafting table and furnace bookkeeping, and its reach, sight and
   aiming checks moved out of `GrindExecutor` into three collaborators (`GrindTravel`,

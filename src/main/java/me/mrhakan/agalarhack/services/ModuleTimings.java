@@ -30,12 +30,31 @@ public final class ModuleTimings {
 
     private final Map<String, RollingSamples> samples = new LinkedHashMap<>();
     private final java.util.Set<String> seenThisTick = new java.util.HashSet<>();
-    private int ticksSinceRequest = IDLE_TICKS + 1;
+    private final int windowSize;
+    private final int idlePeriods;
+    private int ticksSinceRequest;
+
+    public ModuleTimings() {
+        this(WINDOW, IDLE_TICKS);
+    }
+
+    /**
+     * A store whose period is something other than a client tick. {@link OverlayTimings} uses one
+     * per rendered frame; "tick" below then means one call to {@link #beginTick()}.
+     *
+     * @param window      samples kept per name
+     * @param idlePeriods periods without a {@link #requestRecording()} before recording stops
+     */
+    public ModuleTimings(int window, int idlePeriods) {
+        this.windowSize = Math.max(1, window);
+        this.idlePeriods = Math.max(1, idlePeriods);
+        this.ticksSinceRequest = this.idlePeriods + 1;
+    }
 
     /** @param module name, {@code averageMicros} the mean over the window, {@code peakMicros} its worst tick */
     public record Entry(String module, double averageMicros, double peakMicros, int ticks) { }
 
-    /** Called by anything that wants figures; keeps recording alive for {@value #IDLE_TICKS} ticks. */
+    /** Called by anything that wants figures; keeps recording alive for the idle period ({@value #IDLE_TICKS} ticks by default). */
     public void requestRecording() {
         ticksSinceRequest = 0;
     }
@@ -48,8 +67,8 @@ public final class ModuleTimings {
      * would name an innocent module as the expensive one.
      */
     public void beginTick() {
-        if (ticksSinceRequest <= IDLE_TICKS) ticksSinceRequest++;
-        if (ticksSinceRequest > IDLE_TICKS) {
+        if (ticksSinceRequest <= idlePeriods) ticksSinceRequest++;
+        if (ticksSinceRequest > idlePeriods) {
             if (!samples.isEmpty()) clear();
             return;
         }
@@ -62,7 +81,7 @@ public final class ModuleTimings {
      * so the {@code nanoTime} pair around each module is skipped too, not just the bookkeeping.
      */
     public boolean isRecording() {
-        return ticksSinceRequest <= IDLE_TICKS;
+        return ticksSinceRequest <= idlePeriods;
     }
 
     public void record(String module, long nanos) {
@@ -70,7 +89,7 @@ public final class ModuleTimings {
         RollingSamples window = samples.get(module);
         if (window == null) {
             if (samples.size() >= MAX_MODULES) return;
-            window = new RollingSamples(WINDOW);
+            window = new RollingSamples(windowSize);
             samples.put(module, window);
         }
         window.add(nanos / 1000.0);

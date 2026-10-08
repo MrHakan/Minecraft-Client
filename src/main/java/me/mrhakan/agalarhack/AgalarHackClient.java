@@ -176,6 +176,8 @@ public class AgalarHackClient implements ClientModInitializer {
                 new me.mrhakan.agalarhack.services.WaypointService());
         var timings = services.register(me.mrhakan.agalarhack.services.ModuleTimings.class,
                 new me.mrhakan.agalarhack.services.ModuleTimings());
+        var overlayTimings = services.register(me.mrhakan.agalarhack.services.OverlayTimings.class,
+                new me.mrhakan.agalarhack.services.OverlayTimings());
         var movement = services.register(me.mrhakan.agalarhack.services.MovementStats.class,
                 new me.mrhakan.agalarhack.services.MovementStats());
         var packets = services.register(me.mrhakan.agalarhack.services.PacketRates.class,
@@ -197,6 +199,8 @@ public class AgalarHackClient implements ClientModInitializer {
         // Ahead of the module tick (priority 30 below) so a tick is counted from its own beginning.
         EVENTS.subscribe(ClientEvents.ClientTick.class, "module-timings", 60, event -> timings.beginTick());
         EVENTS.subscribe(ClientEvents.Disconnected.class, "module-timings-disconnect", 100, event -> timings.clear());
+        // Frames are opened by WorldOverlays itself; only the reset on a new connection lives here.
+        EVENTS.subscribe(ClientEvents.Disconnected.class, "overlay-timings-disconnect", 100, event -> overlayTimings.clear());
         EVENTS.subscribe(ClientEvents.ClientTick.class, "scanners", 30, event -> scanners.tick());
         EVENTS.subscribe(ClientEvents.WorldChanged.class, "scanner-world", 100, event -> scanners.reset());
         EVENTS.subscribe(ClientEvents.Disconnected.class, "scanner-disconnect", 100, event -> scanners.reset());
