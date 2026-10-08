@@ -48,6 +48,17 @@
   `GrindSmeltTask`. Each holds `GrindExecutor g` and reaches shared state as `g.x`, the pattern
   `SurvivalTasks` already used; the members they need are package-private. `GrindExecutor` keeps
   planning, travel, stations, aiming and inventory helpers.
+- 2.0.05: the executor's travel, station and reach helpers are collaborators held in final fields:
+  `g.travel` (`GrindTravel`: Baritone goals, owned mining, stall detection, `movementProblem`),
+  `g.stations` (`GrindStations`: table/furnace positions and the station menu AutoGrind opened) and
+  `g.reach` (`GrindReach`: reach, line of sight, aiming, nearby-block lookup). `GrindExecutor` keeps
+  lifecycle, plan building, campaign state and the inventory helpers.
+- 2.0.05: `OverlayTimings` is the frame-based counterpart of `ModuleTimings` (a `ModuleTimings` with
+  a 120-frame window and 180-frame expiry). `WorldOverlays.collect` opens a frame each time it runs,
+  which also closes the previous one; an overlay's labels and deferred lines add into one slot, so
+  each drawn overlay is one sample per frame, committed a frame late. `ModuleTimingsHud` shows the top
+  three under the module rows. `ModuleBehaviourGameTest.overlayFrameCost` runs inside the shared
+  entity walk scenario.
 - The 2.1.00 major plan is in [docs/MAJOR_GELISTIRME_PLANI.md](docs/MAJOR_GELISTIRME_PLANI.md)
   (Turkish): release-process fixes first (main currently publishes a release on every push, so an
   unbumped version repeats), then Addon API 2, the render and GrindExecutor splits, AutoGrind

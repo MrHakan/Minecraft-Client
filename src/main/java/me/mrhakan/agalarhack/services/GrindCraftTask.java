@@ -45,12 +45,12 @@ final class GrindCraftTask implements TaskRunner.Task {
         }
         boolean tableMenu = g.client.player.containerMenu instanceof CraftingMenu;
         if (requiresTable && !tableMenu) {
-            if (g.closeOwnedStationMenu()) return true;
+            if (g.stations.closeOwnedStationMenu()) return true;
             movementReason = "Open the nearby crafting table and run .grind resume.";
             return true;
         }
         if (!tableMenu && (g.client.gui.screen() != null || g.client.player.containerMenu != g.client.player.inventoryMenu)) {
-            if (g.closeOwnedStationMenu()) return true;
+            if (g.stations.closeOwnedStationMenu()) return true;
             movementReason = "Close the open screen before AutoGrind can craft " + item + ".";
             return true;
         }

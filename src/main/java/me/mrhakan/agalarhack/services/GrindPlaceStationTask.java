@@ -44,9 +44,9 @@ final class GrindPlaceStationTask implements TaskRunner.Task {
             // Keep the selected hand and visible aim authoritative until the server either
             // confirms the block or the bounded acknowledgement window expires.
             if (primedHotbar >= 0) g.inventory.select(GrindExecutor.OWNER, GrindExecutor.PRIORITY, primedHotbar, false, true);
-            if (pendingPlace != null) g.aimAt(Vec3.atBottomCenterOf(pendingPlace));
+            if (pendingPlace != null) g.reach.aimAt(Vec3.atBottomCenterOf(pendingPlace));
         }
-        BlockPos observed = g.stationPosition(station);
+        BlockPos observed = g.stations.stationPosition(station);
         if (observed != null && g.client.level.getBlockState(observed).is(station.block)) {
             // Vanilla predicts a placement on the client before the integrated/remote server
             // accepts it. Requiring a short stable observation keeps the following open task
@@ -59,7 +59,7 @@ final class GrindPlaceStationTask implements TaskRunner.Task {
             return true;
         }
         placementConfirmTicks = 0;
-        if (g.closeOwnedStationMenu()) return true;
+        if (g.stations.closeOwnedStationMenu()) return true;
         if (g.client.gui.screen() != null || g.client.player.containerMenu != g.client.player.inventoryMenu) {
             movementReason = "Close the open screen before AutoGrind can place " + station.item + ".";
             return true;
@@ -69,9 +69,9 @@ final class GrindPlaceStationTask implements TaskRunner.Task {
             // The interaction result records the clicked face, while a replaceable block or
             // a server-side placement rule can still choose a nearby position. Reconcile once
             // after the acknowledgement window before consuming another station item.
-            BlockPos nearby = g.findNearbyBlock(station.block);
+            BlockPos nearby = g.reach.findNearbyBlock(station.block);
             if (nearby != null) {
-                g.stationPosition(station, nearby);
+                g.stations.stationPosition(station, nearby);
                 placementConfirmTicks = 1;
                 return true;
             }
@@ -108,7 +108,7 @@ final class GrindPlaceStationTask implements TaskRunner.Task {
         }
         BlockPos place = pendingPlace;
         BlockPos support = place.below();
-        if (!g.withinReach(support)) {
+        if (!g.reach.withinReach(support)) {
             movementReason = "Move within reach of the surface at " + GrindExecutor.coordinates(support)
                     + " to place " + station.item + ".";
             return true;
@@ -125,8 +125,8 @@ final class GrindPlaceStationTask implements TaskRunner.Task {
             return true;
         }
         Vec3 placementAim = Vec3.atBottomCenterOf(place);
-        g.aimAt(placementAim);
-        if (!g.aimedAt(placementAim)) {
+        g.reach.aimAt(placementAim);
+        if (!g.reach.aimedAt(placementAim)) {
             aimPrimed = false;
             return true;
         }
@@ -136,7 +136,7 @@ final class GrindPlaceStationTask implements TaskRunner.Task {
             aimPrimed = true;
             return true;
         }
-        BlockHitResult hit = g.placementHit(support);
+        BlockHitResult hit = g.reach.placementHit(support);
         if (hit == null || g.client.gameMode == null) {
             attempt++;
             pendingPlace = null;
@@ -150,7 +150,7 @@ final class GrindPlaceStationTask implements TaskRunner.Task {
         ItemStack heldBefore = g.client.player.getItemInHand(InteractionHand.MAIN_HAND).copy();
         var interaction = g.client.gameMode.useItemOn(g.client.player, InteractionHand.MAIN_HAND, hit);
         BlockPos predicted = hit.getBlockPos().relative(hit.getDirection());
-        g.stationPosition(station, predicted);
+        g.stations.stationPosition(station, predicted);
         placementDiagnostic = "result=" + interaction + ", centered-hit, held="
                 + BuiltInRegistries.ITEM.getKey(heldBefore.getItem()) + "x" + heldBefore.getCount()
                 + ", selected=" + hotbar + ", hit=" + GrindExecutor.coordinates(hit.getBlockPos())
@@ -170,7 +170,7 @@ final class GrindPlaceStationTask implements TaskRunner.Task {
             LevelChunk chunk = g.scanner.loadedChunk(pos.getX() >> 4, pos.getZ() >> 4);
             if (chunk == null || !chunk.getBlockState(pos).isAir()) continue;
             if (g.client.level.getBlockState(support).getCollisionShape(g.client.level, support).isEmpty()) continue;
-            if (g.withinReach(support)) return pos.immutable();
+            if (g.reach.withinReach(support)) return pos.immutable();
         }
         return null;
     }

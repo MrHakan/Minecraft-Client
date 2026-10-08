@@ -24,8 +24,8 @@ final class GrindOpenStationTask implements TaskRunner.Task {
     @Override public String name() { return "open " + station.item; }
 
     @Override public boolean satisfied() {
-        if (!g.stationMenuOpen(station)) return false;
-        if (interactionIssued) g.ownedStationMenuId = g.client.player.containerMenu.containerId;
+        if (!g.stations.stationMenuOpen(station)) return false;
+        if (interactionIssued) g.stations.ownedStationMenuId = g.client.player.containerMenu.containerId;
         return true;
     }
 
@@ -34,7 +34,7 @@ final class GrindOpenStationTask implements TaskRunner.Task {
         if (failureReason != null) return false;
         if (satisfied()) return true;
         if (g.client.gui.screen() != null) {
-            if (g.closeOwnedStationMenu()) return true;
+            if (g.stations.closeOwnedStationMenu()) return true;
             movementReason = "Close the open screen before AutoGrind can open " + station.item + ".";
             return true;
         }
@@ -46,10 +46,10 @@ final class GrindOpenStationTask implements TaskRunner.Task {
             }
             return true;
         }
-        BlockPos pos = g.stationPosition(station);
+        BlockPos pos = g.stations.stationPosition(station);
         if (pos == null || !g.client.level.getBlockState(pos).is(station.block)) {
-            pos = g.findNearbyBlock(station.block);
-            g.stationPosition(station, pos);
+            pos = g.reach.findNearbyBlock(station.block);
+            g.stations.stationPosition(station, pos);
         }
         if (pos == null) {
             if (g.useBaritone || g.survival) {
@@ -63,21 +63,21 @@ final class GrindOpenStationTask implements TaskRunner.Task {
                     boolean progress = portablePlacement.tick(); movementReason = portablePlacement.blockedReason();
                     failureReason = portablePlacement.failureReason(); return progress;
                 }
-                pos = g.stationPosition(station);
+                pos = g.stations.stationPosition(station);
             } else {
                 failureReason = "no placed " + station.item + " was found in loaded chunks nearby"; return false;
             }
         }
-        if (!g.withinReach(pos)) {
-            if (g.moveNear(pos)) return true;
+        if (!g.reach.withinReach(pos)) {
+            if (g.travel.moveNear(pos)) return true;
             movementReason = "Target " + station.item + " at " + GrindExecutor.coordinates(pos)
                     + " is outside reach; enable Baritone or move closer.";
             return true;
         }
-        g.cancelMovement();
-        g.aimAt(pos);
-        if (!g.aimedAt(pos)) return true;
-        BlockHitResult hit = g.hitTarget(pos);
+        g.travel.cancelMovement();
+        g.reach.aimAt(pos);
+        if (!g.reach.aimedAt(pos)) return true;
+        BlockHitResult hit = g.reach.hitTarget(pos);
         if (hit == null) {
             movementReason = "Target " + station.item + " at " + GrindExecutor.coordinates(pos)
                     + " is blocked from direct interaction.";
@@ -112,6 +112,6 @@ final class GrindOpenStationTask implements TaskRunner.Task {
     @Override public void cancel() {
         if (portableSupply != null) portableSupply.cancel();
         if (portablePlacement != null) portablePlacement.cancel();
-        g.cancelMovement(); g.rotations.release(GrindExecutor.OWNER); g.inventory.release(GrindExecutor.OWNER); g.closeOwnedStationMenu();
+        g.travel.cancelMovement(); g.rotations.release(GrindExecutor.OWNER); g.inventory.release(GrindExecutor.OWNER); g.stations.closeOwnedStationMenu();
     }
 }

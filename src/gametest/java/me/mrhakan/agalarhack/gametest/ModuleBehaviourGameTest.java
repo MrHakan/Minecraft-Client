@@ -1829,12 +1829,41 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
                 throw new AssertionError("the shared walk did not give both ESP (" + measured[2] + ") and Nametags ("
                         + measured[3] + ") their full capped result over " + stands + " stands");
             }
+            overlayFrameCost(context, overlays);
         } finally {
             for (String overlay : overlays) toggle(context, overlay, false);
             configure(context, "ESP", module -> module.settings.setSetting("respectTargetPolicy", true));
             singleplayer.getServer().runOnServer(server -> clearEntities(singleplayer.getConnection().getServerPlayer().level()));
         }
         LOGGER.info("  Five entity overlays shared one walk at one unit per entity");
+    }
+
+    /**
+     * The same overlays, timed per frame while the stands are in view: the figures ModuleTimingsHud
+     * shows under OVERLAY FRAME COST. Every switched-on overlay must be named with several frames
+     * behind it, and ESP, drawing 256 boxes, must cost more than nothing.
+     */
+    private static void overlayFrameCost(ClientGameTestContext context, String[] overlays) {
+        var timings = me.mrhakan.agalarhack.services.ClientServices.require(
+                me.mrhakan.agalarhack.services.OverlayTimings.class);
+        Predicate<Minecraft> measured = client -> {
+            timings.requestRecording();
+            java.util.Set<String> named = new java.util.HashSet<>();
+            for (var entry : timings.slowest(overlays.length)) if (entry.ticks() >= 8) named.add(entry.module());
+            return named.containsAll(java.util.List.of(overlays));
+        };
+        context.runOnClient(client -> timings.requestRecording());
+        if (!settle(context, measured, 80)) {
+            throw new AssertionError("overlay frame timings did not name every drawing overlay: "
+                    + context.computeOnClient(client -> timings.slowest(13)));
+        }
+        var costs = context.computeOnClient(client -> timings.slowest(overlays.length));
+        LOGGER.info("    Overlay frame cost: {}", costs.stream()
+                .map(entry -> String.format(java.util.Locale.ROOT, "%s=%.0fus/%d", entry.module(), entry.averageMicros(), entry.ticks()))
+                .collect(java.util.stream.Collectors.joining(" ")));
+        double esp = costs.stream().filter(entry -> entry.module().equals("ESP"))
+                .mapToDouble(me.mrhakan.agalarhack.services.ModuleTimings.Entry::averageMicros).findFirst().orElse(0);
+        if (esp <= 0) throw new AssertionError("ESP drew 256 boxes for nothing: " + costs);
     }
 
     /** True once the module's last published result holds as many entities as its cap allows. */

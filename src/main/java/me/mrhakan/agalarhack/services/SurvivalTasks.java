@@ -81,7 +81,7 @@ final class SurvivalTasks {
         }
         eating = true;
         if (++eatingTicks > 200) { grind.pause("Eating did not complete; check food access, then .grind resume."); eating = false; eatingTicks = 0; return true; }
-        grind.cancelAutomation(); grind.rotations.release(OWNER);
+        grind.travel.cancelAutomation(); grind.rotations.release(OWNER);
         int hotbar = grind.prepareHotbarItem(id(grind.inventory.stackAt(source)));
         if (hotbar < 0) return true;
         grind.inventory.select(OWNER, 60, hotbar, true, true);
@@ -96,8 +96,8 @@ final class SurvivalTasks {
     private boolean maintainInventory() {
         if (storageWork == null) {
             if (freeSlots() >= 2 || grind.inventory.transfers().busy()) return false;
-            if (grind.client.gui.screen() != null && !grind.closeOwnedStationMenu()) return false;
-            grind.cancelAutomation();
+            if (grind.client.gui.screen() != null && !grind.stations.closeOwnedStationMenu()) return false;
+            grind.travel.cancelAutomation();
             if (storageChests.isEmpty() || grind.client.level.dimension() != Level.OVERWORLD) {
                 grind.pause("Inventory nearly full: free two slots, then .grind resume. Base storage is not built yet or unavailable in this dimension.");
                 return true;
@@ -176,7 +176,7 @@ final class SurvivalTasks {
         public boolean satisfied() {
             boolean done = !g.inventory.transfers().owns(OWNER)
                     && (allowUpgrade ? gearSatisfied(g, item, wanted) : g.count(item) >= wanted);
-            if (done && work != null) { work.cancel(); work = null; g.cancelAutomation(); g.closeOwnedStationMenu(); }
+            if (done && work != null) { work.cancel(); work = null; g.travel.cancelAutomation(); g.stations.closeOwnedStationMenu(); }
             return done;
         }
         public int budgetTicks() { return 240_000; }
@@ -187,7 +187,7 @@ final class SurvivalTasks {
                 Map<String, Integer> have = g.planningInventory(item);
                 work = new TaskRunner();
                 work.start(g.createTasks(GrindExecutionPlan.plan(item, wanted, have,
-                        g.findNearbyBlock(Blocks.CRAFTING_TABLE) != null, g.findNearbyBlock(Blocks.FURNACE) != null), have));
+                        g.reach.findNearbyBlock(Blocks.CRAFTING_TABLE) != null, g.reach.findNearbyBlock(Blocks.FURNACE) != null), have));
             }
             if (work.state() == TaskRunner.State.NEEDS_MOVEMENT) work.resume();
             work.tick();
@@ -203,7 +203,7 @@ final class SurvivalTasks {
         }
         public String blockedReason() { return blocked; }
         public String failureReason() { return failure; }
-        public void cancel() { if (work != null) work.cancel(); g.cancelAutomation(); g.closeOwnedStationMenu(); }
+        public void cancel() { if (work != null) work.cancel(); g.travel.cancelAutomation(); g.stations.closeOwnedStationMenu(); }
     }
 
     static final class EquipTask implements TaskRunner.Task {
@@ -221,7 +221,7 @@ final class SurvivalTasks {
         public String name() { return "equip upgrades and shield"; }
         public boolean satisfied() { return candidate() < 0 && !g.inventory.transfers().owns(OWNER); }
         public boolean tick() {
-            if (g.closeOwnedStationMenu() || g.inventory.transfers().busy()) return true;
+            if (g.stations.closeOwnedStationMenu() || g.inventory.transfers().busy()) return true;
             int source = candidate(); if (source < 0) return true;
             EquipmentSlot slot = InventoryService.equipmentSlotOf(g.inventory.stackAt(source));
             int target = switch (slot == null ? EquipmentSlot.OFFHAND : slot) {
@@ -265,7 +265,7 @@ final class SurvivalTasks {
         String blocked;
         HuntTask(GrindExecutor g, String item, int wanted) { this.g = g; this.item = item; this.wanted = wanted; }
         public String name() { return "hunt " + item + " " + g.count(item) + "/" + wanted; }
-        public boolean satisfied() { if (g.count(item) < wanted) return false; g.cancelMovement(); return true; }
+        public boolean satisfied() { if (g.count(item) < wanted) return false; g.travel.cancelMovement(); return true; }
         public int budgetTicks() { return 24_000; }
         boolean matches(LivingEntity e) {
             if (!e.isAlive() || e.hasCustomName() || !(e instanceof Animal a) || a.isBaby()) return false;
@@ -275,15 +275,15 @@ final class SurvivalTasks {
         }
         public boolean tick() {
             blocked = null;
-            if (g.closeOwnedStationMenu()) return true;
+            if (g.stations.closeOwnedStationMenu()) return true;
             if (g.client.gui.screen() != null) { blocked = "Close the open screen before hunting."; return true; }
             if (target != null && !target.isAlive()) { drop = target.blockPosition(); target = null; wait = 0; }
             if (drop != null) {
                 if (g.client.player.position().distanceToSqr(Vec3.atCenterOf(drop)) > 2.5) {
-                    if (!g.moveNear(drop)) blocked = g.movementProblem("Walk over animal drops at " + GrindExecutor.coordinates(drop) + ", then .grind resume.");
+                    if (!g.travel.moveNear(drop)) blocked = g.travel.movementProblem("Walk over animal drops at " + GrindExecutor.coordinates(drop) + ", then .grind resume.");
                     return true;
                 }
-                g.cancelMovement();
+                g.travel.cancelMovement();
                 if (++wait < 40) return true;
                 drop = null;
             }
@@ -296,19 +296,19 @@ final class SurvivalTasks {
             }
             if (g.client.player.getEyePosition().distanceToSqr(target.getBoundingBox().getCenter()) > 9
                     || !g.client.player.hasLineOfSight(target)) {
-                if (!g.moveNear(target.blockPosition())) blocked = g.movementProblem("Move within sight of the animal at " + GrindExecutor.coordinates(target.blockPosition()) + ".");
+                if (!g.travel.moveNear(target.blockPosition())) blocked = g.travel.movementProblem("Move within sight of the animal at " + GrindExecutor.coordinates(target.blockPosition()) + ".");
                 return true;
             }
-            g.cancelMovement();
+            g.travel.cancelMovement();
             int weapon = g.inventory.findBestWeapon(ItemScoring.TargetFamily.GENERIC, 0.5, 1);
             if (weapon >= 0 && !g.inventory.select(OWNER, PRIORITY, weapon, false, true)) return true;
-            g.aimAt(target.getBoundingBox().getCenter());
-            if (!g.aimedAt(target.getBoundingBox().getCenter()) || g.client.player.getAttackStrengthScale(0.5f) < 1) return true;
+            g.reach.aimAt(target.getBoundingBox().getCenter());
+            if (!g.reach.aimedAt(target.getBoundingBox().getCenter()) || g.client.player.getAttackStrengthScale(0.5f) < 1) return true;
             g.client.gameMode.attack(g.client.player, target); g.client.player.swing(InteractionHand.MAIN_HAND);
             return true;
         }
         public String blockedReason() { return blocked; }
-        public void cancel() { g.cancelMovement(); g.rotations.release(OWNER); g.inventory.release(OWNER); }
+        public void cancel() { g.travel.cancelMovement(); g.rotations.release(OWNER); g.inventory.release(OWNER); }
     }
 
     static final class BuildTask implements TaskRunner.Task {
@@ -326,7 +326,7 @@ final class SurvivalTasks {
             if (index >= blueprint.size()) return true;
             if (supply != null) {
                 if (!supply.satisfied()) { if (!supply.tick()) return false; blocked = supply.blockedReason(); return true; }
-                supply = null; g.closeOwnedStationMenu();
+                supply = null; g.stations.closeOwnedStationMenu();
             }
             var next = blueprint.get(index);
             if (placement == null) placement = new PlaceTask(g, origin.offset(next.x(), next.y(), next.z()), next.item());
@@ -356,10 +356,10 @@ final class SurvivalTasks {
         public boolean satisfied() { boolean done = matches() && (!issued || confirm >= 5); if (done) g.protect(pos); return done; }
         public boolean tick() {
             blocked = null;
-            if (matches()) { confirm++; g.cancelMovement(); g.inventory.release(OWNER); g.rotations.release(OWNER); return true; }
+            if (matches()) { confirm++; g.travel.cancelMovement(); g.inventory.release(OWNER); g.rotations.release(OWNER); return true; }
             confirm = 0;
-            if (!g.loaded(pos)) { if (!g.moveNear(pos)) blocked = g.movementProblem("Load the build plot at " + GrindExecutor.coordinates(pos) + "."); return true; }
-            if (g.closeOwnedStationMenu() || g.inventory.transfers().busy()) return true;
+            if (!g.loaded(pos)) { if (!g.travel.moveNear(pos)) blocked = g.travel.movementProblem("Load the build plot at " + GrindExecutor.coordinates(pos) + "."); return true; }
+            if (g.stations.closeOwnedStationMenu() || g.inventory.transfers().busy()) return true;
             if (g.client.gui.screen() != null) { blocked = "Close the open screen before building."; return true; }
             if (issued) {
                 if (++wait < 40) return true;
@@ -370,17 +370,17 @@ final class SurvivalTasks {
                 blocked = "Build plot occupied at " + GrindExecutor.coordinates(pos) + "; clear it, then .grind resume."; return true;
             }
             if (g.client.player.getBoundingBox().intersects(new net.minecraft.world.phys.AABB(pos))) {
-                if (!g.moveNear(pos)) blocked = g.movementProblem("Step out of placement at " + GrindExecutor.coordinates(pos) + "."); return true;
+                if (!g.travel.moveNear(pos)) blocked = g.travel.movementProblem("Step out of placement at " + GrindExecutor.coordinates(pos) + "."); return true;
             }
             BlockHitResult hit = placementHit();
-            if (hit == null) { if (!g.moveNear(pos)) blocked = g.movementProblem("Move to a visible solid support beside " + GrindExecutor.coordinates(pos) + "."); return true; }
-            g.cancelMovement();
+            if (hit == null) { if (!g.travel.moveNear(pos)) blocked = g.travel.movementProblem("Move to a visible solid support beside " + GrindExecutor.coordinates(pos) + "."); return true; }
+            g.travel.cancelMovement();
             int hotbar = g.prepareHotbarItem(item);
             if (hotbar == -2) return true;
             if (hotbar < 0) { failure = "missing " + item; return false; }
             if (!g.inventory.select(OWNER, PRIORITY, hotbar, false, true)) return true;
             if (hotbarBefore != hotbar) { hotbarBefore = hotbar; return true; }
-            g.aimAt(hit.getLocation()); if (!g.aimedAt(hit.getLocation())) return true;
+            g.reach.aimAt(hit.getLocation()); if (!g.reach.aimedAt(hit.getLocation())) return true;
             g.client.gameMode.useItemOn(g.client.player, InteractionHand.MAIN_HAND, hit);
             issued = true; wait = 0;
             return true;
@@ -408,7 +408,7 @@ final class SurvivalTasks {
         }
         public String blockedReason() { return blocked; }
         public String failureReason() { return failure; }
-        public void cancel() { g.cancelMovement(); g.inventory.release(OWNER); g.rotations.release(OWNER); }
+        public void cancel() { g.travel.cancelMovement(); g.inventory.release(OWNER); g.rotations.release(OWNER); }
     }
 
     /** Binds only the specific opened block and records the menu before any transfer. */
@@ -419,7 +419,7 @@ final class SurvivalTasks {
         public String name() { return "open station at " + GrindExecutor.coordinates(pos); }
         public boolean satisfied() {
             if (!issued || !menuType.isInstance(g.client.player.containerMenu)) return false;
-            g.ownMenu(); return true;
+            g.stations.ownMenu(); return true;
         }
         public boolean tick() {
             blocked = null;
@@ -428,16 +428,16 @@ final class SurvivalTasks {
                 if (++wait < 40) return true;
                 issued = false; blocked = "Station did not open; check access at " + GrindExecutor.coordinates(pos) + "."; return true;
             }
-            if (g.closeOwnedStationMenu()) return true;
+            if (g.stations.closeOwnedStationMenu()) return true;
             if (g.client.gui.screen() != null) { blocked = "Close the open screen before station access."; return true; }
-            BlockHitResult hit = g.hitTarget(pos);
-            if (!g.withinReach(pos) || hit == null) { if (!g.moveNear(pos)) blocked = g.movementProblem("Move within sight of station at " + GrindExecutor.coordinates(pos) + "."); return true; }
-            g.cancelMovement();
+            BlockHitResult hit = g.reach.hitTarget(pos);
+            if (!g.reach.withinReach(pos) || hit == null) { if (!g.travel.moveNear(pos)) blocked = g.travel.movementProblem("Move within sight of station at " + GrindExecutor.coordinates(pos) + "."); return true; }
+            g.travel.cancelMovement();
             int slot = -1;
             for (int i = 0; i < 9; i++) if (g.inventory.stackAt(i).isEmpty() || !(g.inventory.stackAt(i).getItem() instanceof net.minecraft.world.item.BlockItem)) { slot = i; break; }
             if (slot < 0) { blocked = "Free a hotbar slot to interact with the station."; return true; }
             if (!g.inventory.select(OWNER, PRIORITY, slot, false, true)) return true;
-            g.aimAt(pos); if (!g.aimedAt(pos)) return true;
+            g.reach.aimAt(pos); if (!g.reach.aimedAt(pos)) return true;
             g.client.gameMode.useItemOn(g.client.player, InteractionHand.MAIN_HAND, hit); issued = true; wait = 0;
             return true;
         }
@@ -493,7 +493,7 @@ final class SurvivalTasks {
                 g.inventory.transfers().beginClicks(OWNER, PRIORITY, menu.containerId, clicks.toArray(ContainerTransferController.Click[]::new), 0);
                 return true;
             }
-            g.closeOwnedStationMenu(); chest++; open = null; return true;
+            g.stations.closeOwnedStationMenu(); chest++; open = null; return true;
         }
         private boolean obsolete(ItemStack stack, String item) {
             if (stack.get(DataComponents.ENCHANTMENTS) != null && !stack.get(DataComponents.ENCHANTMENTS).isEmpty()) return false;
@@ -507,7 +507,7 @@ final class SurvivalTasks {
             return false;
         }
         public String blockedReason() { return blocked; }
-        public void cancel() { g.inventory.transfers().release(OWNER); g.closeOwnedStationMenu(); g.cancelMovement(); }
+        public void cancel() { g.inventory.transfers().release(OWNER); g.stations.closeOwnedStationMenu(); g.travel.cancelMovement(); }
     }
 
     static final class SmithTask implements TaskRunner.Task {
@@ -520,7 +520,7 @@ final class SurvivalTasks {
             blocked = null;
             if (g.inventory.transfers().busy()) return true;
             if (!(g.client.player.containerMenu instanceof SmithingMenu)) {
-                if (g.closeOwnedStationMenu()) return true;
+                if (g.stations.closeOwnedStationMenu()) return true;
                 // Worn diamond armor must be made available as a smithing input.
                 for (EquipmentSlot slot : new EquipmentSlot[]{EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET}) {
                     if (GrindExecutor.countStack(g.inventory.equipped(slot), diamond) == 0) continue;
@@ -529,7 +529,7 @@ final class SurvivalTasks {
                     int armor = switch (slot) { case HEAD -> 5; case CHEST -> 6; case LEGS -> 7; default -> 8; };
                     g.inventory.transfers().begin(OWNER, PRIORITY, new int[]{armor, InventoryTransfers.menuSlot(free)}, 0); return true;
                 }
-                BlockPos station = g.findNearbyBlock(Blocks.SMITHING_TABLE);
+                BlockPos station = g.reach.findNearbyBlock(Blocks.SMITHING_TABLE);
                 if (station == null) {
                     if (place == null) {
                         BlockPos free = freeStationPosition(g);
@@ -542,7 +542,7 @@ final class SurvivalTasks {
                 if (open == null || !open.pos.equals(station)) open = new OpenTask(g, station, SmithingMenu.class);
                 open.tick(); blocked = open.blockedReason(); return true;
             }
-            SmithingMenu menu = (SmithingMenu) g.client.player.containerMenu; g.ownMenu();
+            SmithingMenu menu = (SmithingMenu) g.client.player.containerMenu; g.stations.ownMenu();
             if (GrindExecutor.countStack(menu.getSlot(3).getItem(), output) > 0) {
                 g.inventory.transfers().beginClicks(OWNER, PRIORITY, menu.containerId,
                         new ContainerTransferController.Click[]{new ContainerTransferController.Click(3, 0)}, 0); wait = 0; return true;
@@ -566,7 +566,7 @@ final class SurvivalTasks {
             return true;
         }
         public String blockedReason() { return blocked; }
-        public void cancel() { g.inventory.transfers().release(OWNER); g.closeOwnedStationMenu(); g.cancelMovement(); }
+        public void cancel() { g.inventory.transfers().release(OWNER); g.stations.closeOwnedStationMenu(); g.travel.cancelMovement(); }
     }
 
     /** One looted template is retained and duplicated through the real vanilla 3x3 recipe. */
@@ -589,10 +589,10 @@ final class SurvivalTasks {
                 blocked = "Loot one Netherite Upgrade template from a bastion, then .grind resume; AutoGrind will duplicate the rest."; return true;
             }
             if (!(g.client.player.containerMenu instanceof net.minecraft.world.inventory.CraftingMenu menu)) {
-                if (g.closeOwnedStationMenu()) return true;
+                if (g.stations.closeOwnedStationMenu()) return true;
                 if (g.count("diamond") < 7) { supplies = new ItemGoalTask(g, "diamond", 7, false); return true; }
                 if (g.count("netherrack") < 1) { supplies = new ItemGoalTask(g, "netherrack", 1, false); return true; }
-                BlockPos station = g.findNearbyBlock(Blocks.CRAFTING_TABLE);
+                BlockPos station = g.reach.findNearbyBlock(Blocks.CRAFTING_TABLE);
                 if (station == null) {
                     if (g.count("crafting_table") < 1) { supplies = new ItemGoalTask(g, "crafting_table", 1, false); return true; }
                     if (place == null) {
@@ -605,7 +605,7 @@ final class SurvivalTasks {
                 if (open == null || !open.pos.equals(station)) open = new OpenTask(g, station, net.minecraft.world.inventory.CraftingMenu.class);
                 open.tick(); blocked = open.blockedReason(); return true;
             }
-            g.ownMenu();
+            g.stations.ownMenu();
             if (GrindExecutor.countStack(menu.getSlot(0).getItem(), TEMPLATE) > 0) {
                 g.inventory.transfers().beginClicks(OWNER, PRIORITY, menu.containerId,
                         new ContainerTransferController.Click[]{new ContainerTransferController.Click(0, 0)}, 0);
@@ -619,7 +619,7 @@ final class SurvivalTasks {
                     continue;
                 }
                 int index = g.inventory.findInventory(stack -> GrindExecutor.countStack(stack, ingredient) > 0);
-                if (index < 0) { g.closeOwnedStationMenu(); open = null; return true; }
+                if (index < 0) { g.stations.closeOwnedStationMenu(); open = null; return true; }
                 int from = InventoryTransfers.menuSlot(index, InventoryTransfers.PlayerMenuLayout.CRAFTING_TABLE);
                 int amount = g.inventory.stackAt(index).getCount();
                 List<ContainerTransferController.Click> clicks = new ArrayList<>();
@@ -633,7 +633,7 @@ final class SurvivalTasks {
         }
         public String blockedReason() { return blocked; }
         public String failureReason() { return supplies == null ? null : supplies.failureReason(); }
-        public void cancel() { if (supplies != null) supplies.cancel(); g.inventory.transfers().release(OWNER); g.closeOwnedStationMenu(); }
+        public void cancel() { if (supplies != null) supplies.cancel(); g.inventory.transfers().release(OWNER); g.stations.closeOwnedStationMenu(); }
     }
 
     static final class PortalTask implements TaskRunner.Task {
@@ -647,11 +647,11 @@ final class SurvivalTasks {
             blocked = null;
             if (!build.satisfied()) { boolean result = build.tick(); blocked = build.blockedReason(); return result; }
             BlockPos bottom = origin.offset(1, 0, 0);
-            if (!g.withinReach(bottom) || g.hitTarget(bottom) == null) { if (!g.moveNear(bottom)) blocked = g.movementProblem("Move near the portal frame to light it."); return true; }
-            g.cancelMovement();
+            if (!g.reach.withinReach(bottom) || g.reach.hitTarget(bottom) == null) { if (!g.travel.moveNear(bottom)) blocked = g.travel.movementProblem("Move near the portal frame to light it."); return true; }
+            g.travel.cancelMovement();
             int slot = g.prepareHotbarItem("flint_and_steel"); if (slot < 0) return true;
             if (!g.inventory.select(OWNER, PRIORITY, slot, false, true)) return true;
-            g.aimAt(bottom); if (!g.aimedAt(bottom)) return true;
+            g.reach.aimAt(bottom); if (!g.reach.aimedAt(bottom)) return true;
             if (++wait % 20 == 0) g.client.gameMode.useItemOn(g.client.player, InteractionHand.MAIN_HAND,
                     new BlockHitResult(Vec3.atBottomCenterOf(bottom.above()), Direction.UP, bottom, false));
             return true;
@@ -666,7 +666,7 @@ final class SurvivalTasks {
         public String name() { return entering ? "enter Nether" : "return to Overworld"; }
         public boolean satisfied() {
             boolean done = entering ? grind.client.level.dimension() == Level.NETHER : grind.client.level.dimension() == Level.OVERWORLD;
-            if (done) { expectingDimension = false; if (entering && netherEntry == null) netherEntry = grind.client.player.blockPosition(); grind.cancelMovement(); }
+            if (done) { expectingDimension = false; if (entering && netherEntry == null) netherEntry = grind.client.player.blockPosition(); grind.travel.cancelMovement(); }
             return done;
         }
         public int budgetTicks() { return 24_000; }
@@ -675,14 +675,14 @@ final class SurvivalTasks {
             BlockPos portal = entering ? base.offset(-4, 1, 0) : netherEntry;
             if (portal == null) { blocked = "Locate a return portal and enter it, then .grind resume."; return true; }
             if (grind.client.player.isOnPortalCooldown()) return true;
-            if (!grind.moveTo(portal)) blocked = grind.movementProblem("Enter the portal at " + GrindExecutor.coordinates(portal) + "; Baritone pathing is unavailable.");
+            if (!grind.travel.moveTo(portal)) blocked = grind.travel.movementProblem("Enter the portal at " + GrindExecutor.coordinates(portal) + "; Baritone pathing is unavailable.");
             if (++wait > 600 && grind.client.player.blockPosition().closerThan(portal, 2)) {
                 blocked = "Stand inside the portal until the dimension changes, then .grind resume."; wait = 0;
             }
             return true;
         }
         public String blockedReason() { return blocked; }
-        public void cancel() { expectingDimension = false; grind.cancelMovement(); }
+        public void cancel() { expectingDimension = false; grind.travel.cancelMovement(); }
     }
 
     /** Enchant each unenchanted carried/equipped endgame piece using the vanilla third offer. */
@@ -729,7 +729,7 @@ final class SurvivalTasks {
             }
             if (g.inventory.transfers().busy()) return true;
             if (!(g.client.player.containerMenu instanceof EnchantmentMenu menu)) {
-                if (g.closeOwnedStationMenu()) return true;
+                if (g.stations.closeOwnedStationMenu()) return true;
                 EquipmentSlot worn = worn();
                 if (source() < 0 && worn != null) {
                     int free = g.client.player.getInventory().getFreeSlot();
@@ -740,7 +740,7 @@ final class SurvivalTasks {
                 if (open == null) open = new OpenTask(g, table, EnchantmentMenu.class);
                 open.tick(); blocked = open.blockedReason(); return true;
             }
-            g.ownMenu();
+            g.stations.ownMenu();
             ItemStack input = menu.getSlot(0).getItem();
             if (!input.isEmpty() && !enchantable(input)) {
                 if (!id(input).startsWith("netherite_")) { blocked = "Enchanting station contains an unrelated item."; return true; }
@@ -749,7 +749,7 @@ final class SurvivalTasks {
                 enchantIssued = false; wait = 0; return true;
             }
             if (input.isEmpty()) {
-                int source = source(); if (source < 0) { g.closeOwnedStationMenu(); open = null; return true; }
+                int source = source(); if (source < 0) { g.stations.closeOwnedStationMenu(); open = null; return true; }
                 int from = InventoryTransfers.menuSlot(source, InventoryTransfers.PlayerMenuLayout.ENCHANTING);
                 g.inventory.transfers().beginClicks(OWNER, PRIORITY, menu.containerId,
                         new ContainerTransferController.Click[]{new ContainerTransferController.Click(from, 0), new ContainerTransferController.Click(0, 0)}, 0);
@@ -768,7 +768,7 @@ final class SurvivalTasks {
             }
             if (menu.costs[2] == 0) { if (++wait > 40) blocked = "Check the clear one-block gap around the 15 bookshelves."; return true; }
             if (g.client.player.experienceLevel < menu.costs[2]) {
-                g.closeOwnedStationMenu(); open = null;
+                g.stations.closeOwnedStationMenu(); open = null;
                 xpWork = new ItemGoalTask(g, "coal", g.count("coal") + 32, false);
                 return true;
             }
@@ -777,6 +777,6 @@ final class SurvivalTasks {
             return true;
         }
         public String blockedReason() { return blocked; }
-        public void cancel() { setup.cancel(); if (xpWork != null) xpWork.cancel(); if (xpStorage != null) xpStorage.cancel(); g.inventory.transfers().release(OWNER); g.closeOwnedStationMenu(); }
+        public void cancel() { setup.cancel(); if (xpWork != null) xpWork.cancel(); if (xpStorage != null) xpStorage.cancel(); g.inventory.transfers().release(OWNER); g.stations.closeOwnedStationMenu(); }
     }
 }

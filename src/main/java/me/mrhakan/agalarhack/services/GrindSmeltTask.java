@@ -41,7 +41,7 @@ final class GrindSmeltTask implements TaskRunner.Task {
         if (failureReason != null) return false;
         if (satisfied()) return true;
         if (!(g.client.player.containerMenu instanceof FurnaceMenu menu)) {
-            if (g.closeOwnedStationMenu()) return true;
+            if (g.stations.closeOwnedStationMenu()) return true;
             movementReason = "Open the nearby furnace and run .grind resume.";
             return true;
         }

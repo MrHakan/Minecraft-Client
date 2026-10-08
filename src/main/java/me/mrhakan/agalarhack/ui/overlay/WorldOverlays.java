@@ -4,6 +4,7 @@ import java.util.List;
 import me.mrhakan.agalarhack.AgalarHackClient;
 import me.mrhakan.agalarhack.module.Module;
 import me.mrhakan.agalarhack.services.ClientServices;
+import me.mrhakan.agalarhack.services.OverlayTimings;
 import me.mrhakan.agalarhack.services.RenderService;
 import me.mrhakan.agalarhack.ui.ViewCulling;
 import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext;
@@ -16,6 +17,9 @@ import net.minecraft.client.renderer.rendertype.RenderTypes;
  * <p>Adding an overlay means writing one {@link WorldOverlay} and listing it here. The list order is
  * the draw order: labels are submitted in it, then every overlay's lines go into the one shared
  * line buffer in it.
+ *
+ * <p>While something asks for {@link OverlayTimings}, each overlay's labels and lines are timed into
+ * one per-frame sample under its module's name. Otherwise the only added cost is opening the frame.
  */
 public final class WorldOverlays {
     private static final List<WorldOverlay<?>> OVERLAYS = List.of(
@@ -52,7 +56,14 @@ public final class WorldOverlays {
             active[index] = OVERLAYS.get(index).resolve(AgalarHackClient.moduleManager);
             any |= active[index] != null;
         }
+        // Opened before the early return, so overlays that stopped drawing leave the figures too.
+        OverlayTimings.Frame cost = ClientServices.require(OverlayTimings.class).beginFrame(active.length);
         if (!any) return;
+        if (cost != null) {
+            for (int index = 0; index < active.length; index++) {
+                if (active[index] != null) cost.drawn(index, OVERLAYS.get(index).moduleName());
+            }
+        }
 
         var renderService = ClientServices.require(RenderService.class);
         // Built once per frame from the frustum the game already prepared, then shared by every
@@ -61,7 +72,11 @@ public final class WorldOverlays {
         for (int index = 0; index < active.length; index++) {
             WorldOverlay<?> overlay = OVERLAYS.get(index);
             Module module = active[index];
-            if (module != null && overlay.hasLabels()) renderService.guard(module, () -> overlay.labels(frame, module));
+            if (module != null && overlay.hasLabels()) {
+                long started = cost == null ? 0 : System.nanoTime();
+                renderService.guard(module, () -> overlay.labels(frame, module));
+                if (cost != null) cost.add(index, System.nanoTime() - started);
+            }
         }
 
         var submittedLevel = mc.level;
@@ -72,7 +87,9 @@ public final class WorldOverlays {
                 WorldOverlay<?> overlay = OVERLAYS.get(index);
                 Module module = active[index];
                 if (module != null && overlay.hasLines()) {
+                    long started = cost == null ? 0 : System.nanoTime();
                     renderService.guard(module, () -> overlay.lines(frame, module, pose, buffer));
+                    if (cost != null) cost.add(index, System.nanoTime() - started);
                 }
             }
         });

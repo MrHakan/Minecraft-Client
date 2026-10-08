@@ -11,24 +11,16 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
 import net.minecraft.core.Holder;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.tags.BlockTags;
-import net.minecraft.util.Mth;
 import net.minecraft.world.entity.EquipmentSlot;
-import net.minecraft.world.inventory.CraftingMenu;
-import net.minecraft.world.inventory.FurnaceMenu;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.Enchantments;
-import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.chunk.LevelChunk;
-import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.Vec3;
 
 /**
  * Executes every current GrindBook goal. CraftingPlan remains the inventory-only planner; this
@@ -71,13 +63,6 @@ public final class GrindExecutor {
     final RotationService rotations;
     final BaritoneBridge baritone;
     boolean useBaritone;
-    boolean ownsMining;
-    private BlockPos movementGoal;
-    private BlockPos movementTarget;
-    private boolean approachingUnloaded;
-    private String travelProblem;
-    private final GrindTravelProgress travelProgress = new GrindTravelProgress();
-    private final GrindBaritoneTransition baritoneTransition = new GrindBaritoneTransition();
     Map<String, Integer> campaignReserves = Map.of();
     boolean survival;
     private boolean changingDimension;
@@ -90,9 +75,9 @@ public final class GrindExecutor {
     private final TaskRunner runner = new TaskRunner();
     private LocalPlayer ownerPlayer;
     private ClientLevel ownerLevel;
-    private BlockPos craftingTablePos;
-    private BlockPos furnacePos;
-    int ownedStationMenuId = -1;
+    final GrindTravel travel = new GrindTravel(this);
+    final GrindStations stations = new GrindStations(this);
+    final GrindReach reach = new GrindReach(this);
 
     public GrindExecutor(Minecraft client, InventoryService inventory, ScannerService scanner,
             RotationService rotations) {
@@ -115,7 +100,7 @@ public final class GrindExecutor {
         if (runner.running() || runner.state() == TaskRunner.State.NEEDS_MOVEMENT) return StartResult.BUSY;
         runner.cancel();
         releaseControls();
-        closeOwnedStationMenu();
+        stations.closeOwnedStationMenu();
         if (client == null || client.player == null || client.level == null || client.gameMode == null) {
             return StartResult.NO_WORLD;
         }
@@ -127,15 +112,15 @@ public final class GrindExecutor {
                 runner.start(List.of());
                 return StartResult.ALREADY_SATISFIED;
             }
-            BlockPos[] stations = findNearbyStations();
-            craftingTablePos = stations[0];
-            furnacePos = stations[1];
+            BlockPos[] nearby = stations.findNearbyStations();
+            stations.craftingTablePos = nearby[0];
+            stations.furnacePos = nearby[1];
             List<GrindExecutionPlan.Step> execution = GrindExecutionPlan.plan(target, wanted, have,
-                    craftingTablePos != null, furnacePos != null);
+                    stations.craftingTablePos != null, stations.furnacePos != null);
             List<TaskRunner.Task> tasks = createTasks(execution, have);
             ownerPlayer = client.player;
             ownerLevel = client.level;
-            ownedStationMenuId = -1;
+            stations.ownedStationMenuId = -1;
             runner.start(tasks);
             return StartResult.STARTED;
         } catch (RuntimeException failure) {
@@ -166,7 +151,7 @@ public final class GrindExecutor {
         return StartResult.STARTED;
     }
     public boolean baritoneAvailable() { return baritone.available(); }
-    public void useBaritone(boolean enabled) { useBaritone = enabled; if (!enabled) cancelAutomation(); }
+    public void useBaritone(boolean enabled) { useBaritone = enabled; if (!enabled) travel.cancelAutomation(); }
     public boolean usingBaritone() { return useBaritone; }
     public String survivalTier() { return survival && survivalTasks != null ? survivalTasks.tier.name().toLowerCase(java.util.Locale.ROOT) : null; }
 
@@ -201,8 +186,8 @@ public final class GrindExecutor {
             rotations.release(OWNER);
         } else if (state == TaskRunner.State.DONE || state == TaskRunner.State.FAILED) {
             inventory.transfers().release(OWNER);
-            cancelAutomation();
-            closeOwnedStationMenu();
+            travel.cancelAutomation();
+            stations.closeOwnedStationMenu();
             ownerPlayer = null;
             ownerLevel = null;
         }
@@ -213,12 +198,12 @@ public final class GrindExecutor {
         boolean wasActive = runner.running() || runner.state() == TaskRunner.State.NEEDS_MOVEMENT;
         runner.cancel();
         if (survivalTasks != null) survivalTasks.cancel();
-        cancelAutomation();
+        travel.cancelAutomation();
         survival = false;
         changingDimension = false;
         releaseControls();
         inventory.transfers().release(OWNER);
-        closeOwnedStationMenu();
+        stations.closeOwnedStationMenu();
         ownerPlayer = null;
         ownerLevel = null;
         return wasActive;
@@ -238,100 +223,18 @@ public final class GrindExecutor {
 
     public void worldChanged() {
         if (survival && survivalTasks != null && survivalTasks.expectingDimension) {
-            cancelAutomation(); releaseControls(); inventory.transfers().release(OWNER);
-            ownedStationMenuId = -1; craftingTablePos = null; furnacePos = null;
+            travel.cancelAutomation(); releaseControls(); inventory.transfers().release(OWNER);
+            stations.ownedStationMenuId = -1; stations.craftingTablePos = null; stations.furnacePos = null;
             changingDimension = true; transitionWait = 0;
         } else reset();
     }
     public String baseCoordinates() { return survivalBase == null ? "unset" : coordinates(survivalBase); }
-    void pause(String reason) { cancelAutomation(); releaseControls(); inventory.transfers().release(OWNER); closeOwnedStationMenu(); runner.pause(reason); }
-    boolean moveTo(BlockPos target) {
-        travelProblem = null;
-        if (!useBaritone || !baritone.available()) return false;
-        rotations.release(OWNER); inventory.release(OWNER);
-        if (movementGoal != null && movementGoal.equals(target)) {
-            if (client.player.blockPosition().equals(target)) { cancelMovement(); return true; }
-            return continueTravel();
-        }
-        cancelMovement();
-        if (awaitCancellation()) return true;
-        if (baritone.mining() || baritone.pathing() || baritone.goalActive()) return false;
-        if (baritone.pathTo(target.getX(), target.getY(), target.getZ()) != BaritoneBridge.Result.STARTED) return false;
-        movementGoal = target; movementTarget = target; return true;
-    }
+    void pause(String reason) { travel.cancelAutomation(); releaseControls(); inventory.transfers().release(OWNER); stations.closeOwnedStationMenu(); runner.pause(reason); }
 
-    boolean moveNear(BlockPos target) {
-        travelProblem = null;
-        if (!useBaritone || !baritone.available()) return false;
-        rotations.release(OWNER); inventory.release(OWNER);
-        if (movementGoal != null) {
-            if (!target.equals(movementTarget) || approachingUnloaded && loaded(target)) cancelMovement();
-            else return continueTravel();
-        }
-        if (awaitCancellation()) return true;
-        if (baritone.mining() || baritone.pathing() || baritone.goalActive()) return false;
-        // Distant base chunks have no collision data yet. Approach their column, then resolve
-        // a visible standing cell once the target loads instead of refusing the return journey.
-        if (!loaded(target)) {
-            if (baritone.pathTo(target.getX(), target.getZ()) != BaritoneBridge.Result.STARTED) return false;
-            movementGoal = target; movementTarget = target; approachingUnloaded = true;
-            return true;
-        }
-        // GoalBlock is a supported API; choose a clear standing position beside the interaction.
-        BlockPos best = null;
-        double distance = Double.MAX_VALUE;
-        for (int dy = -5; dy <= 1; dy++) for (Direction side : Direction.Plane.HORIZONTAL) {
-            BlockPos feet = target.relative(side).offset(0, dy, 0);
-            if (!loaded(feet)) continue;
-            if (client.player.position().distanceToSqr(Vec3.atBottomCenterOf(feet)) < 0.25) continue;
-            if (!client.level.getBlockState(feet).getCollisionShape(client.level, feet).isEmpty()
-                    || !client.level.getBlockState(feet.above()).getCollisionShape(client.level, feet.above()).isEmpty()
-                    || client.level.getBlockState(feet.below()).getCollisionShape(client.level, feet.below()).isEmpty()
-                    || !client.level.getFluidState(feet).isEmpty()) continue;
-            double d = client.player.position().distanceToSqr(Vec3.atBottomCenterOf(feet));
-            if (d < distance && Vec3.atBottomCenterOf(feet).add(0, 1.62, 0).distanceToSqr(Vec3.atCenterOf(target)) < 19) {
-                best = feet; distance = d;
-            }
-        }
-        if (best == null) return false;
-        if (baritone.pathTo(best.getX(), best.getY(), best.getZ()) != BaritoneBridge.Result.STARTED) return false;
-        movementGoal = best; movementTarget = target;
-        return true;
-    }
-    private boolean continueTravel() {
-        if (!baritone.ownsGoal()) travelProblem = "Baritone travel goal was replaced; finish the other task, then .grind resume.";
-        else if (!baritone.pathing() && !baritone.goalActive()) travelProblem = "Baritone stopped before access was reached; check the route, then .grind resume.";
-        else if (travelProgress.stalled(client.player.getX(), client.player.getY(), client.player.getZ()))
-            travelProblem = "Baritone made no travel progress for 60 seconds; clear the route, then .grind resume.";
-        if (travelProblem == null) return true;
-        cancelMovement();
-        return false;
-    }
-    String movementProblem(String fallback) { return travelProblem == null ? fallback : travelProblem; }
     /** ClientLevel.hasChunk always returns true in 26.2; use the shared non-loading lookup. */
     boolean loaded(BlockPos pos) { return scanner.loadedChunk(pos.getX() >> 4, pos.getZ() >> 4) != null; }
-    void cancelMovement() {
-        if (movementGoal != null) {
-            boolean owned = baritone.ownsGoal();
-            baritone.cancelGoal();
-            if (owned) baritoneTransition.cancelled();
-        }
-        movementGoal = null; movementTarget = null; approachingUnloaded = false; travelProgress.reset();
-    }
-    boolean awaitCancellation() {
-        return baritoneTransition.waiting(baritone.pathing(), baritone.mining(), baritone.goalActive());
-    }
-    void cancelOwnedMining() {
-        if (!ownsMining) return;
-        baritone.cancelMining(); ownsMining = false; baritoneTransition.cancelled();
-    }
-    void cancelAutomation() {
-        cancelOwnedMining();
-        cancelMovement();
-    }
     void protect(BlockPos pos) { protectedBlocks.computeIfAbsent(client.level.dimension(), ignored -> new java.util.HashSet<>()).add(pos.immutable()); }
     boolean protectedBlock(BlockPos pos) { return protectedBlocks.getOrDefault(client.level.dimension(), Set.of()).contains(pos); }
-    void ownMenu() { ownedStationMenuId = client.player.containerMenu.containerId; }
     void registerStorage(List<BlockPos> chests) {
         if (survival && survivalTasks != null) {
             survivalStorage = List.copyOf(chests);
@@ -433,139 +336,6 @@ public final class GrindExecutor {
         recipe.ingredients().forEach((ingredient, count) ->
                 inventory.merge(ingredient, -count * batches, Integer::sum));
         inventory.merge(item, outputCount, Integer::sum);
-    }
-
-    /** A bounded, loaded-chunk-only lookup for existing stations close enough to reuse. */
-    private BlockPos[] findNearbyStations() {
-        BlockPos table = null, furnace = null;
-        double tableDistance = Double.MAX_VALUE, furnaceDistance = Double.MAX_VALUE;
-        BlockPos origin = client.player.blockPosition();
-        Vec3 eye = client.player.getEyePosition();
-        for (int dy = -SCAN_VERTICAL; dy <= SCAN_VERTICAL; dy++) {
-            for (int dx = -SCAN_HORIZONTAL; dx <= SCAN_HORIZONTAL; dx++) {
-                for (int dz = -SCAN_HORIZONTAL; dz <= SCAN_HORIZONTAL; dz++) {
-                    int x = origin.getX() + dx, y = origin.getY() + dy, z = origin.getZ() + dz;
-                    LevelChunk chunk = scanner.loadedChunk(x >> 4, z >> 4);
-                    if (chunk == null || y < client.level.getMinY() || y >= client.level.getMaxY()) continue;
-                    BlockPos pos = new BlockPos(x, y, z);
-                    Block block = chunk.getBlockState(pos).getBlock();
-                    double distance = eye.distanceToSqr(Vec3.atCenterOf(pos));
-                    if (block == Station.TABLE.block && distance < tableDistance) {
-                        tableDistance = distance;
-                        table = pos.immutable();
-                    } else if (block == Station.FURNACE.block && distance < furnaceDistance) {
-                        furnaceDistance = distance;
-                        furnace = pos.immutable();
-                    }
-                }
-            }
-        }
-        return new BlockPos[]{table, furnace};
-    }
-
-    BlockPos stationPosition(Station station) {
-        return station == Station.TABLE ? craftingTablePos : furnacePos;
-    }
-
-    void stationPosition(Station station, BlockPos pos) {
-        if (station == Station.TABLE) craftingTablePos = pos == null ? null : pos.immutable();
-        else furnacePos = pos == null ? null : pos.immutable();
-    }
-
-    boolean stationMenuOpen(Station station) {
-        if (client.player == null) return false;
-        return station == Station.TABLE
-                ? client.player.containerMenu instanceof CraftingMenu
-                : client.player.containerMenu instanceof FurnaceMenu;
-    }
-
-    boolean closeOwnedStationMenu() {
-        if (ownedStationMenuId < 0 || client == null || client.player == null) return false;
-        if (client.player.containerMenu != null && client.player.containerMenu.containerId == ownedStationMenuId) {
-            // Hiding the screen alone leaves LocalPlayer.containerMenu bound to the station. A
-            // later recipe then sees a ghost CraftingMenu while the transfer service correctly
-            // refuses clicks because no container screen is visible. Use vanilla's close path so
-            // the close packet, local menu reset and screen lifecycle stay in sync.
-            client.player.closeContainer();
-            ownedStationMenuId = -1;
-            rotations.release(OWNER);
-            inventory.release(OWNER);
-            return true;
-        }
-        if (client.player.containerMenu == null || client.player.containerMenu.containerId != ownedStationMenuId) {
-            ownedStationMenuId = -1;
-        }
-        return false;
-    }
-
-    BlockPos findNearbyBlock(Block block) {
-        if (client == null || client.player == null || client.level == null) return null;
-        BlockPos origin = client.player.blockPosition();
-        Vec3 eye = client.player.getEyePosition();
-        BlockPos nearest = null;
-        double nearestDistance = Double.MAX_VALUE;
-        for (int dy = -SCAN_VERTICAL; dy <= SCAN_VERTICAL; dy++) {
-            for (int dx = -SCAN_HORIZONTAL; dx <= SCAN_HORIZONTAL; dx++) {
-                for (int dz = -SCAN_HORIZONTAL; dz <= SCAN_HORIZONTAL; dz++) {
-                    int x = origin.getX() + dx, y = origin.getY() + dy, z = origin.getZ() + dz;
-                    LevelChunk chunk = scanner.loadedChunk(x >> 4, z >> 4);
-                    if (chunk == null || y < client.level.getMinY() || y >= client.level.getMaxY()) continue;
-                    BlockPos pos = new BlockPos(x, y, z);
-                    if (!chunk.getBlockState(pos).is(block)) continue;
-                    double distance = eye.distanceToSqr(Vec3.atCenterOf(pos));
-                    if (distance < nearestDistance) { nearestDistance = distance; nearest = pos.immutable(); }
-                }
-            }
-        }
-        return nearest;
-    }
-
-    boolean withinReach(BlockPos pos) {
-        return client.player.getEyePosition().distanceToSqr(Vec3.atCenterOf(pos)) <= MAX_REACH * MAX_REACH;
-    }
-
-    BlockHitResult hitTarget(BlockPos pos) {
-        Vec3 from = client.player.getEyePosition();
-        Vec3 to = Vec3.atCenterOf(pos);
-        var hit = client.level.clip(new ClipContext(from, to, ClipContext.Block.OUTLINE,
-                ClipContext.Fluid.NONE, client.player));
-        return hit instanceof BlockHitResult blockHit && blockHit.getBlockPos().equals(pos) ? blockHit : null;
-    }
-
-    /** A stable top-face hit; aiming at a support block's center intersects its upper edge. */
-    BlockHitResult placementHit(BlockPos support) {
-        Vec3 from = client.player.getEyePosition();
-        Vec3 topCenter = Vec3.atBottomCenterOf(support.above());
-        var sight = client.level.clip(new ClipContext(from, topCenter.add(0, -0.001, 0),
-                ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, client.player));
-        return sight instanceof BlockHitResult blockHit && blockHit.getBlockPos().equals(support)
-                ? new BlockHitResult(topCenter, Direction.UP, support, false) : null;
-    }
-
-    void aimAt(BlockPos pos) {
-        aimAt(Vec3.atCenterOf(pos));
-    }
-
-    void aimAt(Vec3 target) {
-        Vec3 delta = target.subtract(client.player.getEyePosition());
-        double horizontal = Math.sqrt(delta.x * delta.x + delta.z * delta.z);
-        float yaw = (float) Math.toDegrees(Math.atan2(-delta.x, delta.z));
-        float pitch = (float) -Math.toDegrees(Math.atan2(delta.y, horizontal));
-        rotations.request(new RotationService.Request(OWNER, PRIORITY, RotationService.Mode.CLIENT,
-                yaw, pitch, 360f, 180f, 180f, true));
-    }
-
-    boolean aimedAt(BlockPos pos) {
-        return aimedAt(Vec3.atCenterOf(pos));
-    }
-
-    boolean aimedAt(Vec3 target) {
-        Vec3 delta = target.subtract(client.player.getEyePosition());
-        double horizontal = Math.sqrt(delta.x * delta.x + delta.z * delta.z);
-        float yaw = (float) Math.toDegrees(Math.atan2(-delta.x, delta.z));
-        float pitch = (float) -Math.toDegrees(Math.atan2(delta.y, horizontal));
-        return Math.abs(Mth.wrapDegrees(yaw - client.player.getYRot())) <= 2.0f
-                && Math.abs(pitch - client.player.getXRot()) <= 2.0f;
     }
 
     private int findHotbarItem(String generic) {

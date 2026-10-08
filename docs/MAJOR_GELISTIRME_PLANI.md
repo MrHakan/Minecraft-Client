@@ -89,13 +89,19 @@ kurulum testinde doğrulanır.
    listeyle etiketleri ve çizgileri dolaşıyor; modül adına göre `instanceof` zinciri kalktı. Metod
    gövdeleri değişmeden taşındı (40 metod otomatik karşılaştırıldı), çizim sırası ve modül başına
    hata yalıtımı aynı, sırayı bir birim testi sabitliyor.
-2. **Ölçülebilir overlay maliyeti.** `RenderService.guard` her overlay için süre toplasın. Var olan
-   `ModuleTimingsHud` tick sürelerinin yanında render sürelerini de göstersin. Not: `ModuleTimings`
-   tick başına pencere tutuyor; render kare başına çalıştığı için ayrı, kare tabanlı bir depo
-   gerekiyor. D1'den sonraya alındı.
+2. ✅ **Ölçülebilir overlay maliyeti (2.0.05).** Kare tabanlı `OverlayTimings` deposu, her
+   overlay'in etiket ve çizgi geçişlerini tek bir kare örneği olarak topluyor (120 karelik pencere).
+   `ModuleTimingsHud` tick sürelerinin altında en pahalı üç overlay'i gösteriyor. Ölçüm yalnızca
+   widget açıkken yapılıyor. Ölçüm `RenderService.guard` yerine `WorldOverlays`'te yapılıyor, çünkü
+   karenin hangi overlay'e ait olduğunu yalnızca orası biliyor. Game testi, 300 varlık görünürken beş
+   varlık overlay'inin de ölçüldüğünü doğruluyor.
 3. **Trajectories tek varlık sorgusu.** Ölçüm bir maliyet gösterirse yol önce blok çarpışmasıyla
    çıkarılsın. Sonra tüm yolu kapsayan kutuda tek bir varlık sorgusu yapılıp segmentler bu
    adaylarla test edilsin.
+   İlk ölçüm (2.0.05 game testi, yazılım rasterleştiricisi, 300 zırh askısı görünür):
+   ESP 1812 µs/kare (256 kutu), Nametags 196, Tracers 53, ItemESP 11, ProjectileESP 8.
+   Trajectories bu senaryoda ölçülmedi. Sıradaki render işi, Trajectories'ten önce ESP'nin kutu
+   başına maliyeti olmalı.
 4. B tamamlanınca overlay arayüzü addon'lara açılabilir (2.1.00 sonrası karar).
 
 Kabul: bölünme sonrası tüm render game testleri değişmeden geçer. Yeni bir overlay eklemek tek bir
@@ -112,7 +118,11 @@ kalır ve özel pathfinder yazılmaz.
    - ✅ 2.0.04: altı görev sınıfı (toplama, offhand, istasyon yerleştirme/açma, üretim, eritme)
      ayrı dosyalara taşındı. `GrindExecutor` 1.650 satırdan 814 satıra indi. Taşıma derleyici
      rehberliğinde yapıldı ve taşınan 788 satır, eklenen `g.` önekleri dışında orijinalle aynı.
-   - ⏳ Sıradaki: seyahat (`moveTo`/`moveNear`/`continueTravel`) ve istasyon/nişan yardımcıları.
+   - ✅ 2.0.05: seyahat (`GrindTravel`), istasyon kayıtları (`GrindStations`) ve erişim/görüş/nişan
+     yardımcıları (`GrindReach`) ayrıldı; `GrindExecutor` 592 satır. Aynı derleyici rehberli
+     yöntemle taşınan 210 satır, yürütücü öneki dışında orijinalle aynı.
+   - Kalan: envanter yardımcıları ve kampanya durumu. Bunlar D2 (depodan geri alma) ile birlikte
+     ele alınacak, çünkü D2 o kodu zaten değiştirecek.
 2. **Depodan geri alma.** Kampanyanın bir sonraki adımı depolanmış malzemeye ihtiyaç duyuyorsa
    `ContainerTransferController` ile sandıktan alınsın. Kişiye ait (adı değiştirilmiş ya da büyülü)
    eşyalar korunur.
@@ -172,7 +182,7 @@ E (kanıt) her adımda paralel
 | 2.0.02 | F, E1: `UNTESTED` rozetlerinin kaldırılması |
 | 2.0.03 | ✅ C1 render bölünmesi (davranış değişmeden) |
 | 2.0.04 | ✅ D1 ilk adım: AutoGrind görev sınıfları ayrıldı (davranış değişmeden) |
-| 2.0.05 | D1 devamı (seyahat, istasyon yardımcıları), ardından C2 overlay süreleri |
+| 2.0.05 | ✅ D1 devamı (seyahat, istasyon, erişim yardımcıları) ve C2 overlay kare süreleri |
 | 2.0.06+ | D2–D4 AutoGrind 2 adımları, C3 (ölçüm sonucuna göre) |
 | 2.1.00 | B: Addon API 2 ve sürüm sözleşmesi, A4 güncelleme denetleyicisi |
 
