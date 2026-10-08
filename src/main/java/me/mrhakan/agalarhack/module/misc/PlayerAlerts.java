@@ -26,7 +26,6 @@ public final class PlayerAlerts extends Module {
     public PlayerAlerts() {
         super("PlayerAlerts", Category.MISC,
                 "Notifies when another player becomes visible or leaves the client render set");
-        markExperimental();
     }
 
     @Override

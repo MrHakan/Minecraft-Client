@@ -7,7 +7,8 @@ kod tabanında doğrulanmış bir eksikten çıkıyor, modül sayısını artır
 
 ## Başlangıç noktası (2.0.00)
 
-- 56 yerleşik modül. İkisi (PlayerAlerts, SessionTimer) hâlâ `UNTESTED`.
+- 56 yerleşik modül. 2.0.00'da ikisi (PlayerAlerts, SessionTimer) `UNTESTED` idi; 2.0.02'de
+  ikisi de gerçek istemcide doğrulandı.
 - Addon API sürümü `1` ve [provisional](ADDONS.md). Yayımlanan yüzey yalnızca `AgalarHackApi`,
   `AgalarHackAddon`, `AddonContext`, `Module` ve `Command`. Event bus, HUD kayıt sistemi,
   bildirimler ve tarayıcı bilerek yayımlanmadı.
@@ -118,11 +119,12 @@ düz alan senaryosu engebeli bir başlangıçtan alan bulur.
 
 ### E. Kanıt ve kabul — M
 
-1. **`UNTESTED` rozetlerini kaldırmak.** PlayerAlerts, istemcinin gerçekten gördüğü ikinci bir
-   oyuncu ister. Önce hangi yolun bunu sağladığı doğrulanmalı: entegre sunucuda Fabric
-   `FakePlayer`'ın istemciye oyuncu olarak gönderilip gönderilmediği belirsiz, dedicated-server
-   harness ise kesin çalışır ama EULA onayı ister. SessionTimer için oturum süresi senaryosu
-   yazılsın.
+1. ✅ **`UNTESTED` rozetlerini kaldırmak (2.0.02).** PlayerAlerts için entegre sunucuda bir
+   Fabric `FakePlayer` kullanıldı. Önce oyuncu listesi bilgisi gönderiliyor, sonra oyuncu dünyaya
+   ekleniyor. İstemci onu ağ üzerinden gerçek bir oyuncu gibi alıyor. Senaryo giriş ve çıkış
+   bildirimlerini doğruluyor. SessionTimer test içinde ölçülen süreyle karşılaştırılıyor (3 sn →
+   `00:00:03`), yeniden açılınca sıfırlanıyor ve `showSeconds` ayarına uyuyor. Artık `UNTESTED`
+   modül yok.
 2. **Görsel kabul listesi.** GUI ölçekleri, açık/AMOLED/yüksek kontrast temalar, TargetHUD yüz
    katmanı ve ESP/nametag geometrisi için ekran görüntüsü tabanlı, tekrarlanabilir bir kontrol
    listesi yazılsın. İnsan onayı gerektiren kısımlar açıkça işaretlensin.
@@ -135,8 +137,8 @@ düz alan senaryosu engebeli bir başlangıçtan alan bulur.
 
 - Dokunulan dosyalarda tam nitelikli adlar `import`'a çevrilsin. Toplu biçimlendirme commit'i
   yapılmaz.
-- `KeybindManager` her tick her modülün tuş metnini yeniden ayrıştırıyor. Modül tuşu
-  değiştiğinde güncellenen bir önbelleğe geçilsin (küçük ama sıfır riskli).
+- ✅ `KeybindManager` her tick her modülün tuş metnini yeniden ayrıştırıyordu. 2.0.02'de
+  `Module.getChord` tuş ya da değiştirici ayarı değişene kadar sonucu saklıyor.
 
 ## Sıra ve bağımlılıklar
 

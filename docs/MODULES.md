@@ -12,7 +12,7 @@ Every module here is enabled, ticked and disabled inside a real world on every p
 request, so an UNTESTED one is known not to crash; what is missing is a check that it
 does the thing it exists to do. The badge is cleared in the commit that adds that check.
 
-56 modules across 6 categories; 2 marked UNTESTED.
+56 modules across 6 categories; 0 marked UNTESTED.
 
 ## Combat
 
@@ -199,7 +199,7 @@ Sets the shared per-tick scanning ceiling every ESP scanner draws from
 | --- | --- | --- | --- |
 | `scanBudget` | `balanced` | `low\|balanced\|high` | Total scanning work allowed per client tick; balanced is the recommended default |
 
-### PlayerAlerts — UNTESTED
+### PlayerAlerts
 
 Notifies when another player becomes visible or leaves the client render set
 
@@ -684,7 +684,7 @@ Estimates whether an incoming projectile will pass close to you; reads Projectil
 | `cooldown` | `40` | `5..200` | Ticks between warnings |
 | `ignoreOwnProjectiles` | `true` | `true/false or on/off` | Ignore projectiles you fired yourself |
 
-### SessionTimer — UNTESTED
+### SessionTimer
 
 Shows how long the current play session has been running
 

@@ -154,8 +154,25 @@ public class Module {
 		settings.addChoiceSetting(name, defaultValue, description, choices);
 	}
 
+    /*
+     * The keybind loop asks every module for its chord twice a tick, and parsing it formats and parses
+     * the stored value each time. The setting object is replaced whenever it changes, so an identical
+     * object with identical modifiers is the same chord; a different object holding the same value
+     * just re-parses.
+     */
+    private Object chordSource;
+    private int chordModifiers;
+    private me.mrhakan.agalarhack.input.KeyChord chord;
+
     public me.mrhakan.agalarhack.input.KeyChord getChord() {
-        return me.mrhakan.agalarhack.input.KeyChord.parse(settings.getSetting("keybind"), (int)getNumberSetting("keyModifiers",0));
+        Object raw = settings.getSetting("keybind");
+        int modifiers = (int) getNumberSetting("keyModifiers", 0);
+        if (chord == null || raw != chordSource || modifiers != chordModifiers) {
+            chord = me.mrhakan.agalarhack.input.KeyChord.parse(raw, modifiers);
+            chordSource = raw;
+            chordModifiers = modifiers;
+        }
+        return chord;
     }
     public int getKey() { return getChord().key(); }
     public String getBindLabel() {

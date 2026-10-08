@@ -17,16 +17,17 @@ public class KeybindManager {
         boolean suppressToggles = client.gui.screen() != null;
         tickMacros(client, suppressToggles);
 
+        var input = me.mrhakan.agalarhack.services.ClientServices.require(me.mrhakan.agalarhack.services.InputStateService.class);
+        int heldModifiers = input.modifiers();
         for (Module m : AgalarHackClient.moduleManager.getModuleList()) {
-            int key = m.getKey();
+            var chord = m.getChord();
+            int key = chord.key();
             if (key == InputConstants.UNKNOWN.getValue()) {
                 lastPressed.put(m, false);
                 continue;
             }
 
-            var input = me.mrhakan.agalarhack.services.ClientServices.require(me.mrhakan.agalarhack.services.InputStateService.class);
-            var chord = m.getChord();
-            int modifiers = input.modifiers();
+            int modifiers = heldModifiers;
             // A modifier bound by itself does not require its own flag in the chord mask.
             if (key == 340 || key == 344) modifiers &= ~1;
             if (key == 341 || key == 345) modifiers &= ~2;

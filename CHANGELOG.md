@@ -4,6 +4,17 @@ Releases are numbered **2.x.yy**: `x` is the major version and `yy` a two-digit 
 [Versioning](README.md#versioning)). Every version needs a section here before it can be merged; CI
 publishes the section as the GitHub release notes.
 
+## [2.0.02] - 2026-10-08
+
+### Verified
+- PlayerAlerts and SessionTimer are no longer marked UNTESTED. Each now has a real-client game test:
+  PlayerAlerts sees a second player the client receives over the connection come into view and
+  leave it, and SessionTimer is checked against measured time, resets when it is switched back on
+  and honours `showSeconds`.
+
+### Performance
+- A module's keybind is parsed once per change instead of twice per tick for every module.
+
 ## [2.0.01] - 2026-10-08
 
 ### Release process
