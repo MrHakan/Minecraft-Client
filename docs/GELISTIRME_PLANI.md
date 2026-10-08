@@ -46,8 +46,8 @@ Hedef: oyuncuya görünen hatayı düzeltmek ve her karede çalışan HUD/render
    kopyalanır, `ensureDefaults()` da yalnızca eksik anahtar için kopya yapar. (#2)
 3. **HUD sırası önbellekte.** Sıra, kayıt ya da z-order değişince yeniden hesaplanır. Sabit
    durumda kare başına sıralama ve liste üretimi yapılmaz. Eşit z-order'da kayıt sırası korunur. (#3)
-4. **Arkadaş araması indeksli.** Küçük harfli bir `Set` ile O(1) arama yapılır. Kayıtlı görünen
-   adlar ve dosya biçimi aynı kalır. (#4)
+4. **Arkadaş araması indeksli.** Adlar küçük harfli anahtarla bir `Map` içinde tutulur ve arama O(1)
+   yapılır. Görünen adlar, sıra ve dosya biçimi aynı kalır. (#4)
 5. **Blok id önbelleği ve döngü dışı ayarlar.** StorageESP ve BlockESP blok başına string
    üretmez. Menzil ve alfa ayarları döngü dışında bir kez okunur, mesafe bir kez hesaplanır. (#5)
 6. **Gökkuşağı rengi nesnesiz.** `Color.HSBtoRGB` statik çağrısı kullanılır ve tema bir kez
