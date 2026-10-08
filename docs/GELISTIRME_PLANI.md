@@ -29,10 +29,13 @@ işi koru, render callback'lerini ucuz tut, kalıcı veriyi güvenli tut.
 | 10 | Kapasite | `EntityDiscovery` | Beş ESP tüketicisi aynı varlık bütçesini ayrı ayrı yürüyor. Kalabalık sunucuda (~800+ varlık) birbirlerini kesiyorlar. Tek ortak yürüyüş bu tavanı kaldırır. |
 | 11 | Kod sağlığı | `GrindExecutor` (1.650 satır), `SurvivalTasks` (782), `WorldOverlayRenderer` (747) | Tek dosyada çok fazla sorumluluk var. Değişiklik riski yüksek ve okunması zor. |
 | 12 | Kod sağlığı | Genel | Tam nitelikli sınıf adları (`me.mrhakan.agalarhack.services.X`) satır içinde yaygın, bazı dosyalarda boşluksuz yoğun biçim var. |
+| 13 | Hata (UX) | `Hud` — Info, Target HUD, Movement Stats | HUD editörü bu widget'ların kutusunu, kenar/merkez yakalamasını ve çakışma uyarısını sabit tahminlerle (ör. 150×48) hesaplıyor. İki satırlık bir Info bloğu 48 px yüksekliğinde gösteriliyor. |
+| 14 | Performans | `ServiceRegistry.require()` | Her çağrıda bir `Optional` ve değer yakalayan bir lambda oluşturuluyor. Render ve tick kodu bunu her karede çağırıyor. |
+| 15 | Performans | ItemESP / InventoryCleaner | Liste filtresi her tick, her eşya için yeni bir id string'i üretiyor. |
 
 ## Fazlar
 
-### Faz 1 — Doğruluk ve sıcak yol (bu çalışma)
+### Faz 1 — Doğruluk ve sıcak yol ✅ tamamlandı
 
 Hedef: oyuncuya görünen hatayı düzeltmek ve her karede çalışan HUD/render kodundaki gereksiz nesne
 üretimini kaldırmak. Davranış değişmeyecek; her madde birim testiyle korunacak.
@@ -49,30 +52,38 @@ Hedef: oyuncuya görünen hatayı düzeltmek ve her karede çalışan HUD/render
    üretmez. Menzil ve alfa ayarları döngü dışında bir kez okunur, mesafe bir kez hesaplanır. (#5)
 6. **Gökkuşağı rengi nesnesiz.** `Color.HSBtoRGB` statik çağrısı kullanılır ve tema bir kez
    çözülür. (#6)
+7. **Servis araması nesnesiz.** `ServiceRegistry.require()` doğrudan map araması yapar. (#14)
 
 Kanıt: `./gradlew build` (birim testler + gametest derlemesi) ve `tools/smoke-client.sh` ile
 gerçek istemcide game testleri.
 
-### Faz 2 — Render yolunun kalanı
+### Faz 2 — Render yolunun kalanı (kısmen tamamlandı)
 
-1. ESP stilini (renkler, alfa, solma eşikleri, arkadaş/takım ayarları) kare başına bir kez çözen
-   küçük bir değer nesnesi yazmak. (#7)
-2. `ViewCulling.isVisible(int x, int y, int z)` aşırı yüklemesi ya da tek bir yeniden kullanılan
-   kutu ile blok testlerini nesnesiz yapmak. (#8)
-3. Metin widget'larında değeri tick başına önbelleğe almak, ölçüm ve çizimin aynı string'i
-   kullanmasını sağlamak. (#9)
-4. Trajectories simülasyonunda adım başına `Vec3`/`ClipContext` üretimini azaltmak. Çarpışma
-   doğruluğu korunmalı ve mevcut game testleri ölçüt olmalı.
-5. Her adımdan önce Performance/debug HUD ile ölçüm yapmak. Ölçülemeyen bir kazanç için kod
+1. ✅ ESP stili (renkler, alfa, solma eşikleri, arkadaş/takım ayarları) varlık başına değil, geçiş
+   başına bir kez çözülüyor. (#7)
+2. ✅ Info, Target HUD ve Movement Stats editöre son çizilen boyutlarını bildiriyor. Module List
+   bunu zaten yapıyordu. (#13)
+3. ✅ ItemESP ve InventoryCleaner eşya id'lerini aynı oturum önbelleğinden alıyor. (#15)
+4. ❎ `ViewCulling` blok testi (#8): `AABB` değiştirilemez bir sınıf ve `Frustum` yalnızca kutu
+   kabul ediyor. Access widener olmadan nesnesiz bir yol yok. Bu kısa ömürlü nesneleri JIT'in
+   escape analizi büyük ölçüde siliyor. Ölçüm bir sorun göstermedikçe dokunulmayacak.
+5. ❎ Metin widget'larında çift değerlendirme (#9): Ölçüm yalnızca HUD editörü açıkken yapılıyor.
+   Oyun sırasında metin kare başına bir kez üretiliyor, yani gerçek bir sıcak yol değil.
+6. ⏳ Trajectories simülasyonu adım başına bir varlık sorgusu yapıyor (100 adımda kare başına 100
+   sorgu). Olası çözüm: önce blok çarpışmasıyla yolu çıkarmak, sonra tüm yolu kapsayan kutuda tek
+   bir varlık sorgusu yapıp segmentleri bu adaylarla test etmek. Çarpışma doğruluğu game
+   testleriyle korunmalı. Önce ölçülecek.
+7. Her adımdan önce Performance/debug HUD ile ölçüm yapılır. Ölçülemeyen bir kazanç için kod
    eklenmez.
 
-### Faz 3 — Ölçek
+### Faz 3 — Ölçek (kısmen tamamlandı)
 
-1. `EntityDiscovery` için tek bir ortak varlık yürüyüşü kurmak: ESP, Tracers, Nametags, ItemESP
-   ve ProjectileESP aynı geçişten beslenir, tavan ve tick'ler arası rastgele kesilme ortadan
-   kalkar. (#10)
-2. Kalabalık sunucu senaryosu için bir game testi eklemek (çok sayıda varlık, sonuçların
-   kesilmediğinin doğrulanması).
+1. ✅ `SharedEntityWalk`: ESP, Tracers, Nametags, ItemESP ve ProjectileESP tick başına tek bir
+   varlık taramasından besleniyor. Bir varlık, kaç modül bakarsa baksın bir bütçe birimi tutuyor.
+   Modül başına menzil, sonuç sınırı, filtre, dünya değişiminde boşaltma ve 4096 gözlem tavanı
+   korunuyor. Hata veren bir filtre yalnızca kendi modülünü kapatıyor. (#10)
+2. ⏳ Kalabalık sunucu senaryosu için bir game testi eklemek (çok sayıda varlık, beş modülün de
+   kesilmeden sonuç aldığının doğrulanması).
 
 ### Faz 4 — Kod sağlığı
 
@@ -101,8 +112,8 @@ temalarda görsel kontrol, doğal balık tutma, gecikmeli çok oyunculu sunucu, 
 
 | Faz | Durum |
 | --- | --- |
-| Faz 1 | Uygulanıyor |
-| Faz 2 | Planlandı |
-| Faz 3 | Planlandı |
+| Faz 1 | Tamamlandı |
+| Faz 2 | Kısmen: 3 madde yapıldı, 2 madde gerekçesiyle elendi, Trajectories ölçüme bağlı |
+| Faz 3 | Kısmen: ortak tarama yapıldı, kalabalık sunucu game testi kaldı |
 | Faz 4 | Planlandı |
 | Faz 5 | Manuel, sahibin testine bağlı |
