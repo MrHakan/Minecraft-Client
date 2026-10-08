@@ -83,11 +83,16 @@ kurulum testinde doğrulanır.
 
 ### C. Render mimarisi — M
 
-1. **Overlay aileleri.** `WorldOverlayRenderer` varlık, blok, çizgi ve etiket ailelerine bölünsün.
-   Her overlay tek bir arayüzü uygulasın: `collect(context)` ve `geometry(pose, buffer)`. Çağıran
-   tek bir döngü olsun, modül adına göre `instanceof` zinciri kalksın.
+1. ✅ **Overlay aileleri (2.0.03).** `WorldOverlayRenderer` kaldırıldı. Her modülün overlay'i
+   `ui/overlay` altında küçük bir `WorldOverlay` sınıfı: `EntityOverlays`, `BlockOverlays` ve
+   `PathOverlays` aileleri, çizim yardımcıları `OverlayDraw` içinde. `WorldOverlays` tek bir sıralı
+   listeyle etiketleri ve çizgileri dolaşıyor; modül adına göre `instanceof` zinciri kalktı. Metod
+   gövdeleri değişmeden taşındı (40 metod otomatik karşılaştırıldı), çizim sırası ve modül başına
+   hata yalıtımı aynı, sırayı bir birim testi sabitliyor.
 2. **Ölçülebilir overlay maliyeti.** `RenderService.guard` her overlay için süre toplasın. Var olan
-   `ModuleTimingsHud` tick sürelerinin yanında render sürelerini de göstersin.
+   `ModuleTimingsHud` tick sürelerinin yanında render sürelerini de göstersin. Not: `ModuleTimings`
+   tick başına pencere tutuyor; render kare başına çalıştığı için ayrı, kare tabanlı bir depo
+   gerekiyor. D1'den sonraya alındı.
 3. **Trajectories tek varlık sorgusu.** Ölçüm bir maliyet gösterirse yol önce blok çarpışmasıyla
    çıkarılsın. Sonra tüm yolu kapsayan kutuda tek bir varlık sorgusu yapılıp segmentler bu
    adaylarla test edilsin.
@@ -161,7 +166,8 @@ E (kanıt) her adımda paralel
 | --- | --- |
 | 2.0.01 | A1–A3: tekrarsız release, `v` etiketleri, CHANGELOG |
 | 2.0.02 | F, E1: `UNTESTED` rozetlerinin kaldırılması |
-| 2.0.03–2.0.05 | C1–C2 render bölünmesi, D1 GrindExecutor bölünmesi (davranış değişmeden) |
+| 2.0.03 | ✅ C1 render bölünmesi (davranış değişmeden) |
+| 2.0.04–2.0.05 | D1 GrindExecutor bölünmesi (davranış değişmeden), ardından C2 overlay süreleri |
 | 2.0.06+ | D2–D4 AutoGrind 2 adımları, C3 (ölçüm sonucuna göre) |
 | 2.1.00 | B: Addon API 2 ve sürüm sözleşmesi, A4 güncelleme denetleyicisi |
 

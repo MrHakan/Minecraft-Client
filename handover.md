@@ -38,6 +38,11 @@
   first, then it is added to the server level, so the client receives a real player; the entity
   goes before the tab-list entry on the way out. `sessionTimer` compares the clock with measured
   time. `Module.getChord` caches the parsed chord until the keybind or modifier setting changes.
+- 2.0.03: `ui/WorldOverlayRenderer` is gone. Overlays live in `ui/overlay`: `WorldOverlay<M>` (one
+  per module: `active`, `submitLabels`, `drawLines`), the `EntityOverlays`/`BlockOverlays`/
+  `PathOverlays` families, `OverlayDraw` primitives and the `WorldOverlays` dispatcher whose list
+  order is the draw order (pinned by `WorldOverlaysTest`). `ViewCullingTest` scans the whole
+  package. Bodies were moved verbatim.
 - The 2.1.00 major plan is in [docs/MAJOR_GELISTIRME_PLANI.md](docs/MAJOR_GELISTIRME_PLANI.md)
   (Turkish): release-process fixes first (main currently publishes a release on every push, so an
   unbumped version repeats), then Addon API 2, the render and GrindExecutor splits, AutoGrind

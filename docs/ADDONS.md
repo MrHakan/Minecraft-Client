@@ -60,7 +60,7 @@ This client is not on a Maven repository, so depend on the jar you have:
 
 ```gradle
 dependencies {
-    modImplementation files("libs/agalarhack-2.0.02.jar")
+    modImplementation files("libs/agalarhack-2.0.03.jar")
 }
 ```
 

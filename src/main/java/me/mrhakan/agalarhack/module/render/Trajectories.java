@@ -3,7 +3,7 @@ package me.mrhakan.agalarhack.module.render;
 import me.mrhakan.agalarhack.module.Category;
 import me.mrhakan.agalarhack.module.Module;
 
-/** Settings holder for held-projectile path prediction rendered by WorldOverlayRenderer. */
+/** Settings holder for held-projectile path prediction rendered by PathOverlays.TrajectoryOverlay. */
 public class Trajectories extends Module {
     public Trajectories() {
         super("Trajectories", Category.RENDER, "Predicts held projectile flight paths using vanilla-aware launch physics");
