@@ -33,6 +33,11 @@
   build. `main` publishes only an unreleased version, tagged `v2.x.yy` on the built commit with the
   changelog as notes; `release.yml` is gone. The release name keeps `Agalar Hack v<version>+<sha>`
   because `GitHubUpdateChecker` parses it.
+- 2.0.02: PlayerAlerts and SessionTimer are verified in game, leaving no UNTESTED modules.
+  `ModuleBehaviourGameTest.playerAlerts` spawns a Fabric `FakePlayer`: tab-list info is broadcast
+  first, then it is added to the server level, so the client receives a real player; the entity
+  goes before the tab-list entry on the way out. `sessionTimer` compares the clock with measured
+  time. `Module.getChord` caches the parsed chord until the keybind or modifier setting changes.
 - The 2.1.00 major plan is in [docs/MAJOR_GELISTIRME_PLANI.md](docs/MAJOR_GELISTIRME_PLANI.md)
   (Turkish): release-process fixes first (main currently publishes a release on every push, so an
   unbumped version repeats), then Addon API 2, the render and GrindExecutor splits, AutoGrind
