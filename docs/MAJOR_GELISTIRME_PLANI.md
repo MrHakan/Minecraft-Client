@@ -31,22 +31,28 @@ kod tabanında doğrulanmış bir eksikten çıkıyor, modül sayısını artır
 
 Boyutlar görecelidir: **S** birkaç gün, **M** bir iki hafta, **L** daha uzun.
 
-### A. Yayın süreci ve sürüm güvenliği — S (önce yapılacak)
+### A. Yayın süreci ve sürüm güvenliği — S (A1–A3: 2.0.01'de yapıldı)
 
 Bu iş akışı ilk sırada, çünkü diğer işlerin her biri 2.0.yy olarak çıkacak.
 
-1. **Aynı sürümle ikinci release çıkmasın.** CI, aynı `mod_version` ile daha önce release
+1. ✅ **Aynı sürümle ikinci release çıkmasın.** CI, aynı `mod_version` ile daha önce release
    yapılmışsa yayın adımını atlasın (ya da PR'da `yy` artırılmadıysa uyarsın). Kod değişmeyen
    push'lar (yalnızca doküman) release üretmesin.
-2. **Etiket = sürüm.** Release etiketi CI çalıştırma numarası (`36696095697`) yerine `v2.0.yy`
+2. ✅ **Etiket = sürüm.** Release etiketi CI çalıştırma numarası (`36696095697`) yerine `v2.0.yy`
    olsun. `release.yml` ile `build.yml`'deki iki ayrı yayın yolu tek yola indirilsin.
-3. **CHANGELOG.md.** Her sürüm için kısa bir değişiklik listesi. Release notu buradan alınsın.
-4. **Güncelleme denetleyicisi sürümü tanısın.** Şu an commit farkına bakıyor. 2.x.yy sıralaması
+3. ✅ **CHANGELOG.md.** Her sürüm için kısa bir değişiklik listesi. Release notu buradan alınsın.
+4. ⏳ **Güncelleme denetleyicisi sürümü tanısın.** (2.1.00) Şu an commit farkına bakıyor. 2.x.yy sıralaması
    ile "yeni sürüm var" ve "farklı bir derleme" ayrı ayrı gösterilsin. Sıralamayı Fabric zaten
    doğru yapıyor (`2.0.10 > 2.0.09`).
 
 Kabul: art arda iki doküman push'u yeni release üretmez. Sürüm artırılan bir push `v2.0.yy`
 etiketli tek bir release üretir ve notu CHANGELOG'dan gelir.
+
+2.0.01'deki uygulama: CI sürüm okuma, CHANGELOG ve etiket kontrolünü işin başında yapıyor.
+`tools/release_notes.py` sürümün bölümünü yazdırıyor; bölüm yoksa ya da boşsa PR'ı düşürüyor.
+`v<sürüm>` etiketi zaten varsa yayın adımı atlanıyor ve PR'da uyarı çıkıyor. Etiket listesi
+okunamazsa iş duruyor, böylece belirsiz bir durumda yinelenen release çıkmıyor. Etiketler
+`v2.x.yy` biçiminde ve doğrudan derlenen commit'e konuyor. `release.yml` kaldırıldı.
 
 ### B. Addon API 2 — L
 
