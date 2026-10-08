@@ -27,7 +27,7 @@ final class GrindOffhandTask implements TaskRunner.Task {
     @Override public boolean tick() {
         movementReason = null;
         if (satisfied()) return true;
-        if (g.closeOwnedStationMenu()) return true;
+        if (g.stations.closeOwnedStationMenu()) return true;
         if (g.client.gui.screen() != null || g.client.player.containerMenu != g.client.player.inventoryMenu) {
             movementReason = "Close the open screen before AutoGrind can move an offhand ingredient.";
             return true;

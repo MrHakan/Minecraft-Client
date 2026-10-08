@@ -4,6 +4,15 @@ Releases are numbered **2.x.yy**: `x` is the major version and `yy` a two-digit 
 [Versioning](README.md#versioning)). Every version needs a section here before it can be merged; CI
 publishes the section as the GitHub release notes.
 
+## [2.0.05] - 2026-10-08
+
+### Internal
+- AutoGrind's Baritone travel, its crafting table and furnace bookkeeping, and its reach, sight and
+  aiming checks moved out of `GrindExecutor` into three collaborators (`GrindTravel`,
+  `GrindStations`, `GrindReach`), taking the executor from 814 to about 590 lines. The move was
+  compiler-guided like 2.0.04's: the 210 moved lines match the originals apart from the executor
+  prefix, and callers changed only in which object they ask. No behaviour change.
+
 ## [2.0.04] - 2026-10-08
 
 ### Internal

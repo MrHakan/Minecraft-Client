@@ -41,8 +41,8 @@ final class GrindGatherTask implements TaskRunner.Task {
     @Override public String name() { return "gather " + resource + " (" + g.count(resource) + "/" + goal + ")"; }
     @Override public boolean satisfied() {
         if (g.count(resource) < goal) return false;
-        g.cancelOwnedMining();
-        g.cancelMovement();
+        g.travel.cancelOwnedMining();
+        g.travel.cancelMovement();
         return true;
     }
     @Override public int budgetTicks() { return Math.max(TaskRunner.DEFAULT_BUDGET_TICKS, Math.min(70_000, (goal - g.count(resource)) * 100 + 4_000)); }
@@ -52,7 +52,7 @@ final class GrindGatherTask implements TaskRunner.Task {
         movementReason = null;
         if (failureReason != null) return false;
         if (satisfied()) return true;
-        if (g.closeOwnedStationMenu()) return true;
+        if (g.stations.closeOwnedStationMenu()) return true;
         if (g.client.gui.screen() != null) {
             movementReason = "Close the open screen before AutoGrind can gather " + resource + ".";
             return true;
@@ -84,7 +84,7 @@ final class GrindGatherTask implements TaskRunner.Task {
                 waitingForPickup = true;
                 pickupWait = 0;
             } else {
-                if (!g.withinReach(target)) {
+                if (!g.reach.withinReach(target)) {
                     movementReason = movementMessage(target, "outside direct interaction reach");
                     return true;
                 }
@@ -101,9 +101,9 @@ final class GrindGatherTask implements TaskRunner.Task {
                     }
                     if (!g.inventory.select(GrindExecutor.OWNER, GrindExecutor.PRIORITY, toolSlot, false, true)) return true;
                 }
-                g.aimAt(target);
-                if (!g.aimedAt(target)) return true;
-                BlockHitResult hit = g.hitTarget(target);
+                g.reach.aimAt(target);
+                if (!g.reach.aimedAt(target)) return true;
+                BlockHitResult hit = g.reach.hitTarget(target);
                 if (hit == null) {
                     movementReason = movementMessage(target, "blocked from direct interaction");
                     return true;
@@ -154,7 +154,7 @@ final class GrindGatherTask implements TaskRunner.Task {
                 scanStarted = false;
                 return true;
             }
-            if (!g.withinReach(target)) {
+            if (!g.reach.withinReach(target)) {
                 movementReason = movementMessage(target,
                         "movement automation unavailable; move closer and run .grind resume");
                 return true;
@@ -184,13 +184,13 @@ final class GrindGatherTask implements TaskRunner.Task {
                 for (int slot = 0; slot < InventoryTransfers.INVENTORY_SIZE && !tool; slot++)
                     tool = GrindExecutor.validTool(g.inventory.stackAt(slot), state, resource);
                 if (!tool) {
-                    g.cancelAutomation();
+                    g.travel.cancelAutomation();
                     failureReason = "no carried pickaxe can harvest " + resource;
                     return false;
                 }
             }
-            if (!g.ownsMining) {
-                if (g.awaitCancellation()) return true;
+            if (!g.travel.ownsMining) {
+                if (g.travel.awaitCancellation()) return true;
                 if (g.baritone.mining() || g.baritone.pathing() || g.baritone.goalActive()) {
                     movementReason = "Another Baritone process is active; stop it before .grind resume.";
                     return true;
@@ -199,9 +199,9 @@ final class GrindGatherTask implements TaskRunner.Task {
                     movementReason = "Baritone could not start " + resource + " mining; inspect its log or disable it.";
                     return true;
                 }
-                g.ownsMining = true;
+                g.travel.ownsMining = true;
             } else if (!g.baritone.mining()) {
-                g.ownsMining = false;
+                g.travel.ownsMining = false;
                 movementReason = "Baritone ended mining before " + resource + " reached its inventory goal; .grind resume to retry.";
             }
             return true;
@@ -288,8 +288,8 @@ final class GrindGatherTask implements TaskRunner.Task {
     @Override
     public void cancel() {
         g.scanner.cancel(this);
-        g.cancelOwnedMining();
-        g.cancelMovement();
+        g.travel.cancelOwnedMining();
+        g.travel.cancelMovement();
         stopBreaking();
         g.rotations.release(GrindExecutor.OWNER);
         g.inventory.release(GrindExecutor.OWNER);

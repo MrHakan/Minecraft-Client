@@ -116,18 +116,18 @@ public final class BaritoneCampaignGameTest implements FabricClientGameTest {
             context.runOnClient(c -> {
                 g.stop();
                 BlockPos adjacent = c.player.blockPosition().offset(1, 0, 0);
-                if (!g.moveTo(adjacent) || !bridge.goalActive()) throw new AssertionError("Adjacent exact goal did not start");
-                if (!g.moveTo(adjacent) || !bridge.goalActive())
+                if (!g.travel.moveTo(adjacent) || !bridge.goalActive()) throw new AssertionError("Adjacent exact goal did not start");
+                if (!g.travel.moveTo(adjacent) || !bridge.goalActive())
                     throw new AssertionError("AutoGrind completed an exact goal before entering its block");
-                g.cancelMovement();
+                g.travel.cancelMovement();
             });
             context.waitTicks(20);
             context.runOnClient(c -> {
                 g.stop();
-                if (!g.moveTo(remote)) throw new AssertionError("Ownership fixture did not start");
+                if (!g.travel.moveTo(remote)) throw new AssertionError("Ownership fixture did not start");
                 if (bridge.pathTo(base.getX() + 8, base.getY(), base.getZ()) != BaritoneBridge.Result.STARTED)
                     throw new AssertionError("Replacement goal did not start");
-                g.cancelMovement();
+                g.travel.cancelMovement();
                 if (!bridge.ownsGoal() || !bridge.goalActive()) throw new AssertionError("AutoGrind cancelled a replacement goal");
                 bridge.cancelGoal(); g.stop();
             });
@@ -165,11 +165,11 @@ public final class BaritoneCampaignGameTest implements FabricClientGameTest {
     private static void travel(ClientGameTestContext context, GrindExecutor g, SurvivalTasks upkeep, BlockPos target, int budget) {
         for (int i = 0; i < budget; i++) {
             if (context.computeOnClient(c -> c.player.blockPosition().closerThan(target, 1.5))) {
-                context.runOnClient(c -> g.cancelMovement()); return;
+                context.runOnClient(c -> g.travel.cancelMovement()); return;
             }
             context.runOnClient(c -> {
                 if (upkeep.maintain()) return;
-                if (!g.moveTo(target)) throw new AssertionError(g.movementProblem("Real Baritone travel could not start"));
+                if (!g.travel.moveTo(target)) throw new AssertionError(g.travel.movementProblem("Real Baritone travel could not start"));
             });
             context.waitTicks(1);
         }
