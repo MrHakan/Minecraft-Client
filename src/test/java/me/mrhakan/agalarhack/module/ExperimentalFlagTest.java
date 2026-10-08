@@ -61,7 +61,9 @@ class ExperimentalFlagTest {
             java.util.Map.entry("CombatHistory.java", "combatHistory"),
             java.util.Map.entry("ElytraInfo.java", "elytraInfo"),
             java.util.Map.entry("AutoRespawn.java", "autoRespawn"),
-            java.util.Map.entry("BaseFinder.java", "baseFinder"));
+            java.util.Map.entry("BaseFinder.java", "baseFinder"),
+            java.util.Map.entry("PlayerAlerts.java", "playerAlerts"),
+            java.util.Map.entry("SessionTimer.java", "sessionTimer"));
 
     private static final Path BEHAVIOUR_TEST =
             Path.of("src/gametest/java/me/mrhakan/agalarhack/gametest/ModuleBehaviourGameTest.java");

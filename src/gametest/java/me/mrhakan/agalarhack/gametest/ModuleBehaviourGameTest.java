@@ -90,6 +90,8 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
             performance(context);
             serverInfo(context);
             gamemodeAlerts(context, singleplayer);
+            playerAlerts(context, singleplayer);
+            sessionTimer(context);
             critInfo(context, singleplayer);
             elytraInfo(context, singleplayer);
             totemTracker(context, singleplayer);
@@ -1158,6 +1160,136 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
                     + "transition from the client-visible player list");
         }
         LOGGER.info("  GamemodeAlerts reported a real self game-mode change");
+    }
+
+    /**
+     * A second player the client really receives over the connection, rather than one built on the
+     * client.
+     *
+     * <p>A Fabric {@code FakePlayer} is a real {@code ServerPlayer} whose connection drops what it is
+     * sent. The client only accepts a player entity it already has tab-list information for - without
+     * it, the spawn is dropped with a warning - so the information goes first, the same order a joining
+     * player's arrives in. Leaving is the reverse: the entity, then the tab-list entry.
+     */
+    private void playerAlerts(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        String probe = "AlertProbe";
+        java.util.UUID probeId = java.util.UUID.nameUUIDFromBytes(
+                ("agalarhack-gametest:" + probe).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        String entered = "Player entered visual range: " + probe;
+        String left = "Player left visual range: " + probe;
+        moveThere(context, singleplayer, sceneBase.offset(0, 0, 600));
+        toggle(context, "Notifications", true);
+        configure(context, "PlayerAlerts", module -> {
+            module.settings.setSetting("enter", true);
+            module.settings.setSetting("leave", true);
+            module.settings.setSetting("friendsOnly", false);
+            module.settings.setSetting("cooldownMs", 0.0);
+        });
+        toggle(context, "PlayerAlerts", true);
+        context.waitTicks(10);
+        try {
+            assertNotYet(context, notice(entered), "PlayerAlerts reported the probe player before it existed");
+
+            singleplayer.getServer().runOnServer(server -> {
+                ServerPlayer player = singleplayer.getConnection().getServerPlayer();
+                ServerLevel level = player.level();
+                var fake = net.fabricmc.fabric.api.entity.FakePlayer.get(level,
+                        new com.mojang.authlib.GameProfile(probeId, probe));
+                fake.setPos(player.getX() + 6, player.getY(), player.getZ());
+                server.getPlayerList().broadcastAll(
+                        net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket
+                                .createPlayerInitializing(java.util.List.of(fake)));
+                level.addNewPlayer(fake);
+            });
+            if (!settle(context, notice(entered), SETTLE_TICKS)) {
+                boolean seen = context.computeOnClient(client -> client.level.getPlayerByUUID(probeId) != null);
+                throw new AssertionError("PlayerAlerts said nothing when a second player came into view; the client "
+                        + (seen ? "did" : "did not") + " have the player entity, so "
+                        + (seen ? "the module missed it" : "the scenario is broken, not the module"));
+            }
+
+            singleplayer.getServer().runOnServer(server -> {
+                ServerLevel level = singleplayer.getConnection().getServerPlayer().level();
+                if (level.getPlayerByUUID(probeId) instanceof ServerPlayer fake) {
+                    level.removePlayerImmediately(fake, Entity.RemovalReason.DISCARDED);
+                }
+                server.getPlayerList().broadcastAll(
+                        new net.minecraft.network.protocol.game.ClientboundPlayerInfoRemovePacket(java.util.List.of(probeId)));
+            });
+            if (!settle(context, notice(left), SETTLE_TICKS)) {
+                throw new AssertionError("PlayerAlerts saw the probe player arrive but said nothing when it left");
+            }
+        } finally {
+            toggle(context, "PlayerAlerts", false);
+            toggle(context, "Notifications", false);
+            singleplayer.getServer().runOnServer(server -> {
+                ServerLevel level = singleplayer.getConnection().getServerPlayer().level();
+                if (level.getPlayerByUUID(probeId) instanceof ServerPlayer fake) {
+                    level.removePlayerImmediately(fake, Entity.RemovalReason.DISCARDED);
+                }
+            });
+        }
+        LOGGER.info("  PlayerAlerts reported a real second player entering and leaving view");
+    }
+
+    /**
+     * The session clock against time measured here, and its reset when it is switched back on.
+     *
+     * <p>Measured rather than counted in ticks: a software-rendered client does not hold twenty ticks
+     * a second, so a tick count says little about how many seconds the clock should show.
+     */
+    private void sessionTimer(ClientGameTestContext context) {
+        java.util.regex.Pattern withSeconds = java.util.regex.Pattern.compile("Session: (\\d{2}):(\\d{2}):(\\d{2})");
+        configure(context, "SessionTimer", module -> module.settings.setSetting("showSeconds", true));
+        toggle(context, "SessionTimer", true);
+        long started = System.nanoTime();
+        try {
+            String first = sessionLine(context);
+            var opening = withSeconds.matcher(first);
+            if (!opening.matches() || sessionSeconds(opening) > 1) {
+                throw new AssertionError("SessionTimer started at '" + first + "' rather than at zero");
+            }
+            while (System.nanoTime() - started < 3_500_000_000L) context.waitTicks(5);
+            long elapsed = (System.nanoTime() - started) / 1_000_000_000L;
+            String later = sessionLine(context);
+            var running = withSeconds.matcher(later);
+            if (!running.matches() || Math.abs(sessionSeconds(running) - elapsed) > 1) {
+                throw new AssertionError("SessionTimer showed '" + later + "' after " + elapsed + " measured seconds");
+            }
+
+            toggle(context, "SessionTimer", false);
+            toggle(context, "SessionTimer", true);
+            String restarted = sessionLine(context);
+            var reset = withSeconds.matcher(restarted);
+            if (!reset.matches() || sessionSeconds(reset) > 1) {
+                throw new AssertionError("SessionTimer kept counting across a restart: '" + restarted + "'");
+            }
+
+            configure(context, "SessionTimer", module -> module.settings.setSetting("showSeconds", false));
+            String minutes = sessionLine(context);
+            if (!minutes.matches("Session: \\d{2}:\\d{2}")) {
+                throw new AssertionError("SessionTimer ignored showSeconds=false: '" + minutes + "'");
+            }
+            LOGGER.info("    SessionTimer: '{}' after {} s, '{}' after restart, '{}' without seconds",
+                    later, elapsed, restarted, minutes);
+        } finally {
+            toggle(context, "SessionTimer", false);
+            configure(context, "SessionTimer", module -> module.settings.setSetting("showSeconds", false));
+        }
+        LOGGER.info("  SessionTimer kept time with the real clock and reset on restart");
+    }
+
+    private static String sessionLine(ClientGameTestContext context) {
+        return context.computeOnClient(client -> {
+            var lines = ((me.mrhakan.agalarhack.ui.hud.HudInfoProvider)
+                    AgalarHackClient.moduleManager.getModule("SessionTimer")).getHudLines();
+            return lines.isEmpty() ? "" : lines.get(0).text();
+        });
+    }
+
+    private static long sessionSeconds(java.util.regex.Matcher match) {
+        return Long.parseLong(match.group(1)) * 3600 + Long.parseLong(match.group(2)) * 60
+                + Long.parseLong(match.group(3));
     }
 
     /**

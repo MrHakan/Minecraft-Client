@@ -18,7 +18,6 @@ public class SessionTimer extends Module implements HudInfoProvider {
 
     public SessionTimer() {
         super("SessionTimer", Category.RENDER, "Shows how long the current play session has been running");
-        markExperimental();
     }
 
     @Override public void selfSettings() {
