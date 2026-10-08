@@ -17,7 +17,6 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.component.DataComponents;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.Style;
 import net.minecraft.network.chat.TextColor;
@@ -139,18 +138,69 @@ public final class WorldOverlayRenderer {
         });
     }
 
-    private static boolean currentEspTarget(Minecraft mc, Module esp, LivingEntity target) {
-        double range = esp.getNumberSetting("range", 96);
+    /**
+     * ESP settings resolved once per pass instead of once per target.
+     *
+     * <p>The colour and fade of every target used to re-read about a dozen settings, and the fade was
+     * worked out twice for a labelled one. None of it can change between the targets of one frame.
+     */
+    private record EspStyle(double rangeSquared, int baseRgb, boolean friendColors, int friendRgb, boolean teamColors,
+            boolean distanceFade, int baseAlpha, int minimumAlpha, double fadeStart, double fadeLimit) {
+        static EspStyle of(Module esp) {
+            double range = esp.getNumberSetting("range", 96.0);
+            double fadeLimit = Math.max(0.001, range);
+            return new EspStyle(range * range,
+                    moduleRgb(esp, esp.getNumberSetting("red", 85.0), esp.getNumberSetting("green", 170.0),
+                            esp.getNumberSetting("blue", 255.0), 0.0),
+                    esp.getBooleanSetting("friendColors", true),
+                    rgb(esp.getNumberSetting("friendRed", 85.0), esp.getNumberSetting("friendGreen", 255.0),
+                            esp.getNumberSetting("friendBlue", 120.0)),
+                    esp.getBooleanSetting("teamColors", true),
+                    esp.getBooleanSetting("distanceFade", true),
+                    clampChannel(esp.getNumberSetting("alpha", 230.0)),
+                    clampChannel(esp.getNumberSetting("minimumAlpha", 64.0)),
+                    Math.max(0.0, Math.min(fadeLimit, esp.getNumberSetting("fadeStart", 32.0))),
+                    fadeLimit);
+        }
+
+        /** 1 up to {@code fadeStart}, falling linearly to 0 at the ESP range. */
+        double fade(double distance) {
+            if (!distanceFade || distance <= fadeStart || fadeStart >= fadeLimit) return 1.0;
+            return Math.max(0.0, Math.min(1.0, 1.0 - (distance - fadeStart) / (fadeLimit - fadeStart)));
+        }
+
+        /** Friend colour first, then the scoreboard team colour, then the configured colour. */
+        int color(Minecraft mc, LivingEntity living, double distance) {
+            int chosen = baseRgb;
+            if (living instanceof Player) {
+                if (friendColors && AgalarHackClient.FRIEND_MANAGER.isFriend(living.getName().getString())) {
+                    chosen = friendRgb;
+                } else if (teamColors && mc.player.isAlliedTo(living)) {
+                    chosen = living.getTeamColor() & 0xFFFFFF;
+                }
+            }
+            int alpha = baseAlpha;
+            if (distanceFade) {
+                alpha = (int) Math.round(minimumAlpha + (baseAlpha - minimumAlpha) * fade(distance));
+                alpha = Math.max(0, Math.min(255, alpha));
+            }
+            return (alpha << 24) | chosen;
+        }
+    }
+
+    private static boolean currentEspTarget(Minecraft mc, LivingEntity target, double distanceSquared, EspStyle style) {
         return mc.level != null && mc.player != null && target.level() == mc.level && target.isAlive()
-                && mc.level.getEntity(target.getId()) == target && mc.player.distanceToSqr(target) <= range * range;
+                && mc.level.getEntity(target.getId()) == target && distanceSquared <= style.rangeSquared();
     }
 
     private static void renderEspGeometry(Minecraft mc, Module esp, List<LivingEntity> targets, Vec3 camera, PoseStack.Pose pose, VertexConsumer buffer) {
         boolean boxes = esp.getBooleanSetting("boxes", true);
         boolean tracers = esp.getBooleanSetting("tracers", false);
+        EspStyle style = EspStyle.of(esp);
         for (LivingEntity living : targets) {
-            if (!currentEspTarget(mc, esp, living)) continue;
-            int color = entityEspColor(mc, esp, living);
+            double distanceSquared = mc.player.distanceToSqr(living);
+            if (!currentEspTarget(mc, living, distanceSquared, style)) continue;
+            int color = style.color(mc, living, mc.player.distanceTo(living));
             if (boxes) box(buffer, pose, living.getBoundingBox().inflate(0.03).move(-camera.x, -camera.y, -camera.z), color);
             if (tracers) {
                 Vec3 center = living.getBoundingBox().getCenter();
@@ -162,13 +212,19 @@ public final class WorldOverlayRenderer {
     private static void renderEspLabels(LevelRenderContext ctx, Minecraft mc, Module esp, List<LivingEntity> targets, Vec3 camera) {
         PoseStack stack = ctx.poseStack();
         double labelRange = esp.getNumberSetting("labelRange", 64);
+        double labelRangeSquared = labelRange * labelRange;
+        boolean showDistance = esp.getBooleanSetting("showDistance", true);
+        boolean showHealth = esp.getBooleanSetting("showHealth", false);
+        EspStyle style = EspStyle.of(esp);
         for (LivingEntity living : targets) {
-            if (!currentEspTarget(mc, esp, living) || mc.player.distanceToSqr(living) > labelRange * labelRange) continue;
+            double distanceSquared = mc.player.distanceToSqr(living);
+            if (!currentEspTarget(mc, living, distanceSquared, style) || distanceSquared > labelRangeSquared) continue;
+            float distance = mc.player.distanceTo(living);
             StringBuilder label = new StringBuilder(living.getName().getString());
-            if (esp.getBooleanSetting("showDistance", true)) label.append(String.format(Locale.ROOT, " [%.1fm]", mc.player.distanceTo(living)));
-            if (esp.getBooleanSetting("showHealth", false)) label.append(String.format(Locale.ROOT, " [%.1f HP]", living.getHealth()));
-            int styled = entityEspColor(mc, esp, living);
-            int labelRgb = dimRgb(styled & 0xFFFFFF, 0.55 + 0.45 * espFadeFactor(mc, esp, living));
+            if (showDistance) label.append(String.format(Locale.ROOT, " [%.1fm]", distance));
+            if (showHealth) label.append(String.format(Locale.ROOT, " [%.1f HP]", living.getHealth()));
+            int styled = style.color(mc, living, distance);
+            int labelRgb = dimRgb(styled & 0xFFFFFF, 0.55 + 0.45 * style.fade(distance));
             Component text = Component.literal(label.toString()).withStyle(Style.EMPTY.withColor(TextColor.fromRgb(labelRgb)));
             stack.pushPose();
             try {
@@ -177,36 +233,6 @@ public final class WorldOverlayRenderer {
                     LightCoordsUtil.FULL_BRIGHT, ctx.levelState().cameraRenderState);
             } finally { stack.popPose(); }
         }
-    }
-
-    private static int entityEspColor(Minecraft mc, Module esp, LivingEntity living) {
-        int rgb = moduleRgb(esp, esp.getNumberSetting("red", 85.0), esp.getNumberSetting("green", 170.0), esp.getNumberSetting("blue", 255.0), 0.0);
-        if (living instanceof Player) {
-            boolean friend = AgalarHackClient.FRIEND_MANAGER.isFriend(living.getName().getString());
-            if (friend && esp.getBooleanSetting("friendColors", true)) {
-                rgb = rgb(esp.getNumberSetting("friendRed", 85.0), esp.getNumberSetting("friendGreen", 255.0), esp.getNumberSetting("friendBlue", 120.0));
-            } else if (esp.getBooleanSetting("teamColors", true) && mc.player.isAlliedTo(living)) {
-                rgb = living.getTeamColor() & 0xFFFFFF;
-            }
-        }
-        int baseAlpha = clampChannel(esp.getNumberSetting("alpha", 230.0));
-        int minimumAlpha = clampChannel(esp.getNumberSetting("minimumAlpha", 64.0));
-        int alpha = baseAlpha;
-        if (esp.getBooleanSetting("distanceFade", true)) {
-            double factor = espFadeFactor(mc, esp, living);
-            alpha = (int) Math.round(minimumAlpha + (baseAlpha - minimumAlpha) * factor);
-            alpha = Math.max(0, Math.min(255, alpha));
-        }
-        return (alpha << 24) | rgb;
-    }
-
-    private static double espFadeFactor(Minecraft mc, Module esp, LivingEntity living) {
-        if (!esp.getBooleanSetting("distanceFade", true)) return 1.0;
-        double range = Math.max(0.001, esp.getNumberSetting("range", 96.0));
-        double fadeStart = Math.max(0.0, Math.min(range, esp.getNumberSetting("fadeStart", 32.0)));
-        double distance = mc.player.distanceTo(living);
-        if (distance <= fadeStart || fadeStart >= range) return 1.0;
-        return Math.max(0.0, Math.min(1.0, 1.0 - (distance - fadeStart) / (range - fadeStart)));
     }
 
     private static int dimRgb(int rgb, double factor) {
@@ -218,14 +244,17 @@ public final class WorldOverlayRenderer {
     }
 
     private static void renderStorageEsp(Minecraft mc, StorageESP module, Vec3 camera, PoseStack.Pose pose, VertexConsumer buffer, ViewCulling culling) {
+        // Settings are fixed for the frame; read once rather than per marker.
         double range = module.getNumberSetting("range", 64.0);
+        double alphaSetting = module.getNumberSetting("alpha", 220.0);
+        boolean distanceFade = module.getBooleanSetting("distanceFade", true);
         for (BlockPos pos : module.getCachedPositions()) {
             if (!culling.isVisible(pos)) continue;
-            if (blockDistance(mc, pos) > module.getNumberSetting("range", 64.0)
-                    || !mc.level.hasChunk(pos.getX() >> 4, pos.getZ() >> 4)) continue;
+            double distance = blockDistance(mc, pos);
+            if (distance > range || !mc.level.hasChunk(pos.getX() >> 4, pos.getZ() >> 4)) continue;
             String id = blockId(mc, pos);
             if (!module.matches(id)) continue;
-            int alpha = fadedAlpha(module.getNumberSetting("alpha", 220.0), blockDistance(mc, pos), range, module.getBooleanSetting("distanceFade", true));
+            int alpha = fadedAlpha(alphaSetting, distance, range, distanceFade);
             AABB block = new AABB(pos.getX(), pos.getY(), pos.getZ(), pos.getX() + 1.0, pos.getY() + 1.0, pos.getZ() + 1.0)
                     .inflate(0.02).move(-camera.x, -camera.y, -camera.z);
             box(buffer, pose, block, (alpha << 24) | storageRgb(id));
@@ -255,8 +284,9 @@ public final class WorldOverlayRenderer {
 
     private static void renderStorageLabels(LevelRenderContext ctx, Minecraft mc, StorageESP module, Vec3 camera) {
         PoseStack stack = ctx.poseStack();
+        double range = module.getNumberSetting("range", 64.0);
         for (BlockPos pos : module.getCachedPositions()) {
-            if (blockDistance(mc, pos) > module.getNumberSetting("range", 64.0)
+            if (blockDistance(mc, pos) > range
                     || !mc.level.hasChunk(pos.getX() >> 4, pos.getZ() >> 4)) continue;
             String id = blockId(mc, pos);
             if (!module.matches(id)) continue;
@@ -274,12 +304,14 @@ public final class WorldOverlayRenderer {
     private static void renderBlockEsp(Minecraft mc, BlockESP module, Vec3 camera, PoseStack.Pose pose, VertexConsumer buffer, ViewCulling culling) {
         double range = module.getNumberSetting("horizontalRange", 24.0);
         int rgb = moduleRgb(module, module.getNumberSetting("red", 255.0), module.getNumberSetting("green", 100.0), module.getNumberSetting("blue", 220.0), 0.0);
+        double alphaSetting = module.getNumberSetting("alpha", 220.0);
+        boolean distanceFade = module.getBooleanSetting("distanceFade", true);
         for (BlockPos pos : module.getMatches()) {
             if (!culling.isVisible(pos)) continue;
             if (!mc.level.hasChunk(pos.getX() >> 4, pos.getZ() >> 4)) continue;
             String id = blockId(mc, pos);
             if (!module.matches(id)) continue;
-            int alpha = fadedAlpha(module.getNumberSetting("alpha", 220.0), blockDistance(mc, pos), range, module.getBooleanSetting("distanceFade", true));
+            int alpha = fadedAlpha(alphaSetting, blockDistance(mc, pos), range, distanceFade);
             AABB block = new AABB(pos.getX(), pos.getY(), pos.getZ(), pos.getX() + 1.0, pos.getY() + 1.0, pos.getZ() + 1.0)
                     .inflate(0.015).move(-camera.x, -camera.y, -camera.z);
             box(buffer, pose, block, (alpha << 24) | module.colorFor(id, rgb));
@@ -494,8 +526,9 @@ public final class WorldOverlayRenderer {
         }
     }
 
+    /** Cached per block type: this runs for every marker on every frame. */
     private static String blockId(Minecraft mc, BlockPos pos) {
-        return BuiltInRegistries.BLOCK.getKey(mc.level.getBlockState(pos).getBlock()).toString();
+        return me.mrhakan.agalarhack.services.StableIds.block(mc.level.getBlockState(pos).getBlock());
     }
 
     private static double blockDistance(Minecraft mc, BlockPos pos) {

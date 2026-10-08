@@ -1,6 +1,40 @@
 # Agalar Hack — AI agent handover
 
-## CURRENT STATE — AutoGrind continuation (2026-09-30)
+## CURRENT STATE — optimization batch (2026-10-07)
+
+- Branch `ccr-5681ba59-e5pne2` extends main `4da9bb5` (26.2.7). PR #13 (optional AutoGrind HUD) was
+  closed at the owner's request; its branch is kept. The phased plan is in
+  [docs/GELISTIRME_PLANI.md](docs/GELISTIRME_PLANI.md) (Turkish).
+- Correctness: `AgalarHackClient.VERSION` was a literal still reading 26.2.5; it now comes from mod
+  metadata. Info, Target HUD and Movement Stats report their drawn size to the HUD editor instead of
+  fixed guesses, so outlines, snapping and overlap warnings match what is drawn.
+- Per-frame allocation removed: `HudLayoutManager.get` no longer copies every default per call,
+  `HudRegistry.ids` caches draw order (rebuilt when any z-order differs), `ServiceRegistry.require`
+  is a plain lookup, the Module List rainbow allocates nothing, ESP style is resolved once per pass,
+  and StorageESP/BlockESP overlay loops read their settings once.
+- `FriendManager` is keyed by trimmed lower-case name; `StableIds` caches block and item id strings
+  for the scanners, overlays, ItemESP and InventoryCleaner.
+- `SharedEntityWalk`: EntityESP, Tracers, Nametags, ItemESP and ProjectileESP now subscribe to one
+  entity walk per tick through `ScannerService`, so an entity costs one budget unit however many
+  overlays look at it. Ranges, caps, filters, world-replacement emptying and the 4096 cap are
+  unchanged; a throwing filter or sink disables only its own module. `ModuleBehaviourGameTest`
+  `sharedEntityWalk` checks the scanner counter over 300 entities with all five overlays on.
+- `HudLayoutManager(Path)` and `FriendManager(Path)` constructors exist for tests; production uses the
+  Fabric config directory as before.
+- Versioning is now **2.x.yy** (x = major, yy = two-digit minor update, 00-99); this batch is
+  `2.0.00`, the first release under it. `build.gradle` rejects any other `mod_version`.
+  `fabric.mod.json` carries the raw string in `agalarhack:version`, because Fabric's parsed version
+  drops the leading zero (2.0.01 -> 2.0.1); `ModuleLifecycleGameTest` checks the displayed value.
+  The Minecraft target (26.2) is independent of this number.
+- Not done (see the plan): Trajectories per-step entity queries (measure first), splitting
+  `GrindExecutor` and `WorldOverlayRenderer`, import clean-up.
+- The 2.1.00 major plan is in [docs/MAJOR_GELISTIRME_PLANI.md](docs/MAJOR_GELISTIRME_PLANI.md)
+  (Turkish): release-process fixes first (main currently publishes a release on every push, so an
+  unbumped version repeats), then Addon API 2, the render and GrindExecutor splits, AutoGrind
+  storage withdrawal and plot finding, and clearing the two UNTESTED badges.
+- Local validation used Java 25 (Temurin) and the system Xvfb; consult CI for commit-specific results.
+
+## PREVIOUS CHECKPOINT — AutoGrind continuation (2026-09-30)
 
 - Base main was `468fa2ec1b63569f2a9ec793e4300cb36bfdd902` (26.2.6), with green full
   [CI 36654528751](https://github.com/MrHakan/Minecraft-Client/actions/runs/36654528751)

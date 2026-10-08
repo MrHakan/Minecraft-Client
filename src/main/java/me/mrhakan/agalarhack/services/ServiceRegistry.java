@@ -20,7 +20,13 @@ public final class ServiceRegistry {
     public <T> Optional<T> find(Class<T> contract) {
         return Optional.ofNullable(contract.cast(services.get(contract)));
     }
+    /**
+     * Render and tick code calls this per frame, so a present service is a plain lookup: going
+     * through {@link #find} cost an {@code Optional} and a capturing lambda on every call.
+     */
     public <T> T require(Class<T> contract) {
-        return find(contract).orElseThrow(() -> new IllegalStateException("Missing service: " + contract.getName()));
+        Object service = services.get(contract);
+        if (service == null) throw new IllegalStateException("Missing service: " + contract.getName());
+        return contract.cast(service);
     }
 }

@@ -213,10 +213,16 @@ A dimension id in 26.2 is `ResourceKey.identifier()`, not `location()`.
 
 ## Shared entity discovery
 
-`EntityDiscovery` owns the tick-scheduled, nearest-first entity sweep used by EntityESP, ItemESP and
-Nametags: at most 4096 observations per tick, budget-aware, and it publishes an empty snapshot rather
-than a stale one if the world or player is replaced mid-pass. Visual modules must not walk the entity
-list during rendering.
+`EntityDiscovery` owns the tick-scheduled, nearest-first entity sweep used by EntityESP, Tracers,
+Nametags, ItemESP and ProjectileESP: at most 4096 observations per tick, budget-aware, and it publishes
+an empty snapshot rather than a stale one if the world or player is replaced mid-pass. Visual modules
+must not walk the entity list during rendering.
+
+The sweep is shared. Each module subscribes to `SharedEntityWalk` through `ScannerService`, which walks
+the list once per tick and offers every entity to each subscriber whose range covers it, so an entity
+costs one budget unit however many modules look at it. Each module keeps its own range, result cap and
+filter. Subscriptions must be repeated every tick like any scan; `ScannerService.cancel` drops a pending
+or running one, and a filter or sink that throws disables only its own module.
 
 ## Chunk result caching
 

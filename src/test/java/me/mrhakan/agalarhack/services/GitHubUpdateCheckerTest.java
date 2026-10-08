@@ -20,6 +20,18 @@ class GitHubUpdateCheckerTest {
     }
 
     @Test
+    void keepsTheTwoDigitUpdateOfA2xyyReleaseName() {
+        // The notification prints this string, so "2.0.01" must not come back as "2.0.1".
+        var release = GitHubUpdateChecker.parseLatestRelease("""
+                {"name":"Agalar Hack v2.0.01+89abcdef0123456789abcdef0123456789abcdef"}
+                """);
+
+        assertNotNull(release);
+        assertEquals("2.0.01", release.version());
+        assertEquals(LATEST, release.commit());
+    }
+
+    @Test
     void reportsOnlyAReleaseBuiltFromADifferentCommit() {
         var current = new GitHubUpdateChecker.Release("26.2.5", INSTALLED);
         var newer = new GitHubUpdateChecker.Release("26.2.5", LATEST);

@@ -36,7 +36,17 @@ public class AgalarHackClient implements ClientModInitializer {
 
     public static final String NAME = "Agalar Hack";
     public static final String MOD_ID = "agalarhack";
-    public static final String VERSION = "26.2.5";
+    /**
+     * The installed version, read from the mod's own metadata. {@code fabric.mod.json} is expanded
+     * from {@code mod_version} at build time, so this cannot drift from the jar the way a literal did:
+     * 26.2.7 shipped still announcing itself as 26.2.5 in the HUD, the Control Center and the update
+     * checker's User-Agent.
+     *
+     * <p>The raw string is kept in a custom value because Fabric normalises the parsed version:
+     * {@code 2.0.01} would come back as {@code 2.0.1}, losing the two-digit update the 2.x.yy scheme
+     * is written in.
+     */
+    public static final String VERSION = installedVersion();
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
     public static final EventBus EVENTS = new EventBus((owner, failure) -> LOGGER.error("Event listener failed: {}", owner, failure));
     public static String prefix = ".";
@@ -61,6 +71,22 @@ public class AgalarHackClient implements ClientModInitializer {
             new me.mrhakan.agalarhack.ui.state.UiSession<>(
                     screen -> screen instanceof me.mrhakan.agalarhack.ui.ClientScreen client ? client.parentScreen() : null,
                     screen -> { if (screen instanceof me.mrhakan.agalarhack.ui.ClientScreen client) client.abandoned(); });
+
+    private static String installedVersion() {
+        try {
+            return net.fabricmc.loader.api.FabricLoader.getInstance().getModContainer(MOD_ID)
+                    .map(container -> {
+                        var metadata = container.getMetadata();
+                        var raw = metadata.getCustomValue("agalarhack:version");
+                        return raw != null && raw.getType() == net.fabricmc.loader.api.metadata.CustomValue.CvType.STRING
+                                ? raw.getAsString() : metadata.getVersion().getFriendlyString();
+                    })
+                    .filter(version -> !version.isBlank())
+                    .orElse("dev");
+        } catch (RuntimeException unavailable) {
+            return "dev";
+        }
+    }
 
     /** The GUI binding is vanilla-configurable and does not require an exact modifier mask. */
     public static boolean conflictsWithGuiKey(me.mrhakan.agalarhack.input.KeyChord chord) {

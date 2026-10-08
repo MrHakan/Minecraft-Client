@@ -7,7 +7,6 @@ import me.mrhakan.agalarhack.services.InventoryService;
 import me.mrhakan.agalarhack.services.InventoryTransfers;
 import me.mrhakan.agalarhack.services.ItemIdList;
 import net.minecraft.core.component.DataComponents;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.item.ItemStack;
 
 /**
@@ -84,7 +83,7 @@ public class InventoryCleaner extends Module {
             var enchantments = stack.get(DataComponents.ENCHANTMENTS);
             if (enchantments != null && !enchantments.isEmpty()) return false;
         }
-        return listed.contains(BuiltInRegistries.ITEM.getKey(stack.getItem()).toString());
+        return listed.contains(me.mrhakan.agalarhack.services.StableIds.item(stack.getItem()));
     }
 
     /** Re-parsed only when the setting text actually changes. */

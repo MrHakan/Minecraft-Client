@@ -1,5 +1,7 @@
 package me.mrhakan.agalarhack.ui.hud;
 
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -16,8 +18,13 @@ import me.mrhakan.agalarhack.managers.HudLayoutManager;
 public final class HudRegistry {
     public record Component(String id,String title,IntSupplier width,IntSupplier height,Consumer<ClientEvents.HudRender> render) { }
     private final Map<String,Component> components=new LinkedHashMap<>();
+    /** Registration order, indexable so the per-frame staleness check needs no iterator. */
+    private final List<String> registered=new ArrayList<>();
     private final Set<String> failed=new HashSet<>();
     private final HudLayoutManager layout;
+    /** Draw order and the z-order each widget had when it was computed. */
+    private List<String> order=List.of();
+    private int[] orderedBy=new int[0];
     public HudRegistry(HudLayoutManager layout){this.layout=layout;}
     public void register(Component component,HudLayoutManager.WidgetState defaults){
         Objects.requireNonNull(component,"HUD component");
@@ -32,9 +39,31 @@ public final class HudRegistry {
         if(component.title().isBlank()||component.title().length()>80)throw new IllegalArgumentException("Invalid HUD title");
         if(components.size()>=256)throw new IllegalStateException("HUD registry limit reached");
         if(components.putIfAbsent(component.id(),component)!=null)throw new IllegalStateException("Duplicate HUD ID: "+component.id());
+        registered.add(component.id());
         layout.registerDefault(component.id(),defaults);
     }
-    public List<String> ids(){return components.keySet().stream().sorted(java.util.Comparator.comparingInt(id->layout.get(id).zOrder)).toList();}
+
+    /**
+     * Widgets in draw order: ascending z-order, registration order among equals.
+     *
+     * <p>Runs every frame, so the sorted list is kept and only rebuilt when it is stale. There is no
+     * change event to hook - the editor writes z-order straight into the widget state, and a profile
+     * or layout load replaces the states wholesale - so staleness is detected by comparing each
+     * widget's current z-order with the one the order was built from. That check is a pass over an
+     * int array; the sort and the list it replaced were an allocation and a sort per frame.
+     */
+    public List<String> ids(){
+        int count=registered.size();
+        boolean stale=orderedBy.length!=count;
+        for(int index=0;!stale&&index<count;index++)stale=layout.get(registered.get(index)).zOrder!=orderedBy[index];
+        if(stale){
+            int[] keys=new int[count];
+            for(int index=0;index<count;index++)keys[index]=layout.get(registered.get(index)).zOrder;
+            order=registered.stream().sorted(Comparator.comparingInt(id->layout.get(id).zOrder)).toList();
+            orderedBy=keys;
+        }
+        return order;
+    }
     public Component get(String id){return components.get(id);}
     public boolean failed(String id){return failed.contains(id);}
     public void retry(String id){failed.remove(id);}

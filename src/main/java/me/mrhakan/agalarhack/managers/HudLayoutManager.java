@@ -70,15 +70,24 @@ public class HudLayoutManager {
         return options;
     }
     private final Gson gson = new GsonBuilder().setPrettyPrinting().create();
-    private final Path path = FabricLoader.getInstance().getConfigDir().resolve("agalarhack-hud.json");
-    private final BoundedJsonFile<Map<String, WidgetState>> layoutFile = new BoundedJsonFile<>(path, 131072,
-            raw -> validateSnapshot(gson.fromJson(raw, new TypeToken<Map<String, WidgetState>>(){}.getType())), gson::toJson);
-    private final BoundedJsonFile<EditorOptions> editorFile = new BoundedJsonFile<>(path.resolveSibling("agalarhack-hud-editor.json"),
-            8192, raw -> sanitizeOptions(gson.fromJson(raw, EditorOptions.class)), gson::toJson);
+    private final BoundedJsonFile<Map<String, WidgetState>> layoutFile;
+    private final BoundedJsonFile<EditorOptions> editorFile;
     private final Map<String, WidgetState> defaults = new LinkedHashMap<>();
     private final Map<String, WidgetState> widgets = new LinkedHashMap<>();
+    /** Held rather than written as a bound method reference at the call site, which allocates per call. */
+    private final java.util.function.Function<String, WidgetState> missingWidget = this::declaredOrGeneric;
 
     public HudLayoutManager() {
+        this(FabricLoader.getInstance().getConfigDir());
+    }
+
+    /** @param configDir where {@code agalarhack-hud.json} and the editor options live */
+    public HudLayoutManager(Path configDir) {
+        Path path = configDir.resolve("agalarhack-hud.json");
+        layoutFile = new BoundedJsonFile<>(path, 131072,
+                raw -> validateSnapshot(gson.fromJson(raw, new TypeToken<Map<String, WidgetState>>(){}.getType())), gson::toJson);
+        editorFile = new BoundedJsonFile<>(path.resolveSibling("agalarhack-hud-editor.json"),
+                8192, raw -> sanitizeOptions(gson.fromJson(raw, EditorOptions.class)), gson::toJson);
         for(String id : new String[]{"branding","modules","info","target"}) defaults.put(id,defaultFor(id));
         resetDefaults();
     }
@@ -130,10 +139,19 @@ public class HudLayoutManager {
      *
      * <p>The state is stored rather than returned fresh each call, because callers mutate what they
      * are given - the HUD editor moves widgets by writing to it.
+     *
+     * <p>Called several times per widget per frame (visibility, both resolve axes, the editor), so a
+     * present widget is a single map lookup. Every path that replaces {@code widgets} restores the
+     * declared defaults itself, which is why this no longer re-runs {@link #ensureDefaults()}: doing so
+     * walked and copied every default on every call.
      */
     public WidgetState get(String id) {
-        ensureDefaults();
-        return widgets.computeIfAbsent(id, this::defaultFor);
+        return widgets.computeIfAbsent(id, missingWidget);
+    }
+
+    private WidgetState declaredOrGeneric(String id) {
+        WidgetState declared = defaults.get(id);
+        return declared != null ? declared.copy() : defaultFor(id);
     }
 
     public Map<String, WidgetState> snapshot() {
@@ -263,8 +281,9 @@ public class HudLayoutManager {
         defaults.forEach((id,state)->widgets.put(id,state.copy()));
     }
 
+    /** Copies a default only for a widget that is actually missing, not for every entry. */
     private void ensureDefaults() {
-        defaults.forEach((id,state)->widgets.putIfAbsent(id,state.copy()));
+        defaults.forEach((id, state) -> { if (!widgets.containsKey(id)) widgets.put(id, state.copy()); });
     }
 
     private WidgetState defaultFor(String id) {

@@ -43,8 +43,8 @@ public class Hud implements HudElement {
         register("branding","Branding",()->Minecraft.getInstance().font.width(AgalarHackClient.NAME+" "+AgalarHackClient.VERSION)+5,()->Minecraft.getInstance().font.lineHeight,this::renderBranding);
         var moduleList = new me.mrhakan.agalarhack.ui.hud.ModuleListHud();
         register("modules", "Module List", moduleList::width, moduleList::height, moduleList::render);
-        register("info","Info",()->150,()->48,this::renderInfo);
-        register("target","Target HUD",()->155,()->120,this::renderTarget);
+        register("info","Info",()->infoWidth,()->infoHeight,this::renderInfo);
+        register("target","Target HUD",()->targetWidth,()->targetHeight,this::renderTarget);
         textComponent("fps","FPS",()->"FPS "+Minecraft.getInstance().getFps());
         textComponent("memory","Memory",()->"Memory "+(Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory())/(1024*1024)+" MiB");
         textComponent("server","Server",()->me.mrhakan.agalarhack.services.ClientServices.require(me.mrhakan.agalarhack.services.ServerContextService.class).address(Minecraft.getInstance()));
@@ -52,7 +52,7 @@ public class Hud implements HudElement {
         // Registered with its own hidden default rather than relying on one existing: this is the
         // widget whose missing default crashed startup before get() was made total.
         registry.register(new me.mrhakan.agalarhack.ui.hud.HudRegistry.Component("movement","Movement Stats",
-                        ()->132,()->48,event->renderMovementStats(event.graphics(),Minecraft.getInstance())),
+                        ()->movementWidth,()->movementHeight,event->renderMovementStats(event.graphics(),Minecraft.getInstance())),
                 new me.mrhakan.agalarhack.managers.HudLayoutManager.WidgetState(
                         me.mrhakan.agalarhack.managers.HudLayoutManager.Anchor.TOP_LEFT,8,190,false));
         textComponent("waypoint","Waypoint",()->nearestWaypointLine());
@@ -71,6 +71,18 @@ public class Hud implements HudElement {
                 new me.mrhakan.agalarhack.managers.HudLayoutManager.WidgetState(
                         me.mrhakan.agalarhack.managers.HudLayoutManager.Anchor.BOTTOM_RIGHT, 8, 110, false));
     }
+    /*
+     * Last drawn size of the widgets whose size depends on their content. The HUD editor draws the
+     * outline, snaps to sibling edges and reports overlaps from these, so a fixed guess put all three
+     * somewhere the widget was not: a two-line Info block was outlined as 48 px tall. Each falls back
+     * to its placeholder size while it has nothing to draw, so the editor still has something to grab.
+     */
+    private static final int INFO_WIDTH = 150, INFO_HEIGHT = 48, TARGET_WIDTH = 155, TARGET_HEIGHT = 120,
+            MOVEMENT_WIDTH = 132, MOVEMENT_HEIGHT = 48;
+    private int infoWidth = INFO_WIDTH, infoHeight = INFO_HEIGHT;
+    private int targetWidth = TARGET_WIDTH, targetHeight = TARGET_HEIGHT;
+    private int movementWidth = MOVEMENT_WIDTH, movementHeight = MOVEMENT_HEIGHT;
+
     private static final int SLOT = 18;
     private static final int INVENTORY_WIDTH = 9 * SLOT + 8;
     /** Equipment row, a separator, then the three storage rows. */
@@ -201,8 +213,10 @@ public class Hud implements HudElement {
             double fall=stats.peakFallSpeed();
             lines.add(fall>0?String.format(Locale.ROOT,"peak fall %.2f b/s",fall):"peak fall --");
         }
-        int width=Math.max(132,lines.stream().mapToInt(font::width).max().orElse(0)+10);
+        int width=MOVEMENT_WIDTH;
+        for(String line:lines) width=Math.max(width,font.width(line)+10);
         int height=lines.size()*(font.lineHeight+2)+6;
+        movementWidth=width; movementHeight=height;
         int x=AgalarHackClient.HUD_LAYOUT.resolveX("movement",g.guiWidth(),width);
         int y=AgalarHackClient.HUD_LAYOUT.resolveY("movement",g.guiHeight(),height);
         g.fill(x,y,x+width,y+height,ClientUiTheme.PANEL);
@@ -309,10 +323,14 @@ public class Hud implements HudElement {
         for (Module mod : AgalarHackClient.moduleManager.getModuleList()) {
             if (mod.isToggled() && mod instanceof HudInfoProvider provider) infoLines.addAll(provider.getHudLines());
         }
-        if (infoLines.isEmpty()) return;
+        if (infoLines.isEmpty()) {
+            infoWidth = INFO_WIDTH; infoHeight = INFO_HEIGHT;
+            return;
+        }
         int width = 0;
         for (HudLine line : infoLines) width = Math.max(width, font.width(line.text()));
         int height = infoLines.size() * font.lineHeight;
+        infoWidth = Math.max(1, width); infoHeight = height;
         int x = AgalarHackClient.HUD_LAYOUT.resolveX("info", graphics.guiWidth(), width);
         int y = AgalarHackClient.HUD_LAYOUT.resolveY("info", graphics.guiHeight(), height);
         for (HudLine line : infoLines) {
@@ -353,7 +371,10 @@ public class Hud implements HudElement {
         Module targetHud = AgalarHackClient.moduleManager.getModule("TargetHUD");
         if (targetHud == null || !targetHud.isToggled() || !AgalarHackClient.HUD_LAYOUT.get("target").visible) return;
         LivingEntity target = AgalarHackClient.TARGET_TRACKER.get(targetHud.getNumberSetting("timeout", 3.0));
-        if (target == null) return;
+        if (target == null) {
+            targetWidth = TARGET_WIDTH; targetHeight = TARGET_HEIGHT;
+            return;
+        }
 
         Font font = mc.font;
         var layout = me.mrhakan.agalarhack.ui.hud.TargetHudModel.Layout.parse(targetHud.getStringSetting("layout", "compact"));
@@ -425,6 +446,7 @@ public class Hud implements HudElement {
             boxHeight += 20;
         }
 
+        targetWidth = boxWidth; targetHeight = boxHeight;
         int x = AgalarHackClient.HUD_LAYOUT.resolveX("target", graphics.guiWidth(), boxWidth);
         int y = AgalarHackClient.HUD_LAYOUT.resolveY("target", graphics.guiHeight(), boxHeight);
         graphics.fill(x, y, x + boxWidth, y + boxHeight, 0xB0101010);
@@ -479,9 +501,17 @@ public class Hud implements HudElement {
 
     public static int rainbow(int delay) {
         var themes = me.mrhakan.agalarhack.services.ClientServices.registry().find(me.mrhakan.agalarhack.services.ThemeService.class);
-        if (themes.isPresent() && (!themes.get().current().motionEnabled() || themes.get().current().highContrast))
-            return ClientUiTheme.ACCENT;
+        return rainbow(delay, themes.map(me.mrhakan.agalarhack.services.ThemeService::current).orElse(null));
+    }
+
+    /**
+     * For callers that already hold the theme. The Module List asks once per row per frame, which
+     * used to cost a service {@code Optional} and a {@code Color} object every time; this costs neither.
+     */
+    public static int rainbow(int delay, me.mrhakan.agalarhack.services.ThemeService.Theme theme) {
+        if (theme != null && (!theme.motionEnabled() || theme.highContrast)) return ClientUiTheme.ACCENT;
         double rainbowState = Math.ceil((System.currentTimeMillis() + delay) / 25.0) % 360;
-        return Color.getHSBColor((float) (rainbowState / 360.0f), 1f, 1f).getRGB();
+        // HSBtoRGB already sets full alpha, exactly as Color.getRGB() did.
+        return Color.HSBtoRGB((float) (rainbowState / 360.0f), 1f, 1f);
     }
 }

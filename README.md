@@ -28,7 +28,22 @@ AI contributors: read [handover.md](handover.md) for current progress, architect
 
 1. Install Fabric Loader for Minecraft 26.2.
 2. Put Fabric API and `agalarhack-*.jar` in `.minecraft/mods/`.
-3. Launch the Fabric profile. The HUD should report **Agalar Hack 26.2.7**.
+3. Launch the Fabric profile. The HUD should report **Agalar Hack 2.0.00**.
+
+## Versioning
+
+Releases are numbered **2.x.yy**:
+
+| Part | Meaning |
+| --- | --- |
+| `2` | Fixed prefix for this Fabric client line |
+| `x` | Major version, raised for a major update; `yy` returns to `00` |
+| `yy` | Two-digit minor update, `00` to `99`, raised for each regular release |
+
+Examples: `2.0.00` → `2.0.01` → … → `2.0.12` → `2.1.00`. The Minecraft version the client targets
+(26.2) is independent of this number. Releases up to 26.2.7 used the earlier Minecraft-derived
+numbering; 2.0.00 is the first release under this scheme. The build fails if `mod_version` in
+`gradle.properties` does not follow it.
 
 ## Control Center
 
@@ -165,8 +180,8 @@ The jar is written to `build/libs/agalarhack-<version>.jar`.
 To cut an official release:
 
 ```sh
-git tag v26.2.5
-git push origin v26.2.5
+git tag v2.0.00
+git push origin v2.0.00
 ```
 
 `main` targets Minecraft 26.2 Fabric; `og` keeps the historical 1.12.2 Forge client.

@@ -112,6 +112,7 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
             waypoints(context, singleplayer);
             spawnEsp(context, singleplayer);
             projectileEsp(context, singleplayer);
+            sharedEntityWalk(context, singleplayer);
             quietFrames(context, false);
             autoRespawn(context, singleplayer);
 
@@ -1628,6 +1629,89 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
         singleplayer.getServer().runOnServer(server -> {
             clearEntities(singleplayer.getConnection().getServerPlayer().level());
         });
+    }
+
+    /**
+     * Five entity overlays over a few hundred entities, with the scanner's own counter as the witness.
+     *
+     * <p>Each overlay used to walk the entity list by itself and pay a budget unit per entity, so five
+     * of them over three hundred entities spent fifteen hundred units a tick, and past roughly eight
+     * hundred entities they ran out and truncated each other. The walk is shared now: the counter has
+     * to show at most one unit per entity whatever the number of overlays, and two overlays with
+     * different caps both have to get their full result from that single walk.
+     *
+     * <p>The stands are invisible so the frame stays cheap on a software renderer. Every entity in the
+     * list costs a unit whether or not a filter keeps it, which is exactly the cost being measured.
+     */
+    private void sharedEntityWalk(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        final int stands = 300;
+        String[] overlays = { "ESP", "Tracers", "Nametags", "ItemESP", "ProjectileESP" };
+        moveThere(context, singleplayer, sceneBase.offset(0, 0, 380));
+        singleplayer.getServer().runOnServer(server -> {
+            ServerPlayer player = singleplayer.getConnection().getServerPlayer();
+            ServerLevel level = player.level();
+            clearEntities(level);
+            BlockPos origin = player.blockPosition();
+            for (int index = 0; index < stands; index++) {
+                Entity stand = EntityTypes.ARMOR_STAND.create(level, EntitySpawnReason.COMMAND);
+                if (stand == null) throw new AssertionError("could not create an armor stand");
+                stand.setPos(origin.getX() + 3 + index % 20 + 0.5, origin.getY(), origin.getZ() - 7 + index / 20 + 0.5);
+                stand.setInvisible(true);
+                stand.setNoGravity(true);
+                if (!level.addFreshEntity(stand)) throw new AssertionError("could not place armor stand " + index);
+            }
+        });
+        configure(context, "ESP", module -> {
+            module.settings.setSetting("respectTargetPolicy", false);
+            module.settings.setSetting("mobs", true);
+        });
+        configure(context, "Nametags", module -> module.settings.setSetting("mobs", true));
+        // The only other scanner that spends entity units; left on, it would blur the measurement.
+        toggle(context, "StorageESP", false);
+        for (String overlay : overlays) toggle(context, overlay, true);
+        try {
+            Predicate<Minecraft> served = client -> sharedWalkResult(client, "ESP", "maximumTargets", stands)
+                    && sharedWalkResult(client, "Nametags", "maximumTags", stands);
+            boolean full = settle(context, served, 80);
+            int[] measured = context.computeOnClient(client -> {
+                int rendered = 0;
+                for (Entity ignored : client.level.entitiesForRendering()) rendered++;
+                int usage = me.mrhakan.agalarhack.services.ClientServices.require(
+                        me.mrhakan.agalarhack.services.ScannerService.class).lastUsage().entities();
+                return new int[] { rendered, usage,
+                        ((me.mrhakan.agalarhack.module.render.EntityESP) AgalarHackClient.moduleManager.getModule("ESP")).targets().size(),
+                        ((me.mrhakan.agalarhack.module.render.Nametags) AgalarHackClient.moduleManager.getModule("Nametags")).targets().size() };
+            });
+            int rendered = measured[0], usage = measured[1];
+            LOGGER.info("    Shared entity walk: rendered={} entity units={} ESP={} Nametags={}",
+                    rendered, usage, measured[2], measured[3]);
+            if (rendered < stands) {
+                throw new AssertionError("only " + rendered + " of " + stands + " armor stands reached the client; "
+                        + "the scenario is broken, not the walk");
+            }
+            if (usage > rendered) {
+                throw new AssertionError("five overlays spent " + usage + " entity units over " + rendered
+                        + " entities; a shared walk costs at most one unit per entity");
+            }
+            if (!full) {
+                throw new AssertionError("the shared walk did not give both ESP (" + measured[2] + ") and Nametags ("
+                        + measured[3] + ") their full capped result over " + stands + " stands");
+            }
+        } finally {
+            for (String overlay : overlays) toggle(context, overlay, false);
+            configure(context, "ESP", module -> module.settings.setSetting("respectTargetPolicy", true));
+            singleplayer.getServer().runOnServer(server -> clearEntities(singleplayer.getConnection().getServerPlayer().level()));
+        }
+        LOGGER.info("  Five entity overlays shared one walk at one unit per entity");
+    }
+
+    /** True once the module's last published result holds as many entities as its cap allows. */
+    private static boolean sharedWalkResult(Minecraft client, String name, String capSetting, int available) {
+        Module module = AgalarHackClient.moduleManager.getModule(name);
+        int cap = (int) module.getNumberSetting(capSetting, 64);
+        int size = module instanceof me.mrhakan.agalarhack.module.render.EntityESP esp ? esp.targets().size()
+                : module instanceof me.mrhakan.agalarhack.module.render.Nametags tags ? tags.targets().size() : -1;
+        return size == Math.min(cap, available);
     }
 
     /**
