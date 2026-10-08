@@ -4,6 +4,15 @@ Releases are numbered **2.x.yy**: `x` is the major version and `yy` a two-digit 
 [Versioning](README.md#versioning)). Every version needs a section here before it can be merged; CI
 publishes the section as the GitHub release notes.
 
+## [2.0.04] - 2026-10-08
+
+### Internal
+- AutoGrind's six step types (gathering, moving an offhand ingredient, placing and opening a
+  station, crafting, smelting) moved out of `GrindExecutor` into their own classes, so the executor
+  drops from 1,650 to about 810 lines. The move was compiler-guided: the moved code reaches the
+  executor's shared state only through an explicit reference, and apart from that prefix and
+  constructor formatting it is line-for-line the code it was. No behaviour change.
+
 ## [2.0.03] - 2026-10-08
 
 ### Internal

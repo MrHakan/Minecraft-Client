@@ -109,6 +109,10 @@ kalır ve özel pathfinder yazılmaz.
 1. **`GrindExecutor`'ın bölünmesi (önce).** Seyahat, istasyon yönetimi, envanter baskısı ve kampanya
    durumu ayrı sınıflara ayrılsın. Her adım davranışı değiştirmeyen ayrı bir commit olsun ve
    ölçütü mevcut game testleri ile gerçek Baritone testi olsun.
+   - ✅ 2.0.04: altı görev sınıfı (toplama, offhand, istasyon yerleştirme/açma, üretim, eritme)
+     ayrı dosyalara taşındı. `GrindExecutor` 1.650 satırdan 814 satıra indi. Taşıma derleyici
+     rehberliğinde yapıldı ve taşınan 788 satır, eklenen `g.` önekleri dışında orijinalle aynı.
+   - ⏳ Sıradaki: seyahat (`moveTo`/`moveNear`/`continueTravel`) ve istasyon/nişan yardımcıları.
 2. **Depodan geri alma.** Kampanyanın bir sonraki adımı depolanmış malzemeye ihtiyaç duyuyorsa
    `ContainerTransferController` ile sandıktan alınsın. Kişiye ait (adı değiştirilmiş ya da büyülü)
    eşyalar korunur.
@@ -167,7 +171,8 @@ E (kanıt) her adımda paralel
 | 2.0.01 | A1–A3: tekrarsız release, `v` etiketleri, CHANGELOG |
 | 2.0.02 | F, E1: `UNTESTED` rozetlerinin kaldırılması |
 | 2.0.03 | ✅ C1 render bölünmesi (davranış değişmeden) |
-| 2.0.04–2.0.05 | D1 GrindExecutor bölünmesi (davranış değişmeden), ardından C2 overlay süreleri |
+| 2.0.04 | ✅ D1 ilk adım: AutoGrind görev sınıfları ayrıldı (davranış değişmeden) |
+| 2.0.05 | D1 devamı (seyahat, istasyon yardımcıları), ardından C2 overlay süreleri |
 | 2.0.06+ | D2–D4 AutoGrind 2 adımları, C3 (ölçüm sonucuna göre) |
 | 2.1.00 | B: Addon API 2 ve sürüm sözleşmesi, A4 güncelleme denetleyicisi |
 

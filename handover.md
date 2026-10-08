@@ -43,6 +43,11 @@
   `PathOverlays` families, `OverlayDraw` primitives and the `WorldOverlays` dispatcher whose list
   order is the draw order (pinned by `WorldOverlaysTest`). `ViewCullingTest` scans the whole
   package. Bodies were moved verbatim.
+- 2.0.04: AutoGrind's step classes are top-level in `services`: `GrindGatherTask`,
+  `GrindOffhandTask`, `GrindPlaceStationTask`, `GrindOpenStationTask`, `GrindCraftTask` and
+  `GrindSmeltTask`. Each holds `GrindExecutor g` and reaches shared state as `g.x`, the pattern
+  `SurvivalTasks` already used; the members they need are package-private. `GrindExecutor` keeps
+  planning, travel, stations, aiming and inventory helpers.
 - The 2.1.00 major plan is in [docs/MAJOR_GELISTIRME_PLANI.md](docs/MAJOR_GELISTIRME_PLANI.md)
   (Turkish): release-process fixes first (main currently publishes a release on every push, so an
   unbumped version repeats), then Addon API 2, the render and GrindExecutor splits, AutoGrind
