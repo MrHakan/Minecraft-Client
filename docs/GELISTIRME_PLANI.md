@@ -76,14 +76,15 @@ gerçek istemcide game testleri.
 7. Her adımdan önce Performance/debug HUD ile ölçüm yapılır. Ölçülemeyen bir kazanç için kod
    eklenmez.
 
-### Faz 3 — Ölçek (kısmen tamamlandı)
+### Faz 3 — Ölçek ✅ tamamlandı
 
 1. ✅ `SharedEntityWalk`: ESP, Tracers, Nametags, ItemESP ve ProjectileESP tick başına tek bir
    varlık taramasından besleniyor. Bir varlık, kaç modül bakarsa baksın bir bütçe birimi tutuyor.
    Modül başına menzil, sonuç sınırı, filtre, dünya değişiminde boşaltma ve 4096 gözlem tavanı
    korunuyor. Hata veren bir filtre yalnızca kendi modülünü kapatıyor. (#10)
-2. ⏳ Kalabalık sunucu senaryosu için bir game testi eklemek (çok sayıda varlık, beş modülün de
-   kesilmeden sonuç aldığının doğrulanması).
+2. ✅ `ModuleBehaviourGameTest.sharedEntityWalk`: 300 görünmez zırh standı ve beş overlay açıkken
+   tarayıcı sayacı 301 varlık için 301 birim gösterdi (beş ayrı tarama ~1.505 harcardı). ESP 256,
+   Nametags 64 sonucunu tam aldı.
 
 ### Faz 4 — Kod sağlığı
 
@@ -100,6 +101,13 @@ gerçek istemcide game testleri.
 temalarda görsel kontrol, doğal balık tutma, gecikmeli çok oyunculu sunucu, dedicated server
 (EULA yalnızca sahibin onayıyla), eksik addon bağımlılığı mesajı.
 
+## Doğrulama (yerel, Java 25 + Xvfb)
+
+- `./gradlew build`: 908 birim testi, 0 hata (başlangıçta 871).
+- `tools/smoke-client.sh`: `main` (`4da9bb5`), ara commit (`354b871`) ve dalın son hâli (`01cdd90`)
+  üzerinde geçti. Tüm modül senaryoları, mixin doğrulaması ve log taraması dahil.
+- Dedicated server senaryoları EULA onayı gerektirdiği için çalıştırılmadı.
+
 ## Kurallar ve kapsam dışı
 
 - Her faz ayrı ve incelenebilir commit'lerle ilerler. Her commit `./gradlew build` ile yeşil olmalı.
@@ -114,6 +122,6 @@ temalarda görsel kontrol, doğal balık tutma, gecikmeli çok oyunculu sunucu, 
 | --- | --- |
 | Faz 1 | Tamamlandı |
 | Faz 2 | Kısmen: 3 madde yapıldı, 2 madde gerekçesiyle elendi, Trajectories ölçüme bağlı |
-| Faz 3 | Kısmen: ortak tarama yapıldı, kalabalık sunucu game testi kaldı |
+| Faz 3 | Tamamlandı |
 | Faz 4 | Planlandı |
 | Faz 5 | Manuel, sahibin testine bağlı |
