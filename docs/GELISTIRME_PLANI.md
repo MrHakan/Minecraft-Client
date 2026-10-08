@@ -106,6 +106,10 @@ temalarda görsel kontrol, doğal balık tutma, gecikmeli çok oyunculu sunucu, 
 - `./gradlew build`: 908 birim testi, 0 hata (başlangıçta 871).
 - `tools/smoke-client.sh`: `main` (`4da9bb5`), ara commit (`354b871`) ve dalın son hâli (`01cdd90`)
   üzerinde geçti. Tüm modül senaryoları, mixin doğrulaması ve log taraması dahil.
+- `./gradlew productionAddonInstallationTest`: üretim jar'ı ile addon kurulumu, yeniden başlatma
+  ve kaldırma geçti.
+- `tools/test-baritone.sh`: gerçek Baritone 1.19.0 ile 384 blok yolculuk, uzak madencilik, alet
+  yenileme, yüklenmemiş üsse dönüş, kapı/sandık erişimi ve hedef sahipliği geçti.
 - Dedicated server senaryoları EULA onayı gerektirdiği için çalıştırılmadı.
 
 ## Kurallar ve kapsam dışı
