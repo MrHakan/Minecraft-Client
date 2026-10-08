@@ -112,6 +112,8 @@ temalarda görsel kontrol, doğal balık tutma, gecikmeli çok oyunculu sunucu, 
   yenileme, yüklenmemiş üsse dönüş, kapı/sandık erişimi ve hedef sahipliği geçti.
 - Dedicated server senaryoları EULA onayı gerektirdiği için çalıştırılmadı.
 
+Bir sonraki büyük sürüm (2.1.00) için plan: [MAJOR_GELISTIRME_PLANI.md](MAJOR_GELISTIRME_PLANI.md).
+
 ## Sürümleme
 
 Sürümler artık **2.x.yy** biçiminde. `x` büyük (major) sürüm, `yy` iki haneli küçük güncelleme

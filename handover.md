@@ -28,6 +28,10 @@
   The Minecraft target (26.2) is independent of this number.
 - Not done (see the plan): Trajectories per-step entity queries (measure first), splitting
   `GrindExecutor` and `WorldOverlayRenderer`, import clean-up.
+- The 2.1.00 major plan is in [docs/MAJOR_GELISTIRME_PLANI.md](docs/MAJOR_GELISTIRME_PLANI.md)
+  (Turkish): release-process fixes first (main currently publishes a release on every push, so an
+  unbumped version repeats), then Addon API 2, the render and GrindExecutor splits, AutoGrind
+  storage withdrawal and plot finding, and clearing the two UNTESTED badges.
 - Local validation used Java 25 (Temurin) and the system Xvfb; consult CI for commit-specific results.
 
 ## PREVIOUS CHECKPOINT — AutoGrind continuation (2026-09-30)
