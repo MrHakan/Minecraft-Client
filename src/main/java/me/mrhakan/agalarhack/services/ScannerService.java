@@ -75,9 +75,16 @@ public final class ScannerService {
         if (entityWalk.isEmpty()) return;
         var level = mc.level;
         var player = mc.player;
-        scheduler.offer(entityWalk, entityWalk.priority(), entityWalk.maximumSteps(),
-                entityWalk.start(level.entitiesForRendering().iterator(), player::distanceToSqr, Entity::getId,
-                        () -> mc.level == level && mc.player == player));
+        try {
+            scheduler.offer(entityWalk, entityWalk.priority(), entityWalk.maximumSteps(),
+                    entityWalk.start(level.entitiesForRendering().iterator(), player::distanceToSqr, Entity::getId,
+                            () -> mc.level == level && mc.player == player));
+        } catch (RuntimeException refused) {
+            // Thrown out of tick(), this would make the event bus detach the whole scanner listener
+            // for the session. Losing one tick of entity results is the far smaller failure.
+            entityWalk.clear();
+            AgalarHackClient.LOGGER.error("Shared entity walk could not be scheduled", refused);
+        }
     }
 
     private static void reportFailure(Object owner, RuntimeException error) {
