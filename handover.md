@@ -28,6 +28,11 @@
   The Minecraft target (26.2) is independent of this number.
 - Not done (see the plan): Trajectories per-step entity queries (measure first), splitting
   `GrindExecutor` and `WorldOverlayRenderer`, import clean-up.
+- 2.0.01 (release process): CI reads the version, prints its CHANGELOG.md section with
+  `tools/release_notes.py` (failing when it is missing) and checks for a `v<version>` tag before the
+  build. `main` publishes only an unreleased version, tagged `v2.x.yy` on the built commit with the
+  changelog as notes; `release.yml` is gone. The release name keeps `Agalar Hack v<version>+<sha>`
+  because `GitHubUpdateChecker` parses it.
 - The 2.1.00 major plan is in [docs/MAJOR_GELISTIRME_PLANI.md](docs/MAJOR_GELISTIRME_PLANI.md)
   (Turkish): release-process fixes first (main currently publishes a release on every push, so an
   unbumped version repeats), then Addon API 2, the render and GrindExecutor splits, AutoGrind

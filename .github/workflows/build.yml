@@ -23,6 +23,48 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      # Release bookkeeping runs first, so a version without release notes fails in seconds rather
+      # than after the game tests.
+      - name: Read mod version
+        id: getModVersion
+        run: |
+          MOD_VERSION=$(grep "^mod_version=" gradle.properties | cut -d'=' -f2 | tr -d '[:space:]')
+          echo "mod_version=$MOD_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Release notes for this version
+        run: python3 tools/release_notes.py "${{ steps.getModVersion.outputs.mod_version }}" > "$RUNNER_TEMP/release-notes.md"
+
+      # A version is published once. A push that leaves mod_version alone (documentation, tests, a
+      # follow-up fix) must not publish a second release under the same number.
+      - name: Check for an existing release
+        id: existingRelease
+        env:
+          MOD_VERSION: ${{ steps.getModVersion.outputs.mod_version }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set +e
+          git ls-remote --exit-code --tags origin "refs/tags/v$MOD_VERSION" > /dev/null
+          status=$?
+          set -e
+          case "$status" in
+            0)
+              echo "exists=true" >> "$GITHUB_OUTPUT"
+              if [ "$EVENT_NAME" = "pull_request" ]; then
+                echo "::warning title=No release::v$MOD_VERSION is already released, so merging this will not publish one. Raise mod_version and add its CHANGELOG.md section to release it."
+              else
+                echo "::notice title=No release::v$MOD_VERSION is already released; nothing to publish."
+              fi
+              ;;
+            2)
+              echo "exists=false" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              # Guessing here could publish a duplicate, so an unreadable tag list stops the job.
+              echo "::error::could not list tags (git ls-remote exit $status)"
+              exit 1
+              ;;
+          esac
+
       - name: Set up JDK 25
         uses: actions/setup-java@v5
         with:
@@ -112,12 +154,6 @@ jobs:
             build/test-results/test/*.xml
           if-no-files-found: ignore
 
-      - name: Read mod version
-        id: getModVersion
-        run: |
-          MOD_VERSION=$(grep "^mod_version=" gradle.properties | cut -d'=' -f2 | tr -d '[:space:]')
-          echo "mod_version=$MOD_VERSION" >> "$GITHUB_OUTPUT"
-
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -127,12 +163,15 @@ jobs:
             !build/libs/*-sources.jar
           if-no-files-found: error
 
+      # The name keeps its "v<version>+<full commit>" shape: GitHubUpdateChecker reads both from it.
       - name: Stable release (main only)
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.existingRelease.outputs.exists == 'false'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.run_id }}
+          tag_name: v${{ steps.getModVersion.outputs.mod_version }}
+          target_commitish: ${{ github.sha }}
           name: Agalar Hack v${{ steps.getModVersion.outputs.mod_version }}+${{ github.sha }}
+          body_path: ${{ runner.temp }}/release-notes.md
           draft: false
           prerelease: false
           make_latest: true
