@@ -129,8 +129,14 @@ kalır ve özel pathfinder yazılmaz.
    külçe, taşınan cevheri eritmeye tercih ediliyor. Adı değiştirilmiş, büyülü ve kırılmak üzere olan
    eşyalar alınmıyor, iki boş yuva korunuyor, ulaşılamayan sandık kampanyayı duraklatmıyor.
    Kampanya deposu ve içerik kaydı `GrindStorage`'da.
-3. **İnşaat alanı seçimi.** Oyuncunun durduğu yerde düz alan yoksa tarayıcı bütçesiyle yakında
-   uygun bir alan aransın. Bulunamazsa net bir duraklatma mesajı verilsin.
+3. ✅ **İnşaat alanı seçimi (2.0.07).** Kampanya yeni bir dünyada başlarken, kademenin bütün
+   binalarının (ev, depo eki, portal, büyü alanı) taban alanına uyan en yakın temiz ve düz alanı
+   16 blok içinde, yalnızca yüklü chunk'larda bir kez arıyor. Her sütunun üst bloğu bir kez okunuyor
+   ve sonuç tekrar kullanılıyor; arama süresi günlüğe yazılıyor (game testlerinde en fazla 10 ms).
+   Düz zeminde konum eskisiyle aynı.
+   Alan yoksa kampanya baştan, net bir mesajla duraklıyor; `.grind resume` varsayılan köşeyi kabul
+   ediyor. Not: "tarayıcı bütçesi" yerine tek seferlik, sınırlı bir okuma seçildi (en fazla birkaç
+   bin sütun), çünkü kampanyanın görev listesi tabanın konumu belli olmadan kurulamıyor.
 4. **Avlanmada keşif.** Yüklü hayvan yoksa Baritone ile sınırlı bir keşif yapılsın. Baritone yoksa
    bugünkü duraklatma kalır.
 5. **İlk şablon.** Bastion bulma ve yağmalama güvenilir biçimde test edilemiyor. Bu madde ancak
@@ -187,7 +193,8 @@ E (kanıt) her adımda paralel
 | 2.0.04 | ✅ D1 ilk adım: AutoGrind görev sınıfları ayrıldı (davranış değişmeden) |
 | 2.0.05 | ✅ D1 devamı (seyahat, istasyon, erişim yardımcıları) ve C2 overlay kare süreleri |
 | 2.0.06 | ✅ D1 son adım (envanter yardımcıları) ve D2 depodan geri alma |
-| 2.0.07+ | D3–D4 AutoGrind 2 adımları, ESP kutu maliyeti, C3 (ölçüm sonucuna göre) |
+| 2.0.07 | ✅ D3 inşaat alanı seçimi |
+| 2.0.08+ | D4 avlanmada keşif, ESP kutu maliyeti, C3 (ölçüm sonucuna göre) |
 | 2.1.00 | B: Addon API 2 ve sürüm sözleşmesi, A4 güncelleme denetleyicisi |
 
 ## Riskler

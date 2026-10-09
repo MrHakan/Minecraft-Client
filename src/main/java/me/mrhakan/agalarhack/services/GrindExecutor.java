@@ -1,6 +1,7 @@
 package me.mrhakan.agalarhack.services;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -14,6 +15,8 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.chunk.LevelChunk;
 
 /**
  * Executes every current GrindBook goal. CraftingPlan remains the inventory-only planner; this
@@ -57,6 +60,8 @@ public final class GrindExecutor {
     private int transitionWait;
     private SurvivalTasks survivalTasks;
     private BlockPos survivalBase;
+    /** True while the base is the unsearched default because no plot fit; a restart searches again. */
+    private boolean provisionalBase;
     private ClientLevel homeWorld;
     private final Map<net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level>, Set<BlockPos>> protectedBlocks = new LinkedHashMap<>();
     private final TaskRunner runner = new TaskRunner();
@@ -130,13 +135,65 @@ public final class GrindExecutor {
         useBaritone = true;
         ownerPlayer = client.player;
         ownerLevel = client.level;
-        if (survivalBase == null || homeWorld != client.level) {
-            survivalBase = client.player.blockPosition().offset(2, 0, 0).immutable(); homeWorld = client.level;
-            storage.clear();
+        String plotProblem = null;
+        boolean newWorld = survivalBase == null || homeWorld != client.level;
+        if (newWorld || provisionalBase) {
+            BlockPos fallback = client.player.blockPosition().offset(2, 0, 0).immutable();
+            BlockPos plot = choosePlot(tier, fallback);
+            survivalBase = plot != null ? plot : fallback; homeWorld = client.level;
+            provisionalBase = plot == null;
+            if (newWorld) storage.clear();
+            if (plot == null) {
+                plotProblem = "No clear, level spot within " + GrindPlot.SEARCH_RADIUS + " blocks for the "
+                        + tier.name().toLowerCase(java.util.Locale.ROOT) + " campaign's buildings; move to open, level ground and start again, or .grind resume to build at "
+                        + coordinates(fallback) + " anyway.";
+            }
         }
         survivalTasks = new SurvivalTasks(this, tier, survivalBase);
         runner.start(survivalTasks.tasks());
+        if (plotProblem != null) runner.pause(plotProblem);
         return StartResult.STARTED;
+    }
+
+    /** The nearest plot that fits the tier's buildings, or {@code null}; reads loaded chunks only, once. */
+    private BlockPos choosePlot(SurvivalProgression.Tier tier, BlockPos fallback) {
+        long started = System.nanoTime();
+        LoadedTerrain terrain = new LoadedTerrain(fallback.getY());
+        var plot = GrindPlot.choose(terrain, SurvivalBlueprint.footprint(tier), fallback.getX(), fallback.getY(), fallback.getZ());
+        LOGGER.info("AutoGrind build plot search: {} after reading {} columns in {} ms", plot == null ? "none" : plot,
+                terrain.columns.size(), (System.nanoTime() - started) / 1_000_000);
+        return plot == null ? null : new BlockPos(plot.x(), plot.y(), plot.z());
+    }
+
+    /** Column tops from loaded chunks, each read once per search. */
+    private final class LoadedTerrain implements GrindPlot.Terrain {
+        final Map<Long, int[]> columns = new HashMap<>();
+        private final int feetY;
+        private final BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
+
+        LoadedTerrain(int feetY) { this.feetY = feetY; }
+
+        public int top(int x, int z) { return column(x, z)[0]; }
+        public boolean solid(int x, int z) { return column(x, z)[1] != 0; }
+
+        private int[] column(int x, int z) {
+            return columns.computeIfAbsent(BlockPos.asLong(x, 0, z), key -> scan(x, z));
+        }
+
+        private int[] scan(int x, int z) {
+            LevelChunk chunk = scanner.loadedChunk(x >> 4, z >> 4);
+            if (chunk == null) return new int[]{GrindPlot.UNKNOWN, 0};
+            int top = Math.min(feetY + GrindPlot.SCAN_TOP, client.level.getMaxY());
+            int bottom = Math.max(feetY + GrindPlot.SCAN_BOTTOM, client.level.getMinY());
+            for (int y = top; y >= bottom; y--) {
+                BlockState state = chunk.getBlockState(cursor.set(x, y, z));
+                boolean fluid = !state.getFluidState().isEmpty();
+                if (state.canBeReplaced() && !fluid) continue;
+                boolean solid = !fluid && !state.getCollisionShape(client.level, cursor).isEmpty();
+                return new int[]{y, solid ? 1 : 0};
+            }
+            return new int[]{GrindPlot.UNKNOWN, 0};
+        }
     }
     public boolean baritoneAvailable() { return baritone.available(); }
     public void useBaritone(boolean enabled) { useBaritone = enabled; if (!enabled) travel.cancelAutomation(); }
@@ -144,7 +201,12 @@ public final class GrindExecutor {
     public String survivalTier() { return survival && survivalTasks != null ? survivalTasks.tier.name().toLowerCase(java.util.Locale.ROOT) : null; }
 
     /** Resume a task paused for direct reach, an open screen, or a missing free inventory slot. */
-    public boolean resume() { return runner.resume(); }
+    public boolean resume() {
+        boolean resumed = runner.resume();
+        // Resuming the no-plot pause accepts the default corner; a later restart must not move it.
+        if (resumed) provisionalBase = false;
+        return resumed;
+    }
 
     /** Advances one task tick on the client thread. Container clicks remain owned by InventoryService. */
     public void tick() {
@@ -197,7 +259,7 @@ public final class GrindExecutor {
         return wasActive;
     }
 
-    public void reset() { stop(); survivalBase = null; homeWorld = null; storage.clear(); protectedBlocks.clear(); }
+    public void reset() { stop(); survivalBase = null; provisionalBase = false; homeWorld = null; storage.clear(); protectedBlocks.clear(); }
     public boolean running() { return runner.running(); }
     public TaskRunner.State state() { return runner.state(); }
     public String currentTask() {

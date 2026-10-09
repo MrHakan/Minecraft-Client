@@ -51,10 +51,10 @@ final class SurvivalTasks {
                             : List.of(base.offset(7, 1, 5), base.offset(9, 1, 5), base.offset(11, 1, 5));
                     tasks.add(new StorageTask(grind, chests, Map.of(), true));
                 }
-                case PORTAL -> tasks.add(new PortalTask(grind, base.offset(-5, 0, 0)));
+                case PORTAL -> tasks.add(new PortalTask(grind, base.offset(SurvivalBlueprint.PORTAL_X, 0, 0)));
                 case NETHER -> tasks.add(new DimensionTask(true));
                 case OVERWORLD -> tasks.add(new DimensionTask(false));
-                case ENCHANT -> { tasks.add(new EnchantTask(grind, base.offset(8, 0, 10))); tasks.add(new EquipTask(grind)); }
+                case ENCHANT -> { tasks.add(new EnchantTask(grind, base.offset(SurvivalBlueprint.ENCHANTING_X, 0, SurvivalBlueprint.ENCHANTING_Z))); tasks.add(new EquipTask(grind)); }
             }
             while (taskGoals.size() < tasks.size()) taskGoals.add(goal);
         }
@@ -782,7 +782,7 @@ final class SurvivalTasks {
         public int budgetTicks() { return 24_000; }
         public boolean tick() {
             blocked = null; expectingDimension = true;
-            BlockPos portal = entering ? base.offset(-4, 1, 0) : netherEntry;
+            BlockPos portal = entering ? base.offset(SurvivalBlueprint.PORTAL_X + 1, 1, 0) : netherEntry;
             if (portal == null) { blocked = "Locate a return portal and enter it, then .grind resume."; return true; }
             if (grind.client.player.isOnPortalCooldown()) return true;
             if (!grind.travel.moveTo(portal)) blocked = grind.travel.movementProblem("Enter the portal at " + GrindExecutor.coordinates(portal) + "; Baritone pathing is unavailable.");
@@ -801,14 +801,8 @@ final class SurvivalTasks {
         OpenTask open; String blocked; int wait; boolean enchantIssued; ItemGoalTask xpWork; StorageTask xpStorage;
         EnchantTask(GrindExecutor g, BlockPos table) {
             this.g = g; this.table = table;
-            List<SurvivalBlueprint.Placement> layout = new ArrayList<>();
             // Table and the 15 shelves live outside the annex to keep its storage passage clear.
-            layout.add(new SurvivalBlueprint.Placement(0, 0, 0, "enchanting_table"));
-            for (int x = -2; x <= 2; x++) for (int z = -2; z <= 2; z++) {
-                if (Math.abs(x) != 2 && Math.abs(z) != 2 || x == 0 && z == -2) continue;
-                layout.add(new SurvivalBlueprint.Placement(x, 0, z, "bookshelf"));
-            }
-            setup = new BuildTask(g, table, List.copyOf(layout), "enchanting area");
+            setup = new BuildTask(g, table, SurvivalBlueprint.enchantingArea(), "enchanting area");
         }
         boolean enchantable(ItemStack s) { return Set.of("netherite_pickaxe", "netherite_axe", "netherite_shovel", "netherite_sword", "netherite_helmet", "netherite_chestplate", "netherite_leggings", "netherite_boots").contains(id(s)) && !s.has(DataComponents.CUSTOM_NAME)
                 && (s.get(DataComponents.ENCHANTMENTS) == null || s.get(DataComponents.ENCHANTMENTS).isEmpty()); }

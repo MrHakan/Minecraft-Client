@@ -98,6 +98,9 @@ public final class SurvivalTasksGameTest implements FabricClientGameTest {
                 g.stop();
                 // Restarting in the same loaded world must retain completed base storage.
                 g.startSurvival(SurvivalProgression.Tier.MAX);
+                // Should no plot fit the MAX buildings around this arena, the campaign starts paused;
+                // resuming accepts the default corner, which is all this scenario needs.
+                g.resume();
                 g.useBaritone(false);
             });
             for (int i = 0; i < 300; i++) {
@@ -159,7 +162,8 @@ public final class SurvivalTasksGameTest implements FabricClientGameTest {
             })) throw new AssertionError("Level-30 enchanting did not return enchanted gear and consume three levels");
             context.runOnClient(c -> g.stop());
             storedSuppliesAreTakenBack(context, world, g, base, chest);
-            org.slf4j.LoggerFactory.getLogger("agalarhack-gametest").info("Survival placement, storage, equipment, template duplication, enchanting and storage withdrawal passed");
+            buildPlotSearch(context, world, g, base.offset(0, 0, 96));
+            org.slf4j.LoggerFactory.getLogger("agalarhack-gametest").info("Survival placement, storage, equipment, template duplication, enchanting, storage withdrawal and build plot search passed");
         }
     }
     /**
@@ -209,6 +213,55 @@ public final class SurvivalTasksGameTest implements FabricClientGameTest {
         if (!context.computeOnClient(c -> c.player.containerMenu.getCarried().isEmpty() && c.gui.screen() == null))
             throw new AssertionError("Withdrawal left a cursor stack or the chest open");
         context.runOnClient(c -> g.stop());
+    }
+
+    /**
+     * D3: on rough ground the campaign finds a level plot nearby instead of building where it
+     * stands, and says so plainly when there is none. The arena is level stone with a two-high
+     * pillar on every third column, so no house footprint fits anywhere in reach, until a clean
+     * patch is opened a few blocks east.
+     */
+    private static void buildPlotSearch(ClientGameTestContext context, TestSingleplayerContext world, GrindExecutor g, BlockPos start) {
+        int reach = GrindPlot.SEARCH_RADIUS + 12;
+        world.getServer().runOnServer(server -> {
+            ServerPlayer p = world.getConnection().getServerPlayer();
+            var level = p.level();
+            for (int x = -reach; x <= reach; x++) for (int z = -reach; z <= reach; z++) {
+                level.setBlockAndUpdate(start.offset(x, -1, z), Blocks.STONE.defaultBlockState());
+                boolean pillar = Math.floorMod(x, 3) == 1 && Math.floorMod(z, 3) == 1;
+                for (int y = 0; y <= GrindPlot.SCAN_TOP + 1; y++)
+                    level.setBlockAndUpdate(start.offset(x, y, z), pillar && y <= 1 ? Blocks.COBBLESTONE.defaultBlockState() : Blocks.AIR.defaultBlockState());
+            }
+            p.teleportTo(start.getX() + 0.5, start.getY(), start.getZ() + 0.5);
+        });
+        world.getConnection().waitForChunksRender();
+        context.waitTicks(40);
+        context.runOnClient(c -> {
+            g.reset();
+            if (g.startSurvival(SurvivalProgression.Tier.IRON) != GrindExecutor.StartResult.STARTED)
+                throw new AssertionError("The campaign did not start on rough ground");
+            if (g.state() != TaskRunner.State.NEEDS_MOVEMENT || g.blockedReason() == null || !g.blockedReason().startsWith("No clear, level spot"))
+                throw new AssertionError("Rough ground with no plot should pause with a clear reason; state=" + g.state() + " reason=" + g.blockedReason());
+            g.stop();
+        });
+        // A clean patch east of the start: x 8..16, z -3..5 from the player.
+        world.getServer().runOnServer(server -> {
+            var level = world.getConnection().getServerPlayer().level();
+            for (int x = 8; x <= 16; x++) for (int z = -3; z <= 5; z++) for (int y = 0; y <= 1; y++)
+                level.setBlockAndUpdate(start.offset(x, y, z), Blocks.AIR.defaultBlockState());
+        });
+        context.waitTicks(20);
+        int[] corner = context.computeOnClient(c -> {
+            if (g.startSurvival(SurvivalProgression.Tier.IRON) != GrindExecutor.StartResult.STARTED || g.state() != TaskRunner.State.RUNNING)
+                throw new AssertionError("The campaign did not start on the open patch; state=" + g.state() + " reason=" + g.blockedReason());
+            String[] parts = g.baseCoordinates().split(" ");
+            g.stop();
+            return new int[]{Integer.parseInt(parts[0]) - start.getX(), Integer.parseInt(parts[1]) - start.getY(), Integer.parseInt(parts[2]) - start.getZ()};
+        });
+        // The iron house is five by five with a path cell north of it, so its corner must sit at x 8..12, z -2..1.
+        if (corner[0] < 8 || corner[0] > 12 || corner[2] < -2 || corner[2] > 1 || corner[1] != 0)
+            throw new AssertionError("The chosen plot " + corner[0] + " " + corner[1] + " " + corner[2] + " is not on the open patch");
+        context.runOnClient(c -> g.reset());
     }
 
     /** Named iron ingots, unnamed iron ingots and sticks in the chest, read on the server. */
