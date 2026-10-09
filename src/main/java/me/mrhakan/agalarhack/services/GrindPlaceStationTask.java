@@ -91,9 +91,9 @@ final class GrindPlaceStationTask implements TaskRunner.Task {
             failureReason = "could not place " + station.item + " on a nearby clear solid surface";
             return false;
         }
-        int hotbar = g.prepareHotbarItem(station.item);
+        int hotbar = g.items.prepareHotbarItem(station.item);
         if (hotbar == GrindExecutor.HOTBAR_PENDING) {
-            if (g.inventory.transfers().recoveryBlocked()) movementReason = g.inventoryRecoveryReason();
+            if (g.inventory.transfers().recoveryBlocked()) movementReason = g.items.inventoryRecoveryReason();
             return true;
         }
         if (hotbar < 0) {

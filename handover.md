@@ -53,6 +53,18 @@
   `g.stations` (`GrindStations`: table/furnace positions and the station menu AutoGrind opened) and
   `g.reach` (`GrindReach`: reach, line of sight, aiming, nearby-block lookup). `GrindExecutor` keeps
   lifecycle, plan building, campaign state and the inventory helpers.
+- 2.0.06: the inventory helpers are `g.items` (`GrindItems`: `count`, `carried`,
+  `planningInventory`, hotbar/tool preparation, crafting-grid clicks); the static stack tests
+  (`countStack`, `usable`, `validTool`) are `GrindItems.x`. `GrindExecutor` keeps lifecycle, plan
+  building and campaign state.
+- 2.0.06 (D2): `g.storage` (`GrindStorage`) holds the campaign's storage chests (was the executor's
+  `survivalStorage` and `SurvivalTasks.storageChests`) and a ledger of what AutoGrind last saw in each
+  (`observe`, called whenever `StorageTask` or `WithdrawTask` has one open; named, enchanted and
+  unusable stacks are left out). `ItemGoalTask` asks `worthVisiting` before each fresh plan: only
+  when `CraftingPlan` has a GATHER step, only chests in range, unknown chests once. `WithdrawTask`
+  recomputes `GrindWithdrawal.plan` (pure, top-down: carried, then stored, then ingredients) from
+  live contents after opening, skips unreachable chests, and has its own 2,400-tick budget because
+  its goal ticks it directly. `EnchantTask`'s XP coal sets `useStorage = false`.
 - 2.0.05: `OverlayTimings` is the frame-based counterpart of `ModuleTimings` (a `ModuleTimings` with
   a 120-frame window and 180-frame expiry). `WorldOverlays.collect` opens a frame each time it runs,
   which also closes the previous one; an overlay's labels and deferred lines add into one slot, so

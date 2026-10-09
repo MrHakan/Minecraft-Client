@@ -32,7 +32,6 @@ final class SurvivalTasks {
     boolean expectingDimension;
     boolean eating;
     int eatingTicks;
-    List<BlockPos> storageChests = List.of();
     TaskRunner storageWork;
     final List<SurvivalProgression.Goal> taskGoals = new ArrayList<>();
 
@@ -82,7 +81,7 @@ final class SurvivalTasks {
         eating = true;
         if (++eatingTicks > 200) { grind.pause("Eating did not complete; check food access, then .grind resume."); eating = false; eatingTicks = 0; return true; }
         grind.travel.cancelAutomation(); grind.rotations.release(OWNER);
-        int hotbar = grind.prepareHotbarItem(id(grind.inventory.stackAt(source)));
+        int hotbar = grind.items.prepareHotbarItem(id(grind.inventory.stackAt(source)));
         if (hotbar < 0) return true;
         grind.inventory.select(OWNER, 60, hotbar, true, true);
         return true;
@@ -98,12 +97,12 @@ final class SurvivalTasks {
             if (freeSlots() >= 2 || grind.inventory.transfers().busy()) return false;
             if (grind.client.gui.screen() != null && !grind.stations.closeOwnedStationMenu()) return false;
             grind.travel.cancelAutomation();
-            if (storageChests.isEmpty() || grind.client.level.dimension() != Level.OVERWORLD) {
+            if (grind.storage.chests().isEmpty() || grind.client.level.dimension() != Level.OVERWORLD) {
                 grind.pause("Inventory nearly full: free two slots, then .grind resume. Base storage is not built yet or unavailable in this dimension.");
                 return true;
             }
             storageWork = new TaskRunner();
-            storageWork.start(List.of(new StorageTask(grind, storageChests, pressureReserves())));
+            storageWork.start(List.of(new StorageTask(grind, grind.storage.chests(), pressureReserves())));
         }
         if (storageWork.state() == TaskRunner.State.NEEDS_MOVEMENT) storageWork.resume();
         storageWork.tick();
@@ -122,7 +121,7 @@ final class SurvivalTasks {
                 goal -> gearSatisfied(grind, goal.item(), goal.count()));
         if (tier == SurvivalProgression.Tier.MAX) {
             // Debris and diamonds gathered earlier are still needed by later smithing/copying.
-            int templates = grind.count("netherite_upgrade_smithing_template");
+            int templates = grind.items.count("netherite_upgrade_smithing_template");
             if (taskGoals.subList(Math.min(grind.completed(), taskGoals.size()), taskGoals.size()).stream()
                     .anyMatch(goal -> goal.item().equals("netherite_upgrade_smithing_template")))
                 remaining.merge("diamond", Math.max(0, 8 - Math.max(1, templates)) * 7, Math::max);
@@ -150,13 +149,13 @@ final class SurvivalTasks {
     }
     static boolean hunted(String item) { return Set.of("beef", "porkchop", "chicken", "mutton", "leather").contains(item); }
     static boolean gearSatisfied(GrindExecutor g, String item, int count) {
-        if (g.count(item) >= count) return true;
+        if (g.items.count(item) >= count) return true;
         String[] bits = item.split("_", 2);
         if (count != 1 || bits.length != 2) return false;
         List<String> tiers = List.of("wooden", "stone", "iron", "diamond", "netherite");
         int current = tiers.indexOf(bits[0]);
         if (current < 0) return false;
-        for (int i = current + 1; i < tiers.size(); i++) if (g.count(tiers.get(i) + "_" + bits[1]) > 0) return true;
+        for (int i = current + 1; i < tiers.size(); i++) if (g.items.count(tiers.get(i) + "_" + bits[1]) > 0) return true;
         return false;
     }
 
@@ -165,17 +164,25 @@ final class SurvivalTasks {
         final String item;
         final int wanted;
         final boolean allowUpgrade;
+        /** False where taking stock back would defeat the goal, such as mining coal for experience. */
+        boolean useStorage = true;
         TaskRunner work;
+        WithdrawTask withdraw;
+        int withdrawals;
         int replans;
         String blocked;
         String failure;
         ItemGoalTask(GrindExecutor g, String item, int wanted, boolean allowUpgrade) {
             this.g = g; this.item = item; this.wanted = wanted; this.allowUpgrade = allowUpgrade;
         }
-        public String name() { return "get " + wanted + " " + item + (work != null && work.currentTask() != null ? ": " + work.currentTask() : ""); }
+        public String name() {
+            String step = withdraw != null ? withdraw.name() : work != null ? work.currentTask() : null;
+            return "get " + wanted + " " + item + (step != null ? ": " + step : "");
+        }
         public boolean satisfied() {
             boolean done = !g.inventory.transfers().owns(OWNER)
-                    && (allowUpgrade ? gearSatisfied(g, item, wanted) : g.count(item) >= wanted);
+                    && (allowUpgrade ? gearSatisfied(g, item, wanted) : g.items.count(item) >= wanted);
+            if (done && withdraw != null) { withdraw.cancel(); withdraw = null; }
             if (done && work != null) { work.cancel(); work = null; g.travel.cancelAutomation(); g.stations.closeOwnedStationMenu(); }
             return done;
         }
@@ -183,8 +190,21 @@ final class SurvivalTasks {
         public boolean tick() {
             blocked = null;
             g.campaignReserves = GrindStoragePolicy.reservesFor(item, wanted);
+            if (withdraw != null) {
+                if (!withdraw.satisfied()) { boolean result = withdraw.tick(); blocked = withdraw.blockedReason(); return result; }
+                withdraw = null;
+            }
             if (work == null || work.state() == TaskRunner.State.DONE) {
-                Map<String, Integer> have = g.planningInventory(item);
+                Map<String, Integer> have = g.items.planningInventory(item);
+                // Stored supplies first: a trip to base storage beats gathering what is already there.
+                if (useStorage && withdrawals < MAX_WITHDRAWALS) {
+                    List<BlockPos> chests = g.storage.worthVisiting(item, wanted, have);
+                    if (!chests.isEmpty()) {
+                        withdrawals++;
+                        withdraw = new WithdrawTask(g, item, wanted, chests);
+                        return true;
+                    }
+                }
                 work = new TaskRunner();
                 work.start(g.createTasks(GrindExecutionPlan.plan(item, wanted, have,
                         g.reach.findNearbyBlock(Blocks.CRAFTING_TABLE) != null, g.reach.findNearbyBlock(Blocks.FURNACE) != null), have));
@@ -203,7 +223,96 @@ final class SurvivalTasks {
         }
         public String blockedReason() { return blocked; }
         public String failureReason() { return failure; }
-        public void cancel() { if (work != null) work.cancel(); g.travel.cancelAutomation(); g.stations.closeOwnedStationMenu(); }
+        public void cancel() {
+            if (withdraw != null) withdraw.cancel();
+            if (work != null) work.cancel();
+            g.travel.cancelAutomation(); g.stations.closeOwnedStationMenu();
+        }
+    }
+
+    /** A goal re-plans when a sub-plan finishes short; this bounds how often that sends it to storage. */
+    static final int MAX_WITHDRAWALS = 3;
+
+    /**
+     * Takes back from base storage what a goal needs before it gathers. What to take is worked out
+     * again from each chest's live contents once it is open, so a stale record costs a visit, never
+     * a wrong click. Renamed, enchanted and nearly broken stacks stay, and a stack only goes into an
+     * empty slot while {@link GrindStorage#KEEP_FREE_SLOTS} would remain free.
+     *
+     * <p>Storage is a shortcut, never a new reason to stop: a chest that cannot be reached or opened
+     * is skipped, and whatever was not taken is gathered as before.
+     */
+    static final class WithdrawTask implements TaskRunner.Task {
+        final GrindExecutor g; final String item; final int wanted; final List<BlockPos> chests;
+        int chest; int ticks; OpenTask open;
+        WithdrawTask(GrindExecutor g, String item, int wanted, List<BlockPos> chests) {
+            this.g = g; this.item = item; this.wanted = wanted; this.chests = List.copyOf(chests);
+        }
+        public String name() { return "take stored supplies from chest " + Math.min(chest + 1, chests.size()) + "/" + chests.size(); }
+        public boolean satisfied() { return chest >= chests.size() && !g.inventory.transfers().owns(OWNER); }
+        public int budgetTicks() { return 2_400; }
+        public boolean tick() {
+            if (chest >= chests.size()) return true;
+            // Ticked by its goal rather than a TaskRunner, so it enforces its own budget.
+            if (++ticks > budgetTicks()) {
+                GrindExecutor.LOGGER.info("AutoGrind gave up taking stored supplies for {} after {} ticks", item, budgetTicks());
+                g.inventory.transfers().release(OWNER); next(); chest = chests.size(); return true;
+            }
+            if (g.inventory.transfers().busy()) return true;
+            BlockPos pos = chests.get(chest);
+            if (open == null) open = new OpenTask(g, pos, ChestMenu.class);
+            if (!open.satisfied()) {
+                open.tick();
+                if (open.blockedReason() != null) {
+                    GrindExecutor.LOGGER.info("AutoGrind skipped storage chest {}: {}", GrindExecutor.coordinates(pos), open.blockedReason());
+                    next();
+                }
+                return true;
+            }
+            ChestMenu menu = (ChestMenu) g.client.player.containerMenu;
+            g.storage.observe(pos, menu);
+            Map<String, Integer> take = GrindWithdrawal.plan(item, wanted, g.items.planningInventory(item),
+                    g.storage.seen(pos), GrindBook.recipes());
+            int slots = Math.min(menu.getRowCount() * 9, menu.slots.size());
+            for (var entry : take.entrySet()) {
+                for (int slot = 0; slot < slots; slot++) {
+                    ItemStack stored = menu.getSlot(slot).getItem();
+                    if (!GrindStorage.withdrawable(stored) || GrindItems.countStack(stored, entry.getKey()) == 0) continue;
+                    int destination = destination(stored);
+                    if (destination < 0) { next(); return true; }
+                    ItemStack held = g.inventory.stackAt(destination);
+                    int room = held.isEmpty() ? stored.getMaxStackSize() : held.getMaxStackSize() - held.getCount();
+                    int amount = Math.min(Math.min(entry.getValue(), stored.getCount()), room);
+                    int target = InventoryTransfers.menuSlot(destination, InventoryTransfers.PlayerMenuLayout.CHEST);
+                    List<ContainerTransferController.Click> clicks = new ArrayList<>();
+                    clicks.add(new ContainerTransferController.Click(slot, 0));
+                    if (amount == stored.getCount() && held.isEmpty()) clicks.add(new ContainerTransferController.Click(target, 0));
+                    else {
+                        for (int n = 0; n < amount; n++) clicks.add(new ContainerTransferController.Click(target, 1));
+                        if (amount < stored.getCount()) clicks.add(new ContainerTransferController.Click(slot, 0));
+                    }
+                    g.inventory.transfers().beginClicks(OWNER, PRIORITY, menu.containerId, clicks.toArray(ContainerTransferController.Click[]::new), 0);
+                    return true;
+                }
+            }
+            next();
+            return true;
+        }
+        /** A partial stack of the same item first, then an empty slot outside the hotbar, then the hotbar. */
+        private int destination(ItemStack stored) {
+            for (int index = 0; index < InventoryTransfers.INVENTORY_SIZE; index++) {
+                ItemStack held = g.inventory.stackAt(index);
+                if (!held.isEmpty() && ItemStack.isSameItemSameComponents(held, stored) && held.getCount() < held.getMaxStackSize()) return index;
+            }
+            int free = 0;
+            for (int index = 0; index < InventoryTransfers.INVENTORY_SIZE; index++) if (g.inventory.stackAt(index).isEmpty()) free++;
+            if (free <= GrindStorage.KEEP_FREE_SLOTS) return -1;
+            for (int index = InventoryTransfers.HOTBAR_SIZE; index < InventoryTransfers.INVENTORY_SIZE; index++) if (g.inventory.stackAt(index).isEmpty()) return index;
+            for (int index = 0; index < InventoryTransfers.HOTBAR_SIZE; index++) if (g.inventory.stackAt(index).isEmpty()) return index;
+            return -1;
+        }
+        private void next() { g.stations.closeOwnedStationMenu(); chest++; open = null; }
+        public void cancel() { g.inventory.transfers().release(OWNER); g.stations.closeOwnedStationMenu(); g.travel.cancelMovement(); }
     }
 
     static final class EquipTask implements TaskRunner.Task {
@@ -246,9 +355,9 @@ final class SurvivalTasks {
         public boolean tick() {
             if (work == null || work.satisfied()) {
                 String raw = "beef";
-                for (String food : List.of("beef", "porkchop", "mutton", "chicken")) if (g.count(food) > 0) { raw = food; break; }
-                if (g.count("wheat") >= 3) work = new ItemGoalTask(g, "bread", g.count("bread") + wanted - foodCount(), false);
-                else work = new ItemGoalTask(g, "cooked_" + raw, g.count("cooked_" + raw) + wanted - foodCount(), false);
+                for (String food : List.of("beef", "porkchop", "mutton", "chicken")) if (g.items.count(food) > 0) { raw = food; break; }
+                if (g.items.count("wheat") >= 3) work = new ItemGoalTask(g, "bread", g.items.count("bread") + wanted - foodCount(), false);
+                else work = new ItemGoalTask(g, "cooked_" + raw, g.items.count("cooked_" + raw) + wanted - foodCount(), false);
             }
             return work.tick();
         }
@@ -264,8 +373,8 @@ final class SurvivalTasks {
         int wait;
         String blocked;
         HuntTask(GrindExecutor g, String item, int wanted) { this.g = g; this.item = item; this.wanted = wanted; }
-        public String name() { return "hunt " + item + " " + g.count(item) + "/" + wanted; }
-        public boolean satisfied() { if (g.count(item) < wanted) return false; g.travel.cancelMovement(); return true; }
+        public String name() { return "hunt " + item + " " + g.items.count(item) + "/" + wanted; }
+        public boolean satisfied() { if (g.items.count(item) < wanted) return false; g.travel.cancelMovement(); return true; }
         public int budgetTicks() { return 24_000; }
         boolean matches(LivingEntity e) {
             if (!e.isAlive() || e.hasCustomName() || !(e instanceof Animal a) || a.isBaby()) return false;
@@ -331,7 +440,7 @@ final class SurvivalTasks {
             var next = blueprint.get(index);
             if (placement == null) placement = new PlaceTask(g, origin.offset(next.x(), next.y(), next.z()), next.item());
             if (placement.satisfied()) { index++; placement = null; return true; }
-            if (g.count(next.item()) < 1) {
+            if (g.items.count(next.item()) < 1) {
                 // Small live batches avoid filling inventory with an entire building's materials.
                 int remaining = (int) blueprint.subList(index, blueprint.size()).stream().filter(p -> p.item().equals(next.item())).count();
                 supply = new ItemGoalTask(g, next.item(), Math.min(32, remaining), false); return true;
@@ -375,7 +484,7 @@ final class SurvivalTasks {
             BlockHitResult hit = placementHit();
             if (hit == null) { if (!g.travel.moveNear(pos)) blocked = g.travel.movementProblem("Move to a visible solid support beside " + GrindExecutor.coordinates(pos) + "."); return true; }
             g.travel.cancelMovement();
-            int hotbar = g.prepareHotbarItem(item);
+            int hotbar = g.items.prepareHotbarItem(item);
             if (hotbar == -2) return true;
             if (hotbar < 0) { failure = "missing " + item; return false; }
             if (!g.inventory.select(OWNER, PRIORITY, hotbar, false, true)) return true;
@@ -468,13 +577,14 @@ final class SurvivalTasks {
             if (open == null) open = new OpenTask(g, chests.get(chest), ChestMenu.class);
             if (!open.satisfied()) { open.tick(); blocked = open.blockedReason(); return true; }
             ChestMenu menu = (ChestMenu) g.client.player.containerMenu;
+            g.storage.observe(chests.get(chest), menu);
             if (menu.getRowCount() != 3) { blocked = "Separate the storage chests; AutoGrind expects three-row single chests."; return true; }
             for (int index = 0; index < 36; index++) {
                 ItemStack stack = g.inventory.stackAt(index); if (stack.isEmpty() || stack.has(DataComponents.CUSTOM_NAME)) continue;
                 String item = GrindBook.generic(id(stack));
                 if (chests.size() > 1 && GrindStoragePolicy.category(item) != chest) continue;
                 int keep = Math.max(GrindStoragePolicy.reserve(item), reserves.getOrDefault(item, 0));
-                int excess = reserves.getOrDefault(item, 0) == 0 && obsolete(stack, item) ? stack.getCount() : g.count(item) - keep;
+                int excess = reserves.getOrDefault(item, 0) == 0 && obsolete(stack, item) ? stack.getCount() : g.items.count(item) - keep;
                 int amount = Math.min(excess, stack.getCount()); if (amount < 1) continue;
                 int destination = -1;
                 for (int slot = 0; slot < 27; slot++) {
@@ -497,13 +607,13 @@ final class SurvivalTasks {
         }
         private boolean obsolete(ItemStack stack, String item) {
             if (stack.get(DataComponents.ENCHANTMENTS) != null && !stack.get(DataComponents.ENCHANTMENTS).isEmpty()) return false;
-            if (!GrindExecutor.usable(stack)) return true;
+            if (!GrindItems.usable(stack)) return true;
             String[] bits = item.split("_", 2);
             if (bits.length != 2) return false;
             List<String> tiers = List.of("wooden", "stone", "iron", "diamond", "netherite");
             int tier = tiers.indexOf(bits[0]);
             if (tier < 0) return false;
-            for (int n = tier + 1; n < tiers.size(); n++) if (g.count(tiers.get(n) + "_" + bits[1]) > 0) return true;
+            for (int n = tier + 1; n < tiers.size(); n++) if (g.items.count(tiers.get(n) + "_" + bits[1]) > 0) return true;
             return false;
         }
         public String blockedReason() { return blocked; }
@@ -515,7 +625,7 @@ final class SurvivalTasks {
         PlaceTask place; OpenTask open; int wait; String blocked;
         SmithTask(GrindExecutor g, String output, int wanted) { this.g = g; this.output = output; this.wanted = wanted; this.diamond = output.replace("netherite_", "diamond_"); }
         public String name() { return "smith " + output; }
-        public boolean satisfied() { return g.count(output) >= wanted && !g.inventory.transfers().owns(OWNER); }
+        public boolean satisfied() { return g.items.count(output) >= wanted && !g.inventory.transfers().owns(OWNER); }
         public boolean tick() {
             blocked = null;
             if (g.inventory.transfers().busy()) return true;
@@ -523,7 +633,7 @@ final class SurvivalTasks {
                 if (g.stations.closeOwnedStationMenu()) return true;
                 // Worn diamond armor must be made available as a smithing input.
                 for (EquipmentSlot slot : new EquipmentSlot[]{EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET}) {
-                    if (GrindExecutor.countStack(g.inventory.equipped(slot), diamond) == 0) continue;
+                    if (GrindItems.countStack(g.inventory.equipped(slot), diamond) == 0) continue;
                     int free = g.client.player.getInventory().getFreeSlot();
                     if (free < 0) { blocked = "Free a slot to unequip " + diamond + "."; return true; }
                     int armor = switch (slot) { case HEAD -> 5; case CHEST -> 6; case LEGS -> 7; default -> 8; };
@@ -543,7 +653,7 @@ final class SurvivalTasks {
                 open.tick(); blocked = open.blockedReason(); return true;
             }
             SmithingMenu menu = (SmithingMenu) g.client.player.containerMenu; g.stations.ownMenu();
-            if (GrindExecutor.countStack(menu.getSlot(3).getItem(), output) > 0) {
+            if (GrindItems.countStack(menu.getSlot(3).getItem(), output) > 0) {
                 g.inventory.transfers().beginClicks(OWNER, PRIORITY, menu.containerId,
                         new ContainerTransferController.Click[]{new ContainerTransferController.Click(3, 0)}, 0); wait = 0; return true;
             }
@@ -551,10 +661,10 @@ final class SurvivalTasks {
             for (int slot = 0; slot < 3; slot++) {
                 ItemStack placed = menu.getSlot(slot).getItem();
                 if (!placed.isEmpty()) {
-                    if (GrindExecutor.countStack(placed, inputs[slot]) == 0) { blocked = "Smithing station contains unrelated inputs; clear them before .grind resume."; return true; }
+                    if (GrindItems.countStack(placed, inputs[slot]) == 0) { blocked = "Smithing station contains unrelated inputs; clear them before .grind resume."; return true; }
                     continue;
                 }
-                String ingredient = inputs[slot]; int source = g.inventory.findInventory(s -> GrindExecutor.countStack(s, ingredient) > 0);
+                String ingredient = inputs[slot]; int source = g.inventory.findInventory(s -> GrindItems.countStack(s, ingredient) > 0);
                 if (source < 0) { blocked = "Supply " + ingredient + " for " + output + ", then .grind resume."; return true; }
                 int from = InventoryTransfers.menuSlot(source, InventoryTransfers.PlayerMenuLayout.SMITHING);
                 g.inventory.transfers().beginClicks(OWNER, PRIORITY, menu.containerId,
@@ -575,8 +685,8 @@ final class SurvivalTasks {
         final GrindExecutor g; final int wanted;
         ItemGoalTask supplies; PlaceTask place; OpenTask open; String blocked; int wait;
         TemplateTask(GrindExecutor g, int wanted) { this.g = g; this.wanted = wanted; }
-        public String name() { return "duplicate upgrade templates " + g.count(TEMPLATE) + "/" + wanted; }
-        public boolean satisfied() { return g.count(TEMPLATE) >= wanted && !g.inventory.transfers().owns(OWNER); }
+        public String name() { return "duplicate upgrade templates " + g.items.count(TEMPLATE) + "/" + wanted; }
+        public boolean satisfied() { return g.items.count(TEMPLATE) >= wanted && !g.inventory.transfers().owns(OWNER); }
         public int budgetTicks() { return 180_000; }
         public boolean tick() {
             blocked = null;
@@ -585,16 +695,16 @@ final class SurvivalTasks {
                 if (!supplies.satisfied()) { boolean result = supplies.tick(); blocked = supplies.blockedReason(); return result; }
                 supplies = null;
             }
-            if (g.count(TEMPLATE) < 1 && !(g.client.player.containerMenu instanceof net.minecraft.world.inventory.CraftingMenu)) {
+            if (g.items.count(TEMPLATE) < 1 && !(g.client.player.containerMenu instanceof net.minecraft.world.inventory.CraftingMenu)) {
                 blocked = "Loot one Netherite Upgrade template from a bastion, then .grind resume; AutoGrind will duplicate the rest."; return true;
             }
             if (!(g.client.player.containerMenu instanceof net.minecraft.world.inventory.CraftingMenu menu)) {
                 if (g.stations.closeOwnedStationMenu()) return true;
-                if (g.count("diamond") < 7) { supplies = new ItemGoalTask(g, "diamond", 7, false); return true; }
-                if (g.count("netherrack") < 1) { supplies = new ItemGoalTask(g, "netherrack", 1, false); return true; }
+                if (g.items.count("diamond") < 7) { supplies = new ItemGoalTask(g, "diamond", 7, false); return true; }
+                if (g.items.count("netherrack") < 1) { supplies = new ItemGoalTask(g, "netherrack", 1, false); return true; }
                 BlockPos station = g.reach.findNearbyBlock(Blocks.CRAFTING_TABLE);
                 if (station == null) {
-                    if (g.count("crafting_table") < 1) { supplies = new ItemGoalTask(g, "crafting_table", 1, false); return true; }
+                    if (g.items.count("crafting_table") < 1) { supplies = new ItemGoalTask(g, "crafting_table", 1, false); return true; }
                     if (place == null) {
                         BlockPos free = freeStationPosition(g);
                         if (free == null) { blocked = "Stand beside a clear solid surface for the crafting table."; return true; }
@@ -606,7 +716,7 @@ final class SurvivalTasks {
                 open.tick(); blocked = open.blockedReason(); return true;
             }
             g.stations.ownMenu();
-            if (GrindExecutor.countStack(menu.getSlot(0).getItem(), TEMPLATE) > 0) {
+            if (GrindItems.countStack(menu.getSlot(0).getItem(), TEMPLATE) > 0) {
                 g.inventory.transfers().beginClicks(OWNER, PRIORITY, menu.containerId,
                         new ContainerTransferController.Click[]{new ContainerTransferController.Click(0, 0)}, 0);
                 open = null; wait = 0; return true;
@@ -615,10 +725,10 @@ final class SurvivalTasks {
             for (int cell = 0; cell < 9; cell++) {
                 ItemStack input = menu.getSlot(cell + 1).getItem(); String ingredient = cells[cell];
                 if (!input.isEmpty()) {
-                    if (GrindExecutor.countStack(input, ingredient) == 0) { blocked = "Clear unrelated crafting inputs before copying templates."; return true; }
+                    if (GrindItems.countStack(input, ingredient) == 0) { blocked = "Clear unrelated crafting inputs before copying templates."; return true; }
                     continue;
                 }
-                int index = g.inventory.findInventory(stack -> GrindExecutor.countStack(stack, ingredient) > 0);
+                int index = g.inventory.findInventory(stack -> GrindItems.countStack(stack, ingredient) > 0);
                 if (index < 0) { g.stations.closeOwnedStationMenu(); open = null; return true; }
                 int from = InventoryTransfers.menuSlot(index, InventoryTransfers.PlayerMenuLayout.CRAFTING_TABLE);
                 int amount = g.inventory.stackAt(index).getCount();
@@ -649,7 +759,7 @@ final class SurvivalTasks {
             BlockPos bottom = origin.offset(1, 0, 0);
             if (!g.reach.withinReach(bottom) || g.reach.hitTarget(bottom) == null) { if (!g.travel.moveNear(bottom)) blocked = g.travel.movementProblem("Move near the portal frame to light it."); return true; }
             g.travel.cancelMovement();
-            int slot = g.prepareHotbarItem("flint_and_steel"); if (slot < 0) return true;
+            int slot = g.items.prepareHotbarItem("flint_and_steel"); if (slot < 0) return true;
             if (!g.inventory.select(OWNER, PRIORITY, slot, false, true)) return true;
             g.reach.aimAt(bottom); if (!g.reach.aimedAt(bottom)) return true;
             if (++wait % 20 == 0) g.client.gameMode.useItemOn(g.client.player, InteractionHand.MAIN_HAND,
@@ -724,7 +834,7 @@ final class SurvivalTasks {
             if (xpWork != null) {
                 if (!xpWork.satisfied()) { boolean result = xpWork.tick(); blocked = xpWork.blockedReason(); return result; }
                 xpWork = null;
-                if (g.count("coal") > 64) xpStorage = new StorageTask(g, List.of(table.offset(1, 1, -5)));
+                if (g.items.count("coal") > 64) xpStorage = new StorageTask(g, List.of(table.offset(1, 1, -5)));
                 return true;
             }
             if (g.inventory.transfers().busy()) return true;
@@ -769,7 +879,9 @@ final class SurvivalTasks {
             if (menu.costs[2] == 0) { if (++wait > 40) blocked = "Check the clear one-block gap around the 15 bookshelves."; return true; }
             if (g.client.player.experienceLevel < menu.costs[2]) {
                 g.stations.closeOwnedStationMenu(); open = null;
-                xpWork = new ItemGoalTask(g, "coal", g.count("coal") + 32, false);
+                xpWork = new ItemGoalTask(g, "coal", g.items.count("coal") + 32, false);
+                // The levels come from mining the ore; coal taken out of storage would give none.
+                xpWork.useStorage = false;
                 return true;
             }
             if (!enchantIssued) { g.client.gameMode.handleInventoryButtonClick(menu.containerId, 2); enchantIssued = true; wait = 0; }

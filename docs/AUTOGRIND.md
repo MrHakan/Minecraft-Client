@@ -76,7 +76,19 @@ Reserves include the current recipe and unfinished campaign recipes, keeping ear
 copying diamonds for later milestones. Compatible chest stacks are filled before new slots are used;
 obsolete unenchanted gear can be stored once a usable stronger piece exists. Named and enchanted
 gear is retained. Before storage exists, in the Nether, or when protected supplies/chest capacity leave
-insufficient space, free two slots manually and resume. Stored supplies are not automatically withdrawn.
+insufficient space, free two slots manually and resume.
+
+Stored supplies come back when a goal needs them. Before a campaign goal gathers anything it cannot
+make from what is carried, it visits base storage chests that hold part of its recipe chain, nearest
+first: within 64 blocks with Baritone, within reach without it. At each item of the chain carried
+stock is spent first, then stored stock, and only the rest is crafted or gathered, so a stored ingot
+is taken rather than smelting carried ore. What to take is recomputed from the chest's live contents
+once it is open. Renamed, enchanted and nearly broken stacks are never taken, and a stack only goes
+into an empty slot while two stay free. AutoGrind knows a chest's contents from the last time it had
+it open, which covers everything it deposited; a registered chest it has not opened this session is
+visited once, and items added by hand are noticed the next time it opens that chest. Withdrawal is a
+shortcut, never a new pause: a chest that cannot be reached or opened is skipped and the goal
+gathers as before. Mining coal for enchanting experience never takes coal from storage.
 
 Without Baritone, resource scans remain bounded to loaded chunks within 6 horizontal / 4 vertical
 blocks and use `ScannerService`'s shared budget. Direct interactions stay within vanilla reach.
@@ -90,7 +102,7 @@ Unit tests cover all campaign item prerequisite chains, gear tiers, crafting lay
 ordering, building/portal geometry, storage reserves, station slot arithmetic and owned Baritone
 process cancellation. Real-client scenarios cover ordinary resource breaking and pickup, crafting,
 station placement, cooking, diamond/iron equipment recipes, Netherite smithing, survival startup and
-stop, exact building placements, chest transfers and automatic equipment.
+stop, exact building placements, chest transfers, storage withdrawal and automatic equipment.
 
 The regular client suite verifies Baritone absence; bridge unit tests also use API-shaped stubs.
 `tools/test-baritone.sh` runs a separate installed-Baritone 1.19.0 / Minecraft 26.2 fixture with a

@@ -4,6 +4,23 @@ Releases are numbered **2.x.yy**: `x` is the major version and `yy` a two-digit 
 [Versioning](README.md#versioning)). Every version needs a section here before it can be merged; CI
 publishes the section as the GitHub release notes.
 
+## [2.0.06] - 2026-10-09
+
+### Added
+- The survival campaign takes stored supplies back. A goal that cannot be made from what is carried
+  first visits base storage chests that hold part of its recipe chain (within 64 blocks with
+  Baritone, within reach without it) and takes what it needs, preferring finished items such as
+  ingots over smelting carried ore. Renamed, enchanted and nearly broken stacks are left alone, two
+  inventory slots stay free, and a chest that cannot be reached is skipped rather than pausing the
+  campaign. A game test has a goal make an iron pickaxe in an area with no ore, from ingots and sticks
+  AutoGrind had deposited earlier, beside a renamed stack it must not touch.
+
+### Internal
+- AutoGrind's inventory helpers (counting by generic name, hotbar and tool preparation, crafting
+  grid clicks) moved out of `GrindExecutor` into `GrindItems`, leaving the executor at about 340
+  lines of lifecycle, planning and campaign state. Same compiler-guided move as 2.0.04 and 2.0.05:
+  the 225 moved lines match the originals apart from the executor prefix. No behaviour change.
+
 ## [2.0.05] - 2026-10-08
 
 ### Added

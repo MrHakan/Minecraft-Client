@@ -33,7 +33,7 @@ final class GrindOffhandTask implements TaskRunner.Task {
             return true;
         }
         if (g.inventory.transfers().busy()) return true;
-        int destination = g.findEmptyHotbarSlot();
+        int destination = g.items.findEmptyHotbarSlot();
         if (destination < 0) destination = Math.max(0, g.inventory.selectedSlot());
         if (!g.inventory.transfers().begin(GrindExecutor.OWNER, GrindExecutor.PRIORITY, new int[]{InventoryTransfers.MENU_OFFHAND,
                 InventoryTransfers.menuSlot(destination), InventoryTransfers.MENU_OFFHAND}, 0)) return true;

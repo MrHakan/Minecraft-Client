@@ -28,11 +28,11 @@ final class GrindSmeltTask implements TaskRunner.Task {
         this.g = g;
         this.output = output; this.inputItem = GrindBook.smeltInput(output); this.goal = goal; this.rawIron = rawIron; this.coal = coal;
     }
-    @Override public String name() { return "smelt " + output + " (" + g.count(output) + "/" + goal + ")"; }
+    @Override public String name() { return "smelt " + output + " (" + g.items.count(output) + "/" + goal + ")"; }
     @Override public boolean satisfied() {
         // Keep the station task alive until its final output/recovery click is acknowledged by
         // the shared transfer controller, for the same reason as GrindCraftTask above.
-        return g.count(output) >= goal && !g.inventory.transfers().owns(GrindExecutor.OWNER);
+        return g.items.count(output) >= goal && !g.inventory.transfers().owns(GrindExecutor.OWNER);
     }
     @Override public int budgetTicks() { return Math.min(140_000, Math.max(TaskRunner.DEFAULT_BUDGET_TICKS, rawIron * 220 + 4_000)); }
 
@@ -46,7 +46,7 @@ final class GrindSmeltTask implements TaskRunner.Task {
             return true;
         }
         if (g.inventory.transfers().busy()) {
-            if (g.inventory.transfers().recoveryBlocked()) movementReason = g.inventoryRecoveryReason();
+            if (g.inventory.transfers().recoveryBlocked()) movementReason = g.items.inventoryRecoveryReason();
             return true;
         }
         int menuId = menu.containerId;
@@ -55,13 +55,13 @@ final class GrindSmeltTask implements TaskRunner.Task {
                 failureReason = "the nearby furnace already contains items; AutoGrind left them untouched";
                 return false;
             }
-            initialIngotCount = g.count(output);
-            initialCoalCount = g.count(GrindBook.COAL);
+            initialIngotCount = g.items.count(output);
+            initialCoalCount = g.items.count(GrindBook.COAL);
             initialized = true;
         }
         if (outputClickQueued) {
             if (satisfied()) return true;
-            if (g.count(output) <= outputCountBeforeClick) {
+            if (g.items.count(output) <= outputCountBeforeClick) {
                 resultWaitTicks++;
                 if (resultWaitTicks > 10 && !menu.getSlot(2).getItem().isEmpty()) {
                     outputClickQueued = false;
@@ -83,7 +83,7 @@ final class GrindSmeltTask implements TaskRunner.Task {
                 failureReason = "the furnace contains an unrelated output; AutoGrind left it untouched";
                 return false;
             }
-            outputCountBeforeClick = g.count(output);
+            outputCountBeforeClick = g.items.count(output);
             if (!g.inventory.transfers().beginClicks(GrindExecutor.OWNER, GrindExecutor.PRIORITY, menuId,
                     new ContainerTransferController.Click[]{new ContainerTransferController.Click(2, 0)}, 0)) return true;
             outputClickQueued = true;
@@ -107,18 +107,18 @@ final class GrindSmeltTask implements TaskRunner.Task {
         // Raw iron already cooking, output waiting in the result slot, and ingots already
         // collected all count toward the same task. This lets a resumed task continue after
         // the click queue was safely cancelled when a station screen closed.
-        int produced = Math.max(0, g.count(output) - initialIngotCount);
+        int produced = Math.max(0, g.items.count(output) - initialIngotCount);
         int availableOutput = 0;
         ItemStack pendingOutput = menu.getSlot(2).getItem();
         if (!pendingOutput.isEmpty()) availableOutput = pendingOutput.getCount();
         int inputInFurnace = input.isEmpty() ? 0 : input.getCount();
         int remainingRaw = Math.max(0, rawIron - produced - availableOutput - inputInFurnace);
-        int fuelMoved = Math.max(0, initialCoalCount - g.count(GrindBook.COAL));
+        int fuelMoved = Math.max(0, initialCoalCount - g.items.count(GrindBook.COAL));
         int remainingFuel = Math.max(0, coal - fuelMoved);
         int rawSlotRoom = Math.max(0, 64 - inputInFurnace);
         int loadRaw = Math.min(remainingRaw, rawSlotRoom);
         if (loadRaw > 0 || remainingFuel > 0) {
-            if (g.count(inputItem) < loadRaw || g.count(GrindBook.COAL) < remainingFuel) {
+            if (g.items.count(inputItem) < loadRaw || g.items.count(GrindBook.COAL) < remainingFuel) {
                 failureReason = "missing raw iron or coal in the inventory for the remaining smelting batch";
                 return false;
             }
@@ -137,7 +137,7 @@ final class GrindSmeltTask implements TaskRunner.Task {
 
     private boolean appendFurnaceInput(List<ContainerTransferController.Click> clicks,
             String ingredient, int amount, int furnaceSlot) {
-        return g.appendIngredientClicks(clicks, ingredient, java.util.Collections.nCopies(amount, furnaceSlot),
+        return g.items.appendIngredientClicks(clicks, ingredient, java.util.Collections.nCopies(amount, furnaceSlot),
                 InventoryTransfers.PlayerMenuLayout.FURNACE, true);
     }
 

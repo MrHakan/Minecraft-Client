@@ -121,11 +121,14 @@ kalır ve özel pathfinder yazılmaz.
    - ✅ 2.0.05: seyahat (`GrindTravel`), istasyon kayıtları (`GrindStations`) ve erişim/görüş/nişan
      yardımcıları (`GrindReach`) ayrıldı; `GrindExecutor` 592 satır. Aynı derleyici rehberli
      yöntemle taşınan 210 satır, yürütücü öneki dışında orijinalle aynı.
-   - Kalan: envanter yardımcıları ve kampanya durumu. Bunlar D2 (depodan geri alma) ile birlikte
-     ele alınacak, çünkü D2 o kodu zaten değiştirecek.
-2. **Depodan geri alma.** Kampanyanın bir sonraki adımı depolanmış malzemeye ihtiyaç duyuyorsa
-   `ContainerTransferController` ile sandıktan alınsın. Kişiye ait (adı değiştirilmiş ya da büyülü)
-   eşyalar korunur.
+   - ✅ 2.0.06: envanter yardımcıları (`GrindItems`: sayım, hotbar/alet hazırlığı, üretim ızgarası
+     tıklamaları) ayrıldı; `GrindExecutor` 341 satır. Taşınan 225 satır yürütücü öneki dışında aynı.
+2. ✅ **Depodan geri alma (2.0.06).** Taşınanlarla yapılamayan bir hedef, toplamaya geçmeden önce
+   tarif zincirinin bir kısmını tutan depo sandıklarına uğruyor (Baritone ile 64 blok, yoksa erişim
+   mesafesi). Zincirin her basamağında önce taşınan, sonra depodaki stok harcanıyor; böylece depodaki
+   külçe, taşınan cevheri eritmeye tercih ediliyor. Adı değiştirilmiş, büyülü ve kırılmak üzere olan
+   eşyalar alınmıyor, iki boş yuva korunuyor, ulaşılamayan sandık kampanyayı duraklatmıyor.
+   Kampanya deposu ve içerik kaydı `GrindStorage`'da.
 3. **İnşaat alanı seçimi.** Oyuncunun durduğu yerde düz alan yoksa tarayıcı bütçesiyle yakında
    uygun bir alan aransın. Bulunamazsa net bir duraklatma mesajı verilsin.
 4. **Avlanmada keşif.** Yüklü hayvan yoksa Baritone ile sınırlı bir keşif yapılsın. Baritone yoksa
@@ -183,7 +186,8 @@ E (kanıt) her adımda paralel
 | 2.0.03 | ✅ C1 render bölünmesi (davranış değişmeden) |
 | 2.0.04 | ✅ D1 ilk adım: AutoGrind görev sınıfları ayrıldı (davranış değişmeden) |
 | 2.0.05 | ✅ D1 devamı (seyahat, istasyon, erişim yardımcıları) ve C2 overlay kare süreleri |
-| 2.0.06+ | D2–D4 AutoGrind 2 adımları, C3 (ölçüm sonucuna göre) |
+| 2.0.06 | ✅ D1 son adım (envanter yardımcıları) ve D2 depodan geri alma |
+| 2.0.07+ | D3–D4 AutoGrind 2 adımları, ESP kutu maliyeti, C3 (ölçüm sonucuna göre) |
 | 2.1.00 | B: Addon API 2 ve sürüm sözleşmesi, A4 güncelleme denetleyicisi |
 
 ## Riskler
