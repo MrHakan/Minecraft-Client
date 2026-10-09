@@ -101,7 +101,11 @@ Without Baritone, resource scans remain bounded to loaded chunks within 6 horizo
 blocks and use `ScannerService`'s shared budget. Direct interactions stay within vanilla reach.
 Outside reach, occluded interactions, uncollected drops and absent local resources pause for manual
 movement and `.grind resume`. A compatible Baritone installation is required for continuous travel
-and remote mining. Hunting only targets loaded animals; unseen animals/loot are not inferred.
+and remote mining. Hunting chases adult animals within 64 blocks. With none in sight and Baritone
+available, it walks a fixed round of lookouts around where it started, eight on a ring 48 blocks out
+and eight at 96, clockwise from east, and hunts the first suitable animal that comes into sight; a
+lookout Baritone cannot reach is skipped, and after the full round, about 160 blocks out, it pauses.
+Without Baritone it pauses as soon as no animal is in sight. Loot is never inferred.
 
 ## Validation and limits
 

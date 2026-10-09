@@ -72,6 +72,12 @@
   paused with a "No clear, level spot" reason; `resume()` clears the flag, a restart searches again.
   Structure offsets (`PORTAL_X`, `ENCHANTING_X/Z`) and the enchanting layout now live in
   `SurvivalBlueprint` so the footprint and the tasks cannot drift apart.
+- 2.0.08 (D4): `HuntTask.search()` runs when no matching animal is within `SIGHT` (64). With
+  Baritone it walks `LOOKOUTS` (16 points on rings of 48 and 96 around `searchOrigin`) through the new
+  `GrindTravel.moveToColumn` (a GoalXZ with the same ownership, cancellation and stall rules as
+  `moveNear`); arrival is within 3 blocks, an unreachable lookout is skipped and logged, and after the
+  last one it pauses and forgets the origin so a resume starts a new round. Without Baritone the old
+  pause text is unchanged. `BaritoneCampaignGameTest.huntBeyondSight` covers it.
 - 2.0.05: `OverlayTimings` is the frame-based counterpart of `ModuleTimings` (a `ModuleTimings` with
   a 120-frame window and 180-frame expiry). `WorldOverlays.collect` opens a frame each time it runs,
   which also closes the previous one; an overlay's labels and deferred lines add into one slot, so

@@ -131,11 +131,49 @@ public final class BaritoneCampaignGameTest implements FabricClientGameTest {
                 if (!bridge.ownsGoal() || !bridge.goalActive()) throw new AssertionError("AutoGrind cancelled a replacement goal");
                 bridge.cancelGoal(); g.stop();
             });
-            org.slf4j.LoggerFactory.getLogger("agalarhack-gametest").info("Real Baritone 26.2: 384-block travel, remote mining, mid-goal tool rebuilding, unloaded-base return, door/chest access and replacement-goal ownership passed");
+            huntBeyondSight(context, world, g, upkeep, base);
+            org.slf4j.LoggerFactory.getLogger("agalarhack-gametest").info("Real Baritone 26.2: 384-block travel, remote mining, mid-goal tool rebuilding, unloaded-base return, door/chest access, replacement-goal ownership and hunting lookouts passed");
         } finally {
             closeFixtureWorkers(context);
         }
     }
+    /**
+     * D4: with no animal in sight, hunting walks its lookouts instead of pausing. The only cow is
+     * 100 blocks down the corridor, which at a view distance of four chunks the client has not
+     * even loaded; the first lookout, 48 blocks east, brings it into sight.
+     */
+    private static void huntBeyondSight(ClientGameTestContext context, TestSingleplayerContext world, GrindExecutor g,
+            SurvivalTasks upkeep, BlockPos base) {
+        BlockPos start = base.offset(150, 0, 0), cowAt = base.offset(250, 0, 0);
+        world.getServer().runOnServer(s -> {
+            var player = world.getConnection().getServerPlayer(); var level = player.level();
+            List<net.minecraft.world.entity.Entity> animals = new java.util.ArrayList<>();
+            for (var entity : level.getAllEntities()) if (entity instanceof net.minecraft.world.entity.animal.Animal) animals.add(entity);
+            animals.forEach(net.minecraft.world.entity.Entity::discard);
+            var cow = net.minecraft.world.entity.EntityTypes.COW.create(level, net.minecraft.world.entity.EntitySpawnReason.COMMAND);
+            if (cow == null) throw new AssertionError("could not create the cow");
+            cow.setPos(cowAt.getX() + 0.5, cowAt.getY(), cowAt.getZ() + 0.5);
+            cow.setNoAi(true);
+            if (!level.addFreshEntity(cow)) throw new AssertionError("could not place the cow");
+            player.teleportTo(start.getX() + 0.5, start.getY(), start.getZ() + 0.5);
+        });
+        world.getConnection().waitForChunksRender();
+        context.waitTicks(40);
+        if (context.computeOnClient(c -> {
+            for (var entity : c.level.entitiesForRendering()) if (entity instanceof net.minecraft.world.entity.animal.Animal) return true;
+            return false;
+        })) throw new AssertionError("The cow was already in sight; the scenario proves nothing");
+        int before = context.computeOnClient(c -> g.items.count("beef"));
+        TaskRunner hunt = new TaskRunner();
+        context.runOnClient(c -> hunt.start(List.of(new SurvivalTasks.HuntTask(g, "beef", before + 1))));
+        for (int i = 0; i < 3000 && hunt.running(); i++) {
+            context.runOnClient(c -> { if (!upkeep.maintain()) hunt.tick(); }); context.waitTicks(1);
+        }
+        if (hunt.state() != TaskRunner.State.DONE)
+            throw new AssertionError("Hunting beyond sight failed: " + hunt.state() + " / " + hunt.currentTask() + " / " + hunt.blockedReason() + " / " + hunt.failure());
+        context.runOnClient(c -> g.stop());
+    }
+
     /**
      * Upstream 1.19.0 keeps non-daemon cache workers alive after the world closes. Minecraft 26.2
      * then trips its shutdown watchdog. Close only this fixture's pinned Baritone executor after

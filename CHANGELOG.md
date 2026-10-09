@@ -4,6 +4,16 @@ Releases are numbered **2.x.yy**: `x` is the major version and `yy` a two-digit 
 [Versioning](README.md#versioning)). Every version needs a section here before it can be merged; CI
 publishes the section as the GitHub release notes.
 
+## [2.0.08] - 2026-10-09
+
+### Added
+- Hunting looks for animals instead of pausing at once. With no suitable animal within 64 blocks
+  and Baritone available, a food goal walks a fixed round of lookouts around where it started
+  (eight on a ring 48 blocks out, eight at 96, clockwise from east) and hunts the first animal that
+  comes into sight; a lookout Baritone cannot reach is skipped, and after the full round, about 160
+  blocks out, it pauses with a clear message. Without Baritone nothing changes. The real-Baritone
+  test fetches beef from a single cow 100 blocks away that the client had not even loaded.
+
 ## [2.0.07] - 2026-10-09
 
 ### Added

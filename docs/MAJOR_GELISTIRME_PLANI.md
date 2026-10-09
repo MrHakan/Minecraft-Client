@@ -137,8 +137,12 @@ kalır ve özel pathfinder yazılmaz.
    Alan yoksa kampanya baştan, net bir mesajla duraklıyor; `.grind resume` varsayılan köşeyi kabul
    ediyor. Not: "tarayıcı bütçesi" yerine tek seferlik, sınırlı bir okuma seçildi (en fazla birkaç
    bin sütun), çünkü kampanyanın görev listesi tabanın konumu belli olmadan kurulamıyor.
-4. **Avlanmada keşif.** Yüklü hayvan yoksa Baritone ile sınırlı bir keşif yapılsın. Baritone yoksa
-   bugünkü duraklatma kalır.
+4. ✅ **Avlanmada keşif (2.0.08).** 64 blok içinde uygun hayvan yoksa ve Baritone varsa av, çıktığı
+   yerin çevresinde sabit bir gözcü turu yürüyor: 48 bloklık halkada sekiz, 96 bloklık halkada sekiz
+   nokta, doğudan saat yönünde. Görüşe giren ilk uygun hayvan avlanıyor; ulaşılamayan nokta atlanıyor,
+   tur bitince (yaklaşık 160 blok) net bir mesajla duraklıyor. Baritone yoksa bugünkü duraklatma
+   aynen kalıyor. Gerçek Baritone testi, görüş mesafesi dört chunk'ken 100 blok ötede, istemcinin
+   yüklemediği tek bir inekten et alıyor.
 5. **İlk şablon.** Bastion bulma ve yağmalama güvenilir biçimde test edilemiyor. Bu madde ancak
    gerçek bir test fixture'ı kurulabilirse ele alınır, aksi hâlde belgelenmiş sınır olarak kalır.
 
@@ -194,7 +198,8 @@ E (kanıt) her adımda paralel
 | 2.0.05 | ✅ D1 devamı (seyahat, istasyon, erişim yardımcıları) ve C2 overlay kare süreleri |
 | 2.0.06 | ✅ D1 son adım (envanter yardımcıları) ve D2 depodan geri alma |
 | 2.0.07 | ✅ D3 inşaat alanı seçimi |
-| 2.0.08+ | D4 avlanmada keşif, ESP kutu maliyeti, C3 (ölçüm sonucuna göre) |
+| 2.0.08 | ✅ D4 avlanmada keşif |
+| 2.0.09+ | ESP kutu ve etiket maliyeti, C3 (ölçüm sonucuna göre), D5 |
 | 2.1.00 | B: Addon API 2 ve sürüm sözleşmesi, A4 güncelleme denetleyicisi |
 
 ## Riskler
