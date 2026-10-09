@@ -4,6 +4,14 @@ Releases are numbered **2.x.yy**: `x` is the major version and `yy` a two-digit 
 [Versioning](README.md#versioning)). Every version needs a section here before it can be merged; CI
 publishes the section as the GitHub release notes.
 
+## [2.0.06] - 2026-10-09
+
+### Internal
+- AutoGrind's inventory helpers (counting by generic name, hotbar and tool preparation, crafting
+  grid clicks) moved out of `GrindExecutor` into `GrindItems`, leaving the executor at about 340
+  lines of lifecycle, planning and campaign state. Same compiler-guided move as 2.0.04 and 2.0.05:
+  the 225 moved lines match the originals apart from the executor prefix. No behaviour change.
+
 ## [2.0.05] - 2026-10-08
 
 ### Added

@@ -64,7 +64,7 @@ public final class BaritoneCampaignGameTest implements FabricClientGameTest {
                 if (g.start("raw_iron", 1) != GrindExecutor.StartResult.STARTED) throw new AssertionError("Remote mining did not start");
             });
             for (int i = 0; i < 600 && context.computeOnClient(c -> g.running()); i++) context.waitTicks(1);
-            if (context.computeOnClient(c -> g.state()) != TaskRunner.State.DONE || context.computeOnClient(c -> g.count("raw_iron")) < 1)
+            if (context.computeOnClient(c -> g.state()) != TaskRunner.State.DONE || context.computeOnClient(c -> g.items.count("raw_iron")) < 1)
                 throw new AssertionError("Real Baritone remote mining failed: " + context.computeOnClient(c -> g.blockedReason()) + " / " + context.computeOnClient(c -> g.failure()));
             // Lose harvesting capability mid-goal, then rebuild through shared station/click services.
             world.getServer().runOnServer(s -> {
@@ -83,9 +83,9 @@ public final class BaritoneCampaignGameTest implements FabricClientGameTest {
             for (int i = 0; i < 1200 && repair.running(); i++) {
                 context.runOnClient(c -> { if (!upkeep.maintain()) repair.tick(); }); context.waitTicks(1);
             }
-            if (repair.state() != TaskRunner.State.DONE || context.computeOnClient(c -> g.count("iron_pickaxe")) < 1)
+            if (repair.state() != TaskRunner.State.DONE || context.computeOnClient(c -> g.items.count("iron_pickaxe")) < 1)
                 throw new AssertionError("Installed-Baritone tool replacement failed: " + repair.state() + " / " + repair.currentTask()
-                        + " / " + repair.blockedReason() + " / " + repair.failure() + " diamonds=" + context.computeOnClient(c -> g.count("diamond")));
+                        + " / " + repair.blockedReason() + " / " + repair.failure() + " diamonds=" + context.computeOnClient(c -> g.items.count("diamond")));
             TaskRunner storage = new TaskRunner();
             context.runOnClient(c -> storage.start(List.of(new SurvivalTasks.StorageTask(g, List.of(chest)))));
             for (int i = 0; i < 5000 && storage.running(); i++) {
@@ -97,7 +97,7 @@ public final class BaritoneCampaignGameTest implements FabricClientGameTest {
                 int total = 0; for (int i = 0; i < 27; i++) if (entity.getItem(i).is(Items.OAK_PLANKS)) total += entity.getItem(i).getCount();
                 return total;
             });
-            if (deposited != 32 || context.computeOnClient(c -> g.count("planks")) != 32
+            if (deposited != 32 || context.computeOnClient(c -> g.items.count("planks")) != 32
                     || !context.computeOnClient(c -> c.player.containerMenu.getCarried().isEmpty()))
                 throw new AssertionError("Return journey did not preserve plank/cursor accounting");
             boolean roomIntact = world.getServer().computeOnServer(s -> {

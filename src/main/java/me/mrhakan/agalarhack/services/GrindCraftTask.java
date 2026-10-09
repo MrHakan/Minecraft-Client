@@ -21,16 +21,16 @@ final class GrindCraftTask implements TaskRunner.Task {
         this.g = g;
         this.item = item; this.goal = goal; this.requiresTable = requiresTable;
     }
-    @Override public String name() { return "craft " + item + " (" + g.count(item) + "/" + goal + ")"; }
+    @Override public String name() { return "craft " + item + " (" + g.items.count(item) + "/" + goal + ")"; }
     @Override public boolean satisfied() {
         // The inventory changes optimistically on the client before the final vanilla click
         // reaches the integrated/server connection. Advancing while our transfer still owns
         // that click queue can let the next task or command replace the inventory underneath it.
-        return g.count(item) >= goal && !g.inventory.transfers().owns(GrindExecutor.OWNER);
+        return g.items.count(item) >= goal && !g.inventory.transfers().owns(GrindExecutor.OWNER);
     }
     @Override public int budgetTicks() {
         CraftingPlan.Recipe recipe = GrindBook.recipes().get(item);
-        int recipes = recipe == null ? 1 : Math.max(1, Math.ceilDiv(goal - g.count(item), recipe.yield()));
+        int recipes = recipe == null ? 1 : Math.max(1, Math.ceilDiv(goal - g.items.count(item), recipe.yield()));
         return Math.min(70_000, Math.max(TaskRunner.DEFAULT_BUDGET_TICKS, recipes * 40 + 2_000));
     }
 
@@ -55,7 +55,7 @@ final class GrindCraftTask implements TaskRunner.Task {
             return true;
         }
         if (g.inventory.transfers().busy()) {
-            if (g.inventory.transfers().recoveryBlocked()) movementReason = g.inventoryRecoveryReason();
+            if (g.inventory.transfers().recoveryBlocked()) movementReason = g.items.inventoryRecoveryReason();
             return true;
         }
         int menuId = tableMenu ? g.client.player.containerMenu.containerId : -1;
@@ -68,8 +68,8 @@ final class GrindCraftTask implements TaskRunner.Task {
         }
         if (resultClickQueued) {
             if (satisfied()) return true;
-            if (g.count(item) <= outputCountBeforeClick) {
-                if (++resultWaitTicks > 10 && g.resultItem(menuId, item).equals(item)) {
+            if (g.items.count(item) <= outputCountBeforeClick) {
+                if (++resultWaitTicks > 10 && g.items.resultItem(menuId, item).equals(item)) {
                     resultClickQueued = false;
                     resultWaitTicks = 0;
                     return true;
@@ -82,17 +82,17 @@ final class GrindCraftTask implements TaskRunner.Task {
             }
             resultClickQueued = false;
         }
-        if (g.resultItem(menuId, item).equals(item)) {
+        if (g.items.resultItem(menuId, item).equals(item)) {
             if (!g.inventory.transfers().beginClicks(GrindExecutor.OWNER, GrindExecutor.PRIORITY, menuId,
                     new ContainerTransferController.Click[]{new ContainerTransferController.Click(0, 0)}, 0)) {
                 return true;
             }
             resultClickQueued = true;
-            outputCountBeforeClick = g.count(item);
+            outputCountBeforeClick = g.items.count(item);
             resultWaitTicks = 0;
             return true;
         }
-        List<ContainerTransferController.Click> clicks = g.craftingInputClicks(item, table, menuId);
+        List<ContainerTransferController.Click> clicks = g.items.craftingInputClicks(item, table, menuId);
         if (clicks == null) {
             failureReason = "missing ingredients or a clear crafting grid for " + item;
             return false;

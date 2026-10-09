@@ -121,8 +121,8 @@ kalır ve özel pathfinder yazılmaz.
    - ✅ 2.0.05: seyahat (`GrindTravel`), istasyon kayıtları (`GrindStations`) ve erişim/görüş/nişan
      yardımcıları (`GrindReach`) ayrıldı; `GrindExecutor` 592 satır. Aynı derleyici rehberli
      yöntemle taşınan 210 satır, yürütücü öneki dışında orijinalle aynı.
-   - Kalan: envanter yardımcıları ve kampanya durumu. Bunlar D2 (depodan geri alma) ile birlikte
-     ele alınacak, çünkü D2 o kodu zaten değiştirecek.
+   - ✅ 2.0.06: envanter yardımcıları (`GrindItems`: sayım, hotbar/alet hazırlığı, üretim ızgarası
+     tıklamaları) ayrıldı; `GrindExecutor` 341 satır. Taşınan 225 satır yürütücü öneki dışında aynı.
 2. **Depodan geri alma.** Kampanyanın bir sonraki adımı depolanmış malzemeye ihtiyaç duyuyorsa
    `ContainerTransferController` ile sandıktan alınsın. Kişiye ait (adı değiştirilmiş ya da büyülü)
    eşyalar korunur.

@@ -49,7 +49,7 @@ public final class SurvivalTasksGameTest implements FabricClientGameTest {
                 int total = 0; for (int i = 0; i < 27; i++) if (entity.getItem(i).is(Items.OAK_PLANKS)) total += entity.getItem(i).getCount();
                 return total;
             });
-            if (stored != 32 || context.computeOnClient(c -> g.count("planks")) != 32)
+            if (stored != 32 || context.computeOnClient(c -> g.items.count("planks")) != 32)
                 throw new AssertionError("Storage did not preserve 32 carried planks; deposited=" + stored);
             run(context, new SurvivalTasks.EquipTask(g), 100);
             if (!context.computeOnClient(c -> c.player.getItemBySlot(EquipmentSlot.CHEST).is(Items.IRON_CHESTPLATE)
@@ -66,7 +66,7 @@ public final class SurvivalTasksGameTest implements FabricClientGameTest {
             });
             context.waitTicks(20);
             run(context, new SurvivalTasks.StorageTask(g, List.of(chest)), 240);
-            if (context.computeOnClient(c -> g.count("planks")) != 32)
+            if (context.computeOnClient(c -> g.items.count("planks")) != 32)
                 throw new AssertionError("Storage did not merge planks into the full chest");
             world.getServer().runOnServer(server -> {
                 var entity = (net.minecraft.world.level.block.entity.ChestBlockEntity) world.getConnection().getServerPlayer().level().getBlockEntity(chest);
@@ -78,7 +78,7 @@ public final class SurvivalTasksGameTest implements FabricClientGameTest {
             });
             context.waitTicks(20);
             run(context, new SurvivalTasks.StorageTask(g, List.of(chest)), 160);
-            if (context.computeOnClient(c -> g.count("wooden_pickaxe")) != 0 || context.computeOnClient(c -> g.count("iron_pickaxe")) != 1)
+            if (context.computeOnClient(c -> g.items.count("wooden_pickaxe")) != 0 || context.computeOnClient(c -> g.items.count("iron_pickaxe")) != 1)
                 throw new AssertionError("Storage did not retain the iron tool and deposit obsolete gear");
             context.runOnClient(c -> g.stop());
             // Inventory pressure must keep a large active goal and return every carried stack.
@@ -105,7 +105,7 @@ public final class SurvivalTasksGameTest implements FabricClientGameTest {
                 if (i > 0 && context.computeOnClient(c -> c.player.getInventory().getFreeSlot() >= 0
                         && (g.currentTask() == null || !g.currentTask().startsWith("inventory recovery:")))) break;
             }
-            if (!context.computeOnClient(c -> g.count("diamond") == 49
+            if (!context.computeOnClient(c -> g.items.count("diamond") == 49
                     && c.player.getInventory().getFreeSlot() >= 0 && c.player.containerMenu.getCarried().isEmpty()))
                 throw new AssertionError("Pressure storage lost the active diamond goal or left a cursor stack");
             context.runOnClient(c -> g.stop());
@@ -121,7 +121,7 @@ public final class SurvivalTasksGameTest implements FabricClientGameTest {
             if (context.computeOnClient(c -> SurvivalTasks.gearSatisfied(g, "iron_pickaxe", 1)))
                 throw new AssertionError("Near-broken pickaxe incorrectly satisfied a gear milestone");
             run(context, new SurvivalTasks.ItemGoalTask(g, "cobblestone", 1, false), 600);
-            if (context.computeOnClient(c -> g.count("cobblestone")) < 1 || context.computeOnClient(c -> g.count("wooden_pickaxe")) < 1)
+            if (context.computeOnClient(c -> g.items.count("cobblestone")) < 1 || context.computeOnClient(c -> g.items.count("wooden_pickaxe")) < 1)
                 throw new AssertionError("Resource goal did not rebuild a usable pickaxe");
             context.runOnClient(c -> g.stop());
             inventory(world, p -> {
@@ -132,8 +132,8 @@ public final class SurvivalTasksGameTest implements FabricClientGameTest {
             });
             context.waitTicks(20);
             run(context, new SurvivalTasks.TemplateTask(g, 2), 500);
-            if (context.computeOnClient(c -> g.count("netherite_upgrade_smithing_template")) != 2
-                    || context.computeOnClient(c -> g.count("diamond")) != 0) throw new AssertionError("Template duplication did not consume seven diamonds and yield two templates");
+            if (context.computeOnClient(c -> g.items.count("netherite_upgrade_smithing_template")) != 2
+                    || context.computeOnClient(c -> g.items.count("diamond")) != 0) throw new AssertionError("Template duplication did not consume seven diamonds and yield two templates");
             context.runOnClient(c -> g.stop());
             BlockPos table = base.offset(0, 0, 4);
             world.getServer().runOnServer(server -> {

@@ -38,14 +38,14 @@ final class GrindGatherTask implements TaskRunner.Task {
         this.g = g;
         this.resource = resource; this.goal = goal;
     }
-    @Override public String name() { return "gather " + resource + " (" + g.count(resource) + "/" + goal + ")"; }
+    @Override public String name() { return "gather " + resource + " (" + g.items.count(resource) + "/" + goal + ")"; }
     @Override public boolean satisfied() {
-        if (g.count(resource) < goal) return false;
+        if (g.items.count(resource) < goal) return false;
         g.travel.cancelOwnedMining();
         g.travel.cancelMovement();
         return true;
     }
-    @Override public int budgetTicks() { return Math.max(TaskRunner.DEFAULT_BUDGET_TICKS, Math.min(70_000, (goal - g.count(resource)) * 100 + 4_000)); }
+    @Override public int budgetTicks() { return Math.max(TaskRunner.DEFAULT_BUDGET_TICKS, Math.min(70_000, (goal - g.items.count(resource)) * 100 + 4_000)); }
 
     @Override
     public boolean tick() {
@@ -90,9 +90,9 @@ final class GrindGatherTask implements TaskRunner.Task {
                 }
                 int toolSlot = -1;
                 if (!Set.of(GrindBook.LOG, "oak_log", "sugar_cane", "wheat", "flint").contains(resource)) {
-                toolSlot = g.correctToolSlot(g.client.level.getBlockState(target), resource);
+                toolSlot = g.items.correctToolSlot(g.client.level.getBlockState(target), resource);
                     if (toolSlot == GrindExecutor.HOTBAR_PENDING) {
-                        if (g.inventory.transfers().recoveryBlocked()) movementReason = g.inventoryRecoveryReason();
+                        if (g.inventory.transfers().recoveryBlocked()) movementReason = g.items.inventoryRecoveryReason();
                         return true;
                     }
                     if (toolSlot < 0) {
@@ -113,7 +113,7 @@ final class GrindGatherTask implements TaskRunner.Task {
                     return false;
                 }
                 if (!mining) {
-                    inventoryBeforeMining = g.count(resource);
+                    inventoryBeforeMining = g.items.count(resource);
                     g.client.gameMode.startDestroyBlock(target, hit.getDirection());
                     mining = true;
                 } else {
@@ -127,7 +127,7 @@ final class GrindGatherTask implements TaskRunner.Task {
             waitingForPickup = false; scanStarted = false; pickupPosition = null;
         }
         if (waitingForPickup) {
-            if (g.count(resource) > inventoryBeforeMining) {
+            if (g.items.count(resource) > inventoryBeforeMining) {
                 waitingForPickup = false;
                 pickupPosition = null;
                 pickupWait = 0;
@@ -180,9 +180,9 @@ final class GrindGatherTask implements TaskRunner.Task {
                     case "ancient_debris" -> Blocks.ANCIENT_DEBRIS.defaultBlockState();
                     default -> Blocks.OBSIDIAN.defaultBlockState();
                 };
-                boolean tool = GrindExecutor.validTool(g.inventory.equipped(EquipmentSlot.OFFHAND), state, resource);
+                boolean tool = GrindItems.validTool(g.inventory.equipped(EquipmentSlot.OFFHAND), state, resource);
                 for (int slot = 0; slot < InventoryTransfers.INVENTORY_SIZE && !tool; slot++)
-                    tool = GrindExecutor.validTool(g.inventory.stackAt(slot), state, resource);
+                    tool = GrindItems.validTool(g.inventory.stackAt(slot), state, resource);
                 if (!tool) {
                     g.travel.cancelAutomation();
                     failureReason = "no carried pickaxe can harvest " + resource;

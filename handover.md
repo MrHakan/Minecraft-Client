@@ -53,6 +53,10 @@
   `g.stations` (`GrindStations`: table/furnace positions and the station menu AutoGrind opened) and
   `g.reach` (`GrindReach`: reach, line of sight, aiming, nearby-block lookup). `GrindExecutor` keeps
   lifecycle, plan building, campaign state and the inventory helpers.
+- 2.0.06: the inventory helpers are `g.items` (`GrindItems`: `count`, `carried`,
+  `planningInventory`, hotbar/tool preparation, crafting-grid clicks); the static stack tests
+  (`countStack`, `usable`, `validTool`) are `GrindItems.x`. `GrindExecutor` keeps lifecycle, plan
+  building and campaign state.
 - 2.0.05: `OverlayTimings` is the frame-based counterpart of `ModuleTimings` (a `ModuleTimings` with
   a 120-frame window and 180-frame expiry). `WorldOverlays.collect` opens a frame each time it runs,
   which also closes the previous one; an overlay's labels and deferred lines add into one slot, so
