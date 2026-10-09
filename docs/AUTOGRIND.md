@@ -1,10 +1,17 @@
 # AutoGrind
 
-`.grind survival` starts the full survival campaign. Choose a flat, empty plot in the Overworld before starting;
-its southwest floor corner is two blocks east of the starting position. `.grind status` reports the
-current milestone or actionable pause, `.grind stop` cancels it, and `.grind resume` continues the
-same task after a pause. A new campaign in the same loaded world reuses its base location and checks
-live inventory again. Disconnecting or loading an unrelated world clears the base.
+`.grind survival` starts the full survival campaign in the Overworld. Its buildings go on the
+nearest clear, level plot: on open level ground that is the spot two blocks east of the start, as
+before; otherwise the campaign searches up to 16 blocks around it once, in loaded chunks, for a plot
+that fits every building the chosen tier will put up (the iron house, the diamond annex and walkway,
+the max portal and enchanting area). A plot fits when nothing but grass-like blocks stands in the
+build volume, the ground is solid rather than water, at most two blocks low anywhere, and level under
+at least 80% of the floor. When nothing fits, the campaign pauses at once and says so: move to
+open, level ground and start again, or `.grind resume` to build at the default corner anyway.
+`.grind status` reports the current milestone or actionable pause, `.grind stop` cancels it, and
+`.grind resume` continues the same task after a pause. A new campaign in the same loaded world
+reuses its base location and checks live inventory again; a base chosen for a lower tier is not
+re-checked for a higher one. Disconnecting or loading an unrelated world clears the base.
 
 | Command | Result |
 | --- | --- |
@@ -102,7 +109,8 @@ Unit tests cover all campaign item prerequisite chains, gear tiers, crafting lay
 ordering, building/portal geometry, storage reserves, station slot arithmetic and owned Baritone
 process cancellation. Real-client scenarios cover ordinary resource breaking and pickup, crafting,
 station placement, cooking, diamond/iron equipment recipes, Netherite smithing, survival startup and
-stop, exact building placements, chest transfers, storage withdrawal and automatic equipment.
+stop, exact building placements, build plot choice on rough ground, chest transfers, storage
+withdrawal and automatic equipment.
 
 The regular client suite verifies Baritone absence; bridge unit tests also use API-shaped stubs.
 `tools/test-baritone.sh` runs a separate installed-Baritone 1.19.0 / Minecraft 26.2 fixture with a
@@ -115,6 +123,6 @@ test-only cleanup does not fix or establish clean shutdown for a normal installe
 suite also exercises pressure storage, full-chest stack merging and near-broken tool replacement. A complete randomly generated survival world from empty
 inventory through the Nether and all enchants is not a deterministic integration-test fixture.
 Baritone availability, terrain access, animal/resource availability and server interaction rules
-can require manual intervention. Build footprints need clear supports; existing blocks are not
-removed. Full chests, unrelated station contents, and server-rejected placements remain resumable
+can require manual intervention. Existing blocks are never removed: rough ground with no level plot
+in reach pauses the campaign at its start rather than later at a blocked placement. Full chests, unrelated station contents, and server-rejected placements remain resumable
 pauses or specific failures. Eight-item smelting batches can exceed the requested minimum.

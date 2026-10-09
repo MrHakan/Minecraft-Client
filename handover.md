@@ -65,6 +65,13 @@
   recomputes `GrindWithdrawal.plan` (pure, top-down: carried, then stored, then ingredients) from
   live contents after opening, skips unreachable chests, and has its own 2,400-tick budget because
   its goal ticks it directly. `EnchantTask`'s XP coal sets `useStorage = false`.
+- 2.0.07 (D3): `startSurvival` in a new world (or after a no-plot pause that was not resumed) calls
+  `GrindPlot.choose` (pure) over `SurvivalBlueprint.footprint(tier)` with a cached `LoadedTerrain`
+  that reads each column's top non-replaceable block in feet-10..feet+8 once. The default corner is
+  tried first. No plot: the base is the default corner, `provisionalBase` is set, and the runner is
+  paused with a "No clear, level spot" reason; `resume()` clears the flag, a restart searches again.
+  Structure offsets (`PORTAL_X`, `ENCHANTING_X/Z`) and the enchanting layout now live in
+  `SurvivalBlueprint` so the footprint and the tasks cannot drift apart.
 - 2.0.05: `OverlayTimings` is the frame-based counterpart of `ModuleTimings` (a `ModuleTimings` with
   a 120-frame window and 180-frame expiry). `WorldOverlays.collect` opens a frame each time it runs,
   which also closes the previous one; an overlay's labels and deferred lines add into one slot, so

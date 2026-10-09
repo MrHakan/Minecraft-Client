@@ -4,6 +4,17 @@ Releases are numbered **2.x.yy**: `x` is the major version and `yy` a two-digit 
 [Versioning](README.md#versioning)). Every version needs a section here before it can be merged; CI
 publishes the section as the GitHub release notes.
 
+## [2.0.07] - 2026-10-09
+
+### Added
+- The survival campaign picks its build plot. Starting on rough ground no longer means building
+  into a hill or a tree and pausing at the first blocked placement: the campaign looks up to 16
+  blocks around the start, once, for the nearest clear, level plot that fits every building of the
+  chosen tier, and keeps the old spot two blocks east of the start whenever that already fits. When
+  nothing fits it pauses straight away and says so; `.grind resume` builds at the old spot anyway.
+  The search reads each column once from loaded chunks and took at most 10 ms in the game tests,
+  where a test arena with a pillar on every third column is refused until a clean patch is opened.
+
 ## [2.0.06] - 2026-10-09
 
 ### Added
