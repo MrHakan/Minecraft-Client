@@ -158,9 +158,73 @@ public final class SurvivalTasksGameTest implements FabricClientGameTest {
                 return enchants != null && !enchants.isEmpty() && c.player.experienceLevel == 27;
             })) throw new AssertionError("Level-30 enchanting did not return enchanted gear and consume three levels");
             context.runOnClient(c -> g.stop());
-            org.slf4j.LoggerFactory.getLogger("agalarhack-gametest").info("Survival placement, storage, equipment, template duplication and enchanting passed");
+            storedSuppliesAreTakenBack(context, world, g, base, chest);
+            org.slf4j.LoggerFactory.getLogger("agalarhack-gametest").info("Survival placement, storage, equipment, template duplication, enchanting and storage withdrawal passed");
         }
     }
+    /**
+     * D2: a campaign goal takes back what AutoGrind itself stored instead of gathering it. The test
+     * area is a stone floor with no ore, so without the withdrawal an iron pickaxe would pause for
+     * manual movement. A renamed stack the player keeps in the same chest must stay where it is.
+     */
+    private static void storedSuppliesAreTakenBack(ClientGameTestContext context, TestSingleplayerContext world,
+            GrindExecutor g, BlockPos base, BlockPos chest) {
+        world.getServer().runOnServer(server -> {
+            ServerPlayer p = world.getConnection().getServerPlayer();
+            var entity = (net.minecraft.world.level.block.entity.ChestBlockEntity) p.level().getBlockEntity(chest);
+            entity.clearContent();
+            ItemStack keepsake = new ItemStack(Items.IRON_INGOT, 5);
+            keepsake.set(net.minecraft.core.component.DataComponents.CUSTOM_NAME, net.minecraft.network.chat.Component.literal("Keepsake"));
+            entity.setItem(0, keepsake);
+            p.teleportTo(base.getX() + 0.5, base.getY(), base.getZ() + 0.5);
+        });
+        // Surplus over the storage policy's reserves (16 ingots, 8 sticks) goes into the chest.
+        inventory(world, p -> {
+            p.getInventory().setItem(0, new ItemStack(Items.CRAFTING_TABLE));
+            p.getInventory().setItem(9, new ItemStack(Items.IRON_INGOT, 19));
+            p.getInventory().setItem(10, new ItemStack(Items.STICK, 12));
+        });
+        context.waitTicks(20);
+        context.runOnClient(c -> {
+            g.startSurvival(SurvivalProgression.Tier.IRON);
+            g.registerStorage(List.of(chest));
+            g.stop();
+            g.useBaritone(false);
+        });
+        run(context, new SurvivalTasks.StorageTask(g, List.of(chest)), 240);
+        int[] deposited = chestContents(world, chest);
+        if (deposited[1] != 3 || deposited[2] != 4 || deposited[0] != 5)
+            throw new AssertionError("Surplus storage expected 3 ingots, 4 sticks and the 5-ingot keepsake; found "
+                    + deposited[1] + ", " + deposited[2] + ", " + deposited[0]);
+        // The carried reserve is spent elsewhere; only the crafting table remains.
+        inventory(world, p -> p.getInventory().setItem(0, new ItemStack(Items.CRAFTING_TABLE)));
+        context.waitTicks(20);
+        run(context, new SurvivalTasks.ItemGoalTask(g, "iron_pickaxe", 1, false), 1200);
+        int[] left = chestContents(world, chest);
+        if (context.computeOnClient(c -> g.items.count("iron_pickaxe")) != 1)
+            throw new AssertionError("The iron pickaxe was not made from stored ingots and sticks");
+        if (left[0] != 5) throw new AssertionError("The renamed keepsake ingots were taken: " + left[0] + " left");
+        if (left[1] != 0 || left[2] != 2)
+            throw new AssertionError("Withdrawal should take 3 ingots and 2 of 4 sticks; left " + left[1] + " ingots, " + left[2] + " sticks");
+        if (!context.computeOnClient(c -> c.player.containerMenu.getCarried().isEmpty() && c.gui.screen() == null))
+            throw new AssertionError("Withdrawal left a cursor stack or the chest open");
+        context.runOnClient(c -> g.stop());
+    }
+
+    /** Named iron ingots, unnamed iron ingots and sticks in the chest, read on the server. */
+    private static int[] chestContents(TestSingleplayerContext world, BlockPos chest) {
+        return world.getServer().computeOnServer(server -> {
+            var entity = (net.minecraft.world.level.block.entity.ChestBlockEntity) world.getConnection().getServerPlayer().level().getBlockEntity(chest);
+            int[] counts = new int[3];
+            for (int i = 0; i < 27; i++) {
+                ItemStack stack = entity.getItem(i);
+                if (stack.is(Items.IRON_INGOT)) counts[stack.has(net.minecraft.core.component.DataComponents.CUSTOM_NAME) ? 0 : 1] += stack.getCount();
+                else if (stack.is(Items.STICK)) counts[2] += stack.getCount();
+            }
+            return counts;
+        });
+    }
+
     private static void inventory(TestSingleplayerContext world, Consumer<ServerPlayer> fill) {
         world.getServer().runOnServer(server -> {
             ServerPlayer p = world.getConnection().getServerPlayer(); p.getInventory().clearContent(); fill.accept(p);

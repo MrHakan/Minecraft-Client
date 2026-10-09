@@ -57,7 +57,6 @@ public final class GrindExecutor {
     private int transitionWait;
     private SurvivalTasks survivalTasks;
     private BlockPos survivalBase;
-    private List<BlockPos> survivalStorage = List.of();
     private ClientLevel homeWorld;
     private final Map<net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level>, Set<BlockPos>> protectedBlocks = new LinkedHashMap<>();
     private final TaskRunner runner = new TaskRunner();
@@ -67,6 +66,7 @@ public final class GrindExecutor {
     final GrindStations stations = new GrindStations(this);
     final GrindReach reach = new GrindReach(this);
     final GrindItems items = new GrindItems(this);
+    final GrindStorage storage = new GrindStorage(this);
 
     public GrindExecutor(Minecraft client, InventoryService inventory, ScannerService scanner,
             RotationService rotations) {
@@ -132,10 +132,9 @@ public final class GrindExecutor {
         ownerLevel = client.level;
         if (survivalBase == null || homeWorld != client.level) {
             survivalBase = client.player.blockPosition().offset(2, 0, 0).immutable(); homeWorld = client.level;
-            survivalStorage = List.of();
+            storage.clear();
         }
         survivalTasks = new SurvivalTasks(this, tier, survivalBase);
-        survivalTasks.storageChests = survivalStorage;
         runner.start(survivalTasks.tasks());
         return StartResult.STARTED;
     }
@@ -198,7 +197,7 @@ public final class GrindExecutor {
         return wasActive;
     }
 
-    public void reset() { stop(); survivalBase = null; homeWorld = null; survivalStorage = List.of(); protectedBlocks.clear(); }
+    public void reset() { stop(); survivalBase = null; homeWorld = null; storage.clear(); protectedBlocks.clear(); }
     public boolean running() { return runner.running(); }
     public TaskRunner.State state() { return runner.state(); }
     public String currentTask() {
@@ -225,10 +224,7 @@ public final class GrindExecutor {
     void protect(BlockPos pos) { protectedBlocks.computeIfAbsent(client.level.dimension(), ignored -> new java.util.HashSet<>()).add(pos.immutable()); }
     boolean protectedBlock(BlockPos pos) { return protectedBlocks.getOrDefault(client.level.dimension(), Set.of()).contains(pos); }
     void registerStorage(List<BlockPos> chests) {
-        if (survival && survivalTasks != null) {
-            survivalStorage = List.copyOf(chests);
-            survivalTasks.storageChests = survivalStorage;
-        }
+        if (survival && survivalTasks != null) storage.register(chests);
     }
 
     private void releaseControls() {

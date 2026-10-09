@@ -32,7 +32,6 @@ final class SurvivalTasks {
     boolean expectingDimension;
     boolean eating;
     int eatingTicks;
-    List<BlockPos> storageChests = List.of();
     TaskRunner storageWork;
     final List<SurvivalProgression.Goal> taskGoals = new ArrayList<>();
 
@@ -98,12 +97,12 @@ final class SurvivalTasks {
             if (freeSlots() >= 2 || grind.inventory.transfers().busy()) return false;
             if (grind.client.gui.screen() != null && !grind.stations.closeOwnedStationMenu()) return false;
             grind.travel.cancelAutomation();
-            if (storageChests.isEmpty() || grind.client.level.dimension() != Level.OVERWORLD) {
+            if (grind.storage.chests().isEmpty() || grind.client.level.dimension() != Level.OVERWORLD) {
                 grind.pause("Inventory nearly full: free two slots, then .grind resume. Base storage is not built yet or unavailable in this dimension.");
                 return true;
             }
             storageWork = new TaskRunner();
-            storageWork.start(List.of(new StorageTask(grind, storageChests, pressureReserves())));
+            storageWork.start(List.of(new StorageTask(grind, grind.storage.chests(), pressureReserves())));
         }
         if (storageWork.state() == TaskRunner.State.NEEDS_MOVEMENT) storageWork.resume();
         storageWork.tick();
@@ -165,17 +164,25 @@ final class SurvivalTasks {
         final String item;
         final int wanted;
         final boolean allowUpgrade;
+        /** False where taking stock back would defeat the goal, such as mining coal for experience. */
+        boolean useStorage = true;
         TaskRunner work;
+        WithdrawTask withdraw;
+        int withdrawals;
         int replans;
         String blocked;
         String failure;
         ItemGoalTask(GrindExecutor g, String item, int wanted, boolean allowUpgrade) {
             this.g = g; this.item = item; this.wanted = wanted; this.allowUpgrade = allowUpgrade;
         }
-        public String name() { return "get " + wanted + " " + item + (work != null && work.currentTask() != null ? ": " + work.currentTask() : ""); }
+        public String name() {
+            String step = withdraw != null ? withdraw.name() : work != null ? work.currentTask() : null;
+            return "get " + wanted + " " + item + (step != null ? ": " + step : "");
+        }
         public boolean satisfied() {
             boolean done = !g.inventory.transfers().owns(OWNER)
                     && (allowUpgrade ? gearSatisfied(g, item, wanted) : g.items.count(item) >= wanted);
+            if (done && withdraw != null) { withdraw.cancel(); withdraw = null; }
             if (done && work != null) { work.cancel(); work = null; g.travel.cancelAutomation(); g.stations.closeOwnedStationMenu(); }
             return done;
         }
@@ -183,8 +190,21 @@ final class SurvivalTasks {
         public boolean tick() {
             blocked = null;
             g.campaignReserves = GrindStoragePolicy.reservesFor(item, wanted);
+            if (withdraw != null) {
+                if (!withdraw.satisfied()) { boolean result = withdraw.tick(); blocked = withdraw.blockedReason(); return result; }
+                withdraw = null;
+            }
             if (work == null || work.state() == TaskRunner.State.DONE) {
                 Map<String, Integer> have = g.items.planningInventory(item);
+                // Stored supplies first: a trip to base storage beats gathering what is already there.
+                if (useStorage && withdrawals < MAX_WITHDRAWALS) {
+                    List<BlockPos> chests = g.storage.worthVisiting(item, wanted, have);
+                    if (!chests.isEmpty()) {
+                        withdrawals++;
+                        withdraw = new WithdrawTask(g, item, wanted, chests);
+                        return true;
+                    }
+                }
                 work = new TaskRunner();
                 work.start(g.createTasks(GrindExecutionPlan.plan(item, wanted, have,
                         g.reach.findNearbyBlock(Blocks.CRAFTING_TABLE) != null, g.reach.findNearbyBlock(Blocks.FURNACE) != null), have));
@@ -203,7 +223,96 @@ final class SurvivalTasks {
         }
         public String blockedReason() { return blocked; }
         public String failureReason() { return failure; }
-        public void cancel() { if (work != null) work.cancel(); g.travel.cancelAutomation(); g.stations.closeOwnedStationMenu(); }
+        public void cancel() {
+            if (withdraw != null) withdraw.cancel();
+            if (work != null) work.cancel();
+            g.travel.cancelAutomation(); g.stations.closeOwnedStationMenu();
+        }
+    }
+
+    /** A goal re-plans when a sub-plan finishes short; this bounds how often that sends it to storage. */
+    static final int MAX_WITHDRAWALS = 3;
+
+    /**
+     * Takes back from base storage what a goal needs before it gathers. What to take is worked out
+     * again from each chest's live contents once it is open, so a stale record costs a visit, never
+     * a wrong click. Renamed, enchanted and nearly broken stacks stay, and a stack only goes into an
+     * empty slot while {@link GrindStorage#KEEP_FREE_SLOTS} would remain free.
+     *
+     * <p>Storage is a shortcut, never a new reason to stop: a chest that cannot be reached or opened
+     * is skipped, and whatever was not taken is gathered as before.
+     */
+    static final class WithdrawTask implements TaskRunner.Task {
+        final GrindExecutor g; final String item; final int wanted; final List<BlockPos> chests;
+        int chest; int ticks; OpenTask open;
+        WithdrawTask(GrindExecutor g, String item, int wanted, List<BlockPos> chests) {
+            this.g = g; this.item = item; this.wanted = wanted; this.chests = List.copyOf(chests);
+        }
+        public String name() { return "take stored supplies from chest " + Math.min(chest + 1, chests.size()) + "/" + chests.size(); }
+        public boolean satisfied() { return chest >= chests.size() && !g.inventory.transfers().owns(OWNER); }
+        public int budgetTicks() { return 2_400; }
+        public boolean tick() {
+            if (chest >= chests.size()) return true;
+            // Ticked by its goal rather than a TaskRunner, so it enforces its own budget.
+            if (++ticks > budgetTicks()) {
+                GrindExecutor.LOGGER.info("AutoGrind gave up taking stored supplies for {} after {} ticks", item, budgetTicks());
+                g.inventory.transfers().release(OWNER); next(); chest = chests.size(); return true;
+            }
+            if (g.inventory.transfers().busy()) return true;
+            BlockPos pos = chests.get(chest);
+            if (open == null) open = new OpenTask(g, pos, ChestMenu.class);
+            if (!open.satisfied()) {
+                open.tick();
+                if (open.blockedReason() != null) {
+                    GrindExecutor.LOGGER.info("AutoGrind skipped storage chest {}: {}", GrindExecutor.coordinates(pos), open.blockedReason());
+                    next();
+                }
+                return true;
+            }
+            ChestMenu menu = (ChestMenu) g.client.player.containerMenu;
+            g.storage.observe(pos, menu);
+            Map<String, Integer> take = GrindWithdrawal.plan(item, wanted, g.items.planningInventory(item),
+                    g.storage.seen(pos), GrindBook.recipes());
+            int slots = Math.min(menu.getRowCount() * 9, menu.slots.size());
+            for (var entry : take.entrySet()) {
+                for (int slot = 0; slot < slots; slot++) {
+                    ItemStack stored = menu.getSlot(slot).getItem();
+                    if (!GrindStorage.withdrawable(stored) || GrindItems.countStack(stored, entry.getKey()) == 0) continue;
+                    int destination = destination(stored);
+                    if (destination < 0) { next(); return true; }
+                    ItemStack held = g.inventory.stackAt(destination);
+                    int room = held.isEmpty() ? stored.getMaxStackSize() : held.getMaxStackSize() - held.getCount();
+                    int amount = Math.min(Math.min(entry.getValue(), stored.getCount()), room);
+                    int target = InventoryTransfers.menuSlot(destination, InventoryTransfers.PlayerMenuLayout.CHEST);
+                    List<ContainerTransferController.Click> clicks = new ArrayList<>();
+                    clicks.add(new ContainerTransferController.Click(slot, 0));
+                    if (amount == stored.getCount() && held.isEmpty()) clicks.add(new ContainerTransferController.Click(target, 0));
+                    else {
+                        for (int n = 0; n < amount; n++) clicks.add(new ContainerTransferController.Click(target, 1));
+                        if (amount < stored.getCount()) clicks.add(new ContainerTransferController.Click(slot, 0));
+                    }
+                    g.inventory.transfers().beginClicks(OWNER, PRIORITY, menu.containerId, clicks.toArray(ContainerTransferController.Click[]::new), 0);
+                    return true;
+                }
+            }
+            next();
+            return true;
+        }
+        /** A partial stack of the same item first, then an empty slot outside the hotbar, then the hotbar. */
+        private int destination(ItemStack stored) {
+            for (int index = 0; index < InventoryTransfers.INVENTORY_SIZE; index++) {
+                ItemStack held = g.inventory.stackAt(index);
+                if (!held.isEmpty() && ItemStack.isSameItemSameComponents(held, stored) && held.getCount() < held.getMaxStackSize()) return index;
+            }
+            int free = 0;
+            for (int index = 0; index < InventoryTransfers.INVENTORY_SIZE; index++) if (g.inventory.stackAt(index).isEmpty()) free++;
+            if (free <= GrindStorage.KEEP_FREE_SLOTS) return -1;
+            for (int index = InventoryTransfers.HOTBAR_SIZE; index < InventoryTransfers.INVENTORY_SIZE; index++) if (g.inventory.stackAt(index).isEmpty()) return index;
+            for (int index = 0; index < InventoryTransfers.HOTBAR_SIZE; index++) if (g.inventory.stackAt(index).isEmpty()) return index;
+            return -1;
+        }
+        private void next() { g.stations.closeOwnedStationMenu(); chest++; open = null; }
+        public void cancel() { g.inventory.transfers().release(OWNER); g.stations.closeOwnedStationMenu(); g.travel.cancelMovement(); }
     }
 
     static final class EquipTask implements TaskRunner.Task {
@@ -468,6 +577,7 @@ final class SurvivalTasks {
             if (open == null) open = new OpenTask(g, chests.get(chest), ChestMenu.class);
             if (!open.satisfied()) { open.tick(); blocked = open.blockedReason(); return true; }
             ChestMenu menu = (ChestMenu) g.client.player.containerMenu;
+            g.storage.observe(chests.get(chest), menu);
             if (menu.getRowCount() != 3) { blocked = "Separate the storage chests; AutoGrind expects three-row single chests."; return true; }
             for (int index = 0; index < 36; index++) {
                 ItemStack stack = g.inventory.stackAt(index); if (stack.isEmpty() || stack.has(DataComponents.CUSTOM_NAME)) continue;
@@ -770,6 +880,8 @@ final class SurvivalTasks {
             if (g.client.player.experienceLevel < menu.costs[2]) {
                 g.stations.closeOwnedStationMenu(); open = null;
                 xpWork = new ItemGoalTask(g, "coal", g.items.count("coal") + 32, false);
+                // The levels come from mining the ore; coal taken out of storage would give none.
+                xpWork.useStorage = false;
                 return true;
             }
             if (!enchantIssued) { g.client.gameMode.handleInventoryButtonClick(menu.containerId, 2); enchantIssued = true; wait = 0; }
