@@ -78,6 +78,29 @@ final class GrindTravel {
         return true;
     }
 
+    /**
+     * Walks towards a column wherever its ground turns out to be, for looking around rather than
+     * reaching a block. The caller decides when it is close enough; this keeps one goal per column.
+     *
+     * @return false when Baritone is unavailable, busy with someone else's process, or travel to
+     *         this column stopped (see {@link #movementProblem})
+     */
+    boolean moveToColumn(int x, int z) {
+        travelProblem = null;
+        if (!g.useBaritone || !g.baritone.available()) return false;
+        g.rotations.release(GrindExecutor.OWNER); g.inventory.release(GrindExecutor.OWNER);
+        BlockPos column = new BlockPos(x, 0, z);
+        if (movementGoal != null) {
+            if (!column.equals(movementTarget)) cancelMovement();
+            else return continueTravel();
+        }
+        if (awaitCancellation()) return true;
+        if (g.baritone.mining() || g.baritone.pathing() || g.baritone.goalActive()) return false;
+        if (g.baritone.pathTo(x, z) != BaritoneBridge.Result.STARTED) return false;
+        movementGoal = column; movementTarget = column;
+        return true;
+    }
+
     private boolean continueTravel() {
         if (!g.baritone.ownsGoal()) travelProblem = "Baritone travel goal was replaced; finish the other task, then .grind resume.";
         else if (!g.baritone.pathing() && !g.baritone.goalActive()) travelProblem = "Baritone stopped before access was reached; check the route, then .grind resume.";

@@ -367,11 +367,21 @@ final class SurvivalTasks {
     }
 
     static final class HuntTask implements TaskRunner.Task {
+        /** Animals further than this are not chased, even when the client has them loaded. */
+        static final double SIGHT = 64;
+        /**
+         * Where to look when no animal is in sight, relative to where the search began: eight
+         * points on a ring 48 blocks out, then eight on a ring at 96, clockwise from east. Walking
+         * the first ring brings everything within about 110 blocks into sight.
+         */
+        static final int[][] LOOKOUTS = lookouts(48, 96);
         final GrindExecutor g; final String item; final int wanted;
         LivingEntity target;
         BlockPos drop;
         int wait;
         String blocked;
+        BlockPos searchOrigin;
+        int lookout;
         HuntTask(GrindExecutor g, String item, int wanted) { this.g = g; this.item = item; this.wanted = wanted; }
         public String name() { return "hunt " + item + " " + g.items.count(item) + "/" + wanted; }
         public boolean satisfied() { if (g.items.count(item) < wanted) return false; g.travel.cancelMovement(); return true; }
@@ -397,11 +407,11 @@ final class SurvivalTasks {
                 drop = null;
             }
             if (target == null || !matches(target)) {
-                target = null; double nearest = 64 * 64;
+                target = null; double nearest = SIGHT * SIGHT;
                 for (var entity : g.client.level.entitiesForRendering()) if (entity instanceof LivingEntity e && matches(e)) {
                     double d = e.distanceToSqr(g.client.player); if (d < nearest) { nearest = d; target = e; }
                 }
-                if (target == null) { blocked = "No loaded animals for " + item + "; travel to animals or supply food, then .grind resume."; return true; }
+                if (target == null) { search(); return true; }
             }
             if (g.client.player.getEyePosition().distanceToSqr(target.getBoundingBox().getCenter()) > 9
                     || !g.client.player.hasLineOfSight(target)) {
@@ -415,6 +425,42 @@ final class SurvivalTasks {
             if (!g.reach.aimedAt(target.getBoundingBox().getCenter()) || g.client.player.getAttackStrengthScale(0.5f) < 1) return true;
             g.client.gameMode.attack(g.client.player, target); g.client.player.swing(InteractionHand.MAIN_HAND);
             return true;
+        }
+        /**
+         * With Baritone, walk the lookouts until an animal comes into sight; without it, or once
+         * every lookout has been visited, pause for the player. A lookout Baritone cannot reach is
+         * skipped. Finding an animal keeps the place in the round, so the next one continues it.
+         */
+        private void search() {
+            if (!g.useBaritone || !g.baritone.available()) {
+                blocked = "No loaded animals for " + item + "; travel to animals or supply food, then .grind resume.";
+                return;
+            }
+            if (searchOrigin == null) { searchOrigin = g.client.player.blockPosition(); lookout = 0; }
+            if (lookout >= LOOKOUTS.length) {
+                g.travel.cancelMovement();
+                blocked = "No animals for " + item + " within " + (LOOKOUTS[LOOKOUTS.length - 1][2] + (int) SIGHT)
+                        + " blocks of " + GrindExecutor.coordinates(searchOrigin) + "; travel to animals or supply food, then .grind resume.";
+                searchOrigin = null;
+                return;
+            }
+            int x = searchOrigin.getX() + LOOKOUTS[lookout][0], z = searchOrigin.getZ() + LOOKOUTS[lookout][1];
+            double dx = g.client.player.getX() - (x + 0.5), dz = g.client.player.getZ() - (z + 0.5);
+            if (dx * dx + dz * dz <= 9) { lookout++; return; }
+            if (!g.travel.moveToColumn(x, z)) {
+                GrindExecutor.LOGGER.info("AutoGrind skipped hunting lookout {} {}: {}", x, z, g.travel.movementProblem("Baritone could not start"));
+                lookout++;
+            }
+        }
+        /** {x, z, radius} for each lookout, ring by ring, clockwise from east. */
+        static int[][] lookouts(int... radii) {
+            int[][] result = new int[radii.length * 8][];
+            for (int ring = 0; ring < radii.length; ring++) for (int step = 0; step < 8; step++) {
+                double angle = Math.PI / 4 * step;
+                result[ring * 8 + step] = new int[]{(int) Math.round(Math.cos(angle) * radii[ring]),
+                        (int) Math.round(Math.sin(angle) * radii[ring]), radii[ring]};
+            }
+            return result;
         }
         public String blockedReason() { return blocked; }
         public void cancel() { g.travel.cancelMovement(); g.rotations.release(OWNER); g.inventory.release(OWNER); }
