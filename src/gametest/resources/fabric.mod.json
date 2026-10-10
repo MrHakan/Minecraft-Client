@@ -17,6 +17,7 @@
       "me.mrhakan.agalarhack.gametest.InventoryContentionGameTest",
       "me.mrhakan.agalarhack.gametest.ProfileBindingGameTest",
       "me.mrhakan.agalarhack.gametest.ExternalAddonGameTest",
+      "me.mrhakan.agalarhack.gametest.VisualAcceptanceGameTest",
       "me.mrhakan.agalarhack.gametest.DedicatedServerGameTest",
       "me.mrhakan.agalarhack.gametest.SwallowedFailureGameTest"
     ],

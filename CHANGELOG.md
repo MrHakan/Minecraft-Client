@@ -4,6 +4,20 @@ Releases are numbered **2.x.yy**: `x` is the major version and `yy` a two-digit 
 [Versioning](README.md#versioning)). Every version needs a section here before it can be merged; CI
 publishes the section as the GitHub release notes.
 
+## [2.0.12] - 2026-10-10
+
+### Added
+- A visual acceptance list, `docs/VISUAL_ACCEPTANCE.md`, and a game test that runs its automatic
+  half on every pull request. The ClickGUI is shot under Default Dark, AMOLED, Light and high
+  contrast at GUI scales 1 to 4 (in a window enlarged for it), and checked for widgets outside the window, the
+  theme's accent actually on screen and the light theme being the brightest. ESP's box must sit
+  where the target's bounding box projects through the camera (it does, within 1-3 px), ESP labels
+  and Nametags above it and centred, and the TargetHUD face patch must hold a skin. CI uploads every
+  frame as the `visual-acceptance` artifact for the checks only a person can make, which the list
+  marks as human approval. Findings for review so far: the Light theme leaves the search box
+  black, and at GUI scale 4 the ClickGUI's quick-action labels are cut and module rows overlap
+  their on/off buttons.
+
 ## [2.0.11] - 2026-10-10
 
 ### Fixed

@@ -112,6 +112,14 @@
   The order is a counting sort over 256 equal bands of the squared range, using the furthest
   subscriber's range (`SharedEntityWalk.maximumRange()`); entities beyond it are dropped before the
   walk. `crowdBudgets` now asserts 256 of the true nearest 256 past the cap.
+- 2.0.12 (E2): `VisualAcceptanceGameTest` (own world, entrypoint before `DedicatedServerGameTest`).
+  Themes are applied with `ThemeService.preview` and GUI scales with `options.guiScale().set` plus
+  `resizeGui()`; both are restored. The ESP projection uses `gameRenderer.mainCamera()` position and
+  `getFov()`, facing yaw 0 (screen right = world -x). F1 in 26.2 is `gui.hud.toggle()`/`isHidden()`,
+  not an `Options` field. `Hud.lastFaceBounds()` reports the face patch in HUD coordinates (times
+  `HUD_LAYOUT.scale()` and the window GUI scale for pixels). Screenshots are named
+  `NNNN_visual-*.png` by Fabric's counter. To run only this test locally, rewrite the
+  `fabric-client-gametest` entrypoint in `processGametestResources` with an init script.
 - 2.0.10 (C3 closed): Trajectories measured with the throwaway bench (snowball, 300-stand scene):
   ~45 us open field, 20-28 us into the crowd, 70-80 us straight up with 300 steps. No rewrite.
 - Windows: `docs/MODULES.md` is pinned to LF in `.gitattributes`. The production addon test hardcodes

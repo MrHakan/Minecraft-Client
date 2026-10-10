@@ -353,6 +353,10 @@ public class Hud implements HudElement {
     private void renderFace(GuiGraphicsExtractor graphics, net.minecraft.client.player.AbstractClientPlayer player, int x, int y) {
         var skin = player.getSkin();
         if (skin == null || skin.body() == null) return;
+        int[] face = lastFace;
+        if (face == null || face[0] != x || face[1] != y) {
+            lastFace = new int[] { x, y, me.mrhakan.agalarhack.ui.hud.PlayerFace.DRAWN_SIZE };
+        }
         var texture = skin.body().texturePath();
         int size = me.mrhakan.agalarhack.ui.hud.PlayerFace.DRAWN_SIZE;
         int patch = me.mrhakan.agalarhack.ui.hud.PlayerFace.PATCH;
@@ -366,6 +370,18 @@ public class Hud implements HudElement {
                 size, size, patch, patch,
                 me.mrhakan.agalarhack.ui.hud.PlayerFace.SKIN_WIDTH, me.mrhakan.agalarhack.ui.hud.PlayerFace.SKIN_HEIGHT,
                 ARGB.white(1.0f));
+    }
+
+    /** Where the target card last drew a face, in HUD coordinates: x, y and size. Null until it has. */
+    private static volatile int[] lastFace;
+
+    /**
+     * For the visual acceptance test, which checks that the face patch really holds a skin. HUD
+     * coordinates; multiply by the HUD scale and the window's GUI scale for framebuffer pixels.
+     */
+    public static int[] lastFaceBounds() {
+        int[] face = lastFace;
+        return face == null ? null : face.clone();
     }
 
     private void renderTarget(GuiGraphicsExtractor graphics, Minecraft mc) {
