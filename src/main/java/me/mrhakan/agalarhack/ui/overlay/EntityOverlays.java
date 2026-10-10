@@ -3,7 +3,6 @@ package me.mrhakan.agalarhack.ui.overlay;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import java.util.List;
-import java.util.Locale;
 import me.mrhakan.agalarhack.AgalarHackClient;
 import me.mrhakan.agalarhack.module.Module;
 import me.mrhakan.agalarhack.module.render.EntityESP;
@@ -34,10 +33,10 @@ final class EntityOverlays {
         EspOverlay() { super("ESP", EntityESP.class); }
         @Override protected boolean hasLabels() { return true; }
         @Override protected void submitLabels(OverlayFrame frame, EntityESP esp) {
-            if (esp.getBooleanSetting("labels", true)) renderEspLabels(frame.ctx(), frame.mc(), esp, esp.targets(), frame.camera());
+            if (esp.getBooleanSetting("labels", true)) renderEspLabels(frame.ctx(), frame.mc(), esp, esp.targets(), frame.camera(), frame.culling());
         }
         @Override protected void drawLines(OverlayFrame frame, EntityESP esp, PoseStack.Pose pose, VertexConsumer buffer) {
-            renderEspGeometry(frame.mc(), esp, esp.targets(), frame.camera(), pose, buffer);
+            renderEspGeometry(frame.mc(), esp, esp.targets(), frame.camera(), pose, buffer, frame.culling());
         }
     }
 
@@ -130,36 +129,62 @@ final class EntityOverlays {
                 && mc.level.getEntity(target.getId()) == target && distanceSquared <= style.rangeSquared();
     }
 
-    static void renderEspGeometry(Minecraft mc, Module esp, List<LivingEntity> targets, Vec3 camera, PoseStack.Pose pose, VertexConsumer buffer) {
+    /**
+     * Boxes outside the view volume are skipped (see {@link ViewCulling}); tracers never are, because
+     * a tracer to a target behind the player is the point of drawing one.
+     */
+    static void renderEspGeometry(Minecraft mc, Module esp, List<LivingEntity> targets, Vec3 camera, PoseStack.Pose pose,
+            VertexConsumer buffer, ViewCulling culling) {
         boolean boxes = esp.getBooleanSetting("boxes", true);
         boolean tracers = esp.getBooleanSetting("tracers", false);
         EspStyle style = EspStyle.of(esp);
+        int boxesDrawn = 0, tracersDrawn = 0;
         for (LivingEntity living : targets) {
             double distanceSquared = mc.player.distanceToSqr(living);
             if (!currentEspTarget(mc, living, distanceSquared, style)) continue;
+            AABB world = boxes ? living.getBoundingBox().inflate(0.03) : null;
+            boolean boxVisible = world != null && culling.isVisible(world);
+            if (!boxVisible && !tracers) continue;
             int color = style.color(mc, living, mc.player.distanceTo(living));
-            if (boxes) box(buffer, pose, living.getBoundingBox().inflate(0.03).move(-camera.x, -camera.y, -camera.z), color);
+            if (boxVisible) {
+                box(buffer, pose, world.move(-camera.x, -camera.y, -camera.z), color);
+                boxesDrawn++;
+            }
             if (tracers) {
                 Vec3 center = living.getBoundingBox().getCenter();
                 line(buffer, pose, 0.0, -0.12, 0.0, center.x - camera.x, center.y - camera.y, center.z - camera.z, color);
+                tracersDrawn++;
             }
         }
+        espBoxesDrawn = boxesDrawn;
+        espTracersDrawn = tracersDrawn;
     }
 
-    static void renderEspLabels(LevelRenderContext ctx, Minecraft mc, Module esp, List<LivingEntity> targets, Vec3 camera) {
+    /**
+     * A label is skipped when the space it could occupy is outside the view volume: the entity's box
+     * grown by {@link #LABEL_SPREAD} sideways and {@link #LABEL_REACH} upwards, which is more than
+     * vanilla allows its own name tags (half a block). Distance and health are formatted without a
+     * {@code Formatter}.
+     */
+    static void renderEspLabels(LevelRenderContext ctx, Minecraft mc, Module esp, List<LivingEntity> targets, Vec3 camera,
+            ViewCulling culling) {
         PoseStack stack = ctx.poseStack();
         double labelRange = esp.getNumberSetting("labelRange", 64);
         double labelRangeSquared = labelRange * labelRange;
         boolean showDistance = esp.getBooleanSetting("showDistance", true);
         boolean showHealth = esp.getBooleanSetting("showHealth", false);
         EspStyle style = EspStyle.of(esp);
+        int labelsDrawn = 0;
         for (LivingEntity living : targets) {
             double distanceSquared = mc.player.distanceToSqr(living);
             if (!currentEspTarget(mc, living, distanceSquared, style) || distanceSquared > labelRangeSquared) continue;
+            AABB bounds = living.getBoundingBox();
+            if (!culling.isVisible(new AABB(bounds.minX - LABEL_SPREAD, bounds.minY, bounds.minZ - LABEL_SPREAD,
+                    bounds.maxX + LABEL_SPREAD, bounds.maxY + LABEL_REACH, bounds.maxZ + LABEL_SPREAD))) continue;
             float distance = mc.player.distanceTo(living);
             StringBuilder label = new StringBuilder(living.getName().getString());
-            if (showDistance) label.append(String.format(Locale.ROOT, " [%.1fm]", distance));
-            if (showHealth) label.append(String.format(Locale.ROOT, " [%.1f HP]", living.getHealth()));
+            if (showDistance) appendTenths(label.append(" ["), distance).append("m]");
+            if (showHealth) appendTenths(label.append(" ["), living.getHealth()).append(" HP]");
             int styled = style.color(mc, living, distance);
             int labelRgb = dimRgb(styled & 0xFFFFFF, 0.55 + 0.45 * style.fade(distance));
             Component text = Component.literal(label.toString()).withStyle(Style.EMPTY.withColor(TextColor.fromRgb(labelRgb)));
@@ -169,8 +194,21 @@ final class EntityOverlays {
             ctx.submitNodeCollector().submitNameTag(stack, new Vec3(0.0, living.getBbHeight() + 0.35, 0.0), 0, text, true,
                     LightCoordsUtil.FULL_BRIGHT, ctx.levelState().cameraRenderState);
             } finally { stack.popPose(); }
+            labelsDrawn++;
         }
+        espLabelsDrawn = labelsDrawn;
     }
+
+    /** What the last ESP frame drew, read through {@link WorldOverlays#lastEspDrawn()}. Render thread only. */
+    static int espLabelsDrawn, espBoxesDrawn, espTracersDrawn;
+
+    /** How far above the entity's box an ESP label can reach: its 0.35 offset and a line of text, with room to spare. */
+    private static final double LABEL_REACH = 1.0;
+    /**
+     * Half the width of a label in blocks, generously: name tags are drawn at 0.025 blocks a pixel,
+     * so two blocks is a 160-pixel label, longer than a name with distance and health.
+     */
+    private static final double LABEL_SPREAD = 2.0;
 
     static void renderProjectiles(ProjectileESP module,
             Vec3 camera, PoseStack.Pose pose, VertexConsumer buffer) {

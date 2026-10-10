@@ -41,6 +41,17 @@ public final class WorldOverlays {
     private WorldOverlays() {
     }
 
+    /** What ESP drew in its last frame. */
+    public record EspDrawn(int labels, int boxes, int tracers) { }
+
+    /**
+     * For the game test that checks ESP's view culling: labels and boxes off screen are skipped,
+     * tracers never are. Read on the render thread.
+     */
+    public static EspDrawn lastEspDrawn() {
+        return new EspDrawn(EntityOverlays.espLabelsDrawn, EntityOverlays.espBoxesDrawn, EntityOverlays.espTracersDrawn);
+    }
+
     /** The overlays in draw order, for tests and diagnostics. */
     public static List<WorldOverlay<?>> overlays() {
         return OVERLAYS;
