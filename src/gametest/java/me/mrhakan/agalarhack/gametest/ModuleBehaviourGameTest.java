@@ -1861,6 +1861,10 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
         LOGGER.info("    Overlay frame cost: {}", costs.stream()
                 .map(entry -> String.format(java.util.Locale.ROOT, "%s=%.0fus/%d", entry.module(), entry.averageMicros(), entry.ticks()))
                 .collect(java.util.stream.Collectors.joining(" ")));
+        var passes = context.computeOnClient(client -> timings.slowestParts(overlays.length * 2));
+        LOGGER.info("    Overlay pass cost: {}", passes.stream()
+                .map(entry -> String.format(java.util.Locale.ROOT, "%s=%.0fus", entry.module(), entry.averageMicros()))
+                .collect(java.util.stream.Collectors.joining(" ")));
         double esp = costs.stream().filter(entry -> entry.module().equals("ESP"))
                 .mapToDouble(me.mrhakan.agalarhack.services.ModuleTimings.Entry::averageMicros).findFirst().orElse(0);
         if (esp <= 0) throw new AssertionError("ESP drew 256 boxes for nothing: " + costs);

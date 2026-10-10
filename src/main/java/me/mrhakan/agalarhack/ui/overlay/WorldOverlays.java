@@ -19,7 +19,8 @@ import net.minecraft.client.renderer.rendertype.RenderTypes;
  * line buffer in it.
  *
  * <p>While something asks for {@link OverlayTimings}, each overlay's labels and lines are timed into
- * one per-frame sample under its module's name. Otherwise the only added cost is opening the frame.
+ * one per-frame sample under its module's name, and each pass separately as well. Otherwise the only
+ * added cost is opening the frame.
  */
 public final class WorldOverlays {
     private static final List<WorldOverlay<?>> OVERLAYS = List.of(
@@ -75,7 +76,7 @@ public final class WorldOverlays {
             if (module != null && overlay.hasLabels()) {
                 long started = cost == null ? 0 : System.nanoTime();
                 renderService.guard(module, () -> overlay.labels(frame, module));
-                if (cost != null) cost.add(index, System.nanoTime() - started);
+                if (cost != null) cost.addLabels(index, System.nanoTime() - started);
             }
         }
 
@@ -89,7 +90,7 @@ public final class WorldOverlays {
                 if (module != null && overlay.hasLines()) {
                     long started = cost == null ? 0 : System.nanoTime();
                     renderService.guard(module, () -> overlay.lines(frame, module, pose, buffer));
-                    if (cost != null) cost.add(index, System.nanoTime() - started);
+                    if (cost != null) cost.addLines(index, System.nanoTime() - started);
                 }
             }
         });
