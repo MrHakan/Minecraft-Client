@@ -4,6 +4,16 @@ Releases are numbered **2.x.yy**: `x` is the major version and `yy` a two-digit 
 [Versioning](README.md#versioning)). Every version needs a section here before it can be merged; CI
 publishes the section as the GitHub release notes.
 
+## [2.0.11] - 2026-10-10
+
+### Fixed
+- On a crowded server ESP, Nametags and the other entity overlays show the entities nearest to you
+  again. The shared entity walk inspects at most 4,096 entities a tick, and past that it used to
+  read them in arrival order, so the nearest could be skipped entirely: with 5,000 entities and the
+  nearest 500 arriving last, none of ESP's 256 targets was among the true nearest 256. Past the cap
+  the walk now reads the nearest first (256 of 256 in the same test). Below the cap nothing changes.
+  Ordering costs about 0.3 ms a tick with 5,000 entities.
+
 ## [2.0.10] - 2026-10-10
 
 ### Fixed
