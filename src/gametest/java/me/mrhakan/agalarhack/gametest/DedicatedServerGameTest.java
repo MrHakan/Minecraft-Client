@@ -69,6 +69,7 @@ public final class DedicatedServerGameTest implements FabricClientGameTest {
                 aRealRemoteConnection(context);
                 theNettyCountersFire(context);
                 equipsOverTheWire(context, server, connection);
+                equipsOverALaggyConnection(context, server, connection);
             }
             disconnectClearedTheCounters(context);
             reconnectingWorksAgain(context, server);
@@ -170,6 +171,104 @@ public final class DedicatedServerGameTest implements FabricClientGameTest {
         context.waitFor(client -> client.player.inventoryMenu.getCarried().isEmpty()
                 && !ClientServices.require(InventoryService.class).transfers().busy(), 100);
         LOGGER.info("    AutoArmor equipped across a real connection and the server agrees");
+    }
+
+    /** Added to every packet the client sends while {@link #equipsOverALaggyConnection} runs. */
+    private static final long LAG_MILLIS = 150;
+
+    /**
+     * The same plan with every packet the client sends held back {@value #LAG_MILLIS} ms.
+     *
+     * <p>Loopback has no latency to speak of, so the plan above never had a click in flight while
+     * the next one was due. Here every click arrives late and its confirmation later still, which
+     * is where a transfer that trusts its own prediction, or gives up waiting, would duplicate or
+     * lose the item. The control is the same equip on the plain connection just above, timed the
+     * same way, and the handler counts what it held back, which is the evidence the delay reached
+     * the connection. It sits at the head of the client's own pipeline, so it holds back the encoded
+     * bytes and keeps their order.
+     */
+    private void equipsOverALaggyConnection(ClientGameTestContext context, TestDedicatedServerContext server,
+            net.fabricmc.fabric.api.client.gametest.v1.context.TestDedicatedServerConnection connection) {
+        long plain = timedEquip(context, server, connection, Items.GOLDEN_HELMET, 20);
+        io.netty.channel.Channel channel = context.computeOnClient(client -> clientChannel(client));
+        String name = "agalarhack-test-lag";
+        java.util.concurrent.atomic.AtomicInteger delayed = new java.util.concurrent.atomic.AtomicInteger();
+        channel.pipeline().addFirst(name, new io.netty.channel.ChannelOutboundHandlerAdapter() {
+            @Override
+            public void write(io.netty.channel.ChannelHandlerContext ctx, Object message, io.netty.channel.ChannelPromise promise) {
+                delayed.incrementAndGet();
+                ctx.executor().schedule(() -> ctx.write(message, promise), LAG_MILLIS, java.util.concurrent.TimeUnit.MILLISECONDS);
+            }
+
+            @Override
+            public void flush(io.netty.channel.ChannelHandlerContext ctx) {
+                ctx.executor().schedule(ctx::flush, LAG_MILLIS, java.util.concurrent.TimeUnit.MILLISECONDS);
+            }
+        });
+        try {
+            int before = delayed.get();
+            long lagged = timedEquip(context, server, connection, Items.CHAINMAIL_HELMET, 21);
+            int held = delayed.get() - before;
+            LOGGER.info("    AutoArmor equipped with {} ms added to every client packet ({} packets held back): {} ms "
+                    + "against {} ms without, nothing duplicated or lost", LAG_MILLIS, held, lagged, plain);
+            // The control: the equip's own packets went through the delay. Timing alone is too coarse
+            // for this, since the server is polled once a tick.
+            if (held == 0) {
+                throw new AssertionError("no client packet passed through the delay while the equip ran, so the "
+                        + "scenario proves nothing about latency");
+            }
+        } finally {
+            if (channel.pipeline().get(name) != null) channel.pipeline().remove(name);
+        }
+    }
+
+    /**
+     * Swaps in {@code helmet} through AutoArmor and waits for the server to agree, then checks that
+     * exactly one of each helmet exists and both cursors are empty.
+     *
+     * @return milliseconds from switching AutoArmor on to the server seeing the helmet equipped
+     */
+    private long timedEquip(ClientGameTestContext context, TestDedicatedServerContext server,
+            net.fabricmc.fabric.api.client.gametest.v1.context.TestDedicatedServerConnection connection,
+            net.minecraft.world.item.Item helmet, int slot) {
+        context.runOnClient(client -> AgalarHackClient.moduleManager.getModule("AutoArmor").setToggled(false, false));
+        context.waitFor(client -> !ClientServices.require(InventoryService.class).transfers().busy(), 100);
+        server.runOnServer(unused -> {
+            var player = connection.getServerPlayer();
+            player.getInventory().clearContent();
+            player.setItemSlot(EquipmentSlot.HEAD, ItemStack.EMPTY);
+            player.getInventory().setItem(slot, new ItemStack(helmet));
+            player.containerMenu.broadcastChanges();
+        });
+        context.waitFor(client -> client.player.getInventory().getItem(slot).is(helmet)
+                && client.player.getItemBySlot(EquipmentSlot.HEAD).isEmpty(), 200);
+        long started = System.nanoTime();
+        context.runOnClient(client -> AgalarHackClient.moduleManager.getModule("AutoArmor").setToggled(true, false));
+        server.waitFor(unused -> connection.getServerPlayer().getItemBySlot(EquipmentSlot.HEAD).is(helmet), 400);
+        long elapsed = (System.nanoTime() - started) / 1_000_000;
+        context.waitFor(client -> client.player.inventoryMenu.getCarried().isEmpty()
+                && !ClientServices.require(InventoryService.class).transfers().busy(), 200);
+        connection.waitForServerboundPackets();
+        server.runOnServer(unused -> {
+            var player = connection.getServerPlayer();
+            require(player.inventoryMenu.getCarried().isEmpty(),
+                    "the server still shows a stack on the cursor after the transfer finished");
+            int carried = 0;
+            for (int index = 0; index < 36; index++) if (player.getInventory().getItem(index).is(helmet)) carried++;
+            require(carried == 0, "a " + helmet + " is both equipped and in the inventory: " + carried);
+        });
+        return elapsed;
+    }
+
+    /** The client connection's Netty channel; private in {@code Connection}, and these tests run on named mappings. */
+    private static io.netty.channel.Channel clientChannel(net.minecraft.client.Minecraft client) {
+        try {
+            var field = net.minecraft.network.Connection.class.getDeclaredField("channel");
+            field.setAccessible(true);
+            return (io.netty.channel.Channel) field.get(client.getConnection().getConnection());
+        } catch (ReflectiveOperationException failure) {
+            throw new AssertionError("could not reach the client's Netty channel", failure);
+        }
     }
 
     /** A new connection counts from zero, so leaving one has to clear what the last one measured. */

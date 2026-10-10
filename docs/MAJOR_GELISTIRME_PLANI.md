@@ -158,8 +158,10 @@ kalır ve özel pathfinder yazılmaz.
    tur bitince (yaklaşık 160 blok) net bir mesajla duraklıyor. Baritone yoksa bugünkü duraklatma
    aynen kalıyor. Gerçek Baritone testi, görüş mesafesi dört chunk'ken 100 blok ötede, istemcinin
    yüklemediği tek bir inekten et alıyor.
-5. **İlk şablon.** Bastion bulma ve yağmalama güvenilir biçimde test edilemiyor. Bu madde ancak
-   gerçek bir test fixture'ı kurulabilirse ele alınır, aksi hâlde belgelenmiş sınır olarak kalır.
+5. ✅ **İlk şablon (2.0.13'te sınır olarak kapatıldı).** Bastion bulma ve yağmalama güvenilir
+   biçimde test edilemiyor. Bu madde ancak gerçek bir test fixture'ı kurulabilirse ele alınır, aksi
+   hâlde belgelenmiş sınır olarak kalır. Karar (sahip, 2026-10-10): sınır olarak kalıyor; ilk şablonu
+   oyuncu getiriyor. `docs/AUTOGRIND.md` bunu kalıcı ve bilinçli bir sınır olarak yazıyor.
 
 Kabul: test dünyasında depolama gerektiren bir kampanya adımı elle müdahale olmadan tamamlanır. Bir
 düz alan senaryosu engebeli bir başlangıçtan alan bulur.
@@ -184,8 +186,13 @@ düz alan senaryosu engebeli bir başlangıçtan alan bulur.
    işaretli. İlk bulgular: Light temada arama kutusu siyah kalıyor; 4× ölçekte ClickGUI'nin hızlı
    eylem düğmelerinin etiketleri kesiliyor ve modül satırlarında açma/kapama düğmesi adın üstüne
    biniyor.
-3. **Dedicated server.** Var olan harness EULA onayı sahibinden alınarak düzenli çalıştırılsın:
+3. ✅ **Dedicated server (2.0.13).** Var olan harness EULA onayı sahibinden alınarak düzenli çalıştırılsın:
    gecikme, yeniden bağlanma ve otomasyon senaryoları.
+   Sonuç: sahip EULA'yı kabul etti (2026-10-10); CI'da `AGALARHACK_ACCEPT_SERVER_EULA=true` açık ve
+   senaryolar her PR'da koşuyor. Yeni gecikme senaryosu istemcinin her paketini 150 ms geciktirerek
+   AutoArmor'u bağlantı üzerinden giydiriyor: sunucuda tek miğfer, çoğalma ya da kayıp yok, iki
+   tarafta da boş imleç (yerelde 249 ms'ye karşı 400 ms, 19 paket geciktirildi). Yeniden bağlanma
+   ve otomasyon senaryoları zaten vardı ve artık her PR'da çalışıyor.
 4. ✅ **Kalabalık sunucu bütçeleri (2.0.10).** 2.0.00'daki ortak tarama testi 1.000+ varlığa genişletilsin ve
    blok tarayıcılarla aynı tick'te bütçe paylaşımı ölçülsün.
    Sonuç (`crowdBudgets` game testi): BlockESP'nin 12 cevheri bulma süresi kalabalık yokken,
@@ -241,7 +248,7 @@ E (kanıt) her adımda paralel
 | 2.0.10 | ✅ E4 kalabalık bütçe ölçümü, C3 ölçülüp kapatıldı |
 | 2.0.11 | ✅ E5 en yakından başlayan varlık taraması |
 | 2.0.12 | ✅ E2 görsel kabul listesi |
-| 2.0.13+ | D5 (karar bekliyor), E3 (EULA kararı bekliyor), sonra 2.1.00 |
+| 2.0.13 | ✅ E3 dedicated server CI'da (gecikme senaryosu), D5 sınır olarak kapatıldı |
 | 2.1.00 | B: Addon API 2 ve sürüm sözleşmesi, A4 güncelleme denetleyicisi |
 
 ## Riskler

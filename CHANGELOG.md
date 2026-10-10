@@ -4,6 +4,18 @@ Releases are numbered **2.x.yy**: `x` is the major version and `yy` a two-digit 
 [Versioning](README.md#versioning)). Every version needs a section here before it can be merged; CI
 publishes the section as the GitHub release notes.
 
+## [2.0.13] - 2026-10-10
+
+### Internal
+- The dedicated-server game tests now run in CI on every pull request and `main` push; the
+  repository owner accepted Minecraft's server EULA for this automation. They connect to a real
+  dedicated server, watch the packet counters fire, equip armour across the socket, disconnect and
+  reconnect. New: the same equip with every client packet held back 150 ms, so clicks are still in
+  flight when the next is due. It finishes with one helmet equipped and nothing duplicated or lost
+  (400 ms against 249 ms without the lag, 19 packets held back, locally).
+- The first Netherite Upgrade template stays a documented limit of AutoGrind: looting a bastion
+  cannot be proved by any deterministic test world, so it is left to the player on purpose.
+
 ## [2.0.12] - 2026-10-10
 
 ### Added
