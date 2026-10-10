@@ -6,6 +6,13 @@ publishes the section as the GitHub release notes.
 
 ## [2.0.10] - 2026-10-10
 
+### Fixed
+- Hunting no longer leaves meat lying on the ground. After a kill it walked to the block where the
+  animal died and waited there, but death drops scatter and often land two or three blocks away,
+  out of pickup range; the hunt then gave up on the drop and went looking for another animal. It
+  now walks to the dropped item of the kind it is hunting, within six blocks of the kill. This made
+  the real-Baritone hunting test fail about half the time.
+
 ### Internal
 - Crowded-server budgets are measured. A new game test times a fresh BlockESP scan while ESP and
   Nametags walk a crowd every tick: 27 ticks alone, with 1,500 entities and with 5,000, because
@@ -18,10 +25,9 @@ publishes the section as the GitHub release notes.
   for ordinary throws and 70-80 us at worst (straight up, 300 steps), about a quarter of ESP with
   256 targets in view, so the planned single-query rewrite would not pay for itself.
 - The real-Baritone hunting scenario starts from a known player state (full health and food, an
-  empty inventory). It inherited whatever the earlier scenarios left, and on CI that held the hunt
-  still: the upkeep that runs before each hunt tick pauses on low health, hunger or a nearly full
-  inventory. A failure now reports health, food, free slots and the pause reason, and the Baritone
-  step prints the failing assertion instead of only Gradle's stack trace.
+  empty inventory) rather than whatever the earlier scenarios left. A failure now reports health,
+  food, free slots and the pause reason, and the Baritone step prints the failing assertion instead
+  of only Gradle's stack trace.
 
 ## [2.0.09] - 2026-10-10
 
