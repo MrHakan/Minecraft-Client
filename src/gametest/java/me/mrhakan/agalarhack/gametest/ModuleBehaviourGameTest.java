@@ -7,9 +7,14 @@ import org.slf4j.LoggerFactory;
 
 import me.mrhakan.agalarhack.AgalarHackClient;
 import me.mrhakan.agalarhack.module.Module;
+import me.mrhakan.agalarhack.module.render.BlockESP;
+import me.mrhakan.agalarhack.module.render.EntityESP;
+import me.mrhakan.agalarhack.services.EntityDiscovery;
 import me.mrhakan.agalarhack.services.ClientServices;
 import me.mrhakan.agalarhack.services.ModuleTimings;
 import me.mrhakan.agalarhack.services.OverlayTimings;
+import me.mrhakan.agalarhack.services.ScannerService;
+import me.mrhakan.agalarhack.services.scanning.ScanScheduler;
 import me.mrhakan.agalarhack.ui.overlay.WorldOverlays;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
@@ -119,6 +124,7 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
             spawnEsp(context, singleplayer);
             projectileEsp(context, singleplayer);
             sharedEntityWalk(context, singleplayer);
+            crowdBudgets(context, singleplayer);
             quietFrames(context, false);
             autoRespawn(context, singleplayer);
 
@@ -1924,6 +1930,163 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
         // A few frames, so the counts come from frames drawn with the new view.
         context.waitTicks(10);
         return context.computeOnClient(client -> WorldOverlays.lastEspDrawn());
+    }
+
+    /**
+     * A crowded server: whether the block scanners keep their share of the tick while the shared
+     * entity walk is busy, and what the walk does past its observation cap.
+     *
+     * <p>The control is BlockESP finding twelve diamond ores with nothing else scanning. With 1,500
+     * invisible stands walked every tick for ESP and Nametags it must find them in about the same
+     * number of ticks, because entities and blocks are separate allowances in the shared budget.
+     * Then the crowd grows to 5,000, past the {@value EntityDiscovery#MAX_OBSERVATIONS}-entity cap:
+     * a tick may not spend more entity units than that, and ESP must still get a full result. How
+     * many of those results are the true nearest is logged, not asserted: past the cap the walk sees
+     * the first entities in the render list, which is arrival order, and here the nearest 500 arrive
+     * last on purpose. That is the documented limit, measured.
+     */
+    private void crowdBudgets(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+        BlockPos base = sceneBase.offset(0, 0, 520);
+        moveThere(context, singleplayer, base);
+        BlockPos origin = singleplayer.getServer().computeOnServer(server -> {
+            ServerPlayer player = singleplayer.getConnection().getServerPlayer();
+            clearEntities(player.level());
+            return player.blockPosition();
+        });
+        // West of the player, away from the stands, in the ground the player stands on.
+        java.util.List<BlockPos> ores = new java.util.ArrayList<>();
+        for (int index = 0; index < 12; index++) ores.add(origin.offset(-6 - index, -1, (index % 3) * 4 - 4));
+        singleplayer.getServer().runOnServer(server -> ores.forEach(pos ->
+                singleplayer.getConnection().getServerPlayer().level().setBlockAndUpdate(pos, Blocks.DIAMOND_ORE.defaultBlockState())));
+        context.waitFor(client -> ores.stream().allMatch(pos -> client.level.getBlockState(pos).is(Blocks.DIAMOND_ORE)), 100);
+        toggle(context, "StorageESP", false);
+        try {
+            CrowdSample alone = blockScanWhile(context, ores, "alone");
+            // 50 x 30, from 21 blocks out.
+            spawnStands(singleplayer, origin.offset(3, 0, -50), 1_500, 50, 1);
+            configure(context, "ESP", module -> {
+                module.settings.setSetting("respectTargetPolicy", false);
+                module.settings.setSetting("mobs", true);
+            });
+            configure(context, "Nametags", module -> module.settings.setSetting("mobs", true));
+            toggle(context, "ESP", true);
+            toggle(context, "Nametags", true);
+            if (!settle(context, client -> sharedWalkResult(client, "ESP", "maximumTargets", 1_500)
+                    && sharedWalkResult(client, "Nametags", "maximumTags", 1_500), 100)) {
+                throw new AssertionError("the walk did not serve ESP and Nametags their capped results over 1,500 stands");
+            }
+            CrowdSample crowd = blockScanWhile(context, ores, "1,500 stands");
+            if (crowd.maxEntities() < 1_500) {
+                throw new AssertionError("the walk spent " + crowd.maxEntities() + " entity units over 1,500 stands; "
+                        + "the scenario is not measuring a crowded tick");
+            }
+            if (crowd.ticks() > alone.ticks() * 2 + 10) {
+                throw new AssertionError("with 1,500 entities walked each tick BlockESP took " + crowd.ticks()
+                        + " ticks to find its ores against " + alone.ticks() + " alone; entities starved the block scan");
+            }
+
+            // The worst order for the cap: 3,000 more from 22 blocks out, then the 500 nearest of all
+            // (within 16 blocks) last, so they arrive at positions 4,501 to 5,000 in the render list.
+            // Stacked rather than spread, so every stand stays inside the client's tracking range.
+            spawnStands(singleplayer, origin.offset(3, 0, 22), 3_000, 50, 3);
+            spawnStands(singleplayer, origin.offset(2, 0, 2), 500, 10, 5);
+            if (!settle(context, client -> client.level.getEntityCount() >= 5_000, 100)) {
+                throw new AssertionError("only " + context.computeOnClient(client -> client.level.getEntityCount())
+                        + " of 5,000 stands reached the client");
+            }
+            context.waitTicks(10);
+            CrowdSample capped = blockScanWhile(context, ores, "5,000 stands");
+            if (capped.maxEntities() > EntityDiscovery.MAX_OBSERVATIONS) {
+                throw new AssertionError("one tick spent " + capped.maxEntities() + " entity units, past the cap of "
+                        + EntityDiscovery.MAX_OBSERVATIONS);
+            }
+            int[] nearest = context.computeOnClient(client -> {
+                var esp = (EntityESP) AgalarHackClient.moduleManager.getModule("ESP");
+                int cap = (int) esp.getNumberSetting("maximumTargets", 256);
+                java.util.List<Entity> all = new java.util.ArrayList<>();
+                for (Entity entity : client.level.entitiesForRendering()) {
+                    if (entity instanceof net.minecraft.world.entity.LivingEntity && entity != client.player) all.add(entity);
+                }
+                all.sort(java.util.Comparator.comparingDouble(client.player::distanceToSqr));
+                java.util.Set<Entity> truth = new java.util.HashSet<>(all.subList(0, Math.min(cap, all.size())));
+                int hits = 0;
+                for (var target : esp.targets()) if (truth.contains(target)) hits++;
+                return new int[] { esp.targets().size(), hits, cap };
+            });
+            LOGGER.info("    Past the cap: ESP kept {} targets, {} of them among the true nearest {}",
+                    nearest[0], nearest[1], nearest[2]);
+            if (nearest[0] != nearest[2]) {
+                throw new AssertionError("past the observation cap ESP kept " + nearest[0] + " targets, not a full "
+                        + nearest[2]);
+            }
+        } finally {
+            toggle(context, "ESP", false);
+            toggle(context, "Nametags", false);
+            toggle(context, "BlockESP", false);
+            configure(context, "ESP", module -> module.settings.setSetting("respectTargetPolicy", true));
+            singleplayer.getServer().runOnServer(server -> {
+                ServerLevel level = singleplayer.getConnection().getServerPlayer().level();
+                clearEntities(level);
+                ores.forEach(pos -> level.setBlockAndUpdate(pos, Blocks.STONE.defaultBlockState()));
+            });
+        }
+        LOGGER.info("  A crowd of 1,500 and then 5,000 entities left the block scan its share of the tick");
+    }
+
+    /** How long a fresh BlockESP scan took to find every ore, and what the scanner spent meanwhile. */
+    private record CrowdSample(int ticks, int maxEntities, int maxBlocks, double averageMillis, double peakMillis) { }
+
+    private static CrowdSample blockScanWhile(ClientGameTestContext context, java.util.List<BlockPos> ores, String label) {
+        toggle(context, "BlockESP", false);
+        context.waitTicks(2);
+        toggle(context, "BlockESP", true);
+        int ticks = 0, maxEntities = 0, maxBlocks = 0;
+        double totalMillis = 0, peakMillis = 0;
+        boolean found = false;
+        while (ticks < 300 && !found) {
+            context.waitTicks(1);
+            ticks++;
+            Object[] sample = context.computeOnClient(client -> {
+                var scanner = ClientServices.require(ScannerService.class);
+                ScanScheduler.Usage usage = scanner.lastUsage();
+                var matches = ((BlockESP) AgalarHackClient.moduleManager.getModule("BlockESP")).getMatches();
+                return new Object[] { usage, scanner.lastElapsedNanos() / 1_000_000.0, matches.containsAll(ores) };
+            });
+            ScanScheduler.Usage usage = (ScanScheduler.Usage) sample[0];
+            double millis = (double) sample[1];
+            maxEntities = Math.max(maxEntities, usage.entities());
+            maxBlocks = Math.max(maxBlocks, usage.blocks());
+            totalMillis += millis;
+            peakMillis = Math.max(peakMillis, millis);
+            found = (boolean) sample[2];
+        }
+        if (!found) throw new AssertionError("BlockESP did not find its twelve ores in 300 ticks (" + label + ")");
+        var result = new CrowdSample(ticks, maxEntities, maxBlocks, totalMillis / ticks, peakMillis);
+        LOGGER.info("    BlockESP {}: found in {} ticks, entity units/tick max {}, block units/tick max {}, scanner {} ms avg {} ms peak",
+                label, result.ticks(), result.maxEntities(), result.maxBlocks(),
+                String.format(java.util.Locale.ROOT, "%.2f", result.averageMillis()),
+                String.format(java.util.Locale.ROOT, "%.2f", result.peakMillis()));
+        return result;
+    }
+
+    /**
+     * {@code count} invisible, gravity-free stands in rows of {@code width} from {@code corner} towards
+     * +x and +z, {@code height} to a column.
+     */
+    private static void spawnStands(TestSingleplayerContext singleplayer, BlockPos corner, int count, int width, int height) {
+        singleplayer.getServer().runOnServer(server -> {
+            ServerLevel level = singleplayer.getConnection().getServerPlayer().level();
+            for (int index = 0; index < count; index++) {
+                Entity stand = EntityTypes.ARMOR_STAND.create(level, EntitySpawnReason.COMMAND);
+                if (stand == null) throw new AssertionError("could not create an armor stand");
+                int column = index / height;
+                stand.setPos(corner.getX() + column % width + 0.5, corner.getY() + index % height,
+                        corner.getZ() + column / width + 0.5);
+                stand.setInvisible(true);
+                stand.setNoGravity(true);
+                if (!level.addFreshEntity(stand)) throw new AssertionError("could not place armor stand " + index);
+            }
+        });
     }
 
     /** True once the module's last published result holds as many entities as its cap allows. */
