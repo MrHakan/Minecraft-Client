@@ -107,6 +107,11 @@
   the test loop: the cow died at t~450, the hunt resumed its lookouts with 0 beef). The scenario also
   heals, feeds and empties the inventory first, because `SurvivalTasks.maintain()`, which gates every
   hunt tick there, pauses on health <= 6, hunger without food or fewer than two free slots.
+- 2.0.11 (E5): `ScannerService.offerEntityWalk` passes `NearestFirstOrder.of(...)` instead of the
+  render-list iterator when `level.getEntityCount()` exceeds `SharedEntityWalk.maximumObservations()`.
+  The order is a counting sort over 256 equal bands of the squared range, using the furthest
+  subscriber's range (`SharedEntityWalk.maximumRange()`); entities beyond it are dropped before the
+  walk. `crowdBudgets` now asserts 256 of the true nearest 256 past the cap.
 - 2.0.10 (C3 closed): Trajectories measured with the throwaway bench (snowball, 300-stand scene):
   ~45 us open field, 20-28 us into the crowd, 70-80 us straight up with 300 steps. No rewrite.
 - Windows: `docs/MODULES.md` is pinned to LF in `.gitattributes`. The production addon test hardcodes

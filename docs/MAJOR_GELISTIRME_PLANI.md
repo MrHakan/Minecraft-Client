@@ -184,10 +184,15 @@ düz alan senaryosu engebeli bir başlangıçtan alan bulur.
    maliyeti 0,25 → 0,63 → 1,28 ms; 4.096'lık gözlem tavanının üstünde tick tam olarak tavanı
    harcıyor. Ölçümün gösterdiği sorun: tarama render listesini geliş sırasıyla okuyor; en yakın 500
    varlık en son geldiğinde ESP'nin 256 hedefinin hiçbiri gerçekten en yakın 256 değil.
-5. **En yakından başlayan varlık taraması.** Tavanın üstünde tarama, varlıkları oyuncuya uzaklık
+5. ✅ **En yakından başlayan varlık taraması (2.0.11).** Tavanın üstünde tarama, varlıkları oyuncuya uzaklık
    sırasıyla (bölüm bölüm) gezsin; böylece ilk 4.096 gözlem en yakın varlıklar olur. Kabul:
    `crowdBudgets` senaryosunda en yakın 500 en son gelse de ESP'nin 256 hedefinin hepsi gerçek en
    yakın 256 olur, tick başına varlık birimi tavanı aşmaz, 1.500 varlıkta sonuç değişmez.
+   Sonuç: tavanın üstünde tarama artık `NearestFirstOrder` sırasıyla okuyor. Her varlığın karesel
+   uzaklığı tek geçişte 256 eşit banda ayrılıyor (kök yok, sayma sıralaması), en uzak abonenin
+   menzili dışındakiler baştan çıkarılıyor. Aynı senaryoda ESP'nin 256 hedefinin 256'sı gerçek en
+   yakın (önce 0). Sıralama 5.000 varlıkta tarayıcının tick'ine ~0,3 ms ekliyor (1,28 → 1,55 ms);
+   tavanın altında davranış ve ölçüm değişmedi.
 
 ### F. Kod sağlığı — S, sürekli
 
@@ -225,7 +230,8 @@ E (kanıt) her adımda paralel
 | 2.0.08 | ✅ D4 avlanmada keşif |
 | 2.0.09 | ✅ ESP etiket ve kutu maliyeti (görüş kırpması, `String.format`'sız etiket) |
 | 2.0.10 | ✅ E4 kalabalık bütçe ölçümü, C3 ölçülüp kapatıldı |
-| 2.0.11+ | E5 en yakından başlayan tarama, E2, D5 |
+| 2.0.11 | ✅ E5 en yakından başlayan varlık taraması |
+| 2.0.12+ | E2 görsel kabul listesi, D5 |
 | 2.1.00 | B: Addon API 2 ve sürüm sözleşmesi, A4 güncelleme denetleyicisi |
 
 ## Riskler
