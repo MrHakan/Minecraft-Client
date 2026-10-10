@@ -28,7 +28,7 @@ AI contributors: read [handover.md](handover.md) for current progress, architect
 
 1. Install Fabric Loader for Minecraft 26.2.
 2. Put Fabric API and `agalarhack-*.jar` in `.minecraft/mods/`.
-3. Launch the Fabric profile. The HUD should report **Agalar Hack 2.0.09**.
+3. Launch the Fabric profile. The HUD should report **Agalar Hack 2.0.10**.
 
 ## Versioning
 

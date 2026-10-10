@@ -4,6 +4,31 @@ Releases are numbered **2.x.yy**: `x` is the major version and `yy` a two-digit 
 [Versioning](README.md#versioning)). Every version needs a section here before it can be merged; CI
 publishes the section as the GitHub release notes.
 
+## [2.0.10] - 2026-10-10
+
+### Fixed
+- Hunting no longer leaves meat lying on the ground. After a kill it walked to the block where the
+  animal died and waited there, but death drops scatter and often land two or three blocks away,
+  out of pickup range; the hunt then gave up on the drop and went looking for another animal. It
+  now walks to the dropped item of the kind it is hunting, within six blocks of the kill. This made
+  the real-Baritone hunting test fail about half the time.
+
+### Internal
+- Crowded-server budgets are measured. A new game test times a fresh BlockESP scan while ESP and
+  Nametags walk a crowd every tick: 27 ticks alone, with 1,500 entities and with 5,000, because
+  entities and blocks are separate allowances in the shared scan budget. The scanner's tick cost
+  grows from 0.25 ms to 0.63 ms and 1.28 ms, and past the 4,096-entity observation cap a tick
+  spends exactly the cap. The test also records the cap's known cost: the walk reads the render
+  list in arrival order, so when the nearest 500 of 5,000 entities arrive last, none of ESP's 256
+  targets is among the true nearest. That is the next item in the plan.
+- Trajectories was measured and left as it is. In the same scene its path costs 20-50 us a frame
+  for ordinary throws and 70-80 us at worst (straight up, 300 steps), about a quarter of ESP with
+  256 targets in view, so the planned single-query rewrite would not pay for itself.
+- The real-Baritone hunting scenario starts from a known player state (full health and food, an
+  empty inventory) rather than whatever the earlier scenarios left. A failure now reports health,
+  food, free slots and the pause reason, and the Baritone step prints the failing assertion instead
+  of only Gradle's stack trace.
+
 ## [2.0.09] - 2026-10-10
 
 ### Changed

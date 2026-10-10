@@ -12,6 +12,7 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.animal.Animal;
+import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.inventory.ChestMenu;
 import net.minecraft.world.inventory.EnchantmentMenu;
 import net.minecraft.world.inventory.SmithingMenu;
@@ -375,6 +376,12 @@ final class SurvivalTasks {
          * the first ring brings everything within about 110 blocks into sight.
          */
         static final int[][] LOOKOUTS = lookouts(48, 96);
+        /**
+         * How far from where the animal died its drops are looked for. Death drops leave with a
+         * random push and routinely land two or three blocks away, outside pickup range of the
+         * spot itself.
+         */
+        static final double LOOT_RADIUS = 6;
         final GrindExecutor g; final String item; final int wanted;
         LivingEntity target;
         BlockPos drop;
@@ -398,8 +405,11 @@ final class SurvivalTasks {
             if (g.client.gui.screen() != null) { blocked = "Close the open screen before hunting."; return true; }
             if (target != null && !target.isAlive()) { drop = target.blockPosition(); target = null; wait = 0; }
             if (drop != null) {
-                if (g.client.player.position().distanceToSqr(Vec3.atCenterOf(drop)) > 2.5) {
-                    if (!g.travel.moveNear(drop)) blocked = g.travel.movementProblem("Walk over animal drops at " + GrindExecutor.coordinates(drop) + ", then .grind resume.");
+                // Walk to the drop itself while one is lying there; only the death spot once none is.
+                BlockPos loot = nearestLoot();
+                BlockPos goal = loot != null ? loot : drop;
+                if (g.client.player.position().distanceToSqr(Vec3.atCenterOf(goal)) > 2.5) {
+                    if (!g.travel.moveNear(goal)) blocked = g.travel.movementProblem("Walk over animal drops at " + GrindExecutor.coordinates(goal) + ", then .grind resume.");
                     return true;
                 }
                 g.travel.cancelMovement();
@@ -425,6 +435,17 @@ final class SurvivalTasks {
             if (!g.reach.aimedAt(target.getBoundingBox().getCenter()) || g.client.player.getAttackStrengthScale(0.5f) < 1) return true;
             g.client.gameMode.attack(g.client.player, target); g.client.player.swing(InteractionHand.MAIN_HAND);
             return true;
+        }
+        /** The nearest dropped stack of the hunted item within {@link #LOOT_RADIUS} of where the animal died. */
+        private BlockPos nearestLoot() {
+            Vec3 death = Vec3.atCenterOf(drop);
+            BlockPos best = null; double nearest = LOOT_RADIUS * LOOT_RADIUS;
+            for (var entity : g.client.level.entitiesForRendering()) {
+                if (!(entity instanceof ItemEntity stack) || !stack.isAlive() || !item.equals(id(stack.getItem()))) continue;
+                double d = stack.position().distanceToSqr(death);
+                if (d <= nearest) { nearest = d; best = stack.blockPosition(); }
+            }
+            return best;
         }
         /**
          * With Baritone, walk the lookouts until an animal comes into sight; without it, or once

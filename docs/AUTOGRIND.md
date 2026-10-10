@@ -34,7 +34,8 @@ Pickaxes with at most one durability point remaining do not satisfy gear goals o
 installed-Baritone mining also checks harvesting capability and Silk Touch before continuing.
 
 Food tasks hunt loaded adult cows/pigs/sheep/chickens, excluding named animals. They use vanilla
-attack cooldown, line of sight and `RotationService`, and wait for real drops. Carried wheat can be
+attack cooldown, line of sight and `RotationService`, then walk to the real drops of the hunted
+item within six blocks of the kill (death drops scatter) and wait for the pickup. Carried wheat can be
 made into bread; meat is cooked in a furnace. Campaign upkeep eats ordinary food through the shared
 inventory lease, excluding golden apples and poisonous foods. Low health, fire or exhausted food
 pauses work for recovery. Smelting uses eight-item batches per coal and may retain surplus output.

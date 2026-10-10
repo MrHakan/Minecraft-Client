@@ -95,7 +95,7 @@ kurulum testinde doğrulanır.
    widget açıkken yapılıyor. Ölçüm `RenderService.guard` yerine `WorldOverlays`'te yapılıyor, çünkü
    karenin hangi overlay'e ait olduğunu yalnızca orası biliyor. Game testi, 300 varlık görünürken beş
    varlık overlay'inin de ölçüldüğünü doğruluyor.
-3. **Trajectories tek varlık sorgusu.** Ölçüm bir maliyet gösterirse yol önce blok çarpışmasıyla
+3. ✅ **Trajectories tek varlık sorgusu (2.0.10'da ölçülüp kapatıldı).** Ölçüm bir maliyet gösterirse yol önce blok çarpışmasıyla
    çıkarılsın. Sonra tüm yolu kapsayan kutuda tek bir varlık sorgusu yapılıp segmentler bu
    adaylarla test edilsin.
    İlk ölçüm (2.0.05 game testi, yazılım rasterleştiricisi, 300 zırh askısı görünür):
@@ -113,6 +113,10 @@ kurulum testinde doğrulanır.
    denendi; çıktı aynı ama kazanç ölçülemedi, maliyet vertex yazımında olduğu için bırakıldı.
    Game testi artık ölçümden önce hedeflere dönüyor ve görüş kırpmasını doğruluyor (önde etiket ve
    kutu var; arkada hiç yok, 256 tracer'ın hepsi çiziliyor).
+   **C3 ölçümü (2.0.10).** Aynı sahnede kartopu ile: açık alanda ~45 µs/kare, kalabalığa doğru
+   20–28 µs, en kötü durumda (dümdüz yukarı, 300 adım) 70–80 µs. Bu, görüşteki 256 hedefli ESP'nin
+   dörtte biri ve bir karenin %0,5'inden az; tek sorguya geçiş kendini ödemez. Madde değişiklik
+   yapılmadan kapatıldı.
 4. B tamamlanınca overlay arayüzü addon'lara açılabilir (2.1.00 sonrası karar).
 
 Kabul: bölünme sonrası tüm render game testleri değişmeden geçer. Yeni bir overlay eklemek tek bir
@@ -173,8 +177,17 @@ düz alan senaryosu engebeli bir başlangıçtan alan bulur.
    listesi yazılsın. İnsan onayı gerektiren kısımlar açıkça işaretlensin.
 3. **Dedicated server.** Var olan harness EULA onayı sahibinden alınarak düzenli çalıştırılsın:
    gecikme, yeniden bağlanma ve otomasyon senaryoları.
-4. **Kalabalık sunucu bütçeleri.** 2.0.00'daki ortak tarama testi 1.000+ varlığa genişletilsin ve
+4. ✅ **Kalabalık sunucu bütçeleri (2.0.10).** 2.0.00'daki ortak tarama testi 1.000+ varlığa genişletilsin ve
    blok tarayıcılarla aynı tick'te bütçe paylaşımı ölçülsün.
+   Sonuç (`crowdBudgets` game testi): BlockESP'nin 12 cevheri bulma süresi kalabalık yokken,
+   1.500 ve 5.000 varlıkla aynı (27 tick), çünkü varlık ve blok ayrı bütçeler. Tarayıcının tick
+   maliyeti 0,25 → 0,63 → 1,28 ms; 4.096'lık gözlem tavanının üstünde tick tam olarak tavanı
+   harcıyor. Ölçümün gösterdiği sorun: tarama render listesini geliş sırasıyla okuyor; en yakın 500
+   varlık en son geldiğinde ESP'nin 256 hedefinin hiçbiri gerçekten en yakın 256 değil.
+5. **En yakından başlayan varlık taraması.** Tavanın üstünde tarama, varlıkları oyuncuya uzaklık
+   sırasıyla (bölüm bölüm) gezsin; böylece ilk 4.096 gözlem en yakın varlıklar olur. Kabul:
+   `crowdBudgets` senaryosunda en yakın 500 en son gelse de ESP'nin 256 hedefinin hepsi gerçek en
+   yakın 256 olur, tick başına varlık birimi tavanı aşmaz, 1.500 varlıkta sonuç değişmez.
 
 ### F. Kod sağlığı — S, sürekli
 
@@ -211,7 +224,8 @@ E (kanıt) her adımda paralel
 | 2.0.07 | ✅ D3 inşaat alanı seçimi |
 | 2.0.08 | ✅ D4 avlanmada keşif |
 | 2.0.09 | ✅ ESP etiket ve kutu maliyeti (görüş kırpması, `String.format`'sız etiket) |
-| 2.0.10+ | C3 (ölçüm sonucuna göre), E4, E2, D5 |
+| 2.0.10 | ✅ E4 kalabalık bütçe ölçümü, C3 ölçülüp kapatıldı |
+| 2.0.11+ | E5 en yakından başlayan tarama, E2, D5 |
 | 2.1.00 | B: Addon API 2 ve sürüm sözleşmesi, A4 güncelleme denetleyicisi |
 
 ## Riskler
