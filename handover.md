@@ -93,6 +93,15 @@
   `slowest`/`slowestParts` over several full 120-frame windows, swapped in through an init script
   that rewrites `fabric-client-gametest` in `processGametestResources` (as the Baritone property
   does), runs in about a minute. Single 20-frame readings in the suite vary by about 20% run to run.
+- 2.0.10: `ModuleBehaviourGameTest.crowdBudgets` runs after `sharedEntityWalk` at `sceneBase + (0, 0, 520)`:
+  twelve diamond ores west of the player, `blockScanWhile` restarts BlockESP and samples
+  `ScannerService.lastUsage()`/`lastElapsedNanos()` every tick until all are found. Stands come from
+  `spawnStands(corner, count, width, height)`; they are stacked because the client does not track
+  armor stands ~90 blocks out, and spread over 5,000 positions about 800 never arrived. The
+  "true nearest" count past the cap is logged, not asserted (0 of 256 with the nearest arriving
+  last). `SharedEntityWalk` walks `entitiesForRendering()`, which is arrival order.
+- 2.0.10 (C3 closed): Trajectories measured with the throwaway bench (snowball, 300-stand scene):
+  ~45 us open field, 20-28 us into the crowd, 70-80 us straight up with 300 steps. No rewrite.
 - Windows: `docs/MODULES.md` is pinned to LF in `.gitattributes`. The production addon test hardcodes
   `useXVFB = true`; locally, an init script setting it to false on the `productionAddon*` tasks runs
   it in a real window. Baritone in `build/run/clientGameTest/mods` breaks the regular suite, which
