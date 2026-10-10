@@ -17,6 +17,11 @@ publishes the section as the GitHub release notes.
 - Trajectories was measured and left as it is. In the same scene its path costs 20-50 us a frame
   for ordinary throws and 70-80 us at worst (straight up, 300 steps), about a quarter of ESP with
   256 targets in view, so the planned single-query rewrite would not pay for itself.
+- The real-Baritone hunting scenario starts from a known player state (full health and food, an
+  empty inventory). It inherited whatever the earlier scenarios left, and on CI that held the hunt
+  still: the upkeep that runs before each hunt tick pauses on low health, hunger or a nearly full
+  inventory. A failure now reports health, food, free slots and the pause reason, and the Baritone
+  step prints the failing assertion instead of only Gradle's stack trace.
 
 ## [2.0.09] - 2026-10-10
 

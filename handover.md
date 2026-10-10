@@ -100,6 +100,10 @@
   armor stands ~90 blocks out, and spread over 5,000 positions about 800 never arrived. The
   "true nearest" count past the cap is logged, not asserted (0 of 256 with the nearest arriving
   last). `SharedEntityWalk` walks `entitiesForRendering()`, which is arrival order.
+- 2.0.10: `huntBeyondSight` heals, feeds and empties the player's inventory first. The test ticks
+  the hunt only when `SurvivalTasks.maintain()` returns false, and `maintain()` pauses on health <= 6,
+  hunger without food or fewer than two free slots, so inherited state from earlier scenarios froze
+  the hunt on CI. Any new upkeep-gated scenario needs the same known starting state.
 - 2.0.10 (C3 closed): Trajectories measured with the throwaway bench (snowball, 300-stand scene):
   ~45 us open field, 20-28 us into the crowd, 70-80 us straight up with 300 steps. No rewrite.
 - Windows: `docs/MODULES.md` is pinned to LF in `.gitattributes`. The production addon test hardcodes

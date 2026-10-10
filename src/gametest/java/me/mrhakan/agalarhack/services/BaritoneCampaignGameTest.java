@@ -156,6 +156,15 @@ public final class BaritoneCampaignGameTest implements FabricClientGameTest {
             cow.setNoAi(true);
             if (!level.addFreshEntity(cow)) throw new AssertionError("could not place the cow");
             player.teleportTo(start.getX() + 0.5, start.getY(), start.getZ() + 0.5);
+            // The upkeep that runs before every hunt tick pauses, and so holds the hunt still, on low
+            // health, hunger or fewer than two free slots. What the earlier scenarios leave behind
+            // differs between machines (CI failed here twice with the hunt never ticking), so the
+            // scenario starts from a known state rather than inheriting one.
+            player.setHealth(player.getMaxHealth());
+            player.getFoodData().setFoodLevel(20);
+            player.getFoodData().setSaturation(5.0f);
+            player.getInventory().clearContent();
+            player.containerMenu.broadcastChanges();
         });
         world.getConnection().waitForChunksRender();
         context.waitTicks(40);
@@ -169,8 +178,14 @@ public final class BaritoneCampaignGameTest implements FabricClientGameTest {
         for (int i = 0; i < 3000 && hunt.running(); i++) {
             context.runOnClient(c -> { if (!upkeep.maintain()) hunt.tick(); }); context.waitTicks(1);
         }
-        if (hunt.state() != TaskRunner.State.DONE)
-            throw new AssertionError("Hunting beyond sight failed: " + hunt.state() + " / " + hunt.currentTask() + " / " + hunt.blockedReason() + " / " + hunt.failure());
+        if (hunt.state() != TaskRunner.State.DONE) {
+            String player = context.computeOnClient(c -> "health=" + c.player.getHealth() + " food="
+                    + c.player.getFoodData().getFoodLevel() + " free slots="
+                    + c.player.getInventory().getNonEquipmentItems().stream().filter(net.minecraft.world.item.ItemStack::isEmpty).count()
+                    + " grind paused=" + g.blockedReason());
+            throw new AssertionError("Hunting beyond sight failed: " + hunt.state() + " / " + hunt.currentTask() + " / "
+                    + hunt.blockedReason() + " / " + hunt.failure() + " / " + player);
+        }
         context.runOnClient(c -> g.stop());
     }
 
