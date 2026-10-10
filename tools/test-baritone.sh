@@ -14,6 +14,12 @@ export GALLIUM_DRIVER="${GALLIUM_DRIVER:-llvmpipe}"
 export LIBGL_ALWAYS_SOFTWARE="${LIBGL_ALWAYS_SOFTWARE:-1}"
 if ! timeout 900 xvfb-run -a --server-args="-screen 0 1280x720x24" ./gradlew runClientGameTest -PbaritoneTestJar="$baritone_jar" --stacktrace > build/baritone-client.log 2>&1; then
     tail -n 100 build/baritone-client.log
+    # The tail is Gradle's stack trace, and the assertion that ended the run sits hundreds of lines
+    # above it, out of reach of GitHub's log view. Repeated last, as tools/smoke-client.sh does.
+    echo
+    echo "=== what failed ==="
+    grep -m3 -A6 -E 'AssertionError|Game crashed|FormattedException|Exception in thread|OutOfMemoryError|A fatal error has been detected' \
+        build/baritone-client.log | sed 's/^/  /' || echo "  No recognised failure line; see build/baritone-client.log"
     exit 1
 fi
 grep -F 'Real Baritone 26.2: 384-block travel' build/baritone-client.log
