@@ -176,12 +176,14 @@ düz alan senaryosu engebeli bir başlangıçtan alan bulur.
    katmanı ve ESP/nametag geometrisi için ekran görüntüsü tabanlı, tekrarlanabilir bir kontrol
    listesi yazılsın. İnsan onayı gerektiren kısımlar açıkça işaretlensin.
    Sonuç: [VISUAL_ACCEPTANCE.md](VISUAL_ACCEPTANCE.md) ve `VisualAcceptanceGameTest`. Otomatik
-   kısım: dört tema × pencerenin izin verdiği GUI ölçeklerinde ClickGUI (pencere dışına taşan widget
+   kısım: dört tema × 1–4 GUI ölçeklerinde (pencere bunun için 1280×960'a büyütülüyor) ClickGUI (pencere dışına taşan widget
    yok, temanın vurgu rengi ekranda, Light en parlak), ESP kutusunun hedefin kamera üzerinden
    izdüşen sınır kutusuyla örtüşmesi (1–3 px fark), ESP etiketi ve Nametag'in kutunun üstünde ve
    ortalı olması, TargetHUD yüz bölgesinde gerçek bir deri. Her kare CI'da `visual-acceptance`
    artifact'ı olarak yükleniyor; okunabilirlik, şapka katmanı ve genel görünüm "İnsan onayı" olarak
-   işaretli. İlk bulgu: Light temada arama kutusu siyah kalıyor.
+   işaretli. İlk bulgular: Light temada arama kutusu siyah kalıyor; 4× ölçekte ClickGUI'nin hızlı
+   eylem düğmelerinin etiketleri kesiliyor ve modül satırlarında açma/kapama düğmesi adın üstüne
+   biniyor.
 3. **Dedicated server.** Var olan harness EULA onayı sahibinden alınarak düzenli çalıştırılsın:
    gecikme, yeniden bağlanma ve otomasyon senaryoları.
 4. ✅ **Kalabalık sunucu bütçeleri (2.0.10).** 2.0.00'daki ortak tarama testi 1.000+ varlığa genişletilsin ve

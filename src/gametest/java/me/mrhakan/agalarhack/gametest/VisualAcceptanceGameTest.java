@@ -43,7 +43,8 @@ import org.slf4j.LoggerFactory;
  * them: whether a theme reads well is not something a pixel count can settle.
  *
  * <ul>
- *   <li>The ClickGUI under four themes at GUI scales 1 to 4: every widget inside the window, the
+ *   <li>The ClickGUI under four themes at GUI scales 1 to 4, in a window enlarged to 1280x960 for
+ *       the purpose: every widget inside the window, the
  *       theme's accent actually on screen, and the light theme brighter than the dark ones.</li>
  *   <li>ESP box geometry: the box drawn where the target's bounding box projects, from the camera's
  *       own position and field of view; ESP labels and Nametags above it and centred on it.</li>
@@ -54,6 +55,8 @@ public class VisualAcceptanceGameTest implements FabricClientGameTest {
     private static final Logger LOGGER = LoggerFactory.getLogger("agalarhack-gametest");
     private static final String[] THEMES = { "Default Dark", "AMOLED", "Light", "High contrast" };
     private static final int[] SCALES = { 1, 2, 3, 4 };
+    /** Large enough for every GUI scale: vanilla needs 320x240 of scaled space per step. */
+    private static final int SCALED_WIDTH = 1280, SCALED_HEIGHT = 960;
     private static final UUID PROBE_ID = UUID.fromString("5c6e7a1d-0b2f-4c3a-9e1d-2a6f0d7b8c91");
 
     @Override
@@ -85,8 +88,14 @@ public class VisualAcceptanceGameTest implements FabricClientGameTest {
         ThemeService themes = ClientServices.require(ThemeService.class);
         ThemeService.Theme original = context.computeOnClient(client -> themes.copy());
         int originalScale = context.computeOnClient(client -> client.options.guiScale().get());
+        int[] window = context.computeOnClient(client ->
+                new int[] { client.getWindow().getScreenWidth(), client.getWindow().getScreenHeight() });
         Map<Integer, Map<String, Double>> brightness = new LinkedHashMap<>();
         try {
+            // The harness opens 854x480, which allows GUI scale 2 at most. 1280x960 allows all four
+            // (vanilla needs 320x240 of scaled space per step); the window is put back afterwards.
+            context.runOnClient(client -> client.getWindow().setWindowed(SCALED_WIDTH, SCALED_HEIGHT));
+            context.waitTicks(10);
             for (String name : THEMES) {
                 for (int scale : SCALES) {
                     int accent = context.computeOnClient(client -> {
@@ -115,10 +124,11 @@ public class VisualAcceptanceGameTest implements FabricClientGameTest {
             context.runOnClient(client -> {
                 themes.preview(original);
                 client.options.guiScale().set(originalScale);
+                client.getWindow().setWindowed(window[0], window[1]);
                 client.resizeGui();
                 client.gui.setScreen(null);
             });
-            context.waitTicks(2);
+            context.waitTicks(10);
         }
         brightness.forEach((scale, values) -> {
             LOGGER.info("    ClickGUI brightness at GUI scale {}: {}", scale, values.entrySet().stream()

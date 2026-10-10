@@ -103,6 +103,15 @@ jobs:
           sudo apt-get install -y --no-install-recommends xvfb mesa-utils libgl1-mesa-dri
           ./tools/smoke-client.sh
 
+      # The next game-test run recreates build/run/clientGameTest, screenshots included, so the frames
+      # the visual acceptance test checked are copied out before it starts.
+      - name: Keep visual acceptance screenshots
+        if: always() && (github.event_name == 'pull_request' || github.event_name == 'push')
+        run: |
+          mkdir -p build/visual-acceptance
+          cp build/run/clientGameTest/screenshots/*_visual-*.png build/visual-acceptance/ 2>/dev/null || true
+          ls build/visual-acceptance | wc -l
+
       - name: Installed Baritone 26.2 campaign acceptance
         if: github.event_name == 'pull_request' || github.event_name == 'push'
         run: ./tools/test-baritone.sh
@@ -160,7 +169,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: visual-acceptance
-          path: build/run/clientGameTest/screenshots/*_visual-*.png
+          path: build/visual-acceptance/*.png
           if-no-files-found: ignore
 
       - name: Upload build artifacts
