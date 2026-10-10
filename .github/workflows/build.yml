@@ -154,6 +154,15 @@ jobs:
             build/test-results/test/*.xml
           if-no-files-found: ignore
 
+      # The frames the visual acceptance test checked, for the human half of docs/VISUAL_ACCEPTANCE.md.
+      - name: Upload visual acceptance screenshots
+        if: always() && (github.event_name == 'pull_request' || github.event_name == 'push')
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-acceptance
+          path: build/run/clientGameTest/screenshots/*_visual-*.png
+          if-no-files-found: ignore
+
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
