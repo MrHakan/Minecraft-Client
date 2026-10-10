@@ -4,6 +4,27 @@ Releases are numbered **2.x.yy**: `x` is the major version and `yy` a two-digit 
 [Versioning](README.md#versioning)). Every version needs a section here before it can be merged; CI
 publishes the section as the GitHub release notes.
 
+## [2.0.09] - 2026-10-10
+
+### Changed
+- ESP no longer builds labels or boxes for targets outside the view. With 256 targets in front of
+  the player ESP costs 18% less a frame (354 to 290 us measured locally over five 120-frame windows,
+  labels 201 to 161 us, boxes 152 to 129 us); with them behind the player, 86% less (361 to 52 us).
+  Tracers are still drawn to every target, on screen or not. Labels read exactly as before: the
+  distance and health are formatted without `String.format`, with a fallback wherever rounding
+  could differ, and a label is only skipped when the space it could occupy is out of view.
+
+### Fixed
+- A Windows checkout no longer fails the build in `ModuleDocsTest`: `docs/MODULES.md` is checked
+  out with LF line endings regardless of `core.autocrlf`.
+
+### Internal
+- The Module Timings store keeps each overlay's labels and lines apart as well
+  (`OverlayTimings.slowestParts`), which is how the ESP cost above was split. The widget still shows
+  the totals. The overlay frame cost scenario now faces the targets before measuring and logs both
+  passes, and a new check confirms ESP draws no labels or boxes for targets behind the player while
+  still drawing all 256 tracers.
+
 ## [2.0.08] - 2026-10-09
 
 ### Added

@@ -78,6 +78,25 @@
   `moveNear`); arrival is within 3 blocks, an unreachable lookout is skipped and logged, and after the
   last one it pauses and forgets the origin so a resume starts a new round. Without Baritone the old
   pause text is unchanged. `BaritoneCampaignGameTest.huntBeyondSight` covers it.
+- 2.0.09: `OverlayTimings.Frame` takes `addLabels`/`addLines` instead of `add`; the store records
+  the total as before and each pass as "`<overlay> labels`"/"`<overlay> lines`" in a second
+  `ModuleTimings` read by `slowestParts`. ESP's label and box passes take the frame's `ViewCulling`:
+  a label is skipped when its target's box grown by `LABEL_SPREAD` (2) sideways and `LABEL_REACH`
+  (1) up is out of view, a box when its own inflated box is; tracers are never culled. Counts of the
+  last frame are in `EntityOverlays.esp*Drawn` and public through `WorldOverlays.lastEspDrawn()`.
+  `OverlayDraw.appendTenths` replaces `%.1f` and defers to `String.format` near a tie, for negative
+  values (sign bit, so `-0.0` too), above 1e6 and for non-finite values. Keep `Entity.distanceTo`:
+  it computes in float, so `sqrt(distanceToSqr)` is not the same number. A box writer computing
+  normals once per axis was measured and dropped (no gain; the cost is the vertex writes).
+- Measuring overlays locally: the suite reaches the overlay scenario after about eight minutes.
+  For a quicker A/B, a throwaway game test entrypoint that builds the same 300-stand scene and logs
+  `slowest`/`slowestParts` over several full 120-frame windows, swapped in through an init script
+  that rewrites `fabric-client-gametest` in `processGametestResources` (as the Baritone property
+  does), runs in about a minute. Single 20-frame readings in the suite vary by about 20% run to run.
+- Windows: `docs/MODULES.md` is pinned to LF in `.gitattributes`. The production addon test hardcodes
+  `useXVFB = true`; locally, an init script setting it to false on the `productionAddon*` tasks runs
+  it in a real window. Baritone in `build/run/clientGameTest/mods` breaks the regular suite, which
+  asserts Baritone is absent; the acceptance run supplies its own pinned jar.
 - 2.0.05: `OverlayTimings` is the frame-based counterpart of `ModuleTimings` (a `ModuleTimings` with
   a 120-frame window and 180-frame expiry). `WorldOverlays.collect` opens a frame each time it runs,
   which also closes the previous one; an overlay's labels and deferred lines add into one slot, so
