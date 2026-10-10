@@ -1940,10 +1940,9 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
      * invisible stands walked every tick for ESP and Nametags it must find them in about the same
      * number of ticks, because entities and blocks are separate allowances in the shared budget.
      * Then the crowd grows to 5,000, past the {@value EntityDiscovery#MAX_OBSERVATIONS}-entity cap:
-     * a tick may not spend more entity units than that, and ESP must still get a full result. How
-     * many of those results are the true nearest is logged, not asserted: past the cap the walk sees
-     * the first entities in the render list, which is arrival order, and here the nearest 500 arrive
-     * last on purpose. That is the documented limit, measured.
+     * a tick may not spend more entity units than that, and ESP must still get a full result made of
+     * the true nearest 256. The nearest 500 arrive last on purpose: read in arrival order, as the walk
+     * was before 2.0.11, the cap left ESP with none of them.
      */
     private void crowdBudgets(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
         BlockPos base = sceneBase.offset(0, 0, 520);
@@ -2015,9 +2014,9 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
             });
             LOGGER.info("    Past the cap: ESP kept {} targets, {} of them among the true nearest {}",
                     nearest[0], nearest[1], nearest[2]);
-            if (nearest[0] != nearest[2]) {
-                throw new AssertionError("past the observation cap ESP kept " + nearest[0] + " targets, not a full "
-                        + nearest[2]);
+            if (nearest[0] != nearest[2] || nearest[1] != nearest[2]) {
+                throw new AssertionError("past the observation cap ESP kept " + nearest[0] + " targets, " + nearest[1]
+                        + " of them among the true nearest " + nearest[2] + "; the walk must see the nearest first");
             }
         } finally {
             toggle(context, "ESP", false);
@@ -2030,7 +2029,8 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
                 ores.forEach(pos -> level.setBlockAndUpdate(pos, Blocks.STONE.defaultBlockState()));
             });
         }
-        LOGGER.info("  A crowd of 1,500 and then 5,000 entities left the block scan its share of the tick");
+        LOGGER.info("  A crowd of 1,500 and then 5,000 entities left the block scan its share of the tick, "
+                + "and past the cap ESP still kept the nearest");
     }
 
     /** How long a fresh BlockESP scan took to find every ore, and what the scanner spent meanwhile. */

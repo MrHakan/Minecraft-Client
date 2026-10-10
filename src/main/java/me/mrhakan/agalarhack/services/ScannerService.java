@@ -1,12 +1,14 @@
 package me.mrhakan.agalarhack.services;
 
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import me.mrhakan.agalarhack.AgalarHackClient;
 import me.mrhakan.agalarhack.module.Module;
+import me.mrhakan.agalarhack.services.scanning.NearestFirstOrder;
 import me.mrhakan.agalarhack.services.scanning.ScanBudgets;
 import me.mrhakan.agalarhack.services.scanning.ScanScheduler;
 import me.mrhakan.agalarhack.services.scanning.SharedEntityWalk;
@@ -76,8 +78,14 @@ public final class ScannerService {
         var level = mc.level;
         var player = mc.player;
         try {
+            // Up to the cap the walk sees every entity, so the list's own order costs nothing. Past it,
+            // that order (arrival order) decides which entities are seen at all, so the nearest go first.
+            Iterator<Entity> order = level.getEntityCount() <= entityWalk.maximumObservations()
+                    ? level.entitiesForRendering().iterator()
+                    : NearestFirstOrder.of(level.entitiesForRendering(), player::distanceToSqr,
+                            entityWalk.maximumRange(), entityWalk.maximumObservations()).iterator();
             scheduler.offer(entityWalk, entityWalk.priority(), entityWalk.maximumSteps(),
-                    entityWalk.start(level.entitiesForRendering().iterator(), player::distanceToSqr, Entity::getId,
+                    entityWalk.start(order, player::distanceToSqr, Entity::getId,
                             () -> mc.level == level && mc.player == player));
         } catch (RuntimeException refused) {
             // Thrown out of tick(), this would make the event bus detach the whole scanner listener

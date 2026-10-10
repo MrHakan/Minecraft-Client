@@ -89,6 +89,18 @@ public final class SharedEntityWalk<K, E> {
         return urgent;
     }
 
+    /** The furthest any current subscriber looks, so entities beyond it can be left out of the walk. */
+    public double maximumRange() {
+        double furthest = 0;
+        for (var subscription : subscriptions.values()) furthest = Math.max(furthest, subscription.rangeSquared);
+        return Math.sqrt(furthest);
+    }
+
+    /** The most entities one walk inspects. */
+    public int maximumObservations() {
+        return maximumObservations;
+    }
+
     /** Steps a walk can take: one per observation, plus the one that finds the end. */
     public int maximumSteps() {
         return maximumObservations + 1;
