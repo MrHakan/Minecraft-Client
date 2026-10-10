@@ -112,6 +112,11 @@
   The order is a counting sort over 256 equal bands of the squared range, using the furthest
   subscriber's range (`SharedEntityWalk.maximumRange()`); entities beyond it are dropped before the
   walk. `crowdBudgets` now asserts 256 of the true nearest 256 past the cap.
+- 2.0.13 (E3, D5): CI sets `AGALARHACK_ACCEPT_SERVER_EULA=true` on the `Client game tests` step
+  (owner accepted the EULA on 2026-10-10). `DedicatedServerGameTest.equipsOverALaggyConnection`
+  adds an outbound-delay Netty handler at the head of the client channel (reached by reflection on
+  `Connection.channel`, fine on named mappings); its held-packet count is the control. Locally the
+  dedicated server starts in about 30 s with `-PacceptServerEula=true`. D5 is closed as a limit.
 - 2.0.12 (E2): `VisualAcceptanceGameTest` (own world, entrypoint before `DedicatedServerGameTest`).
   Themes are applied with `ThemeService.preview` and GUI scales with `options.guiScale().set` plus
   `resizeGui()`; both are restored. The ESP projection uses `gameRenderer.mainCamera()` position and

@@ -37,7 +37,7 @@ invisible to it:
 | `DedicatedServerGameTest` | **Opt-in; see below.** Starts a real dedicated server and connects to it: observes the packet counters actually counting, equips armour where every click crosses a socket and the server has to agree, then checks the counters reset on disconnect and that a reconnect works. |
 | `SwallowedFailureGameTest` | Reads the log the run just wrote and fails if the mod caught and logged a failure anywhere in it. One exemption, by mod id: the deliberately broken addon fixture, whose failure is *asserted to happen* rather than merely ignored. |
 
-## The dedicated-server scenarios are opt-in
+## The dedicated-server scenarios need the EULA (on in CI)
 
 A dedicated server will not start until Minecraft's server EULA is accepted, and the harness
 recreates its run directory on every run, so an accepted `eula.txt` cannot be checked in — it has to
@@ -49,15 +49,20 @@ is off by default:
 AGALARHACK_ACCEPT_SERVER_EULA=true ./tools/smoke-client.sh   # or: -PacceptServerEula=true
 ```
 
-Without it `DedicatedServerGameTest` logs a warning naming exactly what it skipped and asserts
-nothing. **A skipped run is not evidence**, so do not count those scenarios when describing coverage
+The repository owner accepted it for CI on 2026-10-10 (2.0.13), so the `Client game tests` step sets
+`AGALARHACK_ACCEPT_SERVER_EULA=true` and the scenarios run on every pull request and `main` push. A
+local run still needs the flag. Without it `DedicatedServerGameTest` logs a warning naming exactly
+what it skipped and asserts nothing. **A skipped run is not evidence**, so do not count those scenarios when describing coverage
 unless the flag was actually set. The environment variable is read by the shell script and passed to
 Gradle as a property, because a Gradle daemon started before the variable was exported would not see
 it.
 
 What the dedicated-server run adds over the rest of the suite: the `Connection` mixins are the only
 ones whose handlers were verified *applied* to the bytecode without ever being seen to *fire*, and
-they cannot fire meaningfully without a connection. It is still a single player on loopback — the
+they cannot fire meaningfully without a connection. It also equips armour across the socket twice,
+once plain and once with every client packet held back 150 ms by a Netty handler, so a click is
+still in flight when the next is due; the server's copy must end with one helmet equipped, none
+left over and empty cursors. Then it disconnects and reconnects. It is still a single player on loopback — the
 code paths a remote connection uses, not behaviour on a busy public server.
 
 `TestScene` puts a chest, a trapped chest, an ender chest, a barrel, a shulker box, a diamond ore, a

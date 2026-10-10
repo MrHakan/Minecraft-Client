@@ -98,6 +98,10 @@ jobs:
       # receives the same game-level coverage as reviewed changes.
       - name: Client game tests
         if: github.event_name == 'pull_request' || github.event_name == 'push'
+        env:
+          # The repository owner accepted Minecraft's server EULA (https://aka.ms/MinecraftEULA) for
+          # this automation on 2026-10-10, so the dedicated-server scenarios run on every build.
+          AGALARHACK_ACCEPT_SERVER_EULA: "true"
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends xvfb mesa-utils libgl1-mesa-dri

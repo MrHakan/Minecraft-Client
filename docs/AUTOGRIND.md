@@ -48,7 +48,10 @@ full chests or blocked plots pause without erasing terrain. Local gathering excl
 materials rather than filling inventory with an entire house at once.
 
 The max campaign gathers spare diamonds for copying templates before entering the Nether. **The
-first Netherite Upgrade template must be looted from a bastion by the player.** AutoGrind pauses
+first Netherite Upgrade template must be looted from a bastion by the player.** This is a
+deliberate, permanent limit (decided for 2.1.00): bastions are generated, guarded and hard to reach,
+and no deterministic test world can prove a route into one, so automating it would ship behaviour
+nothing verifies. AutoGrind pauses
 there and duplicates the remaining templates using the vanilla seven-diamond/netherrack recipe.
 Smithing uses the real template/base/ingot menu slots. The Nether portal is built and lit with
 vanilla interactions, and campaign-controlled dimension transitions preserve the runner. Other
