@@ -1,2 +1,5 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Generated and compared byte for byte by ModuleDocsTest; a CRLF checkout must not fail the build.
+docs/MODULES.md text eol=lf

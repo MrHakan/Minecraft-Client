@@ -11,6 +11,10 @@ import java.util.List;
  * both, and it is only known once the next frame starts. {@link #beginFrame} therefore closes the
  * previous frame, records one sample per overlay that drew in it, and opens the next.
  *
+ * <p>The two passes are also kept apart, as "{@code <overlay> labels}" and "{@code <overlay> lines}"
+ * in {@link #slowestParts}, because an optimisation needs to know which half it is cutting: ESP draws
+ * both a box and a name tag per target, and the total alone cannot say which one is the cost.
+ *
  * <p>Recording is self-expiring exactly like module timings: nothing is measured unless a consumer
  * has called {@link #requestRecording()} within the last {@value #IDLE_FRAMES} frames, and outside
  * that the per-frame cost is one {@link ModuleTimings#beginTick()} call. Kept free of Minecraft types
@@ -23,16 +27,19 @@ public final class OverlayTimings {
     public static final int IDLE_FRAMES = 180;
 
     private final ModuleTimings frames = new ModuleTimings(WINDOW, IDLE_FRAMES);
+    private final ModuleTimings parts = new ModuleTimings(WINDOW, IDLE_FRAMES);
     private Frame open;
 
     /** One frame's running cost, one slot per overlay in draw order. */
     public static final class Frame {
         private final String[] names;
-        private final long[] nanos;
+        private final long[] labelNanos;
+        private final long[] lineNanos;
 
         private Frame(int slots) {
             names = new String[slots];
-            nanos = new long[slots];
+            labelNanos = new long[slots];
+            lineNanos = new long[slots];
         }
 
         /** Marks a slot as drawn this frame, under the name it is reported by. */
@@ -40,14 +47,21 @@ public final class OverlayTimings {
             names[slot] = overlay;
         }
 
-        public void add(int slot, long elapsedNanos) {
-            if (elapsedNanos > 0) nanos[slot] += elapsedNanos;
+        /** Time spent submitting the overlay's labels while the frame is collected. */
+        public void addLabels(int slot, long elapsedNanos) {
+            if (elapsedNanos > 0) labelNanos[slot] += elapsedNanos;
+        }
+
+        /** Time spent writing the overlay's lines in the deferred pass. */
+        public void addLines(int slot, long elapsedNanos) {
+            if (elapsedNanos > 0) lineNanos[slot] += elapsedNanos;
         }
     }
 
     /** Called by anything that wants figures; keeps recording alive for {@value #IDLE_FRAMES} frames. */
     public void requestRecording() {
         frames.requestRecording();
+        parts.requestRecording();
     }
 
     public boolean isRecording() {
@@ -66,12 +80,18 @@ public final class OverlayTimings {
      */
     public Frame beginFrame(int slots) {
         frames.beginTick();
+        parts.beginTick();
         Frame closed = open;
         open = null;
         if (!frames.isRecording()) return null;
         if (closed != null) {
             for (int slot = 0; slot < closed.names.length; slot++) {
-                if (closed.names[slot] != null) frames.record(closed.names[slot], closed.nanos[slot]);
+                String name = closed.names[slot];
+                if (name == null) continue;
+                long labels = closed.labelNanos[slot], lines = closed.lineNanos[slot];
+                frames.record(name, labels + lines);
+                if (labels > 0) parts.record(name + " labels", labels);
+                if (lines > 0) parts.record(name + " lines", lines);
             }
         }
         open = new Frame(Math.max(0, slots));
@@ -83,6 +103,14 @@ public final class OverlayTimings {
         return frames.slowest(limit);
     }
 
+    /**
+     * The same frames split by pass: "{@code ESP labels}" and "{@code ESP lines}" rather than "{@code ESP}".
+     * A pass that took no measurable time in a frame is left out of that frame.
+     */
+    public List<ModuleTimings.Entry> slowestParts(int limit) {
+        return parts.slowest(limit);
+    }
+
     /** Average cost of every overlay that drew, per frame. */
     public double totalAverageMicros() {
         return frames.totalAverageMicros();
@@ -90,6 +118,7 @@ public final class OverlayTimings {
 
     public void clear() {
         frames.clear();
+        parts.clear();
         open = null;
     }
 }

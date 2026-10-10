@@ -102,6 +102,17 @@ kurulum testinde doğrulanır.
    ESP 1812 µs/kare (256 kutu), Nametags 196, Tracers 53, ItemESP 11, ProjectileESP 8.
    Trajectories bu senaryoda ölçülmedi. Sıradaki render işi, Trajectories'ten önce ESP'nin kutu
    başına maliyeti olmalı.
+   ✅ **ESP maliyeti (2.0.09).** `OverlayTimings` artık her overlay'in etiket ve çizgi geçişini ayrı
+   da kaydediyor (`slowestParts`). Ayrık ölçüm etiketlerin büyük olduğunu gösterdi: 256 hedef
+   görünürken etiket ~200 µs, kutu ~150 µs; hedefler oyuncunun arkasındayken de aynı, çünkü iki geçiş
+   de görüş alanına bakmıyordu. Etiketler ve kutular artık görüş alanı dışındaki hedefleri atlıyor
+   (tracer'lar hiçbir zaman atlanmıyor), etiketteki mesafe ve can `String.format` olmadan yazılıyor
+   (metin birebir aynı, birim testi 160.000 değerle karşılaştırıyor). Aynı sahnede yerel ölçüm, beş
+   120 karelik pencere: hedeflere bakarken ESP 354 → 290 µs (etiket 201 → 161, kutu 152 → 129),
+   arkası dönükken 361 → 52 µs. Kutu başına normalleri eksen başına bir kez hesaplayan bir yazıcı
+   denendi; çıktı aynı ama kazanç ölçülemedi, maliyet vertex yazımında olduğu için bırakıldı.
+   Game testi artık ölçümden önce hedeflere dönüyor ve görüş kırpmasını doğruluyor (önde etiket ve
+   kutu var; arkada hiç yok, 256 tracer'ın hepsi çiziliyor).
 4. B tamamlanınca overlay arayüzü addon'lara açılabilir (2.1.00 sonrası karar).
 
 Kabul: bölünme sonrası tüm render game testleri değişmeden geçer. Yeni bir overlay eklemek tek bir
@@ -199,7 +210,8 @@ E (kanıt) her adımda paralel
 | 2.0.06 | ✅ D1 son adım (envanter yardımcıları) ve D2 depodan geri alma |
 | 2.0.07 | ✅ D3 inşaat alanı seçimi |
 | 2.0.08 | ✅ D4 avlanmada keşif |
-| 2.0.09+ | ESP kutu ve etiket maliyeti, C3 (ölçüm sonucuna göre), D5 |
+| 2.0.09 | ✅ ESP etiket ve kutu maliyeti (görüş kırpması, `String.format`'sız etiket) |
+| 2.0.10+ | C3 (ölçüm sonucuna göre), E4, E2, D5 |
 | 2.1.00 | B: Addon API 2 ve sürüm sözleşmesi, A4 güncelleme denetleyicisi |
 
 ## Riskler

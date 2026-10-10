@@ -2,6 +2,7 @@ package me.mrhakan.agalarhack.ui.overlay;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
+import java.util.Locale;
 import me.mrhakan.agalarhack.module.Module;
 import me.mrhakan.agalarhack.services.RainbowColors;
 import me.mrhakan.agalarhack.services.StableIds;
@@ -90,6 +91,28 @@ final class OverlayDraw {
         int base = rgb(red, green, blue);
         if (!RainbowColors.enabled(module)) return base;
         return RainbowColors.cycle(module, System.nanoTime() / 1_000_000L, base, phase);
+    }
+
+    /**
+     * Appends {@code String.format(Locale.ROOT, "%.1f", value)}.
+     *
+     * <p>ESP labels format a distance (and optionally health) for every target on every frame, and a
+     * {@code Formatter} per call was a large part of what each label cost. Values that round cleanly
+     * are formatted directly; anything within a hair of a tie, negative, very large or not finite is
+     * left to {@code String.format}, so the text is always exactly what it was.
+     */
+    static StringBuilder appendTenths(StringBuilder out, double value) {
+        // The sign bit, not value >= 0: String.format writes -0.0 for negative zero.
+        if (Double.doubleToRawLongBits(value) >= 0 && value < 1.0E6) {
+            double scaled = value * 10.0;
+            double floor = Math.floor(scaled);
+            double fraction = scaled - floor;
+            if (Math.abs(fraction - 0.5) > 1.0E-6) {
+                long tenths = (long) floor + (fraction > 0.5 ? 1 : 0);
+                return out.append(tenths / 10).append('.').append(tenths % 10);
+            }
+        }
+        return out.append(String.format(Locale.ROOT, "%.1f", value));
     }
 
     static int rgb(double red, double green, double blue) {

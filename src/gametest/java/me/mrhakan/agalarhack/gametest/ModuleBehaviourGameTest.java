@@ -7,6 +7,10 @@ import org.slf4j.LoggerFactory;
 
 import me.mrhakan.agalarhack.AgalarHackClient;
 import me.mrhakan.agalarhack.module.Module;
+import me.mrhakan.agalarhack.services.ClientServices;
+import me.mrhakan.agalarhack.services.ModuleTimings;
+import me.mrhakan.agalarhack.services.OverlayTimings;
+import me.mrhakan.agalarhack.ui.overlay.WorldOverlays;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
@@ -1829,7 +1833,19 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
                 throw new AssertionError("the shared walk did not give both ESP (" + measured[2] + ") and Nametags ("
                         + measured[3] + ") their full capped result over " + stands + " stands");
             }
-            overlayFrameCost(context, overlays);
+            float[] facing = context.computeOnClient(client -> new float[] { client.player.getYRot(), client.player.getXRot() });
+            try {
+                // Facing the stands, which stand east of the player (+x): a yaw of -90. Set explicitly
+                // so the measured cost does not depend on where the scenario before left the camera.
+                lookAndCount(context, -90.0f);
+                overlayFrameCost(context, overlays);
+                espViewCulling(context);
+            } finally {
+                context.runOnClient(client -> {
+                    client.player.setYRot(facing[0]);
+                    client.player.setXRot(facing[1]);
+                });
+            }
         } finally {
             for (String overlay : overlays) toggle(context, overlay, false);
             configure(context, "ESP", module -> module.settings.setSetting("respectTargetPolicy", true));
@@ -1840,12 +1856,12 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
 
     /**
      * The same overlays, timed per frame while the stands are in view: the figures ModuleTimingsHud
-     * shows under OVERLAY FRAME COST. Every switched-on overlay must be named with several frames
-     * behind it, and ESP, drawing 256 boxes, must cost more than nothing.
+     * shows under OVERLAY FRAME COST, and each overlay's labels and lines on their own. Every
+     * switched-on overlay must be named with several frames behind it, and ESP, drawing 256 boxes,
+     * must cost more than nothing.
      */
     private static void overlayFrameCost(ClientGameTestContext context, String[] overlays) {
-        var timings = me.mrhakan.agalarhack.services.ClientServices.require(
-                me.mrhakan.agalarhack.services.OverlayTimings.class);
+        var timings = ClientServices.require(OverlayTimings.class);
         Predicate<Minecraft> measured = client -> {
             timings.requestRecording();
             java.util.Set<String> named = new java.util.HashSet<>();
@@ -1857,13 +1873,57 @@ public class ModuleBehaviourGameTest implements FabricClientGameTest {
             throw new AssertionError("overlay frame timings did not name every drawing overlay: "
                     + context.computeOnClient(client -> timings.slowest(13)));
         }
+        // Best effort: a fuller window is a steadier figure, but a slow software renderer must not fail on it.
+        settle(context, client -> {
+            timings.requestRecording();
+            return timings.slowest(overlays.length).stream().allMatch(entry -> entry.ticks() >= 60);
+        }, 60);
         var costs = context.computeOnClient(client -> timings.slowest(overlays.length));
         LOGGER.info("    Overlay frame cost: {}", costs.stream()
                 .map(entry -> String.format(java.util.Locale.ROOT, "%s=%.0fus/%d", entry.module(), entry.averageMicros(), entry.ticks()))
                 .collect(java.util.stream.Collectors.joining(" ")));
+        var passes = context.computeOnClient(client -> timings.slowestParts(overlays.length * 2));
+        LOGGER.info("    Overlay pass cost: {}", passes.stream()
+                .map(entry -> String.format(java.util.Locale.ROOT, "%s=%.0fus", entry.module(), entry.averageMicros()))
+                .collect(java.util.stream.Collectors.joining(" ")));
         double esp = costs.stream().filter(entry -> entry.module().equals("ESP"))
-                .mapToDouble(me.mrhakan.agalarhack.services.ModuleTimings.Entry::averageMicros).findFirst().orElse(0);
+                .mapToDouble(ModuleTimings.Entry::averageMicros).findFirst().orElse(0);
         if (esp <= 0) throw new AssertionError("ESP drew 256 boxes for nothing: " + costs);
+    }
+
+    /**
+     * ESP skips the labels and boxes of targets outside the view volume and still draws every tracer.
+     * The control is the same targets in front of the player: labels and boxes drawn. Turned away,
+     * none are, while a tracer goes to each of the 256 targets behind the player.
+     */
+    private static void espViewCulling(ClientGameTestContext context) {
+        configure(context, "ESP", module -> module.settings.setSetting("tracers", true));
+        try {
+            var ahead = lookAndCount(context, -90.0f);
+            if (ahead.labels() == 0 || ahead.boxes() == 0) {
+                throw new AssertionError("facing 256 targets, ESP drew " + ahead + "; the scenario proves nothing");
+            }
+            var behind = lookAndCount(context, 90.0f);
+            LOGGER.info("    ESP view culling: ahead {} behind {}", ahead, behind);
+            if (behind.labels() != 0 || behind.boxes() != 0) {
+                throw new AssertionError("with every target behind the player ESP still drew " + behind);
+            }
+            if (behind.tracers() != 256) {
+                throw new AssertionError("a tracer to a target behind the player must still be drawn: " + behind);
+            }
+        } finally {
+            configure(context, "ESP", module -> module.settings.setSetting("tracers", false));
+        }
+    }
+
+    private static WorldOverlays.EspDrawn lookAndCount(ClientGameTestContext context, float yaw) {
+        context.runOnClient(client -> {
+            client.player.setYRot(yaw);
+            client.player.setXRot(10.0f);
+        });
+        // A few frames, so the counts come from frames drawn with the new view.
+        context.waitTicks(10);
+        return context.computeOnClient(client -> WorldOverlays.lastEspDrawn());
     }
 
     /** True once the module's last published result holds as many entities as its cap allows. */
