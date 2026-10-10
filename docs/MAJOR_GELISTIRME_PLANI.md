@@ -172,9 +172,16 @@ düz alan senaryosu engebeli bir başlangıçtan alan bulur.
    bildirimlerini doğruluyor. SessionTimer test içinde ölçülen süreyle karşılaştırılıyor (3 sn →
    `00:00:03`), yeniden açılınca sıfırlanıyor ve `showSeconds` ayarına uyuyor. Artık `UNTESTED`
    modül yok.
-2. **Görsel kabul listesi.** GUI ölçekleri, açık/AMOLED/yüksek kontrast temalar, TargetHUD yüz
+2. ✅ **Görsel kabul listesi (2.0.12).** GUI ölçekleri, açık/AMOLED/yüksek kontrast temalar, TargetHUD yüz
    katmanı ve ESP/nametag geometrisi için ekran görüntüsü tabanlı, tekrarlanabilir bir kontrol
    listesi yazılsın. İnsan onayı gerektiren kısımlar açıkça işaretlensin.
+   Sonuç: [VISUAL_ACCEPTANCE.md](VISUAL_ACCEPTANCE.md) ve `VisualAcceptanceGameTest`. Otomatik
+   kısım: dört tema × pencerenin izin verdiği GUI ölçeklerinde ClickGUI (pencere dışına taşan widget
+   yok, temanın vurgu rengi ekranda, Light en parlak), ESP kutusunun hedefin kamera üzerinden
+   izdüşen sınır kutusuyla örtüşmesi (1–3 px fark), ESP etiketi ve Nametag'in kutunun üstünde ve
+   ortalı olması, TargetHUD yüz bölgesinde gerçek bir deri. Her kare CI'da `visual-acceptance`
+   artifact'ı olarak yükleniyor; okunabilirlik, şapka katmanı ve genel görünüm "İnsan onayı" olarak
+   işaretli. İlk bulgu: Light temada arama kutusu siyah kalıyor.
 3. **Dedicated server.** Var olan harness EULA onayı sahibinden alınarak düzenli çalıştırılsın:
    gecikme, yeniden bağlanma ve otomasyon senaryoları.
 4. ✅ **Kalabalık sunucu bütçeleri (2.0.10).** 2.0.00'daki ortak tarama testi 1.000+ varlığa genişletilsin ve
@@ -231,7 +238,8 @@ E (kanıt) her adımda paralel
 | 2.0.09 | ✅ ESP etiket ve kutu maliyeti (görüş kırpması, `String.format`'sız etiket) |
 | 2.0.10 | ✅ E4 kalabalık bütçe ölçümü, C3 ölçülüp kapatıldı |
 | 2.0.11 | ✅ E5 en yakından başlayan varlık taraması |
-| 2.0.12+ | E2 görsel kabul listesi, D5 |
+| 2.0.12 | ✅ E2 görsel kabul listesi |
+| 2.0.13+ | D5 (karar bekliyor), E3 (EULA kararı bekliyor), sonra 2.1.00 |
 | 2.1.00 | B: Addon API 2 ve sürüm sözleşmesi, A4 güncelleme denetleyicisi |
 
 ## Riskler
